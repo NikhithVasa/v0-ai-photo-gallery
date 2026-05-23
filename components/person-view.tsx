@@ -5,7 +5,7 @@ import Image from "next/image";
 import useSWR from "swr";
 import { ArrowLeft, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PhotoCard, PhotoLightbox } from "./photo-card";
+import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
 import type { Person, Photo } from "@/lib/types";
@@ -28,9 +28,15 @@ export function PersonView({ person, onBack }: PersonViewProps) {
     fetcher,
     swrOptions
   );
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const handleOpen = useCallback((index: number) => {
-    setLightboxIndex(index);
+  const [lightboxState, setLightboxState] = useState<{
+    index: number;
+    originRect?: PhotoOpenRect;
+  } | null>(null);
+  const handleOpen = useCallback((index: number, originRect: PhotoOpenRect) => {
+    setLightboxState({ index, originRect });
+  }, []);
+  const handleNavigate = useCallback((index: number) => {
+    setLightboxState({ index });
   }, []);
 
   return (
@@ -121,12 +127,13 @@ export function PersonView({ person, onBack }: PersonViewProps) {
             </div>
           )}
 
-          {lightboxIndex !== null && (
+          {lightboxState !== null && (
             <PhotoLightbox
               photos={data.photos}
-              currentIndex={lightboxIndex}
-              onClose={() => setLightboxIndex(null)}
-              onNavigate={setLightboxIndex}
+              currentIndex={lightboxState.index}
+              originRect={lightboxState.originRect}
+              onClose={() => setLightboxState(null)}
+              onNavigate={handleNavigate}
             />
           )}
         </>

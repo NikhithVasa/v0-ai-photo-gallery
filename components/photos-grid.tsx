@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import useSWR from "swr";
-import { PhotoCard, PhotoLightbox } from "./photo-card";
+import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
 import type { Photo } from "@/lib/types";
@@ -20,9 +20,15 @@ export function PhotosGrid() {
     fetcher,
     swrOptions
   );
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const handleOpen = useCallback((index: number) => {
-    setLightboxIndex(index);
+  const [lightboxState, setLightboxState] = useState<{
+    index: number;
+    originRect?: PhotoOpenRect;
+  } | null>(null);
+  const handleOpen = useCallback((index: number, originRect: PhotoOpenRect) => {
+    setLightboxState({ index, originRect });
+  }, []);
+  const handleNavigate = useCallback((index: number) => {
+    setLightboxState({ index });
   }, []);
 
   if (error) {
@@ -86,12 +92,13 @@ export function PhotosGrid() {
         <div className="h-0 flex-[999_1_20rem]" />
       </div>
 
-      {lightboxIndex !== null && (
+      {lightboxState !== null && (
         <PhotoLightbox
           photos={data.photos}
-          currentIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-          onNavigate={setLightboxIndex}
+          currentIndex={lightboxState.index}
+          originRect={lightboxState.originRect}
+          onClose={() => setLightboxState(null)}
+          onNavigate={handleNavigate}
         />
       )}
     </>

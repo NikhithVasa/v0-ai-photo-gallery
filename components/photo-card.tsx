@@ -1,6 +1,13 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import {
+  memo,
+  type CSSProperties,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Cast,
   ChevronLeft,
@@ -61,7 +68,14 @@ function triggerDownload(url: string, fileName: string) {
 interface PhotoCardProps {
   photo: Photo;
   index: number;
-  onOpen: (index: number) => void;
+  onOpen: (index: number, originRect: PhotoOpenRect) => void;
+}
+
+export interface PhotoOpenRect {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
 }
 
 export const PhotoCard = memo(function PhotoCard({
@@ -115,7 +129,15 @@ export const PhotoCard = memo(function PhotoCard({
     >
       <button
         type="button"
-        onClick={() => onOpen(index)}
+        onClick={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          onOpen(index, {
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+          });
+        }}
         className="absolute inset-0 focus:outline-none"
         aria-label={photo.caption ? `Open ${photo.caption}` : "Open photo"}
       >
@@ -188,6 +210,7 @@ export const PhotoCard = memo(function PhotoCard({
 interface PhotoLightboxProps {
   photos: Photo[];
   currentIndex: number;
+  originRect?: PhotoOpenRect;
   onClose: () => void;
   onNavigate: (index: number) => void;
 }
@@ -195,6 +218,7 @@ interface PhotoLightboxProps {
 export function PhotoLightbox({
   photos,
   currentIndex,
+  originRect,
   onClose,
   onNavigate,
 }: PhotoLightboxProps) {
@@ -202,11 +226,55 @@ export function PhotoLightbox({
   const [signedUrls, setSignedUrls] = useState<Record<string, SignedPhotoUrls>>(
     {}
   );
+  const [entryStyle, setEntryStyle] = useState<CSSProperties>();
+  const photoFrameRef = useRef<HTMLDivElement>(null);
   const photo = photos[currentIndex];
   const signedPhoto = signedUrls[photo.id];
   const imageUrl = signedPhoto?.previewUrl || photo.previewUrl || photo.thumbnailUrl;
   const downloadUrl = signedPhoto?.downloadUrl || photo.downloadUrl;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
+
+  useLayoutEffect(() => {
+    const frame = photoFrameRef.current;
+    if (!frame || !originRect) {
+      setEntryStyle(undefined);
+      return;
+    }
+
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    if (prefersReducedMotion) {
+      setEntryStyle(undefined);
+      return;
+    }
+
+    const targetRect = frame.getBoundingClientRect();
+    if (!targetRect.width || !targetRect.height) return;
+
+    const originCenterX = originRect.left + originRect.width / 2;
+    const originCenterY = originRect.top + originRect.height / 2;
+    const targetCenterX = targetRect.left + targetRect.width / 2;
+    const targetCenterY = targetRect.top + targetRect.height / 2;
+    const translateX = originCenterX - targetCenterX;
+    const translateY = originCenterY - targetCenterY;
+    const scaleX = originRect.width / targetRect.width;
+    const scaleY = originRect.height / targetRect.height;
+
+    setEntryStyle({
+      opacity: 0.88,
+      transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scaleX}, ${scaleY})`,
+    });
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      setEntryStyle({
+        opacity: 1,
+        transform: "translate3d(0, 0, 0) scale(1, 1)",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [originRect, currentIndex]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -336,7 +404,11 @@ export function PhotoLightbox({
         onClick={(e) => e.stopPropagation()}
       >
         {imageUrl ? (
-          <div className="relative">
+          <div
+            ref={photoFrameRef}
+            className="relative transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
+            style={entryStyle}
+          >
             <img
               src={imageUrl}
               alt={photo.caption || "Photo"}
