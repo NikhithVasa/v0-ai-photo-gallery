@@ -6,6 +6,7 @@ const RDS_PORT = parseInt(process.env.RDS_PORT || "5432");
 const RDS_USER = process.env.RDS_USER || "photo_worker";
 const RDS_DB = process.env.RDS_DB || "postgres";
 const AWS_REGION = process.env.AWS_REGION || "us-east-1";
+const IAM_TOKEN_REFRESH_MS = 12 * 60 * 1000;
 
 async function generateAuthToken(): Promise<string> {
   const signer = new Signer({
@@ -22,9 +23,15 @@ async function generateAuthToken(): Promise<string> {
 }
 
 let poolPromise: Promise<Pool> | null = null;
+let poolCreatedAt = 0;
 
 async function getPool(): Promise<Pool> {
-  if (!poolPromise) {
+  const shouldRefresh =
+    !poolPromise || Date.now() - poolCreatedAt > IAM_TOKEN_REFRESH_MS;
+
+  if (shouldRefresh) {
+    const previousPoolPromise = poolPromise;
+    poolCreatedAt = Date.now();
     poolPromise = (async () => {
       const token = await generateAuthToken();
       return new Pool({
@@ -38,14 +45,46 @@ async function getPool(): Promise<Pool> {
         },
       });
     })();
+
+    previousPoolPromise
+      ?.then((pool) => pool.end())
+      .catch(() => undefined);
   }
+
   return poolPromise;
 }
 
+async function resetPool() {
+  const previousPoolPromise = poolPromise;
+  poolPromise = null;
+  poolCreatedAt = 0;
+  await previousPoolPromise?.then((pool) => pool.end()).catch(() => undefined);
+}
+
+function isAuthTokenError(error: unknown) {
+  return (
+    error instanceof Error &&
+    /PAM authentication failed|password authentication failed|expired/i.test(
+      error.message
+    )
+  );
+}
+
 export async function query<T>(text: string, params?: unknown[]): Promise<T[]> {
-  const pool = await getPool();
-  const result = await pool.query(text, params);
-  return result.rows as T[];
+  try {
+    const pool = await getPool();
+    const result = await pool.query(text, params);
+    return result.rows as T[];
+  } catch (error) {
+    if (!isAuthTokenError(error)) {
+      throw error;
+    }
+
+    await resetPool();
+    const pool = await getPool();
+    const result = await pool.query(text, params);
+    return result.rows as T[];
+  }
 }
 
 export async function queryOne<T>(
