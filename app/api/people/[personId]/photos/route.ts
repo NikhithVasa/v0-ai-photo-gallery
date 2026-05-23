@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { signedUrl, signedDownloadUrl } from "@/lib/s3";
+import { derivedThumbnailKey, signedUrl } from "@/lib/s3";
 import type { Photo } from "@/lib/types";
 
 interface PhotoRow {
   id: string;
+  file_name: string | null;
   caption: string | null;
   search_text: string | null;
   original_s3_key: string | null;
   preview_s3_key: string | null;
   thumbnail_s3_key: string | null;
+  width: number | null;
+  height: number | null;
   person_search_text?: string | null;
   qwen_description?: string | null;
 }
@@ -26,11 +29,14 @@ export async function GET(request: Request, { params }: Props) {
       `
       SELECT DISTINCT
         p.id,
+        p.file_name,
         p.caption,
         p.search_text,
         p.original_s3_key,
         p.preview_s3_key,
         p.thumbnail_s3_key,
+        p.width,
+        p.height,
         p.created_at,
         pp.search_text AS person_search_text,
         pp.qwen_description
@@ -43,18 +49,27 @@ export async function GET(request: Request, { params }: Props) {
     );
 
     const photos: Photo[] = await Promise.all(
-      rows.map(async (row) => ({
-        id: row.id,
-        caption: row.caption,
-        searchText: row.search_text,
-        previewUrl: await signedUrl(row.preview_s3_key ?? row.original_s3_key),
-        thumbnailUrl: await signedUrl(
-          row.thumbnail_s3_key ?? row.preview_s3_key ?? row.original_s3_key
-        ),
-        downloadUrl: await signedDownloadUrl(row.original_s3_key),
-        personSearchText: row.person_search_text,
-        qwenDescription: row.qwen_description,
-      }))
+      rows.map(async (row) => {
+        const thumbnailKey =
+          derivedThumbnailKey(row.original_s3_key, row.thumbnail_s3_key) ??
+          row.preview_s3_key ??
+          row.original_s3_key;
+        const thumbnailUrl = await signedUrl(thumbnailKey);
+
+        return {
+          id: row.id,
+          fileName: row.file_name,
+          caption: row.caption,
+          searchText: row.search_text,
+          previewUrl: null,
+          thumbnailUrl,
+          downloadUrl: null,
+          width: row.width,
+          height: row.height,
+          personSearchText: row.person_search_text,
+          qwenDescription: row.qwen_description,
+        };
+      })
     );
 
     return NextResponse.json({ photos });

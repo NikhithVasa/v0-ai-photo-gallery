@@ -214,8 +214,18 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
   );
 }
 
-export function FloatingSearchButton() {
-  const [isOpen, setIsOpen] = useState(false);
+interface FloatingSearchButtonProps {
+  isOpen?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+}
+
+export function FloatingSearchButton({
+  isOpen: controlledIsOpen,
+  onOpenChange,
+}: FloatingSearchButtonProps = {}) {
+  const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(false);
+  const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
+  const setIsOpen = onOpenChange ?? setUncontrolledIsOpen;
 
   return (
     <>

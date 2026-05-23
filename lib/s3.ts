@@ -3,6 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const globalForS3 = globalThis as unknown as {
   s3Client: S3Client | undefined;
+  signedUrlCache: Map<string, { url: string; expiresAt: number }> | undefined;
 };
 
 export const s3 =
@@ -17,15 +18,69 @@ export const s3 =
 
 if (process.env.NODE_ENV !== "production") globalForS3.s3Client = s3;
 
+const signedUrlCache =
+  globalForS3.signedUrlCache ?? new Map<string, { url: string; expiresAt: number }>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForS3.signedUrlCache = signedUrlCache;
+}
+
+const SIGNED_URL_SECONDS = 60 * 60;
+const SIGNED_URL_CACHE_MS = 55 * 60 * 1000;
+
+async function cachedSignedUrl(
+  cacheKey: string,
+  createUrl: () => Promise<string>
+) {
+  const cached = signedUrlCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.url;
+  }
+
+  const url = await createUrl();
+  signedUrlCache.set(cacheKey, {
+    url,
+    expiresAt: Date.now() + SIGNED_URL_CACHE_MS,
+  });
+  return url;
+}
+
+function withTrailingSlash(value: string) {
+  return value.endsWith("/") ? value : `${value}/`;
+}
+
+export function derivedThumbnailKey(
+  originalKey?: string | null,
+  thumbnailKey?: string | null
+) {
+  if (thumbnailKey) return thumbnailKey;
+  if (!originalKey) return null;
+
+  const fileName = originalKey.split("/").pop();
+  if (!fileName) return null;
+
+  if (process.env.THUMB_PREFIX) {
+    return `${withTrailingSlash(process.env.THUMB_PREFIX)}${fileName}`;
+  }
+
+  if (originalKey.startsWith("originals/")) {
+    return originalKey.replace(/^originals\//, "thumbnails/");
+  }
+
+  return null;
+}
+
 export async function signedUrl(key?: string | null): Promise<string | null> {
   if (!key) return null;
 
-  const command = new GetObjectCommand({
-    Bucket: process.env.S3_BUCKET!,
-    Key: key,
-  });
+  return cachedSignedUrl(`view:${key}`, () => {
+    const command = new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+    });
 
-  return getSignedUrl(s3, command, { expiresIn: 60 * 60 });
+    return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
+  });
 }
 
 export async function signedDownloadUrl(
@@ -34,13 +89,15 @@ export async function signedDownloadUrl(
 ): Promise<string | null> {
   if (!key) return null;
 
-  const command = new GetObjectCommand({
-    Bucket: process.env.S3_BUCKET!,
-    Key: key,
-    ResponseContentDisposition: filename
-      ? `attachment; filename="${filename}"`
-      : "attachment",
-  });
+  return cachedSignedUrl(`download:${key}:${filename ?? ""}`, () => {
+    const command = new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+      ResponseContentDisposition: filename
+        ? `attachment; filename="${filename}"`
+        : "attachment",
+    });
 
-  return getSignedUrl(s3, command, { expiresIn: 60 * 60 });
+    return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
+  });
 }

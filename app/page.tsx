@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Images, Sparkles } from "lucide-react";
+import { Images, Search, Users } from "lucide-react";
 import { PeopleGrid } from "@/components/people-grid";
 import { PhotosGrid } from "@/components/photos-grid";
 import { PersonView } from "@/components/person-view";
@@ -13,54 +13,38 @@ type Tab = "people" | "photos";
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("people");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   if (selectedPerson) {
     return (
       <main className="min-h-screen bg-background">
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <PersonView
             person={selectedPerson}
             onBack={() => setSelectedPerson(null)}
           />
         </div>
-        <FloatingSearchButton />
+        <FloatingSearchButton
+          isOpen={isSearchOpen}
+          onOpenChange={setIsSearchOpen}
+        />
       </main>
     );
   }
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Sparkles className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                AI Photo Gallery
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Browse, search, and explore your photos with AI
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation Tabs */}
-      <div className="border-b border-border bg-card/30">
-        <div className="max-w-7xl mx-auto px-4">
-          <nav className="flex gap-1" role="tablist">
+      <header className="sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2 rounded-full bg-muted p-1" role="tablist">
             <button
               role="tab"
               aria-selected={activeTab === "people"}
               onClick={() => setActiveTab("people")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex h-8 items-center gap-2 rounded-full px-3 text-sm font-medium transition-colors ${
                 activeTab === "people"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Users className="w-4 h-4" />
@@ -70,48 +54,64 @@ export default function Home() {
               role="tab"
               aria-selected={activeTab === "photos"}
               onClick={() => setActiveTab("photos")}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex h-8 items-center gap-2 rounded-full px-3 text-sm font-medium transition-colors ${
                 activeTab === "photos"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Images className="w-4 h-4" />
-              All Photos
+              Library
             </button>
-          </nav>
-        </div>
-      </div>
+          </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+          <button
+            type="button"
+            onClick={() => setIsSearchOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+            aria-label="Search"
+          >
+            <Search className="h-5 w-5" />
+          </button>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {activeTab === "people" && (
-          <section>
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-foreground">People</h2>
-              <p className="text-sm text-muted-foreground">
-                Click on a person to see all their photos. Click the pencil icon to rename.
-              </p>
+          <section className="space-y-8">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="mb-1 text-sm font-medium text-muted-foreground">
+                  Albums
+                </p>
+                <h1 className="text-4xl font-semibold tracking-normal text-foreground sm:text-5xl">
+                  People & Pets
+                </h1>
+              </div>
             </div>
             <PeopleGrid onPersonClick={setSelectedPerson} />
           </section>
         )}
 
         {activeTab === "photos" && (
-          <section>
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-foreground">All Photos</h2>
-              <p className="text-sm text-muted-foreground">
-                Click on a photo to view it in full size. Use the download button to save.
+          <section className="space-y-6">
+            <div>
+              <p className="mb-1 text-sm font-medium text-muted-foreground">
+                Library
               </p>
+              <h1 className="text-4xl font-semibold tracking-normal text-foreground sm:text-5xl">
+                All Photos
+              </h1>
             </div>
             <PhotosGrid />
           </section>
         )}
       </div>
 
-      {/* Floating Search Button */}
-      <FloatingSearchButton />
+      <FloatingSearchButton
+        isOpen={isSearchOpen}
+        onOpenChange={setIsSearchOpen}
+      />
     </main>
   );
 }

@@ -24,6 +24,12 @@ export function PersonCard({ person, onClick, onRename }: PersonCardProps) {
     }
   }, [isEditing]);
 
+  useEffect(() => {
+    if (!isEditing) {
+      setName(person.displayName || person.defaultName);
+    }
+  }, [isEditing, person.defaultName, person.displayName]);
+
   const handleSave = () => {
     if (name.trim() && name.trim() !== (person.displayName || person.defaultName)) {
       onRename(name.trim());
@@ -44,28 +50,51 @@ export function PersonCard({ person, onClick, onRename }: PersonCardProps) {
     }
   };
 
-  return (
-    <div className="flex flex-col items-center gap-2 group">
-      <button
-        onClick={onClick}
-        className="relative w-24 h-24 md:w-28 md:h-28 rounded-full overflow-hidden border-2 border-border hover:border-primary transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background bg-muted"
-      >
-        {person.coverFaceUrl ? (
-          <Image
-            src={person.coverFaceUrl}
-            alt={person.displayName || person.defaultName}
-            fill
-            className="object-cover"
-            unoptimized
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-secondary">
-            <User className="w-10 h-10 text-muted-foreground" />
-          </div>
-        )}
-      </button>
+  const displayName = person.displayName || person.defaultName;
+  const photoLabel = `${person.photoCount} ${
+    person.photoCount === 1 ? "photo" : "photos"
+  }`;
 
-      <div className="flex flex-col items-center gap-1 min-w-0 w-full max-w-[120px]">
+  return (
+    <div className="group flex min-w-0 flex-col items-center gap-3">
+      <div className="relative">
+        <button
+          onClick={onClick}
+          className="relative h-32 w-32 overflow-hidden rounded-full bg-muted shadow-lg ring-1 ring-border transition duration-200 hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-4 focus:ring-offset-background sm:h-36 sm:w-36"
+          aria-label={`Open ${displayName}`}
+        >
+          {person.coverFaceUrl ? (
+            <Image
+              src={person.coverFaceUrl}
+              alt={displayName}
+              fill
+              sizes="(min-width: 640px) 144px, 128px"
+              className="object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-secondary">
+              <User className="h-12 w-12 text-muted-foreground" />
+            </div>
+          )}
+        </button>
+
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsEditing(true);
+            }}
+            className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-muted-foreground opacity-0 shadow-md backdrop-blur transition hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
+            aria-label={`Rename ${displayName}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <div className="flex min-w-0 max-w-[160px] flex-col items-center gap-1 text-center">
         {isEditing ? (
           <div className="flex items-center gap-1">
             <Input
@@ -73,39 +102,36 @@ export function PersonCard({ person, onClick, onRename }: PersonCardProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="h-7 text-sm text-center px-2 w-24"
+              className="h-8 w-28 px-2 text-center text-sm"
             />
             <button
+              type="button"
               onClick={handleSave}
-              className="p-1 hover:bg-accent rounded-md transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent"
+              aria-label="Save name"
             >
-              <Check className="w-4 h-4 text-primary" />
+              <Check className="h-4 w-4 text-primary" />
             </button>
             <button
+              type="button"
               onClick={handleCancel}
-              className="p-1 hover:bg-accent rounded-md transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent"
+              aria-label="Cancel rename"
             >
-              <X className="w-4 h-4 text-muted-foreground" />
+              <X className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-1 group/name">
-            <span className="text-sm font-medium text-foreground truncate max-w-[100px]">
-              {person.displayName || person.defaultName}
-            </span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsEditing(true);
-              }}
-              className="p-1 opacity-0 group-hover/name:opacity-100 hover:bg-accent rounded-md transition-all"
-            >
-              <Pencil className="w-3 h-3 text-muted-foreground" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClick}
+            className="max-w-full truncate text-base font-semibold text-foreground hover:text-primary focus:outline-none focus:underline"
+          >
+            {displayName}
+          </button>
         )}
-        <span className="text-xs text-muted-foreground">
-          {person.photoCount} {person.photoCount === 1 ? "photo" : "photos"}
+        <span className="text-sm text-muted-foreground">
+          {photoLabel}
         </span>
       </div>
     </div>

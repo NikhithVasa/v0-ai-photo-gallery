@@ -10,11 +10,14 @@ export interface Person {
 
 export interface Photo {
   id: string;
+  fileName?: string | null;
   caption: string | null;
   searchText: string | null;
   previewUrl: string | null;
   thumbnailUrl: string | null;
   downloadUrl: string | null;
+  width?: number | null;
+  height?: number | null;
   personSearchText?: string | null;
   qwenDescription?: string | null;
 }
