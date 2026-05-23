@@ -32,8 +32,10 @@ export async function GET() {
         id: row.id,
         caption: row.caption,
         searchText: row.search_text,
-        previewUrl: await signedUrl(row.preview_s3_key),
-        thumbnailUrl: await signedUrl(row.thumbnail_s3_key),
+        previewUrl: await signedUrl(row.preview_s3_key ?? row.original_s3_key),
+        thumbnailUrl: await signedUrl(
+          row.thumbnail_s3_key ?? row.preview_s3_key ?? row.original_s3_key
+        ),
         downloadUrl: await signedDownloadUrl(row.original_s3_key),
       }))
     );

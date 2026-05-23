@@ -61,15 +61,12 @@ export function PhotoLightbox({
     if (!photo.downloadUrl) return;
     setIsDownloading(true);
     try {
-      const response = await fetch(photo.downloadUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
+      a.href = photo.downloadUrl;
       a.download = `photo-${photo.id}.jpg`;
+      a.rel = "noopener";
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {
       console.error("Download failed:", error);

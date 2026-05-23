@@ -7,7 +7,6 @@ interface PersonMatch {
   id: string;
   display_name: string | null;
   default_name: string;
-  person_number: number | null;
 }
 
 interface PhotoRow {
@@ -25,11 +24,10 @@ async function resolvePersonName(name: string): Promise<string | null> {
   // Try direct match on people table
   let person = await queryOne<PersonMatch>(
     `
-    SELECT id, display_name, default_name, person_number
+    SELECT id, display_name, default_name
     FROM people
     WHERE LOWER(display_name) = LOWER($1)
        OR LOWER(default_name) = LOWER($1)
-       OR person_number::text = $1
     LIMIT 1
   `,
     [name]
@@ -40,7 +38,7 @@ async function resolvePersonName(name: string): Promise<string | null> {
   // Try aliases
   person = await queryOne<PersonMatch>(
     `
-    SELECT p.id, p.display_name, p.default_name, p.person_number
+    SELECT p.id, p.display_name, p.default_name
     FROM person_aliases pa
     JOIN people p ON p.id = pa.person_id
     WHERE LOWER(pa.alias) = LOWER($1)
@@ -54,7 +52,7 @@ async function resolvePersonName(name: string): Promise<string | null> {
   // Try partial match
   person = await queryOne<PersonMatch>(
     `
-    SELECT id, display_name, default_name, person_number
+    SELECT id, display_name, default_name
     FROM people
     WHERE LOWER(display_name) LIKE '%' || LOWER($1) || '%'
        OR LOWER(default_name) LIKE '%' || LOWER($1) || '%'
@@ -165,6 +163,7 @@ export async function POST(request: Request) {
           p.original_s3_key,
           p.preview_s3_key,
           p.thumbnail_s3_key,
+          p.created_at,
           pp.search_text AS person_search_text,
           pp.qwen_description
         FROM photo_people pp
@@ -213,6 +212,7 @@ export async function POST(request: Request) {
           p.original_s3_key,
           p.preview_s3_key,
           p.thumbnail_s3_key,
+          p.created_at,
           pp.search_text AS person_search_text,
           pp.qwen_description
         FROM photo_people pp
@@ -244,6 +244,7 @@ export async function POST(request: Request) {
           p.original_s3_key,
           p.preview_s3_key,
           p.thumbnail_s3_key,
+          p.created_at,
           pp.search_text AS person_search_text,
           pp.qwen_description
         FROM photos p
@@ -270,6 +271,7 @@ export async function POST(request: Request) {
           p.original_s3_key,
           p.preview_s3_key,
           p.thumbnail_s3_key,
+          p.created_at,
           pp.search_text AS person_search_text,
           pp.qwen_description
         FROM photos p
@@ -290,8 +292,10 @@ export async function POST(request: Request) {
     const results: SearchResult[] = await Promise.all(
       rows.map(async (row, index) => ({
         photoId: row.id,
-        previewUrl: await signedUrl(row.preview_s3_key),
-        thumbnailUrl: await signedUrl(row.thumbnail_s3_key),
+        previewUrl: await signedUrl(row.preview_s3_key ?? row.original_s3_key),
+        thumbnailUrl: await signedUrl(
+          row.thumbnail_s3_key ?? row.preview_s3_key ?? row.original_s3_key
+        ),
         downloadUrl: await signedDownloadUrl(row.original_s3_key),
         reason:
           row.person_search_text || row.qwen_description || row.caption || null,

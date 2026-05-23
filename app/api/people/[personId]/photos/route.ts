@@ -31,6 +31,7 @@ export async function GET(request: Request, { params }: Props) {
         p.original_s3_key,
         p.preview_s3_key,
         p.thumbnail_s3_key,
+        p.created_at,
         pp.search_text AS person_search_text,
         pp.qwen_description
       FROM photo_people pp
@@ -46,8 +47,10 @@ export async function GET(request: Request, { params }: Props) {
         id: row.id,
         caption: row.caption,
         searchText: row.search_text,
-        previewUrl: await signedUrl(row.preview_s3_key),
-        thumbnailUrl: await signedUrl(row.thumbnail_s3_key),
+        previewUrl: await signedUrl(row.preview_s3_key ?? row.original_s3_key),
+        thumbnailUrl: await signedUrl(
+          row.thumbnail_s3_key ?? row.preview_s3_key ?? row.original_s3_key
+        ),
         downloadUrl: await signedDownloadUrl(row.original_s3_key),
         personSearchText: row.person_search_text,
         qwenDescription: row.qwen_description,

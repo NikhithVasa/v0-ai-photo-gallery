@@ -5,7 +5,6 @@ import type { Person } from "@/lib/types";
 
 interface PersonRow {
   id: string;
-  person_number: number | null;
   default_name: string;
   display_name: string | null;
   cover_face_s3_key: string | null;
@@ -18,20 +17,19 @@ export async function GET() {
     const rows = await query<PersonRow>(`
       SELECT
         id,
-        person_number,
         default_name,
         display_name,
         cover_face_s3_key,
         face_count,
         photo_count
       FROM people
-      ORDER BY person_number NULLS LAST, display_name
+      ORDER BY display_name NULLS LAST, default_name
     `);
 
     const people: Person[] = await Promise.all(
       rows.map(async (row) => ({
         id: row.id,
-        personNumber: row.person_number,
+        personNumber: null,
         defaultName: row.default_name,
         displayName: row.display_name,
         photoCount: row.photo_count ?? 0,
