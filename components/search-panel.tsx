@@ -1,0 +1,233 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
+import { MessageCircle, X, Search, Download, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { SearchResult } from "@/lib/types";
+
+interface SearchPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  const handleSearch = async () => {
+    if (!query.trim()) return;
+
+    setIsLoading(true);
+    setHasSearched(true);
+
+    try {
+      const response = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: query.trim() }),
+      });
+
+      const data = await response.json();
+      setResults(data.results || []);
+    } catch (error) {
+      console.error("Search failed:", error);
+      setResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+    if (e.key === "Escape") {
+      onClose();
+    }
+  };
+
+  const handleDownload = async (result: SearchResult) => {
+    if (!result.downloadUrl) return;
+    try {
+      const response = await fetch(result.downloadUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `photo-${result.photoId}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Download failed:", error);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
+      <div
+        className="fixed right-0 top-0 h-full w-full max-w-lg bg-card border-l border-border shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-foreground">Ask AI</h2>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* Search Input */}
+          <div className="p-4 border-b border-border">
+            <div className="flex gap-2">
+              <Input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask: photos of Nikhith dancing with Kishore"
+                className="flex-1"
+              />
+              <Button onClick={handleSearch} disabled={isLoading || !query.trim()}>
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Search className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                "photos of person 93",
+                "photos dancing",
+                "photos eating",
+                "emotional moments",
+              ].map((example) => (
+                <button
+                  key={example}
+                  onClick={() => setQuery(example)}
+                  className="text-xs px-2 py-1 bg-secondary text-secondary-foreground rounded-md hover:bg-accent transition-colors"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Results */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {isLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {!isLoading && hasSearched && results.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                No photos found for your search.
+              </div>
+            )}
+
+            {!isLoading && results.length > 0 && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Found {results.length} {results.length === 1 ? "photo" : "photos"}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {results.map((result) => (
+                    <div
+                      key={result.photoId}
+                      className="group relative rounded-lg overflow-hidden border border-border bg-muted"
+                    >
+                      <div className="aspect-square relative">
+                        {result.thumbnailUrl || result.previewUrl ? (
+                          <Image
+                            src={result.thumbnailUrl || result.previewUrl || ""}
+                            alt="Search result"
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-secondary">
+                            <span className="text-muted-foreground text-xs">
+                              No preview
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {result.reason && (
+                        <div className="p-2 bg-card">
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {result.reason}
+                          </p>
+                        </div>
+                      )}
+
+                      {result.downloadUrl && (
+                        <button
+                          onClick={() => handleDownload(result)}
+                          className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Download className="w-3.5 h-3.5 text-white" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!isLoading && !hasSearched && (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="mb-2">Try searching for:</p>
+                <ul className="text-sm space-y-1">
+                  <li>photos of person 93</li>
+                  <li>photos of nikhith dancing</li>
+                  <li>photos of nikhith with kishore</li>
+                  <li>photos of nikhith being emotional</li>
+                  <li>photos with side face</li>
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function FloatingSearchButton() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+      >
+        <MessageCircle className="w-5 h-5" />
+        <span className="font-medium">Ask AI</span>
+      </button>
+
+      <SearchPanel isOpen={isOpen} onClose={() => setIsOpen(false)} />
+    </>
+  );
+}
