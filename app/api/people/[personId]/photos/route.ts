@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { derivedThumbnailKey, signedUrl } from "@/lib/s3";
+import { derivedThumbnailKey, listS3Keys, signedUrl } from "@/lib/s3";
 import type { Photo } from "@/lib/types";
 
 interface PhotoRow {
@@ -47,14 +47,22 @@ export async function GET(request: Request, { params }: Props) {
     `,
       [personId]
     );
+    const thumbnailKeys = await listS3Keys(
+      process.env.THUMB_PREFIX || "thumbnails/pilot-100/"
+    );
+    const thumbnailKeySet = new Set(thumbnailKeys);
 
     const photos: Photo[] = await Promise.all(
       rows.map(async (row) => {
-        const thumbnailKey =
-          derivedThumbnailKey(row.original_s3_key, row.thumbnail_s3_key) ??
-          row.preview_s3_key ??
-          row.original_s3_key;
-        const thumbnailUrl = await signedUrl(thumbnailKey);
+        const derivedKey = derivedThumbnailKey(
+          row.original_s3_key,
+          row.thumbnail_s3_key
+        );
+        const gridKey =
+          derivedKey && thumbnailKeySet.has(derivedKey)
+            ? derivedKey
+            : row.preview_s3_key ?? row.original_s3_key;
+        const thumbnailUrl = await signedUrl(gridKey);
 
         return {
           id: row.id,

@@ -1,9 +1,14 @@
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  GetObjectCommand,
+  ListObjectsV2Command,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const globalForS3 = globalThis as unknown as {
   s3Client: S3Client | undefined;
   signedUrlCache: Map<string, { url: string; expiresAt: number }> | undefined;
+  s3ListCache: Map<string, { keys: string[]; expiresAt: number }> | undefined;
 };
 
 export const s3 =
@@ -20,13 +25,17 @@ if (process.env.NODE_ENV !== "production") globalForS3.s3Client = s3;
 
 const signedUrlCache =
   globalForS3.signedUrlCache ?? new Map<string, { url: string; expiresAt: number }>();
+const s3ListCache =
+  globalForS3.s3ListCache ?? new Map<string, { keys: string[]; expiresAt: number }>();
 
 if (process.env.NODE_ENV !== "production") {
   globalForS3.signedUrlCache = signedUrlCache;
+  globalForS3.s3ListCache = s3ListCache;
 }
 
 const SIGNED_URL_SECONDS = 60 * 60;
 const SIGNED_URL_CACHE_MS = 55 * 60 * 1000;
+const S3_LIST_CACHE_MS = 5 * 60 * 1000;
 
 async function cachedSignedUrl(
   cacheKey: string,
@@ -68,6 +77,41 @@ export function derivedThumbnailKey(
   }
 
   return null;
+}
+
+export async function listS3Keys(prefix?: string | null) {
+  if (!prefix) return [];
+
+  const cached = s3ListCache.get(prefix);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.keys;
+  }
+
+  const keys: string[] = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const response = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: process.env.S3_BUCKET!,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      })
+    );
+
+    keys.push(
+      ...(response.Contents ?? [])
+        .map((object) => object.Key)
+        .filter((key): key is string => Boolean(key && !key.endsWith("/")))
+    );
+    continuationToken = response.NextContinuationToken;
+  } while (continuationToken);
+
+  s3ListCache.set(prefix, {
+    keys,
+    expiresAt: Date.now() + S3_LIST_CACHE_MS,
+  });
+  return keys;
 }
 
 export async function signedUrl(key?: string | null): Promise<string | null> {
