@@ -51,7 +51,7 @@ async function getPool(): Promise<Pool> {
       .catch(() => undefined);
   }
 
-  return poolPromise;
+  return poolPromise!;
 }
 
 async function resetPool() {

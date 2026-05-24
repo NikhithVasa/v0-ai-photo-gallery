@@ -3,17 +3,32 @@
 import useSWR from "swr";
 import { PersonCard } from "./person-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Person } from "@/lib/types";
+import type { AlbumEvent, Person } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 interface PeopleGridProps {
+  albumSlug: string;
+  selectedEventSlug: string | null;
+  events: AlbumEvent[];
   onPersonClick: (person: Person) => void;
 }
 
-export function PeopleGrid({ onPersonClick }: PeopleGridProps) {
+function peopleUrl(albumSlug: string, selectedEventSlug: string | null) {
+  const base = `/api/albums/${encodeURIComponent(albumSlug)}/people`;
+  return selectedEventSlug
+    ? `${base}?event=${encodeURIComponent(selectedEventSlug)}`
+    : base;
+}
+
+export function PeopleGrid({
+  albumSlug,
+  selectedEventSlug,
+  events,
+  onPersonClick,
+}: PeopleGridProps) {
   const { data, error, isLoading, mutate } = useSWR<{ people: Person[] }>(
-    "/api/people",
+    peopleUrl(albumSlug, selectedEventSlug),
     fetcher
   );
 
@@ -31,11 +46,16 @@ export function PeopleGrid({ onPersonClick }: PeopleGridProps) {
     }
 
     try {
-      await fetch(`/api/people/${person.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName: newName }),
-      });
+      await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/people/${encodeURIComponent(
+          person.id
+        )}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ displayName: newName }),
+        }
+      );
       mutate();
     } catch {
       mutate();
@@ -68,17 +88,15 @@ export function PeopleGrid({ onPersonClick }: PeopleGridProps) {
 
   if (!data?.people?.length) {
     return (
-      <div className="rounded-lg border border-border bg-card px-6 py-12 text-center text-muted-foreground">
-        No people found. Make sure your database has people data.
+      <div className="rounded-md border border-zinc-200 bg-white px-6 py-12 text-center text-zinc-500">
+        {selectedEventSlug
+          ? "No people found in this event yet."
+          : "People are still processing for this album."}
       </div>
     );
   }
 
-  const people = [...data.people].sort((a, b) => {
-    const aName = a.displayName || a.defaultName;
-    const bName = b.displayName || b.defaultName;
-    return aName.localeCompare(bName, undefined, { sensitivity: "base" });
-  });
+  const people = data.people;
 
   return (
     <div className="space-y-4">
@@ -94,6 +112,8 @@ export function PeopleGrid({ onPersonClick }: PeopleGridProps) {
           <PersonCard
             key={person.id}
             person={person}
+            events={events}
+            selectedEventSlug={selectedEventSlug}
             onClick={() => onPersonClick(person)}
             onRename={(newName) => handleRename(person, newName)}
           />

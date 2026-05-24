@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { derivedThumbnailKey, listS3Keys, signedUrl } from "@/lib/s3";
-import type { Photo } from "@/lib/types";
 
 interface PhotoRow {
   id: string;
@@ -52,7 +51,7 @@ export async function GET(request: Request, { params }: Props) {
     );
     const thumbnailKeySet = new Set(thumbnailKeys);
 
-    const photos: Photo[] = await Promise.all(
+    const photos = await Promise.all(
       rows.map(async (row) => {
         const derivedKey = derivedThumbnailKey(
           row.original_s3_key,

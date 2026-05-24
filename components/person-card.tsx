@@ -4,15 +4,23 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Check, Pencil, User, X } from "lucide-react";
-import type { Person } from "@/lib/types";
+import type { AlbumEvent, Person } from "@/lib/types";
 
 interface PersonCardProps {
   person: Person;
+  events: AlbumEvent[];
+  selectedEventSlug: string | null;
   onClick: () => void;
   onRename: (newName: string) => void;
 }
 
-export function PersonCard({ person, onClick, onRename }: PersonCardProps) {
+export function PersonCard({
+  person,
+  events,
+  selectedEventSlug,
+  onClick,
+  onRename,
+}: PersonCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(person.displayName || person.defaultName);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -54,6 +62,13 @@ export function PersonCard({ person, onClick, onRename }: PersonCardProps) {
   const photoLabel = `${person.photoCount} ${
     person.photoCount === 1 ? "photo" : "photos"
   }`;
+  const eventStats = events.map((event) => {
+    const stat = person.eventStats?.find((item) => item.eventSlug === event.slug);
+    return {
+      event,
+      photoCount: stat?.photoCount ?? 0,
+    };
+  });
 
   return (
     <div className="group flex min-w-0 flex-col items-center gap-3">
@@ -133,6 +148,23 @@ export function PersonCard({ person, onClick, onRename }: PersonCardProps) {
         <span className="text-sm text-muted-foreground">
           {photoLabel}
         </span>
+        {eventStats.length > 0 && (
+          <div className="mt-1 flex max-w-full justify-center gap-1.5">
+            {eventStats.map(({ event, photoCount }) => (
+              <span
+                key={event.id}
+                className={`h-1.5 w-5 rounded-full ${
+                  selectedEventSlug === event.slug
+                    ? "bg-zinc-950"
+                    : photoCount > 0
+                      ? "bg-zinc-400"
+                      : "bg-zinc-200"
+                }`}
+                title={`${event.name}: ${photoCount} photos`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

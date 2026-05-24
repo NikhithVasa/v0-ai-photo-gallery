@@ -1,29 +1,81 @@
+export interface AlbumSummary {
+  id: string;
+  slug: string;
+  name: string;
+  passwordRequired: boolean;
+  coverPhotoUrl: string | null;
+  eventCount: number;
+  photoCount: number;
+  peopleCount: number;
+  createdAt: string;
+}
+
+export interface AlbumEvent {
+  id: string;
+  slug: string;
+  name: string;
+  sortOrder: number;
+  photoCount: number;
+  peopleCount: number;
+}
+
+export interface AlbumDetail {
+  id: string;
+  slug: string;
+  name: string;
+  passwordRequired: boolean;
+  watermarkEnabled: boolean;
+  events: AlbumEvent[];
+  photoCount: number;
+  peopleCount: number;
+}
+
 export interface Person {
   id: string;
-  personNumber: number | null;
+  albumId: string;
+  personNumber: number;
   defaultName: string;
   displayName: string | null;
   photoCount: number;
   faceCount: number;
+  occurrenceCount: number;
   coverFaceUrl: string | null;
+  eventStats?: Array<{
+    eventSlug: string;
+    eventName: string;
+    photoCount: number;
+    faceCount: number;
+  }>;
 }
 
 export interface Photo {
   id: string;
-  fileName?: string | null;
+  albumId: string;
+  albumSlug: string;
+  eventId: string;
+  eventSlug: string;
+  eventName: string;
+  fileName: string | null;
   caption: string | null;
   searchText: string | null;
   previewUrl: string | null;
   thumbnailUrl: string | null;
   downloadUrl: string | null;
-  width?: number | null;
-  height?: number | null;
+  width: number | null;
+  height: number | null;
   personSearchText?: string | null;
   qwenDescription?: string | null;
+  originalS3Key?: string | null;
+  cleanPreviewS3Key?: string | null;
+  watermarkedPreviewS3Key?: string | null;
+  thumbnailS3Key?: string | null;
+  annotatedS3Key?: string | null;
 }
 
 export interface SearchResult {
   photoId: string;
+  albumSlug?: string;
+  eventSlug?: string;
   previewUrl: string | null;
   thumbnailUrl: string | null;
   downloadUrl: string | null;

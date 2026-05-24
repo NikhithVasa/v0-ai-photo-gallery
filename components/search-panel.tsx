@@ -5,16 +5,53 @@ import Image from "next/image";
 import { MessageCircle, X, Search, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { SearchResult } from "@/lib/types";
+import type { Photo } from "@/lib/types";
 
 interface SearchPanelProps {
+  albumSlug: string;
+  selectedEventSlug: string | null;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
+function triggerDownload(url: string, fileName: string) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+async function getDownloadUrl(albumSlug: string, photo: Photo) {
+  if (photo.downloadUrl) return photo.downloadUrl;
+
+  const response = await fetch(
+    `/api/albums/${encodeURIComponent(albumSlug)}/photos/signed-urls`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoIds: [photo.id] }),
+    }
+  );
+
+  if (!response.ok) return null;
+
+  const data = (await response.json()) as {
+    urls?: Record<string, { downloadUrl: string | null }>;
+  };
+  return data.urls?.[photo.id]?.downloadUrl ?? null;
+}
+
+export function SearchPanel({
+  albumSlug,
+  selectedEventSlug,
+  isOpen,
+  onClose,
+}: SearchPanelProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -25,6 +62,11 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    setResults([]);
+    setHasSearched(false);
+  }, [albumSlug, selectedEventSlug]);
+
   const handleSearch = async () => {
     if (!query.trim()) return;
 
@@ -32,11 +74,19 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
     setHasSearched(true);
 
     try {
-      const response = await fetch("/api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: query.trim() }),
-      });
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/search`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: query.trim(),
+            event: selectedEventSlug,
+            together: true,
+            limit: 100,
+          }),
+        }
+      );
 
       const data = await response.json();
       setResults(data.results || []);
@@ -57,19 +107,11 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
     }
   };
 
-  const handleDownload = async (result: SearchResult) => {
-    if (!result.downloadUrl) return;
+  const handleDownload = async (photo: Photo) => {
     try {
-      const response = await fetch(result.downloadUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `photo-${result.photoId}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const url = await getDownloadUrl(albumSlug, photo);
+      if (!url) return;
+      triggerDownload(url, photo.fileName || `photo-${photo.id}.jpg`);
     } catch (error) {
       console.error("Download failed:", error);
     }
@@ -152,7 +194,7 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
                 <div className="grid grid-cols-2 gap-3">
                   {results.map((result) => (
                     <div
-                      key={result.photoId}
+                      key={result.id}
                       className="group relative rounded-lg overflow-hidden border border-border bg-muted"
                     >
                       <div className="aspect-square relative">
@@ -173,22 +215,25 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
                         )}
                       </div>
 
-                      {result.reason && (
+                      {(result.personSearchText ||
+                        result.qwenDescription ||
+                        result.caption) && (
                         <div className="p-2 bg-card">
                           <p className="text-xs text-muted-foreground line-clamp-2">
-                            {result.reason}
+                            {result.personSearchText ||
+                              result.qwenDescription ||
+                              result.caption}
                           </p>
                         </div>
                       )}
 
-                      {result.downloadUrl && (
-                        <button
-                          onClick={() => handleDownload(result)}
-                          className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Download className="w-3.5 h-3.5 text-white" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleDownload(result)}
+                        className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Download photo"
+                      >
+                        <Download className="w-3.5 h-3.5 text-white" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -215,14 +260,18 @@ export function SearchPanel({ isOpen, onClose }: SearchPanelProps) {
 }
 
 interface FloatingSearchButtonProps {
+  albumSlug: string;
+  selectedEventSlug: string | null;
   isOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
 }
 
 export function FloatingSearchButton({
+  albumSlug,
+  selectedEventSlug,
   isOpen: controlledIsOpen,
   onOpenChange,
-}: FloatingSearchButtonProps = {}) {
+}: FloatingSearchButtonProps) {
   const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(false);
   const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
   const setIsOpen = onOpenChange ?? setUncontrolledIsOpen;
@@ -237,7 +286,12 @@ export function FloatingSearchButton({
         <span className="font-medium">Ask AI</span>
       </button>
 
-      <SearchPanel isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <SearchPanel
+        albumSlug={albumSlug}
+        selectedEventSlug={selectedEventSlug}
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+      />
     </>
   );
 }

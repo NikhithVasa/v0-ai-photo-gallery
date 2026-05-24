@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
-import type { Person, Photo } from "@/lib/types";
+import type { AlbumEvent, Person, Photo } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 const swrOptions = {
@@ -18,13 +18,35 @@ const swrOptions = {
 };
 
 interface PersonViewProps {
+  albumSlug: string;
+  selectedEventSlug: string | null;
+  events: AlbumEvent[];
   person: Person;
   onBack: () => void;
 }
 
-export function PersonView({ person, onBack }: PersonViewProps) {
+function personPhotosUrl(
+  albumSlug: string,
+  personId: string,
+  selectedEventSlug: string | null
+) {
+  const base = `/api/albums/${encodeURIComponent(
+    albumSlug
+  )}/people/${encodeURIComponent(personId)}/photos`;
+  return selectedEventSlug
+    ? `${base}?event=${encodeURIComponent(selectedEventSlug)}`
+    : base;
+}
+
+export function PersonView({
+  albumSlug,
+  selectedEventSlug,
+  events,
+  person,
+  onBack,
+}: PersonViewProps) {
   const { data, error, isLoading } = useSWR<{ photos: Photo[] }>(
-    `/api/people/${person.id}/photos`,
+    personPhotosUrl(albumSlug, person.id, selectedEventSlug),
     fetcher,
     swrOptions
   );
@@ -40,8 +62,9 @@ export function PersonView({ person, onBack }: PersonViewProps) {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="space-y-6 px-2 sm:px-0">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={onBack}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -70,6 +93,35 @@ export function PersonView({ person, onBack }: PersonViewProps) {
             </p>
           </div>
         </div>
+        </div>
+
+        {!!events.length && (
+          <div className="flex max-w-full gap-2 overflow-x-auto">
+            {events.map((event) => {
+              const stat = person.eventStats?.find(
+                (item) => item.eventSlug === event.slug
+              );
+              const count = stat?.photoCount ?? 0;
+              const isSelected = selectedEventSlug === event.slug;
+
+              return (
+                <span
+                  key={event.id}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ring-1 ${
+                    isSelected
+                      ? "bg-zinc-950 text-white ring-zinc-950"
+                      : count > 0
+                        ? "bg-white text-zinc-700 ring-zinc-200"
+                        : "bg-zinc-100 text-zinc-400 ring-zinc-200"
+                  }`}
+                  title={`${event.name}: ${count} photos`}
+                >
+                  {event.name} {count}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -117,6 +169,7 @@ export function PersonView({ person, onBack }: PersonViewProps) {
                   }}
                 >
                   <PhotoCard
+                    albumSlug={albumSlug}
                     photo={photo}
                     index={index}
                     onOpen={handleOpen}
@@ -129,6 +182,7 @@ export function PersonView({ person, onBack }: PersonViewProps) {
 
           {lightboxState !== null && (
             <PhotoLightbox
+              albumSlug={albumSlug}
               photos={data.photos}
               currentIndex={lightboxState.index}
               originRect={lightboxState.originRect}

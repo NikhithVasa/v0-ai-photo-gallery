@@ -14,9 +14,21 @@ const swrOptions = {
   revalidateOnReconnect: false,
 };
 
-export function PhotosGrid() {
+interface PhotosGridProps {
+  albumSlug: string;
+  selectedEventSlug: string | null;
+}
+
+function photosUrl(albumSlug: string, selectedEventSlug: string | null) {
+  const base = `/api/albums/${encodeURIComponent(albumSlug)}/photos`;
+  return selectedEventSlug
+    ? `${base}?event=${encodeURIComponent(selectedEventSlug)}`
+    : base;
+}
+
+export function PhotosGrid({ albumSlug, selectedEventSlug }: PhotosGridProps) {
   const { data, error, isLoading } = useSWR<{ photos: Photo[] }>(
-    "/api/photos",
+    photosUrl(albumSlug, selectedEventSlug),
     fetcher,
     swrOptions
   );
@@ -64,8 +76,10 @@ export function PhotosGrid() {
 
   if (!data?.photos?.length) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        No photos found. Make sure your database has photo data.
+      <div className="rounded-md border border-zinc-200 bg-white px-6 py-12 text-center text-zinc-500">
+        {selectedEventSlug
+          ? "No photos found for this event yet."
+          : "No photos found in this album yet."}
       </div>
     );
   }
@@ -83,6 +97,7 @@ export function PhotosGrid() {
             }}
           >
             <PhotoCard
+              albumSlug={albumSlug}
               photo={photo}
               index={index}
               onOpen={handleOpen}
@@ -94,6 +109,7 @@ export function PhotosGrid() {
 
       {lightboxState !== null && (
         <PhotoLightbox
+          albumSlug={albumSlug}
           photos={data.photos}
           currentIndex={lightboxState.index}
           originRect={lightboxState.originRect}

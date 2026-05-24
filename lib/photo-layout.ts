@@ -8,7 +8,7 @@ export function photoAspectRatio(photo: PhotoShape) {
   return photo.width / photo.height;
 }
 
-export function photoFlexBasis(photo: PhotoShape, targetHeight = 340) {
+export function photoFlexBasis(photo: PhotoShape, targetHeight = 420) {
   const ratio = photoAspectRatio(photo);
-  return `calc(${ratio} * clamp(220px, 24vw, ${targetHeight}px))`;
+  return `calc(${ratio} * clamp(240px, 28vw, ${targetHeight}px))`;
 }

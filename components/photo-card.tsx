@@ -26,23 +26,30 @@ import type { Photo } from "@/lib/types";
 interface SignedPhotoUrls {
   previewUrl: string | null;
   downloadUrl: string | null;
+  thumbnailUrl?: string | null;
 }
 
-async function fetchSignedPhotoUrls(ids: string[]) {
+async function fetchSignedPhotoUrls(albumSlug: string, ids: string[]) {
   const uniqueIds = Array.from(new Set(ids));
   if (!uniqueIds.length) return {};
 
-  const response = await fetch("/api/photos/signed-urls", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids: uniqueIds }),
-  });
+  const response = await fetch(
+    `/api/albums/${encodeURIComponent(albumSlug)}/photos/signed-urls`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoIds: uniqueIds }),
+    }
+  );
 
   if (!response.ok) return {};
 
   const data = (await response.json()) as {
+    urls?: Record<string, SignedPhotoUrls>;
     photos?: Array<{ id: string } & SignedPhotoUrls>;
   };
+
+  if (data.urls) return data.urls;
 
   return Object.fromEntries(
     (data.photos ?? []).map((photo) => [
@@ -50,6 +57,7 @@ async function fetchSignedPhotoUrls(ids: string[]) {
       {
         previewUrl: photo.previewUrl,
         downloadUrl: photo.downloadUrl,
+        thumbnailUrl: photo.thumbnailUrl,
       },
     ])
   ) as Record<string, SignedPhotoUrls>;
@@ -66,6 +74,7 @@ function triggerDownload(url: string, fileName: string) {
 }
 
 interface PhotoCardProps {
+  albumSlug: string;
   photo: Photo;
   index: number;
   onOpen: (index: number, originRect: PhotoOpenRect) => void;
@@ -79,6 +88,7 @@ export interface PhotoOpenRect {
 }
 
 export const PhotoCard = memo(function PhotoCard({
+  albumSlug,
   photo,
   index,
   onOpen,
@@ -91,7 +101,9 @@ export const PhotoCard = memo(function PhotoCard({
     setIsDownloading(true);
     try {
       const signedUrls =
-        photo.downloadUrl ? null : await fetchSignedPhotoUrls([photo.id]);
+        photo.downloadUrl
+          ? null
+          : await fetchSignedPhotoUrls(albumSlug, [photo.id]);
       const downloadUrl =
         photo.downloadUrl || signedUrls?.[photo.id]?.downloadUrl;
       if (!downloadUrl) return;
@@ -148,9 +160,9 @@ export const PhotoCard = memo(function PhotoCard({
             width={photo.width ?? undefined}
             height={photo.height ?? undefined}
             className="absolute inset-0 h-full w-full object-cover"
-            loading={index < 24 ? "eager" : "lazy"}
+            loading={index < 48 ? "eager" : "lazy"}
             decoding="async"
-            fetchPriority={index < 8 ? "high" : "auto"}
+            fetchPriority={index < 12 ? "high" : "auto"}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-secondary">
@@ -208,6 +220,7 @@ export const PhotoCard = memo(function PhotoCard({
 });
 
 interface PhotoLightboxProps {
+  albumSlug: string;
   photos: Photo[];
   currentIndex: number;
   originRect?: PhotoOpenRect;
@@ -216,6 +229,7 @@ interface PhotoLightboxProps {
 }
 
 export function PhotoLightbox({
+  albumSlug,
   photos,
   currentIndex,
   originRect,
@@ -291,7 +305,7 @@ export function PhotoLightbox({
 
     if (!ids.length) return;
 
-    fetchSignedPhotoUrls(ids).then((urlsById) => {
+    fetchSignedPhotoUrls(albumSlug, ids).then((urlsById) => {
       if (isCancelled) return;
 
       setSignedUrls((current) => ({
@@ -309,14 +323,14 @@ export function PhotoLightbox({
     return () => {
       isCancelled = true;
     };
-  }, [currentIndex, photos, signedUrls]);
+  }, [albumSlug, currentIndex, photos, signedUrls]);
 
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
       let url = downloadUrl;
       if (!url) {
-        const urlsById = await fetchSignedPhotoUrls([photo.id]);
+        const urlsById = await fetchSignedPhotoUrls(albumSlug, [photo.id]);
         url = urlsById[photo.id]?.downloadUrl;
         setSignedUrls((current) => ({ ...current, ...urlsById }));
       }

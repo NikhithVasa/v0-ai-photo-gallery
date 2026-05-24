@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { signedUrl } from "@/lib/s3";
-import type { Person } from "@/lib/types";
 
 interface PersonRow {
   id: string;
@@ -26,7 +25,7 @@ export async function GET() {
       ORDER BY display_name NULLS LAST, default_name
     `);
 
-    const people: Person[] = await Promise.all(
+    const people = await Promise.all(
       rows.map(async (row) => ({
         id: row.id,
         personNumber: null,
