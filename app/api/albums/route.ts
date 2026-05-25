@@ -3,6 +3,9 @@ import { query } from "@/lib/db";
 import { signedUrl } from "@/lib/s3";
 import type { AlbumSummary } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface AlbumSummaryRow {
   id: string;
   slug: string;
@@ -30,7 +33,9 @@ export async function GET() {
         a.name,
         a.password_required,
         cover.cover_photo_s3_key,
-        COUNT(DISTINCT e.id)::int AS event_count,
+        COUNT(DISTINCT CASE
+          WHEN COALESCE(e.is_deleted, false) = false THEN e.id
+        END)::int AS event_count,
         COUNT(DISTINCT CASE
           WHEN COALESCE(p.is_deleted, false) = false THEN p.id
         END)::int AS photo_count,
@@ -55,6 +60,7 @@ export async function GET() {
         ORDER BY p2.created_at ASC
         LIMIT 1
       ) cover ON true
+      WHERE COALESCE(a.is_deleted, false) = false
       GROUP BY a.id, cover.cover_photo_s3_key
       ORDER BY a.created_at DESC NULLS LAST, a.name ASC
     `);
