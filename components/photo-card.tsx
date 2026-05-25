@@ -375,6 +375,30 @@ export function PhotoLightbox({
     setIsPeopleOpen(false);
   }, [photo.id]);
 
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    const originalBodyPosition = document.body.style.position;
+    const originalBodyTop = document.body.style.top;
+    const originalBodyWidth = document.body.style.width;
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.position = originalBodyPosition;
+      document.body.style.top = originalBodyTop;
+      document.body.style.width = originalBodyWidth;
+      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
   useLayoutEffect(() => {
     const frame = photoFrameRef.current;
     if (!frame || !originRect) {
@@ -482,10 +506,12 @@ export function PhotoLightbox({
   };
 
   const handlePrev = () => {
+    setIsPeopleOpen(false);
     onNavigate(currentIndex > 0 ? currentIndex - 1 : photos.length - 1);
   };
 
   const handleNext = () => {
+    setIsPeopleOpen(false);
     onNavigate(currentIndex < photos.length - 1 ? currentIndex + 1 : 0);
   };
 
@@ -623,9 +649,36 @@ export function PhotoLightbox({
         <ChevronRight className="h-10 w-10 stroke-1 sm:h-14 sm:w-14" />
       </button>
 
+      <button
+        type="button"
+        className="absolute left-2 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/20 text-white backdrop-blur transition hover:bg-black/35 focus:outline-none focus:ring-2 focus:ring-white/60 md:hidden"
+        onClick={(e) => {
+          e.stopPropagation();
+          handlePrev();
+        }}
+        aria-label="Previous photo"
+      >
+        <ChevronLeft className="h-6 w-6 stroke-1.5" />
+      </button>
+
+      <button
+        type="button"
+        className="absolute right-2 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/20 text-white backdrop-blur transition hover:bg-black/35 focus:outline-none focus:ring-2 focus:ring-white/60 md:hidden"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleNext();
+        }}
+        aria-label="Next photo"
+      >
+        <ChevronRight className="h-6 w-6 stroke-1.5" />
+      </button>
+
       <div
         className="relative flex h-full w-full items-center justify-center md:h-auto md:max-h-[calc(100vh-4rem)] md:max-w-[min(92vw,1180px)] md:flex-col"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isPeopleOpen) setIsPeopleOpen(false);
+        }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -689,7 +742,7 @@ export function PhotoLightbox({
               </button>
             </div>
 
-            <div className="relative">
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
                 onClick={() => setIsPeopleOpen((current) => !current)}
