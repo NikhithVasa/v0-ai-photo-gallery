@@ -19,6 +19,7 @@ import {
   Play,
   Share2,
   User,
+  Users,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,15 @@ function triggerDownload(url: string, fileName: string) {
   document.body.removeChild(a);
 }
 
+function uniqueUrls(urls: Array<string | null | undefined>) {
+  return Array.from(new Set(urls.filter((url): url is string => Boolean(url))));
+}
+
+function absoluteBrowserUrl(url: string) {
+  if (typeof window === "undefined") return url;
+  return url.startsWith("/") ? `${window.location.origin}${url}` : url;
+}
+
 interface PhotoCardProps {
   albumSlug: string;
   photo: Photo;
@@ -118,8 +128,9 @@ export const PhotoCard = memo(function PhotoCard({
   };
 
   const handleShare = async () => {
-    const shareUrl = photo.thumbnailUrl || photo.previewUrl || photo.downloadUrl;
-    if (!shareUrl) return;
+    const url = photo.thumbnailUrl || photo.previewUrl || photo.downloadUrl;
+    if (!url) return;
+    const shareUrl = absoluteBrowserUrl(url);
 
     if (navigator.share) {
       try {
@@ -184,7 +195,11 @@ export const PhotoCard = memo(function PhotoCard({
           </button>
           <a
             href={`mailto:?subject=Photo&body=${encodeURIComponent(
-              photo.thumbnailUrl || photo.previewUrl || photo.downloadUrl || ""
+              photo.thumbnailUrl || photo.previewUrl || photo.downloadUrl
+                ? absoluteBrowserUrl(
+                    photo.thumbnailUrl || photo.previewUrl || photo.downloadUrl || ""
+                  )
+                : ""
             )}`}
             className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/80 sm:h-9 sm:w-9"
             aria-label="Email photo"
@@ -334,17 +349,31 @@ export function PhotoLightbox({
 }: PhotoLightboxProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPeopleOpen, setIsPeopleOpen] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [signedUrls, setSignedUrls] = useState<Record<string, SignedPhotoUrls>>(
     {}
   );
   const [entryStyle, setEntryStyle] = useState<CSSProperties>();
   const photoFrameRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const photo = photos[currentIndex];
   const signedPhoto = signedUrls[photo.id];
-  const imageUrl = signedPhoto?.previewUrl || photo.previewUrl || photo.thumbnailUrl;
+  const imageCandidates = uniqueUrls([
+    signedPhoto?.previewUrl,
+    photo.previewUrl,
+    signedPhoto?.thumbnailUrl,
+    photo.thumbnailUrl,
+  ]);
+  const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const downloadUrl = signedPhoto?.downloadUrl || photo.downloadUrl;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+    setIsPeopleOpen(false);
+  }, [photo.id]);
 
   useLayoutEffect(() => {
     const frame = photoFrameRef.current;
@@ -460,6 +489,53 @@ export function PhotoLightbox({
     onNavigate(currentIndex < photos.length - 1 ? currentIndex + 1 : 0);
   };
 
+  const handleShare = async () => {
+    const url = imageUrl || downloadUrl || photo.thumbnailUrl;
+    if (!url) return;
+    const shareUrl = absoluteBrowserUrl(url);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: photo.fileName || photo.caption || "Photo",
+          url: shareUrl,
+        });
+      } catch {
+        // Ignore cancelled shares.
+      }
+      return;
+    }
+
+    await navigator.clipboard?.writeText(shareUrl);
+  };
+
+  const handleImageError = () => {
+    setActiveImageIndex((current) =>
+      current < imageCandidates.length - 1 ? current + 1 : current
+    );
+  };
+
+  const handleTouchStart = (event: React.TouchEvent) => {
+    const touch = event.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start) return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
+      return;
+    }
+
+    if (deltaX < 0) handleNext();
+    else handlePrev();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowLeft") handlePrev();
     if (e.key === "ArrowRight") handleNext();
@@ -473,15 +549,15 @@ export function PhotoLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-white/[0.92] px-3 py-4 backdrop-blur-[1px] sm:bg-white/[0.94] sm:px-6 md:pl-80"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white md:bg-white/[0.92] md:px-6 md:py-4 md:pl-80 md:text-zinc-950 md:backdrop-blur-[1px]"
       onClick={onClose}
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
-      <div className="absolute left-3 top-3 z-10 flex items-center gap-2 text-zinc-700 sm:left-6 sm:top-5 sm:gap-3">
+      <div className="absolute left-3 top-3 z-30 flex items-center gap-2 text-white md:text-zinc-700 sm:left-6 sm:top-5 sm:gap-3">
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-zinc-950/5 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:h-9 sm:w-9"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-black/20 text-white backdrop-blur transition hover:bg-black/30 focus:outline-none focus:ring-2 focus:ring-white/60 md:bg-transparent md:text-zinc-700 md:hover:bg-zinc-950/5 md:focus:ring-zinc-400"
           aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
           aria-pressed={isPlaying}
           onClick={(e) => {
@@ -495,7 +571,7 @@ export function PhotoLightbox({
             <Play className="h-5 w-5" />
           )}
         </button>
-        <span className="text-sm font-medium">
+        <span className="hidden text-sm font-medium md:inline">
           {isPlaying ? "Playing" : "Play"}
         </span>
       </div>
@@ -511,12 +587,12 @@ export function PhotoLightbox({
         />
       </div>
 
-      <div className="absolute right-3 top-3 z-10 sm:right-6 sm:top-5">
+      <div className="absolute right-3 top-3 z-30 sm:right-6 sm:top-5">
         <Button
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="rounded-full text-zinc-600 hover:bg-zinc-950/5 hover:text-zinc-950"
+          className="rounded-full bg-black/20 text-white backdrop-blur hover:bg-black/30 hover:text-white md:bg-transparent md:text-zinc-600 md:hover:bg-zinc-950/5 md:hover:text-zinc-950"
           aria-label="Close photo"
         >
           <X className="h-5 w-5" />
@@ -525,7 +601,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
-        className="absolute left-1 top-1/2 z-10 -translate-y-1/2 rounded-full p-1 text-zinc-300 transition hover:bg-zinc-950/5 hover:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:left-8 sm:p-2"
+        className="absolute left-1 top-1/2 z-20 hidden -translate-y-1/2 rounded-full p-1 text-zinc-300 transition hover:bg-zinc-950/5 hover:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-300 md:block sm:left-8 sm:p-2"
         onClick={(e) => {
           e.stopPropagation();
           handlePrev();
@@ -537,7 +613,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
-        className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-full p-1 text-zinc-300 transition hover:bg-zinc-950/5 hover:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:right-8 sm:p-2"
+        className="absolute right-1 top-1/2 z-20 hidden -translate-y-1/2 rounded-full p-1 text-zinc-300 transition hover:bg-zinc-950/5 hover:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-300 md:block sm:right-8 sm:p-2"
         onClick={(e) => {
           e.stopPropagation();
           handleNext();
@@ -548,13 +624,15 @@ export function PhotoLightbox({
       </button>
 
       <div
-        className="flex max-h-[calc(100svh-2rem)] max-w-[min(94vw,1180px)] flex-col items-center justify-center sm:max-h-[calc(100vh-4rem)] sm:max-w-[min(92vw,1180px)]"
+        className="relative flex h-full w-full items-center justify-center md:h-auto md:max-h-[calc(100vh-4rem)] md:max-w-[min(92vw,1180px)] md:flex-col"
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         {imageUrl ? (
           <div
             ref={photoFrameRef}
-            className="relative transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
+            className="relative flex h-full w-full items-center justify-center transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform md:h-auto md:w-auto"
             style={entryStyle}
           >
             <img
@@ -562,13 +640,14 @@ export function PhotoLightbox({
               alt={photo.caption || "Photo"}
               width={photo.width ?? undefined}
               height={photo.height ?? undefined}
-              className="block max-h-[calc(100svh-11rem)] max-w-[min(94vw,1180px)] object-contain shadow-sm sm:max-h-[calc(100vh-8rem)] sm:max-w-[min(92vw,1180px)]"
+              className="block max-h-[100svh] max-w-screen object-contain md:max-h-[calc(100vh-8rem)] md:max-w-[min(92vw,1180px)] md:shadow-sm"
               decoding="async"
               fetchPriority="high"
+              onError={handleImageError}
             />
 
             {photo.caption && (
-              <div className="absolute inset-x-0 bottom-3 flex justify-center px-4">
+              <div className="absolute inset-x-0 bottom-24 hidden justify-center px-4 md:flex md:bottom-3">
                 <p className="max-w-[min(92%,44rem)] rounded-md bg-black/70 px-3 py-1.5 text-center text-xs font-medium leading-snug text-white shadow-sm">
                   {photo.caption}
                 </p>
@@ -576,24 +655,132 @@ export function PhotoLightbox({
             )}
           </div>
         ) : (
-          <div className="flex h-[60vh] w-[min(92vw,900px)] items-center justify-center bg-zinc-100">
-            <span className="text-sm text-zinc-500">No preview available</span>
+          <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-sm text-zinc-500 md:h-[60vh] md:w-[min(92vw,900px)]">
+            No preview available
           </div>
         )}
 
-        <div className="mt-2 max-w-[min(92vw,1180px)] truncate px-4 text-center text-sm font-medium text-zinc-700">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-20 md:hidden">
+          <div className="pointer-events-auto flex items-end justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur transition hover:bg-black/35 focus:outline-none focus:ring-2 focus:ring-white/60"
+                aria-label="Favorite photo"
+              >
+                <Heart className="h-5 w-5 stroke-1.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur transition hover:bg-black/35 focus:outline-none focus:ring-2 focus:ring-white/60"
+                aria-label="Share photo"
+              >
+                <Share2 className="h-5 w-5 stroke-1.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur transition hover:bg-black/35 focus:outline-none focus:ring-2 focus:ring-white/60 disabled:cursor-not-allowed disabled:opacity-45"
+                aria-label="Download photo"
+              >
+                <Download className="h-5 w-5 stroke-1.5" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsPeopleOpen((current) => !current)}
+                className="flex h-10 min-w-10 items-center justify-center rounded-full bg-black/25 px-2 text-white backdrop-blur transition hover:bg-black/35 focus:outline-none focus:ring-2 focus:ring-white/60"
+                aria-expanded={isPeopleOpen}
+                aria-label="Show people in this photo"
+              >
+                {photoPeople.length ? (
+                  <span className="flex -space-x-2">
+                    {photoPeople.slice(0, 3).map((person) => (
+                      <span
+                        key={person.id}
+                        className="relative h-7 w-7 overflow-hidden rounded-full bg-zinc-800 ring-1 ring-white/80"
+                      >
+                        {person.coverFaceUrl ? (
+                          <img
+                            src={person.coverFaceUrl}
+                            alt={person.displayName || person.defaultName}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center">
+                            <User className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  <Users className="h-5 w-5" />
+                )}
+              </button>
+
+              {isPeopleOpen && (
+                <div className="absolute bottom-full right-0 mb-3 w-[min(78vw,280px)] rounded-xl border border-white/20 bg-white/95 p-2 text-zinc-950 shadow-lg backdrop-blur-md">
+                  {photoPeople.length ? (
+                    <div className="space-y-1">
+                      {photoPeople.map((person) => {
+                        const displayName =
+                          person.displayName || person.defaultName;
+
+                        return (
+                          <button
+                            key={person.id}
+                            type="button"
+                            onClick={() => handlePersonClick(person.id)}
+                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-zinc-950/[0.05] focus:outline-none focus:ring-2 focus:ring-zinc-300"
+                          >
+                            <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
+                              {person.coverFaceUrl ? (
+                                <img
+                                  src={person.coverFaceUrl}
+                                  alt={displayName}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <span className="flex h-full w-full items-center justify-center text-zinc-400">
+                                  <User className="h-4 w-4" />
+                                </span>
+                              )}
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-medium">
+                                {displayName}
+                              </span>
+                              <span className="block truncate text-xs text-zinc-500">
+                                {person.photoCount} photos
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="px-2 py-2 text-sm text-zinc-500">
+                      No people detected in this photo.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-2 hidden max-w-[min(92vw,1180px)] truncate px-4 text-center text-sm font-medium text-zinc-700 md:block">
           {photoName}
         </div>
 
-        <div className="mt-3 w-[min(92vw,520px)] rounded-lg border border-zinc-200 bg-white/75 p-3 shadow-sm backdrop-blur-md md:hidden">
-          <SelectedPhotoPeoplePanel
-            photo={photo}
-            people={photoPeople}
-            onPersonClick={onPersonClick ? handlePersonClick : undefined}
-          />
-        </div>
-
-        <div className="mt-2 flex items-center justify-center gap-3 text-zinc-600 sm:gap-5">
+        <div className="mt-2 hidden items-center justify-center gap-3 text-zinc-600 md:flex sm:gap-5">
           <button
             type="button"
             className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-zinc-950/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300"
@@ -610,6 +797,7 @@ export function PhotoLightbox({
           </button>
           <button
             type="button"
+            onClick={handleShare}
             className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-zinc-950/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300"
             aria-label="Share photo"
           >
@@ -634,7 +822,7 @@ export function PhotoLightbox({
         </div>
       </div>
 
-      <div className="absolute bottom-5 right-6 text-sm font-medium text-zinc-400">
+      <div className="absolute bottom-5 right-6 hidden text-sm font-medium text-zinc-400 md:block">
         {currentIndex + 1} / {photos.length}
       </div>
     </div>

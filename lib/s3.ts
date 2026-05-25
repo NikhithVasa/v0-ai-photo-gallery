@@ -118,6 +118,10 @@ export async function listS3Keys(prefix?: string | null) {
 export async function signedUrl(key?: string | null): Promise<string | null> {
   if (!key) return null;
 
+  if (process.env.NEXT_PUBLIC_DIRECT_S3_IMAGES !== "true") {
+    return `/api/media?key=${encodeURIComponent(key)}`;
+  }
+
   return cachedSignedUrl(`view:${key}`, () => {
     const command = new GetObjectCommand({
       Bucket: process.env.S3_BUCKET!,
