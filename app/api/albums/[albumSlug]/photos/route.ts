@@ -22,6 +22,7 @@ export async function GET(request: Request, { params }: Props) {
       .split(",")
       .map((id) => id.trim())
       .filter((id) => id && isUuid(id));
+    const peopleMode = searchParams.get("peopleMode") === "any" ? "any" : "all";
 
     const rows = await query<PhotoRow>(
       `
@@ -67,17 +68,25 @@ export async function GET(request: Request, { params }: Props) {
         AND ($2::text IS NULL OR e.slug = $2)
         AND (
           $3::uuid[] IS NULL
-          OR (
-            SELECT COUNT(DISTINCT pp.person_id)
-            FROM photo_people pp
-            WHERE pp.photo_id = p.id
-              AND pp.person_id = ANY($3::uuid[])
-          ) = cardinality($3::uuid[])
+          OR CASE
+            WHEN $4::boolean THEN (
+              SELECT COUNT(DISTINCT pp.person_id)
+              FROM photo_people pp
+              WHERE pp.photo_id = p.id
+                AND pp.person_id = ANY($3::uuid[])
+            ) = cardinality($3::uuid[])
+            ELSE EXISTS (
+              SELECT 1
+              FROM photo_people pp
+              WHERE pp.photo_id = p.id
+                AND pp.person_id = ANY($3::uuid[])
+            )
+          END
         )
         AND COALESCE(p.is_deleted, false) = false
       ORDER BY p.created_at ASC
       `,
-      [albumSlug, eventSlug, personIds.length ? personIds : null]
+      [albumSlug, eventSlug, personIds.length ? personIds : null, peopleMode === "all"]
     );
 
     const photos: Photo[] = await Promise.all(rows.map(toPhoto));

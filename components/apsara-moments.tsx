@@ -13,6 +13,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import type { PeopleMatchMode } from "@/components/photos-grid";
 import type { Photo } from "@/lib/types";
 
 interface ApsaraFloatingTriggerProps {
@@ -289,6 +290,7 @@ interface ApsaraMomentsOverlayProps {
   albumSlug: string;
   selectedEventSlug: string | null;
   selectedPeopleIds?: string[];
+  peopleMatchMode?: PeopleMatchMode;
 }
 
 export function ApsaraMomentsOverlay({
@@ -297,6 +299,7 @@ export function ApsaraMomentsOverlay({
   albumSlug,
   selectedEventSlug,
   selectedPeopleIds = [],
+  peopleMatchMode = "all",
 }: ApsaraMomentsOverlayProps) {
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -349,7 +352,7 @@ export function ApsaraMomentsOverlay({
             query: activeQuery,
             event: selectedEventSlug,
             people: selectedPeopleIds,
-            together: true,
+            together: peopleMatchMode === "all",
             limit: 100,
           }),
         }
@@ -497,6 +500,7 @@ interface ApsaraMomentsRootProps {
   albumSlug: string;
   selectedEventSlug: string | null;
   selectedPeopleIds?: string[];
+  peopleMatchMode?: PeopleMatchMode;
   isOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
 }
@@ -505,6 +509,7 @@ export function ApsaraMomentsRoot({
   albumSlug,
   selectedEventSlug,
   selectedPeopleIds = [],
+  peopleMatchMode = "all",
   isOpen: controlledIsOpen,
   onOpenChange,
 }: ApsaraMomentsRootProps) {
@@ -521,6 +526,7 @@ export function ApsaraMomentsRoot({
         albumSlug={albumSlug}
         selectedEventSlug={selectedEventSlug}
         selectedPeopleIds={selectedPeopleIds}
+        peopleMatchMode={peopleMatchMode}
       />
     </>
   );

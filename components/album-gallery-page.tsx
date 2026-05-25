@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { PeopleGrid } from "@/components/people-grid";
 import { PersonView } from "@/components/person-view";
-import { PhotosGrid } from "@/components/photos-grid";
+import { PhotosGrid, type PeopleMatchMode } from "@/components/photos-grid";
 import { ApsaraMomentsRoot } from "@/components/apsara-moments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -302,6 +302,29 @@ function PeopleFilterButton({
   );
 }
 
+function PeopleMatchModeSelect({
+  value,
+  onChange,
+}: {
+  value: PeopleMatchMode;
+  onChange: (value: PeopleMatchMode) => void;
+}) {
+  return (
+    <label className="relative shrink-0">
+      <span className="sr-only">People photo mode</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as PeopleMatchMode)}
+        className="h-9 appearance-none rounded-full border border-zinc-200 bg-white py-0 pl-3 pr-8 text-sm font-medium text-zinc-600 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+      >
+        <option value="any">Show single person photos</option>
+        <option value="all">Show multiple person photos</option>
+      </select>
+      <span className="pointer-events-none absolute right-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rotate-45 border-b border-r border-zinc-500" />
+    </label>
+  );
+}
+
 function EventNameControl({
   eventName,
   isEditing,
@@ -379,6 +402,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>("photos");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [selectedPeopleIds, setSelectedPeopleIds] = useState<string[]>([]);
+  const [peopleMatchMode, setPeopleMatchMode] =
+    useState<PeopleMatchMode>("all");
   const [selectedEventSlug, setSelectedEventSlug] = useState<string | null>(
     searchParams.get("event") || null
   );
@@ -437,6 +462,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     );
   }, [albumSlug]);
 
+  useEffect(() => {
+    if (selectedPeopleIds.length < 2 && peopleMatchMode !== "all") {
+      setPeopleMatchMode("all");
+    }
+  }, [peopleMatchMode, selectedPeopleIds.length]);
+
   const changeEvent = (eventSlug: string | null) => {
     setSelectedEventSlug(eventSlug);
     setEditingEventId(null);
@@ -446,6 +477,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
   const filterByPerson = (personId: string) => {
     setSelectedPeopleIds([personId]);
+    setPeopleMatchMode("all");
     setSelectedPerson(null);
     setActiveTab("photos");
   };
@@ -585,6 +617,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 onToggle={toggleSelectedPersonId}
                 onClear={() => setSelectedPeopleIds([])}
               />
+              {selectedPeopleIds.length > 1 && (
+                <PeopleMatchModeSelect
+                  value={peopleMatchMode}
+                  onChange={setPeopleMatchMode}
+                />
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -753,6 +791,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               albumSlug={albumSlug}
               selectedEventSlug={selectedEventSlug}
               selectedPeopleIds={selectedPeopleIds}
+              peopleMatchMode={peopleMatchMode}
               onPersonClick={filterByPerson}
             />
           </section>
@@ -763,6 +802,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         albumSlug={albumSlug}
         selectedEventSlug={selectedEventSlug}
         selectedPeopleIds={selectedPeopleIds}
+        peopleMatchMode={peopleMatchMode}
         isOpen={isSearchOpen}
         onOpenChange={setIsSearchOpen}
       />
