@@ -17,18 +17,29 @@ const swrOptions = {
 interface PhotosGridProps {
   albumSlug: string;
   selectedEventSlug: string | null;
+  selectedPeopleIds: string[];
 }
 
-function photosUrl(albumSlug: string, selectedEventSlug: string | null) {
+function photosUrl(
+  albumSlug: string,
+  selectedEventSlug: string | null,
+  selectedPeopleIds: string[]
+) {
   const base = `/api/albums/${encodeURIComponent(albumSlug)}/photos`;
-  return selectedEventSlug
-    ? `${base}?event=${encodeURIComponent(selectedEventSlug)}`
-    : base;
+  const params = new URLSearchParams();
+  if (selectedEventSlug) params.set("event", selectedEventSlug);
+  if (selectedPeopleIds.length) params.set("people", selectedPeopleIds.join(","));
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
 }
 
-export function PhotosGrid({ albumSlug, selectedEventSlug }: PhotosGridProps) {
+export function PhotosGrid({
+  albumSlug,
+  selectedEventSlug,
+  selectedPeopleIds,
+}: PhotosGridProps) {
   const { data, error, isLoading } = useSWR<{ photos: Photo[] }>(
-    photosUrl(albumSlug, selectedEventSlug),
+    photosUrl(albumSlug, selectedEventSlug, selectedPeopleIds),
     fetcher,
     swrOptions
   );
@@ -77,7 +88,9 @@ export function PhotosGrid({ albumSlug, selectedEventSlug }: PhotosGridProps) {
   if (!data?.photos?.length) {
     return (
       <div className="rounded-md border border-zinc-200 bg-white px-6 py-12 text-center text-zinc-500">
-        {selectedEventSlug
+        {selectedPeopleIds.length
+          ? "No photos found for the selected people."
+          : selectedEventSlug
           ? "No photos found for this event yet."
           : "No photos found in this album yet."}
       </div>

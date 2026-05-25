@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
-import { ArrowLeft, Images, Search, Users } from "lucide-react";
+import { ArrowLeft, Check, Images, Search, User, Users, X } from "lucide-react";
 import { PeopleGrid } from "@/components/people-grid";
 import { PersonView } from "@/components/person-view";
 import { PhotosGrid } from "@/components/photos-grid";
@@ -102,11 +103,201 @@ function PasswordGate({
   );
 }
 
+function PersonAvatar({ person, size = "md" }: { person: Person; size?: "sm" | "md" }) {
+  const dimension = size === "sm" ? "h-6 w-6" : "h-9 w-9";
+  const displayName = person.displayName || person.defaultName;
+
+  return (
+    <span
+      className={`relative inline-flex ${dimension} shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-white`}
+    >
+      {person.coverFaceUrl ? (
+        <Image
+          src={person.coverFaceUrl}
+          alt={displayName}
+          fill
+          sizes={size === "sm" ? "24px" : "36px"}
+          className="object-cover"
+          unoptimized
+        />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center text-zinc-400">
+          <User className={size === "sm" ? "h-3.5 w-3.5" : "h-5 w-5"} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+function PeopleFilterButton({
+  people,
+  selectedPeople,
+  selectedPeopleIds,
+  onToggle,
+  onClear,
+}: {
+  people: Person[];
+  selectedPeople: Person[];
+  selectedPeopleIds: string[];
+  onToggle: (personId: string) => void;
+  onClear: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selectedIdSet = useMemo(
+    () => new Set(selectedPeopleIds),
+    [selectedPeopleIds]
+  );
+  const previewPeople = selectedPeople.length
+    ? selectedPeople.slice(0, 4)
+    : people.slice(0, 4);
+  const filteredPeople = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return people;
+
+    return people.filter((person) => {
+      const name = `${person.displayName || ""} ${person.defaultName || ""} Person ${
+        person.personNumber
+      }`.toLowerCase();
+      return name.includes(normalized);
+    });
+  }, [people, query]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [isOpen]);
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className={`flex h-9 items-center gap-2 rounded-full border px-2.5 text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-zinc-400 ${
+          selectedPeopleIds.length
+            ? "border-zinc-950 bg-zinc-950 text-white"
+            : "border-zinc-200 bg-white text-zinc-600 hover:text-zinc-950"
+        }`}
+        aria-expanded={isOpen}
+        aria-label="Filter by people"
+      >
+        <Users className="h-4 w-4" />
+        <span>People</span>
+        {previewPeople.length > 0 && (
+          <span className="flex -space-x-2">
+            {previewPeople.map((person) => (
+              <PersonAvatar key={person.id} person={person} size="sm" />
+            ))}
+          </span>
+        )}
+        {selectedPeopleIds.length > 0 && (
+          <span className="rounded-full bg-white/20 px-1.5 text-xs">
+            {selectedPeopleIds.length}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full z-50 mt-2 w-[min(88vw,360px)] rounded-lg border border-zinc-200 bg-white p-3 text-zinc-950 shadow-xl">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Filter people</p>
+              <p className="text-xs text-zinc-500">
+                {selectedPeopleIds.length
+                  ? `${selectedPeopleIds.length} selected`
+                  : "Select one or more"}
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              {selectedPeopleIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onClear}
+                  className="rounded-full px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
+                >
+                  Clear
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
+                aria-label="Close people filter"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search people"
+            className="mb-3 h-9"
+          />
+
+          <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+            {filteredPeople.length === 0 ? (
+              <div className="py-8 text-center text-sm text-zinc-500">
+                No people found.
+              </div>
+            ) : (
+              filteredPeople.map((person) => {
+                const isSelected = selectedIdSet.has(person.id);
+                const displayName = person.displayName || person.defaultName;
+
+                return (
+                  <button
+                    key={person.id}
+                    type="button"
+                    onClick={() => onToggle(person.id)}
+                    aria-pressed={isSelected}
+                    className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition ${
+                      isSelected
+                        ? "bg-zinc-950 text-white"
+                        : "hover:bg-zinc-100"
+                    }`}
+                  >
+                    <PersonAvatar person={person} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {displayName}
+                      </span>
+                      <span
+                        className={`block text-xs ${
+                          isSelected ? "text-white/65" : "text-zinc-500"
+                        }`}
+                      >
+                        {person.photoCount} photos
+                      </span>
+                    </span>
+                    {isSelected && <Check className="h-4 w-4 shrink-0" />}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("photos");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [selectedPeopleIds, setSelectedPeopleIds] = useState<string[]>([]);
   const [selectedEventSlug, setSelectedEventSlug] = useState<string | null>(
     searchParams.get("event") || null
   );
@@ -121,8 +312,23 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       revalidateOnFocus: false,
     }
   );
+  const { data: peopleFilterData } = useSWR<{ people: Person[] }>(
+    data?.album && (!data.album.passwordRequired || isPasswordVerified)
+      ? `/api/albums/${encodeURIComponent(albumSlug)}/people`
+      : null,
+    fetcher,
+    {
+      dedupingInterval: 5 * 60 * 1000,
+      revalidateOnFocus: false,
+    }
+  );
 
   const album = data?.album;
+  const filterPeople = peopleFilterData?.people ?? [];
+  const selectedFilterPeople = useMemo(() => {
+    const selectedIds = new Set(selectedPeopleIds);
+    return filterPeople.filter((person) => selectedIds.has(person.id));
+  }, [filterPeople, selectedPeopleIds]);
   const selectedEvent = useMemo(
     () => album?.events.find((event) => event.slug === selectedEventSlug),
     [album?.events, selectedEventSlug]
@@ -152,6 +358,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     router.replace(`/albums/${albumSlug}${eventQuery(eventSlug)}`, {
       scroll: false,
     });
+  };
+  const toggleSelectedPersonId = (personId: string) => {
+    setSelectedPeopleIds((current) =>
+      current.includes(personId)
+        ? current.filter((id) => id !== personId)
+        : [...current, personId]
+    );
+    setSelectedPerson(null);
+    setActiveTab("photos");
   };
 
   if (isLoading) {
@@ -195,7 +410,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-[#fbfaf8]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <Link
                 href="/albums"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-950/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
@@ -211,6 +426,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   {album.name}
                 </h1>
               </div>
+              <PeopleFilterButton
+                people={filterPeople}
+                selectedPeople={selectedFilterPeople}
+                selectedPeopleIds={selectedPeopleIds}
+                onToggle={toggleSelectedPersonId}
+                onClear={() => setSelectedPeopleIds([])}
+              />
             </div>
 
             <div className="flex items-center gap-2">
@@ -374,6 +596,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             <PhotosGrid
               albumSlug={albumSlug}
               selectedEventSlug={selectedEventSlug}
+              selectedPeopleIds={selectedPeopleIds}
             />
           </section>
         )}
@@ -382,6 +605,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       <FloatingSearchButton
         albumSlug={albumSlug}
         selectedEventSlug={selectedEventSlug}
+        selectedPeopleIds={selectedPeopleIds}
         isOpen={isSearchOpen}
         onOpenChange={setIsSearchOpen}
       />

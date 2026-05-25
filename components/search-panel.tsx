@@ -10,6 +10,7 @@ import type { Photo } from "@/lib/types";
 interface SearchPanelProps {
   albumSlug: string;
   selectedEventSlug: string | null;
+  selectedPeopleIds: string[];
   isOpen: boolean;
   onClose: () => void;
 }
@@ -47,6 +48,7 @@ async function getDownloadUrl(albumSlug: string, photo: Photo) {
 export function SearchPanel({
   albumSlug,
   selectedEventSlug,
+  selectedPeopleIds,
   isOpen,
   onClose,
 }: SearchPanelProps) {
@@ -65,7 +67,7 @@ export function SearchPanel({
   useEffect(() => {
     setResults([]);
     setHasSearched(false);
-  }, [albumSlug, selectedEventSlug]);
+  }, [albumSlug, selectedEventSlug, selectedPeopleIds]);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -82,6 +84,7 @@ export function SearchPanel({
           body: JSON.stringify({
             query: query.trim(),
             event: selectedEventSlug,
+            people: selectedPeopleIds,
             together: true,
             limit: 100,
           }),
@@ -262,6 +265,7 @@ export function SearchPanel({
 interface FloatingSearchButtonProps {
   albumSlug: string;
   selectedEventSlug: string | null;
+  selectedPeopleIds?: string[];
   isOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
 }
@@ -269,6 +273,7 @@ interface FloatingSearchButtonProps {
 export function FloatingSearchButton({
   albumSlug,
   selectedEventSlug,
+  selectedPeopleIds = [],
   isOpen: controlledIsOpen,
   onOpenChange,
 }: FloatingSearchButtonProps) {
@@ -289,6 +294,7 @@ export function FloatingSearchButton({
       <SearchPanel
         albumSlug={albumSlug}
         selectedEventSlug={selectedEventSlug}
+        selectedPeopleIds={selectedPeopleIds}
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
       />
