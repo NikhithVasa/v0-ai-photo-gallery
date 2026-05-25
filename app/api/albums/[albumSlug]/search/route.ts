@@ -39,7 +39,10 @@ function extractSearchTerms(query: string) {
   const cleaned = query
     .toLowerCase()
     .replace(/\bphotos?\b/g, " ")
-    .replace(/\b(of|with|and|being|is|are|in|the|a|an|for|from)\b/g, " ")
+    .replace(
+      /\b(give|show|find|get|search|look|looking|want|need|please|pls|me|my|of|with|and|being|is|are|in|the|a|an|for|from)\b/g,
+      " "
+    )
     .replace(/\bperson\s*\d+\b/gi, " ");
 
   const actionWords = new Set([
@@ -241,8 +244,11 @@ export async function POST(request: Request, { params }: Props) {
     }
 
     const personIds = Array.from(resolvedIds);
-    const keywordTerms = [...keywords, ...unresolvedTerms];
-    const keyword =
+const keywordTerms =
+  personIds.length > 0
+    ? keywords
+    : [...keywords, ...unresolvedTerms];
+        const keyword =
       keywordTerms.length > 0
         ? keywordTerms.join(" ")
         : personIds.length > 0
