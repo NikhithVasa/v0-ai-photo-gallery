@@ -111,15 +111,13 @@ export const PhotoCard = memo(function PhotoCard({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      const signedUrls = photo.downloadUrl
-        ? null
-        : await fetchSignedPhotoUrls(albumSlug, [photo.id]);
-
+      const signedUrls =
+        photo.downloadUrl
+          ? null
+          : await fetchSignedPhotoUrls(albumSlug, [photo.id]);
       const downloadUrl =
         photo.downloadUrl || signedUrls?.[photo.id]?.downloadUrl;
-
       if (!downloadUrl) return;
-
       triggerDownload(downloadUrl, photo.fileName || `photo-${photo.id}.jpg`);
     } catch (error) {
       console.error("Download failed:", error);
@@ -131,7 +129,6 @@ export const PhotoCard = memo(function PhotoCard({
   const handleShare = async () => {
     const url = photo.thumbnailUrl || photo.previewUrl || photo.downloadUrl;
     if (!url) return;
-
     const shareUrl = absoluteBrowserUrl(url);
 
     if (navigator.share) {
@@ -292,9 +289,7 @@ export function PhotoLightbox({
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
 
-  const showControlsBriefly = useCallback(() => {
-    setAreControlsVisible(true);
-
+  const startControlsTimer = useCallback(() => {
     if (controlsTimerRef.current) {
       window.clearTimeout(controlsTimerRef.current);
     }
@@ -303,6 +298,11 @@ export function PhotoLightbox({
       setAreControlsVisible(false);
     }, 2000);
   }, []);
+
+  const showControlsBriefly = useCallback(() => {
+    setAreControlsVisible(true);
+    startControlsTimer();
+  }, [startControlsTimer]);
 
   const handlePrev = useCallback(() => {
     showControlsBriefly();
@@ -325,16 +325,14 @@ export function PhotoLightbox({
     const hasMouse = window.matchMedia("(pointer: fine)").matches;
     if (!hasMouse) return;
 
-    controlsTimerRef.current = window.setTimeout(() => {
-      setAreControlsVisible(false);
-    }, 2000);
+    startControlsTimer();
 
     return () => {
       if (controlsTimerRef.current) {
         window.clearTimeout(controlsTimerRef.current);
       }
     };
-  }, []);
+  }, [startControlsTimer]);
 
   useEffect(() => {
     const scrollY = window.scrollY;
@@ -362,7 +360,6 @@ export function PhotoLightbox({
 
   useLayoutEffect(() => {
     const frame = photoFrameRef.current;
-
     if (!frame || !originRect) {
       setEntryStyle(undefined);
       return;
@@ -460,7 +457,6 @@ export function PhotoLightbox({
 
   const handleDownload = async () => {
     setIsDownloading(true);
-
     try {
       let url = downloadUrl;
 
@@ -471,7 +467,6 @@ export function PhotoLightbox({
       }
 
       if (!url) return;
-
       triggerDownload(url, photo.fileName || `photo-${photo.id}.jpg`);
     } catch (error) {
       console.error("Download failed:", error);
@@ -515,7 +510,6 @@ export function PhotoLightbox({
   const handleTouchEnd = (event: React.TouchEvent) => {
     const start = touchStartRef.current;
     touchStartRef.current = null;
-
     if (!start) return;
 
     const touch = event.changedTouches[0];
@@ -612,7 +606,7 @@ export function PhotoLightbox({
       </button>
 
       <div
-        className="relative flex h-full w-full items-center justify-center"
+        className="relative flex h-full w-full items-center justify-center px-4 py-4"
         onClick={(e) => {
           e.stopPropagation();
           if (isPeopleOpen) setIsPeopleOpen(false);
@@ -623,7 +617,7 @@ export function PhotoLightbox({
         {imageUrl ? (
           <div
             ref={photoFrameRef}
-            className="relative inline-flex max-h-[100svh] max-w-screen items-center justify-center transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
+            className="relative inline-block max-h-[100svh] max-w-[100vw] transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
             style={entryStyle}
           >
             <img
@@ -631,158 +625,160 @@ export function PhotoLightbox({
               alt={photo.caption || "Photo"}
               width={photo.width ?? undefined}
               height={photo.height ?? undefined}
-              className="block max-h-[100svh] max-w-screen object-contain"
+              className="block max-h-[100svh] max-w-[100vw] object-contain"
               decoding="async"
               fetchPriority="high"
               onError={handleImageError}
             />
 
-            <div
-              className={`pointer-events-auto absolute bottom-4 left-4 z-20 flex items-center gap-3 rounded-full bg-white/25 px-2 py-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/35 transition-opacity duration-300 sm:bottom-5 sm:left-5 sm:gap-4 ${overlayVisibilityClass}`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  showControlsBriefly();
-                  setIsPlaying((current) => !current);
-                }}
-                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
-                aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
-                aria-pressed={isPlaying}
+            <div className="pointer-events-none absolute inset-0">
+              <div
+                className={`pointer-events-auto absolute bottom-4 left-4 z-20 flex items-center gap-3 rounded-full bg-white/25 px-2 py-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/35 transition-opacity duration-300 sm:bottom-5 sm:left-5 sm:gap-4 ${overlayVisibilityClass}`}
+                onClick={(e) => e.stopPropagation()}
               >
-                {isPlaying ? (
-                  <Pause className="h-5 w-5" />
-                ) : (
-                  <Play className="h-5 w-5" />
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={showControlsBriefly}
-                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
-                aria-label="Favorite photo"
-              >
-                <Heart className="h-5 w-5 stroke-1.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  showControlsBriefly();
-                  handleShare();
-                }}
-                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
-                aria-label="Share photo"
-              >
-                <Share2 className="h-5 w-5 stroke-1.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  showControlsBriefly();
-                  handleDownload();
-                }}
-                disabled={isDownloading}
-                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45"
-                aria-label="Download photo"
-              >
-                <Download className="h-5 w-5 stroke-1.5" />
-              </button>
-            </div>
-
-            <div
-              className={`absolute bottom-4 right-4 z-30 text-white drop-shadow transition-opacity duration-300 sm:bottom-5 sm:right-5 ${overlayVisibilityClass}`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  showControlsBriefly();
-                  setIsPeopleOpen((current) => !current);
-                }}
-                className="flex h-10 min-w-10 cursor-pointer items-center justify-center rounded-full bg-white/25 px-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/35 transition hover:bg-white/35 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
-                aria-expanded={isPeopleOpen}
-                aria-label="Show people in this photo"
-              >
-                {photoPeople.length ? (
-                  <span className="flex -space-x-2">
-                    {photoPeople.slice(0, 4).map((person) => (
-                      <span
-                        key={person.id}
-                        className="relative h-8 w-8 overflow-hidden rounded-full bg-zinc-800 ring-1 ring-white/90"
-                      >
-                        {person.coverFaceUrl ? (
-                          <img
-                            src={person.coverFaceUrl}
-                            alt={person.displayName || person.defaultName}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center">
-                            <User className="h-4 w-4" />
-                          </span>
-                        )}
-                      </span>
-                    ))}
-                  </span>
-                ) : (
-                  <Users className="h-5 w-5" />
-                )}
-              </button>
-
-              {isPeopleOpen && (
-                <div className="absolute bottom-full right-0 mb-3 w-[min(78vw,280px)] rounded-xl border border-white/20 bg-white/95 p-2 text-zinc-950 shadow-lg backdrop-blur-md">
-                  {photoPeople.length ? (
-                    <div className="space-y-1">
-                      {photoPeople.map((person) => {
-                        const displayName =
-                          person.displayName || person.defaultName;
-
-                        return (
-                          <button
-                            key={person.id}
-                            type="button"
-                            onClick={() => handlePersonClick(person.id)}
-                            className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-zinc-950/[0.05] focus:outline-none focus:ring-2 focus:ring-zinc-300"
-                          >
-                            <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
-                              {person.coverFaceUrl ? (
-                                <img
-                                  src={person.coverFaceUrl}
-                                  alt={displayName}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <span className="flex h-full w-full items-center justify-center text-zinc-400">
-                                  <User className="h-4 w-4" />
-                                </span>
-                              )}
-                            </span>
-
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-medium">
-                                {displayName}
-                              </span>
-                              <span className="block truncate text-xs text-zinc-500">
-                                {person.photoCount} photos
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    showControlsBriefly();
+                    setIsPlaying((current) => !current);
+                  }}
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
+                  aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
+                  aria-pressed={isPlaying}
+                >
+                  {isPlaying ? (
+                    <Pause className="h-5 w-5" />
                   ) : (
-                    <p className="px-2 py-2 text-sm text-zinc-500">
-                      No people detected in this photo.
-                    </p>
+                    <Play className="h-5 w-5" />
                   )}
-                </div>
-              )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={showControlsBriefly}
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
+                  aria-label="Favorite photo"
+                >
+                  <Heart className="h-5 w-5 stroke-1.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    showControlsBriefly();
+                    handleShare();
+                  }}
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
+                  aria-label="Share photo"
+                >
+                  <Share2 className="h-5 w-5 stroke-1.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    showControlsBriefly();
+                    handleDownload();
+                  }}
+                  disabled={isDownloading}
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45"
+                  aria-label="Download photo"
+                >
+                  <Download className="h-5 w-5 stroke-1.5" />
+                </button>
+              </div>
+
+              <div
+                className={`pointer-events-auto absolute bottom-4 right-4 z-30 transition-opacity duration-300 sm:bottom-5 sm:right-5 ${overlayVisibilityClass}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    showControlsBriefly();
+                    setIsPeopleOpen((current) => !current);
+                  }}
+                  className="flex h-10 min-w-10 cursor-pointer items-center justify-center rounded-full bg-white/25 px-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/35 transition hover:bg-white/35 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
+                  aria-expanded={isPeopleOpen}
+                  aria-label="Show people in this photo"
+                >
+                  {photoPeople.length ? (
+                    <span className="flex -space-x-2">
+                      {photoPeople.slice(0, 4).map((person) => (
+                        <span
+                          key={person.id}
+                          className="relative h-8 w-8 overflow-hidden rounded-full bg-zinc-800 ring-1 ring-white/90"
+                        >
+                          {person.coverFaceUrl ? (
+                            <img
+                              src={person.coverFaceUrl}
+                              alt={person.displayName || person.defaultName}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center">
+                              <User className="h-4 w-4" />
+                            </span>
+                          )}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <Users className="h-5 w-5" />
+                  )}
+                </button>
+
+                {isPeopleOpen && (
+                  <div className="absolute bottom-full right-0 mb-3 w-[min(78vw,280px)] rounded-xl border border-white/20 bg-white/95 p-2 text-zinc-950 shadow-lg backdrop-blur-md">
+                    {photoPeople.length ? (
+                      <div className="space-y-1">
+                        {photoPeople.map((person) => {
+                          const displayName =
+                            person.displayName || person.defaultName;
+
+                          return (
+                            <button
+                              key={person.id}
+                              type="button"
+                              onClick={() => handlePersonClick(person.id)}
+                              className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-zinc-950/[0.05] focus:outline-none focus:ring-2 focus:ring-zinc-300"
+                            >
+                              <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
+                                {person.coverFaceUrl ? (
+                                  <img
+                                    src={person.coverFaceUrl}
+                                    alt={displayName}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <span className="flex h-full w-full items-center justify-center text-zinc-400">
+                                    <User className="h-4 w-4" />
+                                  </span>
+                                )}
+                              </span>
+
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-medium">
+                                  {displayName}
+                                </span>
+                                <span className="block truncate text-xs text-zinc-500">
+                                  {person.photoCount} photos
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="px-2 py-2 text-sm text-zinc-500">
+                        No people detected in this photo.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ) : (
