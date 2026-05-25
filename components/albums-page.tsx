@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import useSWR from "swr";
-import { CalendarDays, Images, Lock, Users } from "lucide-react";
+import { CalendarDays, Images, Lock, Upload, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AlbumSummary } from "@/lib/types";
 
@@ -22,11 +22,20 @@ export function AlbumsPage() {
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-8 flex flex-col gap-2 sm:mb-10">
-          <p className="text-sm font-medium text-zinc-500">Albums</p>
-          <h1 className="text-3xl font-semibold tracking-normal sm:text-5xl">
-            Photo Galleries
-          </h1>
+        <header className="mb-8 flex items-start justify-between gap-4 sm:mb-10">
+          <div>
+            <p className="text-sm font-medium text-zinc-500">Albums</p>
+            <h1 className="text-3xl font-semibold tracking-normal sm:text-5xl">
+              Photo Galleries
+            </h1>
+          </div>
+          <Link
+            href="/upload"
+            className="flex h-10 shrink-0 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          >
+            <Upload className="h-4 w-4" />
+            Upload
+          </Link>
         </header>
 
         {error && (

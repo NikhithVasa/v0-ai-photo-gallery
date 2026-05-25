@@ -1,6 +1,7 @@
 import {
   GetObjectCommand,
   ListObjectsV2Command,
+  PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -144,4 +145,17 @@ export async function signedDownloadUrl(
 
     return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
   });
+}
+
+export async function signedUploadUrl(
+  key: string,
+  contentType: string
+): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: process.env.S3_BUCKET!,
+    Key: key,
+    ContentType: contentType,
+  });
+
+  return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
 }

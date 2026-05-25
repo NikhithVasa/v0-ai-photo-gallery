@@ -5,7 +5,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
-import { ArrowLeft, Check, Images, Search, User, Users, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Images,
+  Search,
+  Upload,
+  User,
+  Users,
+  X,
+} from "lucide-react";
 import { PeopleGrid } from "@/components/people-grid";
 import { PersonView } from "@/components/person-view";
 import { PhotosGrid } from "@/components/photos-grid";
@@ -436,6 +445,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             </div>
 
             <div className="flex items-center gap-2">
+              <Link
+                href={`/upload?album=${encodeURIComponent(albumSlug)}`}
+                className="flex h-9 w-9 items-center justify-center gap-2 rounded-full bg-zinc-950 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+                aria-label="Upload photos"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">Upload</span>
+              </Link>
               <div
                 className="hidden items-center gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-zinc-200 sm:flex"
                 role="tablist"
