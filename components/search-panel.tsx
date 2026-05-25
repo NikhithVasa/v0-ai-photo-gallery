@@ -131,7 +131,7 @@ export function SearchPanel({
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
-            <h2 className="text-lg font-semibold text-foreground">Ask AI</h2>
+            <h2 className="text-lg font-semibold text-foreground">Apsara AI</h2>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-5 h-5" />
             </Button>
@@ -145,7 +145,7 @@ export function SearchPanel({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask: photos of Nikhith dancing with Kishore"
+                placeholder="Ask Apsara AI: photos of Nikhith dancing with Kishore"
                 className="flex-1"
               />
               <Button onClick={handleSearch} disabled={isLoading || !query.trim()}>
@@ -288,7 +288,7 @@ export function FloatingSearchButton({
         className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
       >
         <MessageCircle className="w-5 h-5" />
-        <span className="font-medium">Ask AI</span>
+        <span className="font-medium">Apsara AI</span>
       </button>
 
       <SearchPanel

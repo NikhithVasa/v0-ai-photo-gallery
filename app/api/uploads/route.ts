@@ -28,6 +28,7 @@ interface EventRow {
   id: string;
   slug: string;
   name: string;
+  source_prefix: string | null;
 }
 
 interface PhotoInsertRow {
@@ -71,6 +72,23 @@ function contentTypeFromFile(file: UploadFileInput) {
       ".heif": "image/heif",
     }[ext] ?? "application/octet-stream"
   );
+}
+
+async function hasEventSourcePrefix() {
+  const row = await queryOne<{ exists: boolean }>(
+    `
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = 'album_events'
+        AND column_name = 'source_prefix'
+    ) AS exists
+    `,
+    []
+  );
+
+  return Boolean(row?.exists);
 }
 
 async function createOrGetAlbum(body: UploadRequestBody) {
@@ -117,6 +135,9 @@ async function createOrGetAlbum(body: UploadRequestBody) {
 async function createOrGetEvent(albumId: string, body: UploadRequestBody) {
   const eventName = body.eventName?.trim();
   const eventSlug = body.eventSlug?.trim();
+  const sourcePrefixSelect = (await hasEventSourcePrefix())
+    ? "source_prefix"
+    : "NULL::text AS source_prefix";
 
   if (eventName) {
     const slug = slugify(eventName);
@@ -137,7 +158,7 @@ async function createOrGetEvent(albumId: string, body: UploadRequestBody) {
       ON CONFLICT(album_id, slug) DO UPDATE SET
         name = EXCLUDED.name,
         updated_at = now()
-      RETURNING id, slug, name
+      RETURNING id, slug, name, ${sourcePrefixSelect}
       `,
       [albumId, eventName, slug]
     );
@@ -147,7 +168,7 @@ async function createOrGetEvent(albumId: string, body: UploadRequestBody) {
 
   return queryOne<EventRow>(
     `
-    SELECT id, slug, name
+    SELECT id, slug, name, ${sourcePrefixSelect}
     FROM album_events
     WHERE album_id = $1::uuid
       AND slug = $2
@@ -157,11 +178,18 @@ async function createOrGetEvent(albumId: string, body: UploadRequestBody) {
   );
 }
 
-function buildPhotoKeys(albumSlug: string, eventSlug: string, fileName: string) {
+function buildPhotoKeys(
+  albumSlug: string,
+  eventSlug: string,
+  fileName: string,
+  sourcePrefix?: string | null
+) {
   const photoUuid = randomUUID();
   const ext = extensionFromFileName(fileName);
   const stem = safeStem(fileName);
-  const base = `albums/${albumSlug}/events/${eventSlug}`;
+  const base =
+    sourcePrefix?.trim().replace(/^\/+|\/+$/g, "") ||
+    `albums/${albumSlug}/events/${eventSlug}`;
 
   return {
     photoUuid,
@@ -212,7 +240,12 @@ export async function POST(request: Request) {
 
     const uploads = await Promise.all(
       files.map(async (file) => {
-        const keys = buildPhotoKeys(album.slug, event.slug, file.fileName);
+        const keys = buildPhotoKeys(
+          album.slug,
+          event.slug,
+          file.fileName,
+          event.source_prefix
+        );
         const contentType = contentTypeFromFile(file);
         const row = await queryOne<PhotoInsertRow>(
           `

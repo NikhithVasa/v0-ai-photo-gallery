@@ -48,6 +48,15 @@ export interface Person {
   }>;
 }
 
+export interface PhotoPerson {
+  id: string;
+  personNumber: number;
+  defaultName: string;
+  displayName: string | null;
+  photoCount: number;
+  coverFaceUrl: string | null;
+}
+
 export interface Photo {
   id: string;
   albumId: string;
@@ -70,6 +79,7 @@ export interface Photo {
   watermarkedPreviewS3Key?: string | null;
   thumbnailS3Key?: string | null;
   annotatedS3Key?: string | null;
+  people?: PhotoPerson[];
 }
 
 export interface SearchResult {

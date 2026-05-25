@@ -41,10 +41,28 @@ export async function GET(request: Request, { params }: Props) {
         p.thumbnail_s3_key,
         p.annotated_s3_key,
         e.slug AS event_slug,
-        e.name AS event_name
+        e.name AS event_name,
+        COALESCE(photo_people_summary.people, '[]'::jsonb) AS people
       FROM photos p
       JOIN albums a ON a.id = p.album_id
       JOIN album_events e ON e.id = p.album_event_id
+      LEFT JOIN LATERAL (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', pe.id,
+            'person_number', pe.person_number,
+            'default_name', pe.default_name,
+            'display_name', pe.display_name,
+            'photo_count', pe.photo_count,
+            'cover_face_s3_key', pe.cover_face_s3_key
+          )
+          ORDER BY pe.person_number ASC NULLS LAST, pe.default_name ASC
+        ) AS people
+        FROM photo_people pp
+        JOIN people pe ON pe.id = pp.person_id
+        WHERE pp.photo_id = p.id
+          AND COALESCE(pe.is_hidden, false) = false
+      ) photo_people_summary ON true
       WHERE a.slug = $1
         AND ($2::text IS NULL OR e.slug = $2)
         AND (

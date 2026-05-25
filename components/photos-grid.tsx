@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
 import type { Photo } from "@/lib/types";
 
+export type PeopleMatchMode = "all" | "any";
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 const swrOptions = {
   dedupingInterval: 60 * 60 * 1000,
@@ -18,17 +20,21 @@ interface PhotosGridProps {
   albumSlug: string;
   selectedEventSlug: string | null;
   selectedPeopleIds: string[];
+  peopleMatchMode: PeopleMatchMode;
+  onPersonClick?: (personId: string) => void;
 }
 
 function photosUrl(
   albumSlug: string,
   selectedEventSlug: string | null,
-  selectedPeopleIds: string[]
+  selectedPeopleIds: string[],
+  peopleMatchMode: PeopleMatchMode
 ) {
   const base = `/api/albums/${encodeURIComponent(albumSlug)}/photos`;
   const params = new URLSearchParams();
   if (selectedEventSlug) params.set("event", selectedEventSlug);
   if (selectedPeopleIds.length) params.set("people", selectedPeopleIds.join(","));
+  if (selectedPeopleIds.length > 1) params.set("peopleMode", peopleMatchMode);
   const query = params.toString();
   return query ? `${base}?${query}` : base;
 }
@@ -37,9 +43,11 @@ export function PhotosGrid({
   albumSlug,
   selectedEventSlug,
   selectedPeopleIds,
+  peopleMatchMode,
+  onPersonClick,
 }: PhotosGridProps) {
   const { data, error, isLoading } = useSWR<{ photos: Photo[] }>(
-    photosUrl(albumSlug, selectedEventSlug, selectedPeopleIds),
+    photosUrl(albumSlug, selectedEventSlug, selectedPeopleIds, peopleMatchMode),
     fetcher,
     swrOptions
   );
@@ -89,7 +97,9 @@ export function PhotosGrid({
     return (
       <div className="rounded-md border border-zinc-200 bg-white px-6 py-12 text-center text-zinc-500">
         {selectedPeopleIds.length
-          ? "No photos found for the selected people."
+          ? peopleMatchMode === "any" && selectedPeopleIds.length > 1
+            ? "No photos found for any of the selected people."
+            : "No photos found with all selected people."
           : selectedEventSlug
           ? "No photos found for this event yet."
           : "No photos found in this album yet."}
@@ -128,6 +138,7 @@ export function PhotosGrid({
           originRect={lightboxState.originRect}
           onClose={() => setLightboxState(null)}
           onNavigate={handleNavigate}
+          onPersonClick={onPersonClick}
         />
       )}
     </>

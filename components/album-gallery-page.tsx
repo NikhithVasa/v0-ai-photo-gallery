@@ -8,6 +8,7 @@ import useSWR from "swr";
 import {
   ArrowLeft,
   Check,
+  Pencil,
   Images,
   Search,
   Upload,
@@ -301,6 +302,77 @@ function PeopleFilterButton({
   );
 }
 
+function EventNameControl({
+  eventName,
+  isEditing,
+  draft,
+  isSaving,
+  onStart,
+  onDraftChange,
+  onSave,
+  onCancel,
+}: {
+  eventName: string;
+  isEditing: boolean;
+  draft: string;
+  isSaving: boolean;
+  onStart: () => void;
+  onDraftChange: (value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  if (isEditing) {
+    return (
+      <div className="flex max-w-full items-center gap-1.5">
+        <Input
+          value={draft}
+          onChange={(event) => onDraftChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onSave();
+            if (event.key === "Escape") onCancel();
+          }}
+          className="h-8 w-48 max-w-[60vw] bg-white"
+          aria-label="Event name"
+          disabled={isSaving}
+          autoFocus
+        />
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={isSaving || !draft.trim()}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-950/5 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-35"
+          aria-label="Save event name"
+        >
+          <Check className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isSaving}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-950/5 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-35"
+          aria-label="Cancel event name edit"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <p className="text-sm font-medium text-zinc-500">{eventName}</p>
+      <button
+        type="button"
+        onClick={onStart}
+        className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-950/5 hover:text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+        aria-label={`Edit ${eventName} event name`}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -312,8 +384,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isPasswordVerified, setIsPasswordVerified] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [eventNameDraft, setEventNameDraft] = useState("");
+  const [isSavingEventName, setIsSavingEventName] = useState(false);
 
-  const { data, error, isLoading } = useSWR<{ album: AlbumDetail }>(
+  const { data, error, isLoading, mutate } = useSWR<{ album: AlbumDetail }>(
     `/api/albums/${encodeURIComponent(albumSlug)}`,
     fetcher,
     {
@@ -364,9 +439,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   const changeEvent = (eventSlug: string | null) => {
     setSelectedEventSlug(eventSlug);
+    setEditingEventId(null);
     router.replace(`/albums/${albumSlug}${eventQuery(eventSlug)}`, {
       scroll: false,
     });
+  };
+  const filterByPerson = (personId: string) => {
+    setSelectedPeopleIds([personId]);
+    setSelectedPerson(null);
+    setActiveTab("photos");
   };
   const toggleSelectedPersonId = (personId: string) => {
     setSelectedPeopleIds((current) =>
@@ -377,6 +458,68 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setSelectedPerson(null);
     setActiveTab("photos");
   };
+  const startEditingSelectedEvent = () => {
+    if (!selectedEvent) return;
+    setEditingEventId(selectedEvent.id);
+    setEventNameDraft(selectedEvent.name);
+  };
+  const cancelEditingEvent = () => {
+    setEditingEventId(null);
+    setEventNameDraft("");
+  };
+  const saveEventName = async () => {
+    if (!selectedEvent || !eventNameDraft.trim() || isSavingEventName) return;
+
+    setIsSavingEventName(true);
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/events`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventId: selectedEvent.id,
+            name: eventNameDraft.trim(),
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to update event name");
+      const payload = (await response.json()) as { events?: AlbumDetail["events"] };
+      if (payload.events) {
+        await mutate(
+          (current) =>
+            current
+              ? { album: { ...current.album, events: payload.events ?? current.album.events } }
+              : current,
+          { revalidate: false }
+        );
+      } else {
+        await mutate();
+      }
+      cancelEditingEvent();
+    } catch (error) {
+      console.error("Failed to update event name:", error);
+    } finally {
+      setIsSavingEventName(false);
+    }
+  };
+
+  const eventLabel = selectedEvent?.name ?? "All events";
+  const eventHeader = selectedEvent ? (
+    <EventNameControl
+      eventName={selectedEvent.name}
+      isEditing={editingEventId === selectedEvent.id}
+      draft={eventNameDraft}
+      isSaving={isSavingEventName}
+      onStart={startEditingSelectedEvent}
+      onDraftChange={setEventNameDraft}
+      onSave={saveEventName}
+      onCancel={cancelEditingEvent}
+    />
+  ) : (
+    <p className="text-sm font-medium text-zinc-500">{eventLabel}</p>
+  );
 
   if (isLoading) {
     return (
@@ -586,9 +729,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         ) : activeTab === "people" ? (
           <section className="space-y-5 px-2 sm:px-0">
             <div>
-              <p className="text-sm font-medium text-zinc-500">
-                {selectedEvent?.name ?? "All events"}
-              </p>
+              {eventHeader}
               <h2 className="text-3xl font-semibold tracking-normal sm:text-4xl">
                 People
               </h2>
@@ -603,9 +744,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         ) : (
           <section className="space-y-5">
             <div className="px-2 sm:px-0">
-              <p className="text-sm font-medium text-zinc-500">
-                {selectedEvent?.name ?? "All events"}
-              </p>
+              {eventHeader}
               <h2 className="text-3xl font-semibold tracking-normal sm:text-4xl">
                 Photos
               </h2>
@@ -614,6 +753,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               albumSlug={albumSlug}
               selectedEventSlug={selectedEventSlug}
               selectedPeopleIds={selectedPeopleIds}
+              onPersonClick={filterByPerson}
             />
           </section>
         )}

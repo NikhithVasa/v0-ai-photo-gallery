@@ -1,6 +1,6 @@
 import { query } from "@/lib/db";
 import { signedDownloadUrl, signedUrl } from "@/lib/s3";
-import type { AlbumEvent, Photo, Person } from "@/lib/types";
+import type { AlbumEvent, Photo, PhotoPerson, Person } from "@/lib/types";
 
 export interface AlbumEventRow {
   id: string;
@@ -30,6 +30,7 @@ export interface PhotoRow {
   annotated_s3_key: string | null;
   person_search_text?: string | null;
   qwen_description?: string | null;
+  people?: unknown;
 }
 
 export interface PersonRow {
@@ -86,10 +87,56 @@ function previewKey(row: PhotoRow) {
   );
 }
 
+interface PhotoPersonRow {
+  id?: unknown;
+  person_number?: unknown;
+  default_name?: unknown;
+  display_name?: unknown;
+  photo_count?: unknown;
+  cover_face_s3_key?: unknown;
+}
+
+function parsePhotoPeople(value: unknown): PhotoPersonRow[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value as PhotoPersonRow[];
+  if (typeof value !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? (parsed as PhotoPersonRow[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function toPhotoPerson(row: PhotoPersonRow): Promise<PhotoPerson | null> {
+  if (typeof row.id !== "string") return null;
+
+  return {
+    id: row.id,
+    personNumber:
+      typeof row.person_number === "number"
+        ? row.person_number
+        : typeof row.person_number === "string"
+          ? Number.parseInt(row.person_number, 10) || 0
+          : 0,
+    defaultName:
+      typeof row.default_name === "string" ? row.default_name : "Person",
+    displayName: typeof row.display_name === "string" ? row.display_name : null,
+    photoCount: numberValue(row.photo_count as number | string | null),
+    coverFaceUrl: await signedUrl(
+      typeof row.cover_face_s3_key === "string" ? row.cover_face_s3_key : null
+    ),
+  };
+}
+
 export async function toPhoto(row: PhotoRow): Promise<Photo> {
-  const [thumbnailUrl, previewUrl] = await Promise.all([
+  const [thumbnailUrl, previewUrl, people] = await Promise.all([
     signedUrl(gridKey(row)),
     signedUrl(previewKey(row)),
+    Promise.all(parsePhotoPeople(row.people).map(toPhotoPerson)).then((items) =>
+      items.filter((item): item is PhotoPerson => Boolean(item))
+    ),
   ]);
 
   return {
@@ -114,6 +161,7 @@ export async function toPhoto(row: PhotoRow): Promise<Photo> {
     watermarkedPreviewS3Key: row.watermarked_preview_s3_key,
     thumbnailS3Key: row.thumbnail_s3_key,
     annotatedS3Key: row.annotated_s3_key,
+    people,
   };
 }
 

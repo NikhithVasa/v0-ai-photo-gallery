@@ -15,13 +15,15 @@ import {
   Download,
   Heart,
   Mail,
+  Pause,
   Play,
   Share2,
+  User,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { photoAspectRatio } from "@/lib/photo-layout";
-import type { Photo } from "@/lib/types";
+import type { Photo, PhotoPerson } from "@/lib/types";
 
 interface SignedPhotoUrls {
   previewUrl: string | null;
@@ -226,6 +228,99 @@ interface PhotoLightboxProps {
   originRect?: PhotoOpenRect;
   onClose: () => void;
   onNavigate: (index: number) => void;
+  onPersonClick?: (personId: string) => void;
+}
+
+function SelectedPhotoPeoplePanel({
+  photo,
+  people,
+  onPersonClick,
+}: {
+  photo: Photo;
+  people: PhotoPerson[];
+  onPersonClick?: (personId: string) => void;
+}) {
+  return (
+    <aside className="flex h-full flex-col gap-3">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-400">
+          {photo.eventName}
+        </p>
+        <h2 className="mt-1 truncate text-base font-semibold text-zinc-950">
+          {photo.fileName || "Selected photo"}
+        </h2>
+      </div>
+
+      <div className="h-px bg-zinc-200" />
+
+      <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-400">
+        People
+      </p>
+
+      {people.length ? (
+        <div className="space-y-1.5">
+          {people.map((person) => {
+            const displayName = person.displayName || person.defaultName;
+            const countLabel = `appears in ${person.photoCount} ${
+              person.photoCount === 1 ? "photo" : "photos"
+            }`;
+            const content = (
+              <>
+                <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
+                  {person.coverFaceUrl ? (
+                    <img
+                      src={person.coverFaceUrl}
+                      alt={displayName}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-zinc-400">
+                      <User className="h-5 w-5" />
+                    </span>
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-zinc-900">
+                    {displayName}
+                  </span>
+                  <span className="block truncate text-xs text-zinc-500">
+                    Person {person.personNumber || "-"} · {countLabel}
+                  </span>
+                </span>
+              </>
+            );
+
+            if (!onPersonClick) {
+              return (
+                <div
+                  key={person.id}
+                  className="flex w-full items-center gap-3 rounded-md px-2 py-2"
+                >
+                  {content}
+                </div>
+              );
+            }
+
+            return (
+              <button
+                key={person.id}
+                type="button"
+                onClick={() => onPersonClick(person.id)}
+                className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition hover:bg-zinc-950/[0.04] focus:outline-none focus:ring-2 focus:ring-zinc-300"
+              >
+                {content}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="rounded-md border border-zinc-200 bg-white/70 px-3 py-3 text-sm text-zinc-500">
+          No people detected in this photo.
+        </p>
+      )}
+    </aside>
+  );
 }
 
 export function PhotoLightbox({
@@ -235,8 +330,10 @@ export function PhotoLightbox({
   originRect,
   onClose,
   onNavigate,
+  onPersonClick,
 }: PhotoLightboxProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [signedUrls, setSignedUrls] = useState<Record<string, SignedPhotoUrls>>(
     {}
   );
@@ -247,6 +344,7 @@ export function PhotoLightbox({
   const imageUrl = signedPhoto?.previewUrl || photo.previewUrl || photo.thumbnailUrl;
   const downloadUrl = signedPhoto?.downloadUrl || photo.downloadUrl;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
+  const photoPeople = photo.people ?? [];
 
   useLayoutEffect(() => {
     const frame = photoFrameRef.current;
@@ -325,6 +423,16 @@ export function PhotoLightbox({
     };
   }, [albumSlug, currentIndex, photos, signedUrls]);
 
+  useEffect(() => {
+    if (!isPlaying || photos.length <= 1) return;
+
+    const interval = window.setInterval(() => {
+      onNavigate(currentIndex < photos.length - 1 ? currentIndex + 1 : 0);
+    }, 3000);
+
+    return () => window.clearInterval(interval);
+  }, [currentIndex, isPlaying, onNavigate, photos.length]);
+
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
@@ -358,9 +466,14 @@ export function PhotoLightbox({
     if (e.key === "Escape") onClose();
   };
 
+  const handlePersonClick = (personId: string) => {
+    onPersonClick?.(personId);
+    onClose();
+  };
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-white/[0.92] px-3 py-4 backdrop-blur-[1px] sm:bg-white/[0.94] sm:px-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-white/[0.92] px-3 py-4 backdrop-blur-[1px] sm:bg-white/[0.94] sm:px-6 md:pl-80"
       onClick={onClose}
       onKeyDown={handleKeyDown}
       tabIndex={0}
@@ -369,12 +482,33 @@ export function PhotoLightbox({
         <button
           type="button"
           className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-zinc-950/5 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:h-9 sm:w-9"
-          aria-label="Play slideshow"
-          onClick={(e) => e.stopPropagation()}
+          aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
+          aria-pressed={isPlaying}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsPlaying((current) => !current);
+          }}
         >
-          <Play className="h-5 w-5" />
+          {isPlaying ? (
+            <Pause className="h-5 w-5" />
+          ) : (
+            <Play className="h-5 w-5" />
+          )}
         </button>
-        <span className="text-sm font-medium">Play</span>
+        <span className="text-sm font-medium">
+          {isPlaying ? "Playing" : "Play"}
+        </span>
+      </div>
+
+      <div
+        className="absolute bottom-5 left-4 top-16 z-10 hidden w-72 overflow-y-auto rounded-lg border border-zinc-200 bg-white/75 p-4 shadow-sm backdrop-blur-md md:block"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <SelectedPhotoPeoplePanel
+          photo={photo}
+          people={photoPeople}
+          onPersonClick={onPersonClick ? handlePersonClick : undefined}
+        />
       </div>
 
       <div className="absolute right-3 top-3 z-10 sm:right-6 sm:top-5">
@@ -449,6 +583,14 @@ export function PhotoLightbox({
 
         <div className="mt-2 max-w-[min(92vw,1180px)] truncate px-4 text-center text-sm font-medium text-zinc-700">
           {photoName}
+        </div>
+
+        <div className="mt-3 w-[min(92vw,520px)] rounded-lg border border-zinc-200 bg-white/75 p-3 shadow-sm backdrop-blur-md md:hidden">
+          <SelectedPhotoPeoplePanel
+            photo={photo}
+            people={photoPeople}
+            onPersonClick={onPersonClick ? handlePersonClick : undefined}
+          />
         </div>
 
         <div className="mt-2 flex items-center justify-center gap-3 text-zinc-600 sm:gap-5">
