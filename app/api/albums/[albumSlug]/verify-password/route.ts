@@ -26,6 +26,11 @@ function passwordMatches(password: string, storedHash: string) {
     return safeCompare(`sha256:${digest}`, storedHash);
   }
 
+  if (/^[a-f0-9]{32}$/i.test(storedHash)) {
+    const digest = createHash("md5").update(password).digest("hex");
+    return safeCompare(digest, storedHash.toLowerCase());
+  }
+
   return safeCompare(password, storedHash);
 }
 

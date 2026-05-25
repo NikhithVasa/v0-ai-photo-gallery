@@ -1,11 +1,14 @@
 import { Pool } from "pg";
 import { Signer } from "@aws-sdk/rds-signer";
 
-const RDS_HOST = process.env.RDS_HOST || "database-1-instance-1.c7o2u4ouqyim.us-east-1.rds.amazonaws.com";
+const RDS_HOST =
+  process.env.RDS_HOST ||
+  "photo-gallery-postgres-dev.c7o2u4ouqyim.us-east-1.rds.amazonaws.com";
 const RDS_PORT = parseInt(process.env.RDS_PORT || "5432");
 const RDS_USER = process.env.RDS_USER || "photo_worker";
 const RDS_DB = process.env.RDS_DB || "postgres";
 const AWS_REGION = process.env.AWS_REGION || "us-east-1";
+const RDS_PASSWORD = process.env.RDS_PASSWORD;
 const IAM_TOKEN_REFRESH_MS = 12 * 60 * 1000;
 
 async function generateAuthToken(): Promise<string> {
@@ -33,13 +36,13 @@ async function getPool(): Promise<Pool> {
     const previousPoolPromise = poolPromise;
     poolCreatedAt = Date.now();
     poolPromise = (async () => {
-      const token = await generateAuthToken();
+      const password = RDS_PASSWORD ?? (await generateAuthToken());
       return new Pool({
         host: RDS_HOST,
         port: RDS_PORT,
         user: RDS_USER,
         database: RDS_DB,
-        password: token,
+        password,
         ssl: {
           rejectUnauthorized: false,
         },
