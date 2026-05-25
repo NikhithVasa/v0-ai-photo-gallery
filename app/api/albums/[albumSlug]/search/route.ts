@@ -229,16 +229,22 @@ export async function POST(request: Request, { params }: Props) {
 
     const { personNames, keywords } = extractSearchTerms(searchQuery);
     const resolvedIds = new Set<string>();
+    const unresolvedTerms = new Set<string>();
 
     for (const value of [...requestedPeople, ...personNames]) {
       const personId = await resolvePerson(albumSlug, value);
-      if (personId) resolvedIds.add(personId);
+      if (personId) {
+        resolvedIds.add(personId);
+      } else if (!isUuid(value) && !/^person\s*\d+$/i.test(value)) {
+        unresolvedTerms.add(value);
+      }
     }
 
     const personIds = Array.from(resolvedIds);
+    const keywordTerms = [...keywords, ...unresolvedTerms];
     const keyword =
-      keywords.length > 0
-        ? keywords.join(" ")
+      keywordTerms.length > 0
+        ? keywordTerms.join(" ")
         : personIds.length > 0
           ? null
           : searchQuery;

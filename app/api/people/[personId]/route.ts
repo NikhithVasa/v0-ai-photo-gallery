@@ -32,8 +32,10 @@ export async function PATCH(request: Request, { params }: Props) {
     // Insert alias
     await query(
       `
-      INSERT INTO person_aliases (person_id, alias)
-      VALUES ($1, $2)
+      INSERT INTO person_aliases (album_id, person_id, alias)
+      SELECT album_id, id, $2
+      FROM people
+      WHERE id = $1
       ON CONFLICT DO NOTHING
     `,
       [personId, displayName.trim().toLowerCase()]

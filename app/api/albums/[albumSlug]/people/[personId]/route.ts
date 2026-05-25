@@ -22,7 +22,8 @@ export async function PATCH(request: Request, { params }: Props) {
     const person = await queryOne<{ id: string; display_name: string | null }>(
       `
       UPDATE people pe
-      SET display_name = $1
+      SET display_name = $1,
+          updated_at = now()
       FROM albums a
       WHERE pe.id = $2
         AND pe.album_id = a.id
@@ -39,11 +40,15 @@ export async function PATCH(request: Request, { params }: Props) {
     try {
       await query(
         `
-        INSERT INTO person_aliases (person_id, alias)
-        VALUES ($1, $2)
+        INSERT INTO person_aliases (album_id, person_id, alias)
+        SELECT pe.album_id, pe.id, $2
+        FROM people pe
+        JOIN albums a ON a.id = pe.album_id
+        WHERE pe.id = $1
+          AND a.slug = $3
         ON CONFLICT DO NOTHING
         `,
-        [personId, displayName.toLowerCase()]
+        [personId, displayName.toLowerCase(), albumSlug]
       );
     } catch (error) {
       console.warn("Could not insert person alias:", error);
