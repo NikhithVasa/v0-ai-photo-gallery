@@ -18,7 +18,7 @@ import {
 import { PeopleGrid } from "@/components/people-grid";
 import { PersonView } from "@/components/person-view";
 import { PhotosGrid } from "@/components/photos-grid";
-import { FloatingSearchButton } from "@/components/search-panel";
+import { ApsaraMomentsRoot } from "@/components/apsara-moments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -619,7 +619,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         )}
       </div>
 
-      <FloatingSearchButton
+      <ApsaraMomentsRoot
         albumSlug={albumSlug}
         selectedEventSlug={selectedEventSlug}
         selectedPeopleIds={selectedPeopleIds}
