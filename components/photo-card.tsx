@@ -265,6 +265,7 @@ export function PhotoLightbox({
   const [isPeopleOpen, setIsPeopleOpen] = useState(false);
   const [areControlsVisible, setAreControlsVisible] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [signedUrls, setSignedUrls] = useState<Record<string, SignedPhotoUrls>>(
     {}
   );
@@ -288,6 +289,10 @@ export function PhotoLightbox({
   const downloadUrl = signedPhoto?.downloadUrl || photo.downloadUrl;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
+  const photoAspect =
+    photo.width && photo.height && photo.width > 0 && photo.height > 0
+      ? photo.width / photo.height
+      : null;
 
   const startControlsTimer = useCallback(() => {
     if (controlsTimerRef.current) {
@@ -320,6 +325,25 @@ export function PhotoLightbox({
     setActiveImageIndex(0);
     setIsPeopleOpen(false);
   }, [photo.id]);
+
+  useEffect(() => {
+    const updateViewportSize = () => {
+      const visualViewport = window.visualViewport;
+      setViewportSize({
+        width: visualViewport?.width ?? window.innerWidth,
+        height: visualViewport?.height ?? window.innerHeight,
+      });
+    };
+
+    updateViewportSize();
+    window.addEventListener("resize", updateViewportSize);
+    window.visualViewport?.addEventListener("resize", updateViewportSize);
+
+    return () => {
+      window.removeEventListener("resize", updateViewportSize);
+      window.visualViewport?.removeEventListener("resize", updateViewportSize);
+    };
+  }, []);
 
   useEffect(() => {
     const hasMouse = window.matchMedia("(pointer: fine)").matches;
@@ -552,6 +576,24 @@ export function PhotoLightbox({
     areControlsVisible || isPeopleOpen
       ? "opacity-100"
       : "opacity-0 pointer-events-none";
+  const imageFrameStyle: CSSProperties = {};
+
+  if (photoAspect && viewportSize.width && viewportSize.height) {
+    const maxWidth = Math.max(240, viewportSize.width - 32);
+    const maxHeight = Math.max(240, viewportSize.height - 32);
+    const boundsAspect = maxWidth / maxHeight;
+
+    if (boundsAspect > photoAspect) {
+      imageFrameStyle.height = maxHeight;
+      imageFrameStyle.width = maxHeight * photoAspect;
+    } else {
+      imageFrameStyle.width = maxWidth;
+      imageFrameStyle.height = maxWidth / photoAspect;
+    }
+  } else {
+    imageFrameStyle.width = "calc(100vw - 32px)";
+    imageFrameStyle.height = "calc(100svh - 32px)";
+  }
 
   return (
     <div
@@ -563,24 +605,6 @@ export function PhotoLightbox({
       onMouseMove={showControlsBriefly}
       tabIndex={0}
     >
-      <div
-        className={`pointer-events-none absolute left-1/2 top-4 z-30 max-w-[70vw] -translate-x-1/2 truncate text-center text-sm font-medium text-white drop-shadow transition-opacity duration-300 sm:top-5 ${overlayVisibilityClass}`}
-      >
-        {photoName}
-      </div>
-
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
-        className={`absolute right-3 top-3 z-30 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-white drop-shadow transition-opacity duration-300 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-6 sm:top-5 ${overlayVisibilityClass}`}
-        aria-label="Close photo"
-      >
-        <X className="h-5 w-5" />
-      </button>
-
       <button
         type="button"
         className={`absolute left-2 top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-full p-1 text-white drop-shadow transition-opacity duration-300 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70 sm:left-8 sm:p-2 ${overlayVisibilityClass}`}
@@ -618,14 +642,14 @@ export function PhotoLightbox({
           <div
             ref={photoFrameRef}
             className="relative inline-block max-h-[100svh] max-w-[100vw] transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
-            style={entryStyle}
+            style={{ ...imageFrameStyle, ...entryStyle }}
           >
             <img
               src={imageUrl}
               alt={photo.caption || "Photo"}
               width={photo.width ?? undefined}
               height={photo.height ?? undefined}
-              className="block max-h-[100svh] max-w-[100vw] object-contain"
+              className="block h-full w-full object-contain"
               decoding="async"
               fetchPriority="high"
               onError={handleImageError}
@@ -633,7 +657,25 @@ export function PhotoLightbox({
 
             <div className="pointer-events-none absolute inset-0">
               <div
-                className={`pointer-events-auto absolute bottom-4 left-4 z-20 flex items-center gap-3 rounded-full bg-white/25 px-2 py-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/35 transition-opacity duration-300 sm:bottom-5 sm:left-5 sm:gap-4 ${overlayVisibilityClass}`}
+                className={`pointer-events-none absolute left-1/2 top-4 z-30 max-w-[70%] -translate-x-1/2 truncate text-center text-sm font-medium text-white drop-shadow transition-opacity duration-300 ${overlayVisibilityClass}`}
+              >
+                {photoName}
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+                className={`pointer-events-auto absolute right-4 top-4 z-30 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-white drop-shadow transition-opacity duration-300 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70 ${overlayVisibilityClass}`}
+                aria-label="Close photo"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div
+                className={`pointer-events-auto absolute bottom-4 left-4 z-20 flex items-center gap-3 text-white drop-shadow transition-opacity duration-300 sm:bottom-5 sm:left-5 sm:gap-4 ${overlayVisibilityClass}`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
@@ -642,7 +684,7 @@ export function PhotoLightbox({
                     showControlsBriefly();
                     setIsPlaying((current) => !current);
                   }}
-                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70"
                   aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
                   aria-pressed={isPlaying}
                 >
@@ -656,7 +698,7 @@ export function PhotoLightbox({
                 <button
                   type="button"
                   onClick={showControlsBriefly}
-                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70"
                   aria-label="Favorite photo"
                 >
                   <Heart className="h-5 w-5 stroke-1.5" />
@@ -668,7 +710,7 @@ export function PhotoLightbox({
                     showControlsBriefly();
                     handleShare();
                   }}
-                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70"
                   aria-label="Share photo"
                 >
                   <Share2 className="h-5 w-5 stroke-1.5" />
@@ -681,7 +723,7 @@ export function PhotoLightbox({
                     handleDownload();
                   }}
                   disabled={isDownloading}
-                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45"
                   aria-label="Download photo"
                 >
                   <Download className="h-5 w-5 stroke-1.5" />
@@ -698,7 +740,7 @@ export function PhotoLightbox({
                     showControlsBriefly();
                     setIsPeopleOpen((current) => !current);
                   }}
-                  className="flex h-10 min-w-10 cursor-pointer items-center justify-center rounded-full bg-white/25 px-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/35 transition hover:bg-white/35 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70"
+                  className="flex h-10 min-w-10 cursor-pointer items-center justify-center rounded-full px-1 text-white drop-shadow transition hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-white/70"
                   aria-expanded={isPeopleOpen}
                   aria-label="Show people in this photo"
                 >
