@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
 import type { Photo } from "@/lib/types";
 
 export type PeopleMatchMode = "all" | "any";
@@ -41,6 +40,44 @@ function photosUrl(
 
   const query = params.toString();
   return query ? `${base}?${query}` : base;
+}
+
+function getPhotoAspectRatio(photo: Photo) {
+  const width = photo.width || photo.previewWidth || photo.thumbWidth || 1;
+  const height = photo.height || photo.previewHeight || photo.thumbHeight || 1;
+
+  return width / height;
+}
+
+function getBalancedTileClass(photo: Photo, index: number, total: number) {
+  const aspectRatio = getPhotoAspectRatio(photo);
+  const isWide = aspectRatio >= 1.55;
+  const isTall = aspectRatio <= 0.72;
+
+  // Avoid weird final single huge row.
+  const isLast = index === total - 1;
+  const remainderDesktop = total % 3;
+
+  if (total === 1) {
+    return "col-span-2 sm:col-span-4 lg:col-span-6 aspect-[4/3]";
+  }
+
+  if (isLast && remainderDesktop === 1) {
+    return "col-span-1 sm:col-span-2 lg:col-span-2 aspect-[4/5]";
+  }
+
+  // Wide photos can be larger, but never full row.
+  if (isWide) {
+    return "col-span-2 sm:col-span-2 lg:col-span-3 aspect-[4/3]";
+  }
+
+  // Tall photos should not become huge.
+  if (isTall) {
+    return "col-span-1 sm:col-span-2 lg:col-span-2 aspect-[4/5]";
+  }
+
+  // Default: 3 per row desktop, 2 per row tablet/mobile.
+  return "col-span-1 sm:col-span-2 lg:col-span-2 aspect-[4/5]";
 }
 
 export function PhotosGrid({
@@ -142,21 +179,15 @@ export function PhotosGrid({
 
   if (isLoading) {
     return (
-      <div className="flex flex-wrap gap-2">
-        {Array.from({ length: 12 }).map((_, i) => (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+        {Array.from({ length: 12 }).map((_, index) => (
           <Skeleton
-            key={i}
-            className="h-56 min-w-[min(42vw,180px)] flex-1 rounded-md sm:h-72 lg:h-80"
-            style={{
-              flexBasis:
-                i % 5 === 0
-                  ? "430px"
-                  : i % 3 === 0
-                    ? "240px"
-                    : i % 2 === 0
-                      ? "520px"
-                      : "320px",
-            }}
+            key={index}
+            className={`rounded-md ${
+              index % 5 === 0
+                ? "col-span-2 sm:col-span-2 lg:col-span-3 aspect-[4/3]"
+                : "col-span-1 sm:col-span-2 lg:col-span-2 aspect-[4/5]"
+            }`}
           />
         ))}
       </div>
@@ -179,27 +210,28 @@ export function PhotosGrid({
 
   return (
     <>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
         {data.photos.map((photo, index) => (
           <div
             key={photo.id}
-            className="min-w-[min(42vw,180px)] max-w-full"
-            style={{
-              flexBasis: photoFlexBasis(photo),
-              flexGrow: photoAspectRatio(photo),
-            }}
+            className={`min-w-0 overflow-hidden rounded-md ${getBalancedTileClass(
+              photo,
+              index,
+              data.photos.length
+            )}`}
           >
             <PhotoCard
               albumSlug={albumSlug}
               photo={photo}
               index={index}
               onOpen={handleOpen}
+              forceFill
             />
           </div>
         ))}
-
-        <div ref={endSentinelRef} className="h-px flex-[999_1_20rem]" />
       </div>
+
+      <div ref={endSentinelRef} className="h-px w-full" />
 
       {lightboxState !== null && (
         <PhotoLightbox

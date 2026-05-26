@@ -90,6 +90,7 @@ interface PhotoCardProps {
   photo: Photo;
   index: number;
   onOpen: (index: number, originRect: PhotoOpenRect) => void;
+  forceFill?: boolean;
 }
 
 export interface PhotoOpenRect {
@@ -104,6 +105,7 @@ export const PhotoCard = memo(function PhotoCard({
   photo,
   index,
   onOpen,
+  forceFill = false,
 }: PhotoCardProps) {
   const imageUrl = photo.thumbnailUrl || photo.previewUrl;
   const aspectRatio = photoAspectRatio(photo);
@@ -154,10 +156,12 @@ export const PhotoCard = memo(function PhotoCard({
   };
 
   return (
-    <div
-      className="group relative w-full overflow-hidden rounded-md bg-muted text-left shadow-sm ring-1 ring-border transition-shadow duration-200 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background"
-      style={{ aspectRatio }}
-    >
+<div
+  className={`group relative w-full overflow-hidden rounded-md bg-muted text-left shadow-sm ring-1 ring-border transition-shadow duration-200 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background ${
+    forceFill ? "h-full" : ""
+  }`}
+  style={forceFill ? undefined : { aspectRatio }}
+>
       <button
         type="button"
         onClick={(event) => {
