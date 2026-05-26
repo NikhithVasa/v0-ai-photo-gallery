@@ -246,8 +246,7 @@ function PeopleFilterButton({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-[min(88vw,360px)] rounded-lg border border-zinc-200 bg-white p-3 text-zinc-950 shadow-xl">
-          <div className="mb-3 flex items-center justify-between gap-3">
+<div className="fixed left-4 right-4 top-[88px] z-50 max-h-[70vh] overflow-hidden rounded-lg border border-zinc-200 bg-white p-3 text-zinc-950 shadow-xl sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:max-h-none sm:w-[min(88vw,360px)]">          <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">Filter people</p>
               <p className="text-xs text-zinc-500">
@@ -286,8 +285,8 @@ function PeopleFilterButton({
             className="mb-3 h-9"
           />
 
-          <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
-            {filteredPeople.length === 0 ? (
+<div className="max-h-[48vh] space-y-1 overflow-y-auto pr-1 sm:max-h-72">
+              {filteredPeople.length === 0 ? (
               <div className="py-8 text-center text-sm text-zinc-500">
                 No people found.
               </div>
@@ -571,6 +570,18 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
     changeEvent(nextEvent.slug);
   };
+
+  const filterByPeopleSelection = (
+  people: Person[],
+  mode: PeopleMatchMode
+) => {
+  const ids = people.map((person) => person.id);
+
+  setSelectedPeopleIds(ids);
+  setPeopleMatchMode(ids.length > 1 ? mode : "all");
+  setSelectedPerson(null);
+  setActiveTab("photos");
+};
 
   const filterByPerson = (personId: string) => {
     setSelectedPeopleIds([personId]);
@@ -907,12 +918,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </h2>
             </div>
 
-            <PeopleGrid
-              albumSlug={albumSlug}
-              selectedEventSlug={null}
-              events={album.events}
-              onPersonClick={setSelectedPerson}
-            />
+           <PeopleGrid
+  albumSlug={albumSlug}
+  selectedEventSlug={null}
+  events={album.events}
+  onPersonClick={setSelectedPerson}
+  onPeopleSelectionApply={filterByPeopleSelection}
+/>
           </section>
         ) : (
           <section className="space-y-5">

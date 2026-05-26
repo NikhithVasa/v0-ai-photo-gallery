@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
-import { Input } from "@/components/ui/input";
 import { Check, Pencil, User, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import type { AlbumEvent, Person } from "@/lib/types";
 
 interface PersonCardProps {
@@ -12,6 +12,9 @@ interface PersonCardProps {
   selectedEventSlug: string | null;
   onClick: () => void;
   onRename: (newName: string) => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onSelectToggle?: () => void;
 }
 
 export function PersonCard({
@@ -20,10 +23,15 @@ export function PersonCard({
   selectedEventSlug,
   onClick,
   onRename,
+  isSelectionMode = false,
+  isSelected = false,
+  onSelectToggle,
 }: PersonCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(person.displayName || person.defaultName);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const displayName = person.displayName || person.defaultName;
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -34,36 +42,48 @@ export function PersonCard({
 
   useEffect(() => {
     if (!isEditing) {
-      setName(person.displayName || person.defaultName);
+      setName(displayName);
     }
-  }, [isEditing, person.defaultName, person.displayName]);
+  }, [displayName, isEditing]);
+
+  useEffect(() => {
+    if (isSelectionMode && isEditing) {
+      setIsEditing(false);
+    }
+  }, [isEditing, isSelectionMode]);
 
   const handleSave = () => {
-    if (name.trim() && name.trim() !== (person.displayName || person.defaultName)) {
+    if (name.trim() && name.trim() !== displayName) {
       onRename(name.trim());
     }
+
     setIsEditing(false);
   };
 
   const handleCancel = () => {
-    setName(person.displayName || person.defaultName);
+    setName(displayName);
     setIsEditing(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
       handleSave();
-    } else if (e.key === "Escape") {
+    }
+
+    if (event.key === "Escape") {
       handleCancel();
     }
   };
 
-  const displayName = person.displayName || person.defaultName;
   const photoLabel = `${person.photoCount} ${
     person.photoCount === 1 ? "photo" : "photos"
   }`;
+
   const eventStats = events.map((event) => {
-    const stat = person.eventStats?.find((item) => item.eventSlug === event.slug);
+    const stat = person.eventStats?.find(
+      (item) => item.eventSlug === event.slug
+    );
+
     return {
       event,
       photoCount: stat?.photoCount ?? 0,
@@ -74,9 +94,19 @@ export function PersonCard({
     <div className="group flex min-w-0 flex-col items-center gap-3">
       <div className="relative">
         <button
+          type="button"
           onClick={onClick}
-          className="relative h-32 w-32 overflow-hidden rounded-full bg-muted shadow-lg ring-1 ring-border transition duration-200 hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-4 focus:ring-offset-background sm:h-36 sm:w-36"
-          aria-label={`Open ${displayName}`}
+          className={`relative h-32 w-32 cursor-pointer overflow-hidden rounded-full bg-muted shadow-lg ring-1 transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-4 focus:ring-offset-background sm:h-36 sm:w-36 ${
+            isSelected
+              ? "ring-4 ring-zinc-950 ring-offset-4 ring-offset-background"
+              : "ring-border hover:shadow-xl"
+          }`}
+          aria-label={
+            isSelectionMode
+              ? `${isSelected ? "Unselect" : "Select"} ${displayName}`
+              : `Open ${displayName}`
+          }
+          aria-pressed={isSelectionMode ? isSelected : undefined}
         >
           {person.coverFaceUrl ? (
             <Image
@@ -92,16 +122,34 @@ export function PersonCard({
               <User className="h-12 w-12 text-muted-foreground" />
             </div>
           )}
+
+          {isSelectionMode && (
+            <span
+              className={`absolute inset-0 flex items-center justify-center transition ${
+                isSelected ? "bg-black/25" : "bg-black/0 group-hover:bg-black/10"
+              }`}
+            >
+              <span
+                className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border shadow-md transition ${
+                  isSelected
+                    ? "border-zinc-950 bg-zinc-950 text-white"
+                    : "border-white/80 bg-white/80 text-zinc-500"
+                }`}
+              >
+                {isSelected && <Check className="h-4 w-4" />}
+              </span>
+            </span>
+          )}
         </button>
 
-        {!isEditing && (
+        {!isEditing && !isSelectionMode && (
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={(event) => {
+              event.stopPropagation();
               setIsEditing(true);
             }}
-            className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-muted-foreground opacity-0 shadow-md backdrop-blur transition hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
+            className="absolute bottom-1 right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-background/90 text-muted-foreground opacity-0 shadow-md backdrop-blur transition hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
             aria-label={`Rename ${displayName}`}
           >
             <Pencil className="h-4 w-4" />
@@ -115,22 +163,24 @@ export function PersonCard({
             <Input
               ref={inputRef}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(event) => setName(event.target.value)}
               onKeyDown={handleKeyDown}
               className="h-8 w-28 px-2 text-center text-sm"
             />
+
             <button
               type="button"
               onClick={handleSave}
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent"
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full hover:bg-accent"
               aria-label="Save name"
             >
               <Check className="h-4 w-4 text-primary" />
             </button>
+
             <button
               type="button"
               onClick={handleCancel}
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-accent"
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full hover:bg-accent"
               aria-label="Cancel rename"
             >
               <X className="h-4 w-4 text-muted-foreground" />
@@ -139,15 +189,26 @@ export function PersonCard({
         ) : (
           <button
             type="button"
-            onClick={onClick}
-            className="max-w-full truncate text-base font-semibold text-foreground hover:text-primary focus:outline-none focus:underline"
+            onClick={() => {
+              if (isSelectionMode) {
+                onSelectToggle?.();
+                return;
+              }
+
+              onClick();
+            }}
+            className={`max-w-full cursor-pointer truncate text-base font-semibold focus:outline-none focus:underline ${
+              isSelected
+                ? "text-zinc-950"
+                : "text-foreground hover:text-primary"
+            }`}
           >
             {displayName}
           </button>
         )}
-        <span className="text-sm text-muted-foreground">
-          {photoLabel}
-        </span>
+
+        <span className="text-sm text-muted-foreground">{photoLabel}</span>
+
         {eventStats.length > 0 && (
           <div className="mt-1 flex max-w-full justify-center gap-1.5">
             {eventStats.map(({ event, photoCount }) => (
