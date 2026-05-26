@@ -210,19 +210,18 @@ export const PhotoCard = memo(function PhotoCard({
       />
 
       <div
-        className={`pointer-events-none absolute bottom-24 left-3 z-30 transition-opacity duration-200 sm:bottom-28 sm:left-4 ${
-          isDownloadHovering ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <div className="text-sm font-medium tracking-wide text-white drop-shadow">
-          Download Photo
-        </div>
+  className={`pointer-events-none absolute bottom-12 left-2 z-30 transition-opacity duration-200 sm:bottom-14 sm:left-3 ${
+    isDownloadHovering ? "opacity-100" : "opacity-0"
+  }`}
+>
+  <div className="text-sm font-medium tracking-wide text-white drop-shadow">
+    Download Photo
+  </div>
 
-        <div className="relative mt-3 h-px w-36 bg-white/75 sm:w-44">
-          <div className="absolute right-4 top-[-3px] h-3 w-3 rotate-45 border-b border-r border-white/75" />
-        </div>
-      </div>
-
+  <div className="relative mt-2 h-px w-[118px] bg-white/75">
+    <div className="absolute right-[5px] top-[-3px] h-3 w-3 rotate-45 border-b border-r border-white/75" />
+  </div>
+</div>
       <div className="pointer-events-none absolute bottom-2 left-2 z-40 flex items-center gap-2 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 sm:bottom-3 sm:left-3">
         <button
           type="button"
