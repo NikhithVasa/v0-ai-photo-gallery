@@ -89,6 +89,7 @@ function PasswordGate({
             Enter password
           </h1>
         </div>
+
         <div className="space-y-3">
           <Input
             type="password"
@@ -99,7 +100,9 @@ function PasswordGate({
             }}
             placeholder="Password"
           />
+
           {error && <p className="text-sm text-rose-600">{error}</p>}
+
           <Button
             className="w-full"
             onClick={verify}
@@ -113,7 +116,13 @@ function PasswordGate({
   );
 }
 
-function PersonAvatar({ person, size = "md" }: { person: Person; size?: "sm" | "md" }) {
+function PersonAvatar({
+  person,
+  size = "md",
+}: {
+  person: Person;
+  size?: "sm" | "md";
+}) {
   const dimension = size === "sm" ? "h-6 w-6" : "h-9 w-9";
   const displayName = person.displayName || person.defaultName;
 
@@ -155,21 +164,25 @@ function PeopleFilterButton({
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+
   const selectedIdSet = useMemo(
     () => new Set(selectedPeopleIds),
     [selectedPeopleIds]
   );
+
   const previewPeople = selectedPeople.length
     ? selectedPeople.slice(0, 4)
     : people.slice(0, 4);
+
   const filteredPeople = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return people;
 
     return people.filter((person) => {
-      const name = `${person.displayName || ""} ${person.defaultName || ""} Person ${
-        person.personNumber
-      }`.toLowerCase();
+      const name = `${person.displayName || ""} ${
+        person.defaultName || ""
+      } Person ${person.personNumber}`.toLowerCase();
+
       return name.includes(normalized);
     });
   }, [people, query]);
@@ -192,7 +205,7 @@ function PeopleFilterButton({
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className={`flex h-9 items-center gap-2 rounded-full border px-2.5 text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-zinc-400 ${
+        className={`flex h-9 cursor-pointer items-center gap-2 rounded-full border px-2.5 text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-zinc-400 ${
           selectedPeopleIds.length
             ? "border-zinc-950 bg-zinc-950 text-white"
             : "border-zinc-200 bg-white text-zinc-600 hover:text-zinc-950"
@@ -202,6 +215,7 @@ function PeopleFilterButton({
       >
         <Users className="h-4 w-4" />
         <span>People</span>
+
         {previewPeople.length > 0 && (
           <span className="flex -space-x-2">
             {previewPeople.map((person) => (
@@ -209,6 +223,7 @@ function PeopleFilterButton({
             ))}
           </span>
         )}
+
         {selectedPeopleIds.length > 0 && (
           <span className="rounded-full bg-white/20 px-1.5 text-xs">
             {selectedPeopleIds.length}
@@ -227,20 +242,22 @@ function PeopleFilterButton({
                   : "Select one or more"}
               </p>
             </div>
+
             <div className="flex items-center gap-1">
               {selectedPeopleIds.length > 0 && (
                 <button
                   type="button"
                   onClick={onClear}
-                  className="rounded-full px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
+                  className="cursor-pointer rounded-full px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
                 >
                   Clear
                 </button>
               )}
+
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
                 aria-label="Close people filter"
               >
                 <X className="h-4 w-4" />
@@ -271,13 +288,14 @@ function PeopleFilterButton({
                     type="button"
                     onClick={() => onToggle(person.id)}
                     aria-pressed={isSelected}
-                    className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition ${
+                    className={`flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-left transition ${
                       isSelected
                         ? "bg-zinc-950 text-white"
                         : "hover:bg-zinc-100"
                     }`}
                   >
                     <PersonAvatar person={person} />
+
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">
                         {displayName}
@@ -290,6 +308,7 @@ function PeopleFilterButton({
                         {person.photoCount} photos
                       </span>
                     </span>
+
                     {isSelected && <Check className="h-4 w-4 shrink-0" />}
                   </button>
                 );
@@ -312,14 +331,16 @@ function PeopleMatchModeSelect({
   return (
     <label className="relative shrink-0">
       <span className="sr-only">People photo mode</span>
+
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as PeopleMatchMode)}
-        className="h-9 appearance-none rounded-full border border-zinc-200 bg-white py-0 pl-3 pr-8 text-sm font-medium text-zinc-600 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+        className="h-9 cursor-pointer appearance-none rounded-full border border-zinc-200 bg-white py-0 pl-3 pr-8 text-sm font-medium text-zinc-600 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
       >
         <option value="any">Show single person photos</option>
         <option value="all">Show multiple person photos</option>
       </select>
+
       <span className="pointer-events-none absolute right-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rotate-45 border-b border-r border-zinc-500" />
     </label>
   );
@@ -359,20 +380,22 @@ function EventNameControl({
           disabled={isSaving}
           autoFocus
         />
+
         <button
           type="button"
           onClick={onSave}
           disabled={isSaving || !draft.trim()}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-950/5 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-35"
+          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-950/5 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-35"
           aria-label="Save event name"
         >
           <Check className="h-4 w-4" />
         </button>
+
         <button
           type="button"
           onClick={onCancel}
           disabled={isSaving}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-950/5 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-35"
+          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-950/5 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-35"
           aria-label="Cancel event name edit"
         >
           <X className="h-4 w-4" />
@@ -384,10 +407,11 @@ function EventNameControl({
   return (
     <div className="flex items-center gap-1.5">
       <p className="text-sm font-medium text-zinc-500">{eventName}</p>
+
       <button
         type="button"
         onClick={onStart}
-        className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-950/5 hover:text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+        className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-950/5 hover:text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-300"
         aria-label={`Edit ${eventName} event name`}
       >
         <Pencil className="h-3.5 w-3.5" />
@@ -399,6 +423,7 @@ function EventNameControl({
 export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [activeTab, setActiveTab] = useState<Tab>("photos");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [selectedPeopleIds, setSelectedPeopleIds] = useState<string[]>([]);
@@ -413,38 +438,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [eventNameDraft, setEventNameDraft] = useState("");
   const [isSavingEventName, setIsSavingEventName] = useState(false);
 
-  interface AlbumStatsResponse {
-  stats: {
-    photoCount: number;
-    peopleCount: number;
-    events: {
-      eventId: string;
-      photoCount: number;
-      peopleCount: number;
-    }[];
-  };
-}
-
-const { data, error, isLoading, mutate } = useSWR<{ album: AlbumDetail }>(
-  `/api/albums/${encodeURIComponent(albumSlug)}`,
-  fetcher,
-  {
-    dedupingInterval: 5 * 60 * 1000,
-    revalidateOnFocus: false,
-  }
-);
-
-const { data: statsData, isLoading: statsLoading } =
-  useSWR<AlbumStatsResponse>(
-    data?.album
-      ? `/api/albums/${encodeURIComponent(albumSlug)}/stats`
-      : null,
+  const { data, error, isLoading, mutate } = useSWR<{ album: AlbumDetail }>(
+    `/api/albums/${encodeURIComponent(albumSlug)}`,
     fetcher,
     {
       dedupingInterval: 5 * 60 * 1000,
       revalidateOnFocus: false,
     }
   );
+
   const { data: peopleFilterData } = useSWR<{ people: Person[] }>(
     data?.album && (!data.album.passwordRequired || isPasswordVerified)
       ? `/api/albums/${encodeURIComponent(albumSlug)}/people`
@@ -456,33 +458,14 @@ const { data: statsData, isLoading: statsLoading } =
     }
   );
 
-const album = useMemo(() => {
-  if (!data?.album) return undefined;
-
-  const eventStatsById = new Map(
-    statsData?.stats.events.map((event) => [event.eventId, event]) ?? []
-  );
-
-  return {
-    ...data.album,
-    photoCount: statsData?.stats.photoCount ?? data.album.photoCount,
-    peopleCount: statsData?.stats.peopleCount ?? data.album.peopleCount,
-    events: data.album.events.map((event) => {
-      const stats = eventStatsById.get(event.id);
-
-      return {
-        ...event,
-        photoCount: stats?.photoCount ?? event.photoCount,
-        peopleCount: stats?.peopleCount ?? event.peopleCount,
-      };
-    }),
-  };
-}, [data?.album, statsData?.stats]);
+  const album = data?.album;
   const filterPeople = peopleFilterData?.people ?? [];
+
   const selectedFilterPeople = useMemo(() => {
     const selectedIds = new Set(selectedPeopleIds);
     return filterPeople.filter((person) => selectedIds.has(person.id));
   }, [filterPeople, selectedPeopleIds]);
+
   const selectedEvent = useMemo(
     () => album?.events.find((event) => event.slug === selectedEventSlug),
     [album?.events, selectedEventSlug]
@@ -495,6 +478,7 @@ const album = useMemo(() => {
 
   useEffect(() => {
     if (!album || !selectedEventSlug) return;
+
     if (!album.events.some((event) => event.slug === selectedEventSlug)) {
       setSelectedEventSlug(null);
       router.replace(`/albums/${albumSlug}`, { scroll: false });
@@ -516,16 +500,19 @@ const album = useMemo(() => {
   const changeEvent = (eventSlug: string | null) => {
     setSelectedEventSlug(eventSlug);
     setEditingEventId(null);
+
     router.replace(`/albums/${albumSlug}${eventQuery(eventSlug)}`, {
       scroll: false,
     });
   };
+
   const filterByPerson = (personId: string) => {
     setSelectedPeopleIds([personId]);
     setPeopleMatchMode("all");
     setSelectedPerson(null);
     setActiveTab("photos");
   };
+
   const toggleSelectedPersonId = (personId: string) => {
     setSelectedPeopleIds((current) =>
       current.includes(personId)
@@ -535,19 +522,24 @@ const album = useMemo(() => {
     setSelectedPerson(null);
     setActiveTab("photos");
   };
+
   const startEditingSelectedEvent = () => {
     if (!selectedEvent) return;
+
     setEditingEventId(selectedEvent.id);
     setEventNameDraft(selectedEvent.name);
   };
+
   const cancelEditingEvent = () => {
     setEditingEventId(null);
     setEventNameDraft("");
   };
+
   const saveEventName = async () => {
     if (!selectedEvent || !eventNameDraft.trim() || isSavingEventName) return;
 
     setIsSavingEventName(true);
+
     try {
       const response = await fetch(
         `/api/albums/${encodeURIComponent(albumSlug)}/events`,
@@ -562,18 +554,28 @@ const album = useMemo(() => {
       );
 
       if (!response.ok) throw new Error("Failed to update event name");
-      const payload = (await response.json()) as { events?: AlbumDetail["events"] };
+
+      const payload = (await response.json()) as {
+        events?: AlbumDetail["events"];
+      };
+
       if (payload.events) {
         await mutate(
           (current) =>
             current
-              ? { album: { ...current.album, events: payload.events ?? current.album.events } }
+              ? {
+                  album: {
+                    ...current.album,
+                    events: payload.events ?? current.album.events,
+                  },
+                }
               : current,
           { revalidate: false }
         );
       } else {
         await mutate();
       }
+
       cancelEditingEvent();
     } catch (error) {
       console.error("Failed to update event name:", error);
@@ -583,6 +585,7 @@ const album = useMemo(() => {
   };
 
   const eventLabel = selectedEvent?.name ?? "All events";
+
   const eventHeader = selectedEvent ? (
     <EventNameControl
       eventName={selectedEvent.name}
@@ -604,6 +607,7 @@ const album = useMemo(() => {
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <Skeleton className="mb-6 h-10 w-56" />
           <Skeleton className="mb-4 h-12 w-full rounded-full" />
+
           <div className="flex flex-wrap gap-2">
             {Array.from({ length: 10 }).map((_, index) => (
               <Skeleton
@@ -647,6 +651,7 @@ const album = useMemo(() => {
               >
                 <ArrowLeft className="h-5 w-5" />
               </Link>
+
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500">
                   Album
@@ -655,6 +660,7 @@ const album = useMemo(() => {
                   {album.name}
                 </h1>
               </div>
+
               <PeopleFilterButton
                 people={filterPeople}
                 selectedPeople={selectedFilterPeople}
@@ -662,6 +668,7 @@ const album = useMemo(() => {
                 onToggle={toggleSelectedPersonId}
                 onClear={() => setSelectedPeopleIds([])}
               />
+
               {selectedPeopleIds.length > 1 && (
                 <PeopleMatchModeSelect
                   value={peopleMatchMode}
@@ -679,6 +686,7 @@ const album = useMemo(() => {
                 <Upload className="h-4 w-4" />
                 <span className="hidden sm:inline">Upload</span>
               </Link>
+
               <div
                 className="hidden items-center gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-zinc-200 sm:flex"
                 role="tablist"
@@ -690,7 +698,7 @@ const album = useMemo(() => {
                     setSelectedPerson(null);
                     setActiveTab("photos");
                   }}
-                  className={`flex h-8 items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
+                  className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                     activeTab === "photos" && !selectedPerson
                       ? "bg-zinc-950 text-white"
                       : "text-zinc-600 hover:text-zinc-950"
@@ -699,6 +707,7 @@ const album = useMemo(() => {
                   <Images className="h-4 w-4" />
                   Photos
                 </button>
+
                 <button
                   role="tab"
                   aria-selected={activeTab === "people" && !selectedPerson}
@@ -706,7 +715,7 @@ const album = useMemo(() => {
                     setSelectedPerson(null);
                     setActiveTab("people");
                   }}
-                  className={`flex h-8 items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
+                  className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                     activeTab === "people" && !selectedPerson
                       ? "bg-zinc-950 text-white"
                       : "text-zinc-600 hover:text-zinc-950"
@@ -720,7 +729,7 @@ const album = useMemo(() => {
               <button
                 type="button"
                 onClick={() => setIsSearchOpen(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-950/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-950/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
                 aria-label="Search"
               >
                 <Search className="h-5 w-5" />
@@ -732,36 +741,33 @@ const album = useMemo(() => {
             <button
               type="button"
               onClick={() => changeEvent(null)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
                 !selectedEventSlug
                   ? "bg-zinc-950 text-white"
                   : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:text-zinc-950"
               }`}
             >
               All
-{statsLoading ? (
-  <span className="ml-2 inline-block h-3 w-6 animate-pulse rounded-full bg-current opacity-20" />
-) : (
-  <span className="ml-2 text-xs opacity-70">{album.photoCount}</span>
-)}
+              <span className="ml-2 text-xs opacity-70">
+                {album.photoCount}
+              </span>
             </button>
+
             {album.events.map((event) => (
               <button
                 key={event.id}
                 type="button"
                 onClick={() => changeEvent(event.slug)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
                   selectedEventSlug === event.slug
                     ? "bg-zinc-950 text-white"
                     : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:text-zinc-950"
                 }`}
               >
                 {event.name}
-        {statsLoading ? (
-  <span className="ml-2 inline-block h-3 w-6 animate-pulse rounded-full bg-current opacity-20" />
-) : (
-  <span className="ml-2 text-xs opacity-70">{event.photoCount}</span>
-)}
+                <span className="ml-2 text-xs opacity-70">
+                  {event.photoCount}
+                </span>
               </button>
             ))}
           </div>
@@ -777,7 +783,7 @@ const album = useMemo(() => {
                 setSelectedPerson(null);
                 setActiveTab("photos");
               }}
-              className={`flex h-8 items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
+              className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
                 activeTab === "photos" && !selectedPerson
                   ? "bg-zinc-950 text-white"
                   : "text-zinc-600"
@@ -786,6 +792,7 @@ const album = useMemo(() => {
               <Images className="h-4 w-4" />
               Photos
             </button>
+
             <button
               role="tab"
               aria-selected={activeTab === "people" && !selectedPerson}
@@ -793,7 +800,7 @@ const album = useMemo(() => {
                 setSelectedPerson(null);
                 setActiveTab("people");
               }}
-              className={`flex h-8 items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
+              className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
                 activeTab === "people" && !selectedPerson
                   ? "bg-zinc-950 text-white"
                   : "text-zinc-600"
@@ -823,6 +830,7 @@ const album = useMemo(() => {
                 People
               </h2>
             </div>
+
             <PeopleGrid
               albumSlug={albumSlug}
               selectedEventSlug={selectedEventSlug}
@@ -838,6 +846,7 @@ const album = useMemo(() => {
                 Photos
               </h2>
             </div>
+
             <PhotosGrid
               albumSlug={albumSlug}
               selectedEventSlug={selectedEventSlug}
