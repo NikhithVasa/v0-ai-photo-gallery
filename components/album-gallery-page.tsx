@@ -33,6 +33,18 @@ interface AlbumGalleryPageProps {
   albumSlug: string;
 }
 
+interface AlbumStatsResponse {
+  stats: {
+    photoCount: number;
+    peopleCount: number;
+    events: {
+      eventId: string;
+      photoCount: number;
+      peopleCount: number;
+    }[];
+  };
+}
+
 function eventQuery(selectedEventSlug: string | null) {
   return selectedEventSlug
     ? `?event=${encodeURIComponent(selectedEventSlug)}`
@@ -449,6 +461,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   );
 
+  const { data: statsData } = useSWR<AlbumStatsResponse>(
+    data?.album
+      ? `/api/albums/${encodeURIComponent(albumSlug)}/stats`
+      : null,
+    fetcher,
+    {
+      dedupingInterval: 5 * 60 * 1000,
+      revalidateOnFocus: false,
+    }
+  );
+
   const { data: peopleFilterData } = useSWR<{ people: Person[] }>(
     data?.album && (!data.album.passwordRequired || isPasswordVerified)
       ? `/api/albums/${encodeURIComponent(albumSlug)}/people`
@@ -460,7 +483,29 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   );
 
-  const album = data?.album;
+  const album = useMemo(() => {
+    if (!data?.album) return undefined;
+
+    const eventStatsById = new Map(
+      statsData?.stats.events.map((event) => [event.eventId, event]) ?? []
+    );
+
+    return {
+      ...data.album,
+      photoCount: statsData?.stats.photoCount ?? data.album.photoCount,
+      peopleCount: statsData?.stats.peopleCount ?? data.album.peopleCount,
+      events: data.album.events.map((event) => {
+        const stats = eventStatsById.get(event.id);
+
+        return {
+          ...event,
+          photoCount: stats?.photoCount ?? event.photoCount,
+          peopleCount: stats?.peopleCount ?? event.peopleCount,
+        };
+      }),
+    };
+  }, [data?.album, statsData?.stats]);
+
   const filterPeople = peopleFilterData?.people ?? [];
 
   const selectedFilterPeople = useMemo(() => {
@@ -663,7 +708,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 </h1>
               </div>
 
-              {!selectedPerson && (
+              {!selectedPerson && activeTab === "photos" && (
                 <>
                   <PeopleFilterButton
                     people={filterPeople}
@@ -745,7 +790,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             </div>
           </div>
 
-          {!selectedPerson && (
+          {!selectedPerson && activeTab === "photos" && (
             <div className="flex gap-2 overflow-x-auto pb-1">
               <button
                 type="button"
@@ -837,7 +882,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         ) : activeTab === "people" ? (
           <section className="space-y-5 px-2 sm:px-0">
             <div>
-              {eventHeader}
+              <p className="text-sm font-medium text-zinc-500">All people</p>
               <h2 className="text-3xl font-semibold tracking-normal sm:text-4xl">
                 People
               </h2>
@@ -845,7 +890,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
             <PeopleGrid
               albumSlug={albumSlug}
-              selectedEventSlug={selectedEventSlug}
+              selectedEventSlug={null}
               events={album.events}
               onPersonClick={setSelectedPerson}
             />
