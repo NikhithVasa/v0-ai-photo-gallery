@@ -97,21 +97,6 @@ export function AlbumsPage() {
                     </h2>
                     <p className="text-sm text-zinc-500">{album.slug}</p>
                   </div>
-
-                  <div className="flex flex-wrap gap-3 text-sm text-zinc-600">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Images className="h-4 w-4" />
-                      {album.photoCount}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Users className="h-4 w-4" />
-                      {album.peopleCount}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <CalendarDays className="h-4 w-4" />
-                      {album.eventCount}
-                    </span>
-                  </div>
                 </div>
               </Link>
             ))}
