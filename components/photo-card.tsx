@@ -156,12 +156,12 @@ export const PhotoCard = memo(function PhotoCard({
   };
 
   return (
-<div
-  className={`group relative w-full overflow-hidden rounded-md bg-muted text-left shadow-sm ring-1 ring-border transition-shadow duration-200 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background ${
-    forceFill ? "h-full" : ""
-  }`}
-  style={forceFill ? undefined : { aspectRatio }}
->
+    <div
+      className={`group relative w-full overflow-hidden rounded-md bg-muted text-left shadow-sm ring-1 ring-border transition-shadow duration-200 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background ${
+        forceFill ? "h-full" : ""
+      }`}
+      style={forceFill ? undefined : { aspectRatio }}
+    >
       <button
         type="button"
         onClick={(event) => {
@@ -202,7 +202,15 @@ export const PhotoCard = memo(function PhotoCard({
       />
 
       <div
-        className={`pointer-events-none absolute bottom-24 left-3 z-20 transition-opacity duration-200 sm:bottom-28 sm:left-4 ${
+        className={`pointer-events-none absolute inset-x-0 bottom-0 z-20 h-32 bg-gradient-to-t from-black/85 via-black/45 to-transparent transition-opacity duration-200 ${
+          isDownloadHovering
+            ? "opacity-0"
+            : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+        }`}
+      />
+
+      <div
+        className={`pointer-events-none absolute bottom-24 left-3 z-30 transition-opacity duration-200 sm:bottom-28 sm:left-4 ${
           isDownloadHovering ? "opacity-100" : "opacity-0"
         }`}
       >
@@ -215,7 +223,7 @@ export const PhotoCard = memo(function PhotoCard({
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-2 left-2 z-30 flex items-center gap-2 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 sm:bottom-3 sm:left-3">
+      <div className="pointer-events-none absolute bottom-2 left-2 z-40 flex items-center gap-2 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 sm:bottom-3 sm:left-3">
         <button
           type="button"
           className="pointer-events-auto flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80"
@@ -684,8 +692,7 @@ export function PhotoLightbox({
 
     const resistanceLimit = frameWidth * 0.95;
     const clampedDelta =
-      Math.sign(deltaX) *
-      Math.min(Math.abs(deltaX), resistanceLimit);
+      Math.sign(deltaX) * Math.min(Math.abs(deltaX), resistanceLimit);
 
     setDragOffset(clampedDelta);
   };
@@ -768,23 +775,24 @@ export function PhotoLightbox({
       }}
       tabIndex={0}
     >
-     <div
-  className={`pointer-events-none absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/65 via-black/35 to-transparent px-16 pb-10 pt-4 text-center transition-opacity duration-200 sm:pb-12 sm:pt-5 ${overlayVisibilityClass}`}
->
-  <div className="mx-auto max-w-[70vw] truncate text-sm font-medium text-white drop-shadow">
-    {photoName}
-  </div>
-</div>
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/75 via-black/40 to-transparent px-16 pb-12 pt-4 text-center transition-opacity duration-200 sm:pb-14 sm:pt-5 ${overlayVisibilityClass}`}
+      >
+        <div className="mx-auto max-w-[70vw] truncate text-sm font-medium text-white drop-shadow">
+          {photoName}
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={(event) => {
           event.stopPropagation();
           onClose();
         }}
-        className={`absolute right-3 top-3 z-30 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-6 sm:top-5 ${overlayVisibilityClass}`}
+        className={`absolute right-3 top-3 z-40 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/75 text-zinc-950 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-6 sm:top-5 ${overlayVisibilityClass}`}
         aria-label="Close photo"
       >
-        <X className="h-5 w-5" />
+        <X className="h-5 w-5 stroke-[2.25]" />
       </button>
 
       <button
