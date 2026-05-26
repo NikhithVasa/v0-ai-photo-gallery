@@ -609,7 +609,7 @@ export function PhotoLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-white/85 text-white backdrop-blur-xl supports-[backdrop-filter]:bg-white/80"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-white/90 text-white backdrop-blur-2xl supports-[backdrop-filter]:bg-white/85"
       onClick={() => {
         if (isPeopleOpen) setIsPeopleOpen(false);
         else onClose();
@@ -617,7 +617,7 @@ export function PhotoLightbox({
       tabIndex={0}
     >
       <div
-        className={`pointer-events-none absolute left-1/2 top-4 z-30 max-w-[70vw] -translate-x-1/2 truncate text-center text-sm font-medium text-white drop-shadow transition-opacity duration-200 sm:top-5 ${overlayVisibilityClass}`}
+        className={`pointer-events-none absolute left-1/2 top-4 z-30 max-w-[70vw] -translate-x-1/2 truncate text-center text-sm font-medium text-zinc-900 drop-shadow-sm transition-opacity duration-200 sm:top-5 ${overlayVisibilityClass}`}
       >
         {photoName}
       </div>
@@ -628,7 +628,7 @@ export function PhotoLightbox({
           event.stopPropagation();
           onClose();
         }}
-        className={`absolute right-3 top-3 z-30 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/30 text-white shadow-lg backdrop-blur-md ring-1 ring-white/40 transition-opacity duration-200 hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-6 sm:top-5 ${overlayVisibilityClass}`}
+        className={`absolute right-3 top-3 z-30 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-6 sm:top-5 ${overlayVisibilityClass}`}
         aria-label="Close photo"
       >
         <X className="h-5 w-5" />
@@ -636,7 +636,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
-        className={`absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/30 text-white shadow-lg backdrop-blur-md ring-1 ring-white/40 transition-opacity duration-200 hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-white/70 sm:left-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
+        className={`absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:left-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handlePrev();
@@ -648,7 +648,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
-        className={`absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/30 text-white shadow-lg backdrop-blur-md ring-1 ring-white/40 transition-opacity duration-200 hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
+        className={`absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handleNext();
@@ -696,7 +696,7 @@ export function PhotoLightbox({
               alt={photo.caption || "Photo"}
               width={photo.width ?? undefined}
               height={photo.height ?? undefined}
-              className="block max-h-[100svh] max-w-[100vw] object-contain"
+              className="block max-h-[100svh] max-w-[100vw] object-contain shadow-2xl"
               decoding="async"
               fetchPriority="high"
               onError={handleImageError}
@@ -723,7 +723,7 @@ export function PhotoLightbox({
             </div>
 
             <div
-              className={`pointer-events-auto absolute bottom-4 left-4 z-30 flex items-center gap-2 rounded-full bg-white/30 px-2 py-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/40 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayVisibilityClass}`}
+              className={`pointer-events-auto absolute bottom-4 left-4 z-30 flex items-center gap-2 rounded-full bg-white/70 px-2 py-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayVisibilityClass}`}
               onClick={(event) => event.stopPropagation()}
             >
               <button
@@ -732,7 +732,7 @@ export function PhotoLightbox({
                   setAreControlsVisible(true);
                   setIsPlaying((current) => !current);
                 }}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
                 aria-pressed={isPlaying}
               >
@@ -746,7 +746,7 @@ export function PhotoLightbox({
               <button
                 type="button"
                 onClick={() => setAreControlsVisible(true)}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 aria-label="Favorite photo"
               >
                 <Heart className="h-4 w-4 stroke-1.5" />
@@ -758,7 +758,7 @@ export function PhotoLightbox({
                   setAreControlsVisible(true);
                   handleShare();
                 }}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 aria-label="Share photo"
               >
                 <Share2 className="h-4 w-4 stroke-1.5" />
@@ -785,7 +785,7 @@ export function PhotoLightbox({
                   handleDownload();
                 }}
                 disabled={isDownloading}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 disabled:cursor-not-allowed disabled:opacity-45"
                 aria-label="Download photo"
               >
                 <Download className="h-4 w-4 stroke-1.5" />
@@ -802,7 +802,7 @@ export function PhotoLightbox({
                   setAreControlsVisible(true);
                   setIsPeopleOpen((current) => !current);
                 }}
-                className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full bg-white/30 px-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/40 transition hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-white/70"
+                className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full bg-white/70 px-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 aria-expanded={isPeopleOpen}
                 aria-label="Show people in this photo"
               >
@@ -822,7 +822,7 @@ export function PhotoLightbox({
                           />
                         ) : (
                           <span className="flex h-full w-full items-center justify-center">
-                            <User className="h-3.5 w-3.5" />
+                            <User className="h-3.5 w-3.5 text-white" />
                           </span>
                         )}
                       </span>
