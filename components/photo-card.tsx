@@ -293,6 +293,7 @@ export function PhotoLightbox({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPeopleOpen, setIsPeopleOpen] = useState(false);
   const [areControlsVisible, setAreControlsVisible] = useState(false);
+  const [isMobilePointer, setIsMobilePointer] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [signedUrls, setSignedUrls] = useState<Record<string, SignedPhotoUrls>>(
@@ -319,17 +320,37 @@ export function PhotoLightbox({
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(pointer: coarse)");
+
+    const updatePointerMode = () => {
+      const isMobile = mediaQuery.matches;
+      setIsMobilePointer(isMobile);
+
+      if (isMobile) {
+        setAreControlsVisible(true);
+      }
+    };
+
+    updatePointerMode();
+
+    mediaQuery.addEventListener("change", updatePointerMode);
+    return () => mediaQuery.removeEventListener("change", updatePointerMode);
+  }, []);
+
   const startControlsTimer = useCallback(() => {
     if (controlsTimerRef.current) {
       window.clearTimeout(controlsTimerRef.current);
     }
 
     controlsTimerRef.current = window.setTimeout(() => {
+      if (isMobilePointer) return;
+
       if (!isPeopleOpen && !isDownloadHovering) {
         setAreControlsVisible(false);
       }
     }, 2000);
-  }, [isDownloadHovering, isPeopleOpen]);
+  }, [isDownloadHovering, isMobilePointer, isPeopleOpen]);
 
   const showControlsBriefly = useCallback(() => {
     setAreControlsVisible(true);
@@ -354,7 +375,11 @@ export function PhotoLightbox({
     setActiveImageIndex(0);
     setIsPeopleOpen(false);
     setIsDownloadHovering(false);
-  }, [photo.id]);
+
+    if (isMobilePointer) {
+      setAreControlsVisible(true);
+    }
+  }, [photo.id, isMobilePointer]);
 
   useEffect(() => {
     const scrollY = window.scrollY;
@@ -578,7 +603,7 @@ export function PhotoLightbox({
   };
 
   const overlayVisibilityClass =
-    areControlsVisible || isPeopleOpen || isDownloadHovering
+    isMobilePointer || areControlsVisible || isPeopleOpen || isDownloadHovering
       ? "opacity-100"
       : "opacity-0 pointer-events-none";
 
@@ -603,7 +628,7 @@ export function PhotoLightbox({
           event.stopPropagation();
           onClose();
         }}
-        className={`absolute right-3 top-3 z-30 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-white drop-shadow transition-opacity duration-200 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-6 sm:top-5 ${overlayVisibilityClass}`}
+        className={`absolute right-3 top-3 z-30 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/25 text-white shadow-lg backdrop-blur-md ring-1 ring-white/30 transition-opacity duration-200 hover:bg-white/35 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-6 sm:top-5 ${overlayVisibilityClass}`}
         aria-label="Close photo"
       >
         <X className="h-5 w-5" />
@@ -611,26 +636,26 @@ export function PhotoLightbox({
 
       <button
         type="button"
-        className={`absolute left-2 top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-full p-1 text-white drop-shadow transition-opacity duration-200 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70 sm:left-8 sm:p-2 ${overlayVisibilityClass}`}
+        className={`absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/25 text-white shadow-lg backdrop-blur-md ring-1 ring-white/30 transition-opacity duration-200 hover:bg-white/35 focus:outline-none focus:ring-2 focus:ring-white/70 sm:left-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handlePrev();
         }}
         aria-label="Previous photo"
       >
-        <ChevronLeft className="h-10 w-10 stroke-1 sm:h-14 sm:w-14" />
+        <ChevronLeft className="h-7 w-7 stroke-1.5 sm:h-9 sm:w-9" />
       </button>
 
       <button
         type="button"
-        className={`absolute right-2 top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-full p-1 text-white drop-shadow transition-opacity duration-200 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-8 sm:p-2 ${overlayVisibilityClass}`}
+        className={`absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/25 text-white shadow-lg backdrop-blur-md ring-1 ring-white/30 transition-opacity duration-200 hover:bg-white/35 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handleNext();
         }}
         aria-label="Next photo"
       >
-        <ChevronRight className="h-10 w-10 stroke-1 sm:h-14 sm:w-14" />
+        <ChevronRight className="h-7 w-7 stroke-1.5 sm:h-9 sm:w-9" />
       </button>
 
       <div
@@ -651,13 +676,17 @@ export function PhotoLightbox({
             className="relative inline-block max-h-[100svh] max-w-[100vw] transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
             style={entryStyle}
             onMouseEnter={() => {
-              setAreControlsVisible(true);
+              if (!isMobilePointer) {
+                setAreControlsVisible(true);
+              }
             }}
             onMouseMove={() => {
-              setAreControlsVisible(true);
+              if (!isMobilePointer) {
+                setAreControlsVisible(true);
+              }
             }}
             onMouseLeave={() => {
-              if (!isPeopleOpen && !isDownloadHovering) {
+              if (!isMobilePointer && !isPeopleOpen && !isDownloadHovering) {
                 setAreControlsVisible(false);
               }
             }}
@@ -694,7 +723,7 @@ export function PhotoLightbox({
             </div>
 
             <div
-              className={`pointer-events-auto absolute bottom-3 left-3 z-30 flex items-center gap-2 text-white transition-opacity duration-200 sm:bottom-4 sm:left-4 ${overlayVisibilityClass}`}
+              className={`pointer-events-auto absolute bottom-4 left-4 z-30 flex items-center gap-2 rounded-full bg-white/25 px-2 py-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/30 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayVisibilityClass}`}
               onClick={(event) => event.stopPropagation()}
             >
               <button
@@ -703,7 +732,7 @@ export function PhotoLightbox({
                   setAreControlsVisible(true);
                   setIsPlaying((current) => !current);
                 }}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
                 aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
                 aria-pressed={isPlaying}
               >
@@ -717,7 +746,7 @@ export function PhotoLightbox({
               <button
                 type="button"
                 onClick={() => setAreControlsVisible(true)}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
                 aria-label="Favorite photo"
               >
                 <Heart className="h-4 w-4 stroke-1.5" />
@@ -729,7 +758,7 @@ export function PhotoLightbox({
                   setAreControlsVisible(true);
                   handleShare();
                 }}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
                 aria-label="Share photo"
               >
                 <Share2 className="h-4 w-4 stroke-1.5" />
@@ -756,7 +785,7 @@ export function PhotoLightbox({
                   handleDownload();
                 }}
                 disabled={isDownloading}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:bg-white/15 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45"
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-md transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45"
                 aria-label="Download photo"
               >
                 <Download className="h-4 w-4 stroke-1.5" />
@@ -764,7 +793,7 @@ export function PhotoLightbox({
             </div>
 
             <div
-              className={`pointer-events-auto absolute bottom-3 right-3 z-30 transition-opacity duration-200 sm:bottom-4 sm:right-4 ${overlayVisibilityClass}`}
+              className={`pointer-events-auto absolute bottom-4 right-4 z-30 transition-opacity duration-200 sm:bottom-5 sm:right-5 ${overlayVisibilityClass}`}
               onClick={(event) => event.stopPropagation()}
             >
               <button
@@ -773,7 +802,7 @@ export function PhotoLightbox({
                   setAreControlsVisible(true);
                   setIsPeopleOpen((current) => !current);
                 }}
-                className="flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-full px-1 text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/70"
+                className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full bg-white/25 px-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/30 transition hover:bg-white/35 focus:outline-none focus:ring-2 focus:ring-white/70"
                 aria-expanded={isPeopleOpen}
                 aria-label="Show people in this photo"
               >
@@ -782,7 +811,7 @@ export function PhotoLightbox({
                     {photoPeople.slice(0, 4).map((person) => (
                       <span
                         key={person.id}
-                        className="relative h-6 w-6 overflow-hidden rounded-full bg-zinc-800 ring-1 ring-white/90"
+                        className="relative h-7 w-7 overflow-hidden rounded-full bg-zinc-800 ring-1 ring-white/90"
                       >
                         {person.coverFaceUrl ? (
                           <img
