@@ -42,42 +42,91 @@ function photosUrl(
   return query ? `${base}?${query}` : base;
 }
 
-function getPhotoAspectRatio(photo: Photo) {
+function photoRatio(photo: Photo) {
   const width = photo.width || photo.previewWidth || photo.thumbWidth || 1;
   const height = photo.height || photo.previewHeight || photo.thumbHeight || 1;
 
   return width / height;
 }
 
-function getBalancedTileClass(photo: Photo, index: number, total: number) {
-  const aspectRatio = getPhotoAspectRatio(photo);
-  const isWide = aspectRatio >= 1.55;
-  const isTall = aspectRatio <= 0.72;
-
-  // Avoid weird final single huge row.
-  const isLast = index === total - 1;
-  const remainderDesktop = total % 3;
+function getCollageClass(photo: Photo, index: number, total: number) {
+  const ratio = photoRatio(photo);
+  const isWide = ratio >= 1.45;
+  const isTall = ratio <= 0.75;
 
   if (total === 1) {
-    return "col-span-2 sm:col-span-4 lg:col-span-6 aspect-[4/3]";
+    return "col-span-6 row-span-3 sm:col-span-6 sm:row-span-4 lg:col-span-6 lg:row-span-4";
   }
 
-  if (isLast && remainderDesktop === 1) {
-    return "col-span-1 sm:col-span-2 lg:col-span-2 aspect-[4/5]";
+  /**
+   * 12-item repeating editorial pattern.
+   * Desktop grid = 6 columns.
+   *
+   * Pattern direction:
+   * 0: large hero
+   * 1/2: smaller stack beside hero
+   * 3: tall editorial tile
+   * 4/5: balanced medium tiles
+   * 6: wide banner-ish tile
+   * 7/8/9: normal collage tiles
+   * 10: tall or hero-ish accent
+   * 11: medium closer
+   */
+  const pattern = index % 12;
+
+  if (pattern === 0) {
+    return "col-span-6 row-span-3 sm:col-span-4 sm:row-span-3 lg:col-span-3 lg:row-span-3";
   }
 
-  // Wide photos can be larger, but never full row.
-  if (isWide) {
-    return "col-span-2 sm:col-span-2 lg:col-span-3 aspect-[4/3]";
+  if (pattern === 1) {
+    return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
   }
 
-  // Tall photos should not become huge.
-  if (isTall) {
-    return "col-span-1 sm:col-span-2 lg:col-span-2 aspect-[4/5]";
+  if (pattern === 2) {
+    return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-1 lg:row-span-2";
   }
 
-  // Default: 3 per row desktop, 2 per row tablet/mobile.
-  return "col-span-1 sm:col-span-2 lg:col-span-2 aspect-[4/5]";
+  if (pattern === 3) {
+    return "col-span-3 row-span-3 sm:col-span-2 sm:row-span-3 lg:col-span-2 lg:row-span-4";
+  }
+
+  if (pattern === 4) {
+    return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
+  }
+
+  if (pattern === 5) {
+    return "col-span-6 row-span-2 sm:col-span-4 sm:row-span-2 lg:col-span-2 lg:row-span-2";
+  }
+
+  if (pattern === 6) {
+    return "col-span-6 row-span-2 sm:col-span-4 sm:row-span-2 lg:col-span-4 lg:row-span-2";
+  }
+
+  if (pattern === 7) {
+    return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
+  }
+
+  if (pattern === 8) {
+    return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
+  }
+
+  if (pattern === 9) {
+    return "col-span-6 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
+  }
+
+  if (pattern === 10) {
+    return isTall
+      ? "col-span-3 row-span-3 sm:col-span-2 sm:row-span-3 lg:col-span-2 lg:row-span-3"
+      : "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-3";
+  }
+
+  if (pattern === 11) {
+    return isWide
+      ? "col-span-6 row-span-2 sm:col-span-4 sm:row-span-2 lg:col-span-4 lg:row-span-2"
+      : "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
+  }
+
+  return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
 }
 
 export function PhotosGrid({
@@ -179,14 +228,16 @@ export function PhotosGrid({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+      <div className="grid auto-rows-[96px] grid-cols-6 gap-2 sm:auto-rows-[120px] lg:auto-rows-[145px]">
         {Array.from({ length: 12 }).map((_, index) => (
           <Skeleton
             key={index}
             className={`rounded-md ${
-              index % 5 === 0
-                ? "col-span-2 sm:col-span-2 lg:col-span-3 aspect-[4/3]"
-                : "col-span-1 sm:col-span-2 lg:col-span-2 aspect-[4/5]"
+              index % 12 === 0
+                ? "col-span-6 row-span-3 sm:col-span-4 sm:row-span-3 lg:col-span-3 lg:row-span-3"
+                : index % 12 === 6
+                  ? "col-span-6 row-span-2 lg:col-span-4 lg:row-span-2"
+                  : "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2"
             }`}
           />
         ))}
@@ -210,11 +261,11 @@ export function PhotosGrid({
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+      <div className="grid auto-rows-[96px] grid-cols-6 gap-2 sm:auto-rows-[120px] lg:auto-rows-[145px]">
         {data.photos.map((photo, index) => (
           <div
             key={photo.id}
-            className={`min-w-0 overflow-hidden rounded-md ${getBalancedTileClass(
+            className={`min-w-0 overflow-hidden rounded-md ${getCollageClass(
               photo,
               index,
               data.photos.length
