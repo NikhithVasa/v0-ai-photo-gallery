@@ -12,8 +12,8 @@ interface PersonEventStatsRow {
   event_id: string;
   event_slug: string;
   event_name: string;
-  face_count: number | string | null;
   photo_count: number | string | null;
+  face_count: number | string | null;
 }
 
 function countValue(value: number | string | null) {
@@ -38,9 +38,9 @@ export async function GET(request: Request, { params }: Props) {
             pe.default_name,
             pe.display_name,
             pe.cover_face_s3_key,
-            COALESCE(pes.face_count, 0)::int AS face_count,
-            COALESCE(pes.photo_count, 0)::int AS photo_count,
-            pe.occurrence_count
+            COUNT(DISTINCT pp.photo_id)::int AS photo_count,
+            COUNT(*)::int AS face_count,
+            COUNT(*)::int AS occurrence_count
           FROM people pe
           JOIN albums a
             ON a.id = pe.album_id
@@ -48,14 +48,20 @@ export async function GET(request: Request, { params }: Props) {
             ON e.album_id = a.id
            AND e.slug = $2
            AND COALESCE(e.is_deleted, false) = false
-          LEFT JOIN person_event_stats pes
-            ON pes.person_id = pe.id
-           AND pes.album_event_id = e.id
+          JOIN photo_people pp
+            ON pp.person_id = pe.id
+           AND pp.album_event_id = e.id
           WHERE a.slug = $1
             AND COALESCE(a.is_deleted, false) = false
             AND COALESCE(pe.is_hidden, false) = false
-            AND COALESCE(pes.photo_count, 0) > 0
-          ORDER BY COALESCE(pes.photo_count, 0) DESC, pe.person_number ASC
+          GROUP BY
+            pe.id,
+            pe.album_id,
+            pe.person_number,
+            pe.default_name,
+            pe.display_name,
+            pe.cover_face_s3_key
+          ORDER BY COUNT(DISTINCT pp.photo_id) DESC, pe.person_number ASC
           `,
           [albumSlug, eventSlug]
         )
@@ -93,22 +99,28 @@ export async function GET(request: Request, { params }: Props) {
     const statsRows = await query<PersonEventStatsRow>(
       `
       SELECT
-        pes.person_id,
+        pp.person_id,
         e.id AS event_id,
         e.slug AS event_slug,
         e.name AS event_name,
-        COALESCE(pes.face_count, 0)::int AS face_count,
-        COALESCE(pes.photo_count, 0)::int AS photo_count
-      FROM person_event_stats pes
+        COUNT(DISTINCT pp.photo_id)::int AS photo_count,
+        COUNT(*)::int AS face_count
+      FROM photo_people pp
       JOIN album_events e
-        ON e.id = pes.album_event_id
+        ON e.id = pp.album_event_id
        AND COALESCE(e.is_deleted, false) = false
       JOIN albums a
         ON a.id = e.album_id
       WHERE a.slug = $1
         AND COALESCE(a.is_deleted, false) = false
-        AND pes.person_id = ANY($2::uuid[])
-        AND COALESCE(pes.photo_count, 0) > 0
+        AND pp.person_id = ANY($2::uuid[])
+      GROUP BY
+        pp.person_id,
+        e.id,
+        e.slug,
+        e.name,
+        e.sort_order
+      HAVING COUNT(DISTINCT pp.photo_id) > 0
       ORDER BY e.sort_order ASC NULLS LAST, e.name ASC
       `,
       [albumSlug, personIds]
@@ -128,8 +140,8 @@ export async function GET(request: Request, { params }: Props) {
         eventId: stat.event_id,
         eventSlug: stat.event_slug,
         eventName: stat.event_name,
-        faceCount: countValue(stat.face_count),
         photoCount: countValue(stat.photo_count),
+        faceCount: countValue(stat.face_count),
       })),
     }));
 
