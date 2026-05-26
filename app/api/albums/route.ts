@@ -57,7 +57,7 @@ export async function GET() {
         FROM photos p2
         WHERE p2.album_id = a.id
           AND COALESCE(p2.is_deleted, false) = false
-        ORDER BY p2.created_at ASC
+        ORDER BY RANDOM()
         LIMIT 1
       ) cover ON true
       WHERE COALESCE(a.is_deleted, false) = false
@@ -82,9 +82,17 @@ export async function GET() {
       }))
     );
 
-    return NextResponse.json({ albums });
+    return NextResponse.json(
+      { albums },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    );
   } catch (error) {
     console.error("Error fetching albums:", error);
+
     return NextResponse.json(
       { error: "Failed to fetch albums" },
       { status: 500 }
