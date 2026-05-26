@@ -553,6 +553,25 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     });
   };
 
+  const goToNextEvent = () => {
+    if (!album) return;
+    if (activeTab !== "photos") return;
+    if (selectedPerson) return;
+    if (!selectedEventSlug) return;
+    if (selectedPeopleIds.length > 0) return;
+
+    const currentIndex = album.events.findIndex(
+      (event) => event.slug === selectedEventSlug
+    );
+
+    if (currentIndex < 0) return;
+
+    const nextEvent = album.events[currentIndex + 1];
+    if (!nextEvent) return;
+
+    changeEvent(nextEvent.slug);
+  };
+
   const filterByPerson = (personId: string) => {
     setSelectedPeopleIds([personId]);
     setPeopleMatchMode("all");
@@ -910,6 +929,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               selectedPeopleIds={selectedPeopleIds}
               peopleMatchMode={peopleMatchMode}
               onPersonClick={filterByPerson}
+              onReachedEnd={goToNextEvent}
             />
           </section>
         )}
