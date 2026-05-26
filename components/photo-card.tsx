@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -301,11 +302,27 @@ export function PhotoLightbox({
   );
   const [entryStyle, setEntryStyle] = useState<CSSProperties>();
 
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isAnimatingSwipe, setIsAnimatingSwipe] = useState(false);
+
   const photoFrameRef = useRef<HTMLDivElement>(null);
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const touchStartRef = useRef<{
+    x: number;
+    y: number;
+    time: number;
+  } | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
+  const swipeCommitTimerRef = useRef<number | null>(null);
 
   const photo = photos[currentIndex];
+
+  const previousIndex = currentIndex > 0 ? currentIndex - 1 : photos.length - 1;
+  const nextIndex = currentIndex < photos.length - 1 ? currentIndex + 1 : 0;
+
+  const previousPhoto = photos[previousIndex];
+  const nextPhoto = photos[nextIndex];
+
   const signedPhoto = signedUrls[photo.id];
 
   const imageCandidates = uniqueUrls([
@@ -319,6 +336,33 @@ export function PhotoLightbox({
   const downloadUrl = signedPhoto?.downloadUrl || photo.downloadUrl;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
+
+  const getPreviewUrl = useCallback(
+    (targetPhoto: Photo | undefined) => {
+      if (!targetPhoto) return null;
+
+      return (
+        signedUrls[targetPhoto.id]?.previewUrl ||
+        targetPhoto.previewUrl ||
+        signedUrls[targetPhoto.id]?.thumbnailUrl ||
+        targetPhoto.thumbnailUrl ||
+        null
+      );
+    },
+    [signedUrls]
+  );
+
+  const previousImageUrl = useMemo(
+    () => getPreviewUrl(previousPhoto),
+    [getPreviewUrl, previousPhoto]
+  );
+
+  const currentImageUrl = imageUrl;
+
+  const nextImageUrl = useMemo(
+    () => getPreviewUrl(nextPhoto),
+    [getPreviewUrl, nextPhoto]
+  );
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(pointer: coarse)");
@@ -357,29 +401,48 @@ export function PhotoLightbox({
     startControlsTimer();
   }, [startControlsTimer]);
 
+  const navigateToIndex = useCallback(
+    (index: number) => {
+      showControlsBriefly();
+      setIsPeopleOpen(false);
+      setIsDownloadHovering(false);
+      onNavigate(index);
+    },
+    [onNavigate, showControlsBriefly]
+  );
+
   const handlePrev = useCallback(() => {
-    showControlsBriefly();
-    setIsPeopleOpen(false);
-    setIsDownloadHovering(false);
-    onNavigate(currentIndex > 0 ? currentIndex - 1 : photos.length - 1);
-  }, [currentIndex, onNavigate, photos.length, showControlsBriefly]);
+    navigateToIndex(previousIndex);
+  }, [navigateToIndex, previousIndex]);
 
   const handleNext = useCallback(() => {
-    showControlsBriefly();
-    setIsPeopleOpen(false);
-    setIsDownloadHovering(false);
-    onNavigate(currentIndex < photos.length - 1 ? currentIndex + 1 : 0);
-  }, [currentIndex, onNavigate, photos.length, showControlsBriefly]);
+    navigateToIndex(nextIndex);
+  }, [navigateToIndex, nextIndex]);
 
   useEffect(() => {
     setActiveImageIndex(0);
     setIsPeopleOpen(false);
     setIsDownloadHovering(false);
+    setDragOffset(0);
+    setIsDragging(false);
+    setIsAnimatingSwipe(false);
 
     if (isMobilePointer) {
       setAreControlsVisible(true);
     }
   }, [photo.id, isMobilePointer]);
+
+  useEffect(() => {
+    return () => {
+      if (swipeCommitTimerRef.current) {
+        window.clearTimeout(swipeCommitTimerRef.current);
+      }
+
+      if (controlsTimerRef.current) {
+        window.clearTimeout(controlsTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const scrollY = window.scrollY;
@@ -547,7 +610,7 @@ export function PhotoLightbox({
   };
 
   const handleShare = async () => {
-    const url = imageUrl || downloadUrl || photo.thumbnailUrl;
+    const url = currentImageUrl || downloadUrl || photo.thumbnailUrl;
     if (!url) return;
 
     const shareUrl = absoluteBrowserUrl(url);
@@ -575,26 +638,106 @@ export function PhotoLightbox({
   };
 
   const handleTouchStart = (event: React.TouchEvent) => {
+    if (photos.length <= 1 || isAnimatingSwipe) return;
+
     const touch = event.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+
+    if (swipeCommitTimerRef.current) {
+      window.clearTimeout(swipeCommitTimerRef.current);
+      swipeCommitTimerRef.current = null;
+    }
+
+    setIsDragging(true);
+    setIsAnimatingSwipe(false);
+    setDragOffset(0);
+    setAreControlsVisible(true);
   };
 
-  const handleTouchEnd = (event: React.TouchEvent) => {
+  const handleTouchMove = (event: React.TouchEvent) => {
     const start = touchStartRef.current;
-    touchStartRef.current = null;
+    if (!start || isAnimatingSwipe) return;
 
-    if (!start) return;
-
-    const touch = event.changedTouches[0];
+    const touch = event.touches[0];
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
 
-    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
+    if (Math.abs(deltaY) > Math.abs(deltaX) * 1.25) {
       return;
     }
 
-    if (deltaX < 0) handleNext();
-    else handlePrev();
+    event.preventDefault();
+
+    const frameWidth =
+      photoFrameRef.current?.getBoundingClientRect().width ||
+      window.innerWidth ||
+      1;
+
+    const resistanceLimit = frameWidth * 0.95;
+    const clampedDelta =
+      Math.sign(deltaX) *
+      Math.min(Math.abs(deltaX), resistanceLimit);
+
+    setDragOffset(clampedDelta);
+  };
+
+  const handleTouchEnd = () => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+
+    if (!start || isAnimatingSwipe) {
+      setIsDragging(false);
+      setDragOffset(0);
+      return;
+    }
+
+    const elapsed = Math.max(Date.now() - start.time, 1);
+    const velocity = Math.abs(dragOffset) / elapsed;
+
+    const frameWidth =
+      photoFrameRef.current?.getBoundingClientRect().width ||
+      window.innerWidth ||
+      1;
+
+    const threshold = Math.min(frameWidth * 0.24, 120);
+    const shouldNavigate =
+      Math.abs(dragOffset) > threshold || velocity > 0.55;
+
+    setIsDragging(false);
+    setIsAnimatingSwipe(true);
+
+    if (!shouldNavigate) {
+      setDragOffset(0);
+
+      swipeCommitTimerRef.current = window.setTimeout(() => {
+        setIsAnimatingSwipe(false);
+      }, 280);
+
+      return;
+    }
+
+    const direction = dragOffset < 0 ? "next" : "previous";
+    const finalOffset = direction === "next" ? -frameWidth : frameWidth;
+
+    setDragOffset(finalOffset);
+
+    swipeCommitTimerRef.current = window.setTimeout(() => {
+      setDragOffset(0);
+      setIsAnimatingSwipe(false);
+      setIsPeopleOpen(false);
+      setIsDownloadHovering(false);
+
+      if (direction === "next") {
+        onNavigate(nextIndex);
+      } else {
+        onNavigate(previousIndex);
+      }
+    }, 280);
   };
 
   const handlePersonClick = (personId: string) => {
@@ -606,6 +749,11 @@ export function PhotoLightbox({
     isMobilePointer || areControlsVisible || isPeopleOpen || isDownloadHovering
       ? "opacity-100"
       : "opacity-0 pointer-events-none";
+
+  const swipeTrackClass =
+    isDragging || !isAnimatingSwipe
+      ? ""
+      : "transition-transform duration-300 ease-out";
 
   return (
     <div
@@ -668,13 +816,18 @@ export function PhotoLightbox({
           }
         }}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
-        {imageUrl ? (
+        {currentImageUrl ? (
           <div
             ref={photoFrameRef}
-            className="relative inline-block max-h-[100svh] max-w-[100vw] transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
-            style={entryStyle}
+            className="relative inline-block max-h-[100svh] max-w-[100vw] overflow-hidden transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
+            style={{
+              ...entryStyle,
+              touchAction: "pan-y",
+            }}
             onMouseEnter={() => {
               if (!isMobilePointer) {
                 setAreControlsVisible(true);
@@ -692,15 +845,58 @@ export function PhotoLightbox({
             }}
           >
             <img
-              src={imageUrl}
+              src={currentImageUrl}
               alt={photo.caption || "Photo"}
               width={photo.width ?? undefined}
               height={photo.height ?? undefined}
-              className="block max-h-[100svh] max-w-[100vw] object-contain shadow-2xl"
+              className="block max-h-[100svh] max-w-[100vw] object-contain opacity-0"
               decoding="async"
               fetchPriority="high"
               onError={handleImageError}
             />
+
+            <div className="absolute inset-0 overflow-hidden">
+              <div
+                className={`flex h-full w-full ${swipeTrackClass}`}
+                style={{
+                  transform: `translate3d(calc(-100% + ${dragOffset}px), 0, 0)`,
+                }}
+              >
+                <div className="flex h-full w-full shrink-0 items-center justify-center">
+                  {previousImageUrl ? (
+                    <img
+                      src={previousImageUrl}
+                      alt={previousPhoto?.caption || "Previous photo"}
+                      className="max-h-full max-w-full object-contain shadow-2xl"
+                      draggable={false}
+                    />
+                  ) : null}
+                </div>
+
+                <div className="flex h-full w-full shrink-0 items-center justify-center">
+                  <img
+                    src={currentImageUrl}
+                    alt={photo.caption || "Photo"}
+                    className="max-h-full max-w-full object-contain shadow-2xl"
+                    decoding="async"
+                    fetchPriority="high"
+                    draggable={false}
+                    onError={handleImageError}
+                  />
+                </div>
+
+                <div className="flex h-full w-full shrink-0 items-center justify-center">
+                  {nextImageUrl ? (
+                    <img
+                      src={nextImageUrl}
+                      alt={nextPhoto?.caption || "Next photo"}
+                      className="max-h-full max-w-full object-contain shadow-2xl"
+                      draggable={false}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
 
             <div
               className={`pointer-events-none absolute inset-0 z-10 bg-black/55 transition-opacity duration-200 ${
