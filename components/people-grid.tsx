@@ -45,7 +45,7 @@ export function PeopleGrid({
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] =
-    useState<PeopleSelectionMode>("any");
+    useState<PeopleSelectionMode>("all");
 
   const people = data?.people ?? [];
 
@@ -58,12 +58,11 @@ export function PeopleGrid({
     () => new Set(selectedPersonIds),
     [selectedPersonIds]
   );
-
-  const resetSelection = () => {
-    setIsSelectionMode(false);
-    setSelectedPersonIds([]);
-    setSelectionMode("any");
-  };
+const resetSelection = () => {
+  setIsSelectionMode(false);
+  setSelectedPersonIds([]);
+  setSelectionMode("all");
+};
 
   const togglePerson = (personId: string) => {
     setSelectedPersonIds((current) =>
