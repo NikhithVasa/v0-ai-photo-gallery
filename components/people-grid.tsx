@@ -103,6 +103,7 @@ export function PeopleGrid({
           body: JSON.stringify({ displayName: newName }),
         }
       );
+
       mutate();
     } catch {
       mutate();
@@ -147,42 +148,30 @@ export function PeopleGrid({
     <div className="space-y-5">
       <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold text-foreground">People</h2>
             <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500">
               {people.length}
             </span>
           </div>
 
-          <p className="mt-1 text-sm text-zinc-500">
-            {isSelectionMode
-              ? "Select multiple people, then show matching photos."
-              : "Open one person, or select multiple people to filter photos."}
-          </p>
+          {!isSelectionMode && (
+            <p className="mt-1 text-sm text-zinc-500">
+              Open one person, or select multiple people to filter photos.
+            </p>
+          )}
         </div>
 
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           {isSelectionMode ? (
-            <>
-              <button
-                type="button"
-                onClick={resetSelection}
-                className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-600 shadow-sm transition hover:text-zinc-950"
-              >
-                <X className="h-4 w-4" />
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={handleApplySelection}
-                disabled={!selectedPeople.length}
-                className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
-              >
-                <Images className="h-4 w-4" />
-                Show photos
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={resetSelection}
+              className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-600 shadow-sm transition hover:text-zinc-950 sm:w-auto"
+            >
+              <X className="h-4 w-4" />
+              Cancel
+            </button>
           ) : (
             <button
               type="button"
@@ -195,8 +184,10 @@ export function PeopleGrid({
           )}
         </div>
       </div>
-{isSelectionMode && (
-  <div className="sticky top-[112px] z-20 w-full max-w-full overflow-hidden rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-sm backdrop-blur-md sm:top-[132px]">  <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+      {isSelectionMode && (
+        <div className="sticky top-[112px] z-20 w-full max-w-full overflow-hidden rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-sm backdrop-blur-md sm:top-[132px]">
+          <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
               <div className="flex max-w-[42vw] shrink-0 -space-x-2 overflow-hidden sm:max-w-none">
                 {selectedPeople.slice(0, 6).map((person) => {
@@ -237,10 +228,10 @@ export function PeopleGrid({
                 <p className="truncate text-sm font-medium text-zinc-950">
                   {selectedPeople.length
                     ? `${selectedPeople.length} selected`
-                    : "No people selected"}
+                    : "Select people"}
                 </p>
                 <p className="text-xs text-zinc-500">
-                  Choose how the photo filter should work.
+                  Choose how photos should match.
                 </p>
               </div>
             </div>

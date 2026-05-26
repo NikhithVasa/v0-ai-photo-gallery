@@ -739,23 +739,23 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </div>
 
               {!selectedPerson && activeTab === "photos" && (
-                <>
-                  <PeopleFilterButton
-                    people={filterPeople}
-                    selectedPeople={selectedFilterPeople}
-                    selectedPeopleIds={selectedPeopleIds}
-                    onToggle={toggleSelectedPersonId}
-                    onClear={() => setSelectedPeopleIds([])}
-                  />
+  <div className="hidden items-center gap-2 sm:flex">
+    <PeopleFilterButton
+      people={filterPeople}
+      selectedPeople={selectedFilterPeople}
+      selectedPeopleIds={selectedPeopleIds}
+      onToggle={toggleSelectedPersonId}
+      onClear={() => setSelectedPeopleIds([])}
+    />
 
-                  {selectedPeopleIds.length > 1 && (
-                    <PeopleMatchModeSelect
-                      value={peopleMatchMode}
-                      onChange={setPeopleMatchMode}
-                    />
-                  )}
-                </>
-              )}
+    {selectedPeopleIds.length > 1 && (
+      <PeopleMatchModeSelect
+        value={peopleMatchMode}
+        onChange={setPeopleMatchMode}
+      />
+    )}
+  </div>
+)}
             </div>
 
             <div className="flex items-center gap-2">
