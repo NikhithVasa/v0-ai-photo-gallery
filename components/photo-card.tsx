@@ -205,9 +205,8 @@ export const PhotoCard = memo(function PhotoCard({
           Download Photo
         </div>
 
-        <div className="mt-2 flex items-start">
-          <div className="h-px w-28 bg-white/70 sm:w-36" />
-          <div className="h-5 w-px bg-white/70" />
+        <div className="relative mt-3 h-px w-36 bg-white/75 sm:w-44">
+          <div className="absolute right-4 top-[-3px] h-3 w-3 rotate-45 border-b border-r border-white/75" />
         </div>
       </div>
 
@@ -689,9 +688,8 @@ export function PhotoLightbox({
                 Download Photo
               </div>
 
-              <div className="mt-2 flex items-start">
-                <div className="h-px w-36 bg-white/70 sm:w-44" />
-                <div className="h-7 w-px bg-white/70" />
+              <div className="relative mt-3 h-px w-44 bg-white/75 sm:w-56">
+                <div className="absolute right-4 top-[-3px] h-3 w-3 rotate-45 border-b border-r border-white/75" />
               </div>
             </div>
 
