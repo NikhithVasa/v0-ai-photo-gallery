@@ -39,6 +39,11 @@ export function AlbumsPage() {
     }
   );
 
+  // TEMP: Hide Nikhith album from UI only.
+  // API still returns it, but this page will not render it.
+  const visibleAlbums =
+    albumsData?.albums?.filter((album) => album.slug !== "Nikhith") ?? [];
+
   const statsByAlbumId = new Map(
     statsData?.stats?.map((item) => [item.albumId, item]) ?? []
   );
@@ -77,15 +82,15 @@ export function AlbumsPage() {
           </div>
         )}
 
-        {!albumsLoading && !albumsError && !albumsData?.albums?.length && (
+        {!albumsLoading && !albumsError && !visibleAlbums.length && (
           <div className="rounded-md border border-zinc-200 bg-white px-5 py-12 text-center text-sm text-zinc-500">
             No albums found yet.
           </div>
         )}
 
-        {!!albumsData?.albums?.length && (
+        {!!visibleAlbums.length && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {albumsData.albums.map((album) => {
+            {visibleAlbums.map((album) => {
               const stats = statsByAlbumId.get(album.id);
 
               return (
@@ -141,17 +146,17 @@ export function AlbumsPage() {
                         <>
                           <span className="inline-flex items-center gap-1.5">
                             <Images className="h-4 w-4" />
-                            {stats?.photoCount ?? 0}
+                            {stats?.photoCount ?? album.photoCount ?? 0}
                           </span>
 
                           <span className="inline-flex items-center gap-1.5">
                             <Users className="h-4 w-4" />
-                            {stats?.peopleCount ?? 0}
+                            {stats?.peopleCount ?? album.peopleCount ?? 0}
                           </span>
 
                           <span className="inline-flex items-center gap-1.5">
                             <CalendarDays className="h-4 w-4" />
-                            {stats?.eventCount ?? 0}
+                            {stats?.eventCount ?? album.eventCount ?? 0}
                           </span>
                         </>
                       )}
