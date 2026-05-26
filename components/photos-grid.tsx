@@ -42,91 +42,75 @@ function photosUrl(
   return query ? `${base}?${query}` : base;
 }
 
-function photoRatio(photo: Photo) {
-  const width = photo.width || photo.previewWidth || photo.thumbWidth || 1;
-  const height = photo.height || photo.previewHeight || photo.thumbHeight || 1;
-
-  return width / height;
-}
-
-function getCollageClass(photo: Photo, index: number, total: number) {
-  const ratio = photoRatio(photo);
-  const isWide = ratio >= 1.45;
-  const isTall = ratio <= 0.75;
-
+function getPackedCollageClass(index: number, total: number) {
   if (total === 1) {
-    return "col-span-6 row-span-3 sm:col-span-6 sm:row-span-4 lg:col-span-6 lg:row-span-4";
+    return "col-span-6 row-span-4";
   }
 
   /**
-   * 12-item repeating editorial pattern.
-   * Desktop grid = 6 columns.
+   * Hole-safe 12-photo pattern.
    *
-   * Pattern direction:
-   * 0: large hero
-   * 1/2: smaller stack beside hero
-   * 3: tall editorial tile
-   * 4/5: balanced medium tiles
-   * 6: wide banner-ish tile
-   * 7/8/9: normal collage tiles
-   * 10: tall or hero-ish accent
-   * 11: medium closer
+   * Desktop grid:
+   * 6 columns
+   * fixed auto rows
+   * dense packing
+   *
+   * This pattern intentionally fills full rectangular sections:
+   *
+   * 0: hero left 3x3
+   * 1: wide top-right 3x1
+   * 2: large right 3x2
+   *
+   * 3/4/5: three balanced medium tiles
+   *
+   * 6: wide 4x2
+   * 7/8: two small stack tiles beside it
+   *
+   * 9: tall/medium 2x2
+   * 10/11: two wide stacked tiles beside it
    */
   const pattern = index % 12;
 
-  if (pattern === 0) {
-    return "col-span-6 row-span-3 sm:col-span-4 sm:row-span-3 lg:col-span-3 lg:row-span-3";
-  }
+  switch (pattern) {
+    case 0:
+      return "col-span-6 row-span-3 sm:col-span-3 sm:row-span-3";
 
-  if (pattern === 1) {
-    return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
-  }
+    case 1:
+      return "col-span-3 row-span-2 sm:col-span-3 sm:row-span-1";
 
-  if (pattern === 2) {
-    return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-1 lg:row-span-2";
-  }
+    case 2:
+      return "col-span-3 row-span-2 sm:col-span-3 sm:row-span-2";
 
-  if (pattern === 3) {
-    return "col-span-3 row-span-3 sm:col-span-2 sm:row-span-3 lg:col-span-2 lg:row-span-4";
-  }
+    case 3:
+      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2";
 
-  if (pattern === 4) {
-    return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
-  }
+    case 4:
+      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2";
 
-  if (pattern === 5) {
-    return "col-span-6 row-span-2 sm:col-span-4 sm:row-span-2 lg:col-span-2 lg:row-span-2";
-  }
+    case 5:
+      return "col-span-6 row-span-2 sm:col-span-2 sm:row-span-2";
 
-  if (pattern === 6) {
-    return "col-span-6 row-span-2 sm:col-span-4 sm:row-span-2 lg:col-span-4 lg:row-span-2";
-  }
+    case 6:
+      return "col-span-6 row-span-2 sm:col-span-4 sm:row-span-2";
 
-  if (pattern === 7) {
-    return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
-  }
+    case 7:
+      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-1";
 
-  if (pattern === 8) {
-    return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
-  }
+    case 8:
+      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-1";
 
-  if (pattern === 9) {
-    return "col-span-6 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
-  }
+    case 9:
+      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2";
 
-  if (pattern === 10) {
-    return isTall
-      ? "col-span-3 row-span-3 sm:col-span-2 sm:row-span-3 lg:col-span-2 lg:row-span-3"
-      : "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-3";
-  }
+    case 10:
+      return "col-span-3 row-span-2 sm:col-span-4 sm:row-span-1";
 
-  if (pattern === 11) {
-    return isWide
-      ? "col-span-6 row-span-2 sm:col-span-4 sm:row-span-2 lg:col-span-4 lg:row-span-2"
-      : "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
-  }
+    case 11:
+      return "col-span-6 row-span-2 sm:col-span-4 sm:row-span-1";
 
-  return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2 lg:col-span-2 lg:row-span-2";
+    default:
+      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2";
+  }
 }
 
 export function PhotosGrid({
@@ -228,17 +212,11 @@ export function PhotosGrid({
 
   if (isLoading) {
     return (
-      <div className="grid auto-rows-[96px] grid-cols-6 gap-2 sm:auto-rows-[120px] lg:auto-rows-[145px]">
+      <div className="grid grid-flow-dense auto-rows-[88px] grid-cols-6 gap-2 sm:auto-rows-[115px] lg:auto-rows-[145px]">
         {Array.from({ length: 12 }).map((_, index) => (
           <Skeleton
             key={index}
-            className={`rounded-md ${
-              index % 12 === 0
-                ? "col-span-6 row-span-3 sm:col-span-4 sm:row-span-3 lg:col-span-3 lg:row-span-3"
-                : index % 12 === 6
-                  ? "col-span-6 row-span-2 lg:col-span-4 lg:row-span-2"
-                  : "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2"
-            }`}
+            className={`rounded-md ${getPackedCollageClass(index, 12)}`}
           />
         ))}
       </div>
@@ -261,12 +239,11 @@ export function PhotosGrid({
 
   return (
     <>
-      <div className="grid auto-rows-[96px] grid-cols-6 gap-2 sm:auto-rows-[120px] lg:auto-rows-[145px]">
+      <div className="grid grid-flow-dense auto-rows-[88px] grid-cols-6 gap-2 sm:auto-rows-[115px] lg:auto-rows-[145px]">
         {data.photos.map((photo, index) => (
           <div
             key={photo.id}
-            className={`min-w-0 overflow-hidden rounded-md ${getCollageClass(
-              photo,
+            className={`min-w-0 overflow-hidden rounded-md ${getPackedCollageClass(
               index,
               data.photos.length
             )}`}
