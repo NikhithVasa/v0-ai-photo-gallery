@@ -246,7 +246,8 @@ function PeopleFilterButton({
       </button>
 
       {isOpen && (
-<div className="fixed left-4 right-4 top-[88px] z-50 max-h-[70vh] overflow-hidden rounded-lg border border-zinc-200 bg-white p-3 text-zinc-950 shadow-xl sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:max-h-none sm:w-[min(88vw,360px)]">          <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="absolute left-0 top-full z-50 mt-2 w-[min(88vw,360px)] rounded-lg border border-zinc-200 bg-white p-3 text-zinc-950 shadow-xl">
+          <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">Filter people</p>
               <p className="text-xs text-zinc-500">
@@ -285,8 +286,8 @@ function PeopleFilterButton({
             className="mb-3 h-9"
           />
 
-<div className="max-h-[48vh] space-y-1 overflow-y-auto pr-1 sm:max-h-72">
-              {filteredPeople.length === 0 ? (
+          <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+            {filteredPeople.length === 0 ? (
               <div className="py-8 text-center text-sm text-zinc-500">
                 No people found.
               </div>
@@ -517,6 +518,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     [album?.events, selectedEventSlug]
   );
 
+  const scrollToPageTop = () => {
+    requestAnimationFrame(() => {
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: "auto",
+      });
+    });
+  };
+
   useEffect(() => {
     const eventFromUrl = searchParams.get("event") || null;
     setSelectedEventSlug(eventFromUrl);
@@ -550,6 +561,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     router.replace(`/albums/${albumSlug}${eventQuery(eventSlug)}`, {
       scroll: false,
     });
+
+    scrollToPageTop();
   };
 
   const goToNextEvent = () => {
@@ -571,23 +584,31 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     changeEvent(nextEvent.slug);
   };
 
-  const filterByPeopleSelection = (
-  people: Person[],
-  mode: PeopleMatchMode
-) => {
-  const ids = people.map((person) => person.id);
-
-  setSelectedPeopleIds(ids);
-  setPeopleMatchMode(ids.length > 1 ? mode : "all");
-  setSelectedPerson(null);
-  setActiveTab("photos");
-};
+  const openPerson = (person: Person) => {
+    setSelectedPerson(person);
+    setActiveTab("people");
+    scrollToPageTop();
+  };
 
   const filterByPerson = (personId: string) => {
     setSelectedPeopleIds([personId]);
     setPeopleMatchMode("all");
     setSelectedPerson(null);
     setActiveTab("photos");
+    scrollToPageTop();
+  };
+
+  const filterByPeopleSelection = (
+    people: Person[],
+    mode: PeopleMatchMode
+  ) => {
+    const ids = people.map((person) => person.id);
+
+    setSelectedPeopleIds(ids);
+    setPeopleMatchMode(ids.length > 1 ? mode : "all");
+    setSelectedPerson(null);
+    setActiveTab("photos");
+    scrollToPageTop();
   };
 
   const toggleSelectedPersonId = (personId: string) => {
@@ -598,6 +619,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     );
     setSelectedPerson(null);
     setActiveTab("photos");
+    scrollToPageTop();
   };
 
   const startEditingSelectedEvent = () => {
@@ -654,8 +676,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       }
 
       cancelEditingEvent();
-    } catch (error) {
-      console.error("Failed to update event name:", error);
+    } catch (eventNameError) {
+      console.error("Failed to update event name:", eventNameError);
     } finally {
       setIsSavingEventName(false);
     }
@@ -739,23 +761,23 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </div>
 
               {!selectedPerson && activeTab === "photos" && (
-  <div className="hidden items-center gap-2 sm:flex">
-    <PeopleFilterButton
-      people={filterPeople}
-      selectedPeople={selectedFilterPeople}
-      selectedPeopleIds={selectedPeopleIds}
-      onToggle={toggleSelectedPersonId}
-      onClear={() => setSelectedPeopleIds([])}
-    />
+                <div className="hidden items-center gap-2 sm:flex">
+                  <PeopleFilterButton
+                    people={filterPeople}
+                    selectedPeople={selectedFilterPeople}
+                    selectedPeopleIds={selectedPeopleIds}
+                    onToggle={toggleSelectedPersonId}
+                    onClear={() => setSelectedPeopleIds([])}
+                  />
 
-    {selectedPeopleIds.length > 1 && (
-      <PeopleMatchModeSelect
-        value={peopleMatchMode}
-        onChange={setPeopleMatchMode}
-      />
-    )}
-  </div>
-)}
+                  {selectedPeopleIds.length > 1 && (
+                    <PeopleMatchModeSelect
+                      value={peopleMatchMode}
+                      onChange={setPeopleMatchMode}
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -779,6 +801,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     onClick={() => {
                       setSelectedPerson(null);
                       setActiveTab("photos");
+                      scrollToPageTop();
                     }}
                     className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                       activeTab === "photos"
@@ -796,6 +819,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     onClick={() => {
                       setSelectedPerson(null);
                       setActiveTab("people");
+                      scrollToPageTop();
                     }}
                     className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                       activeTab === "people"
@@ -868,6 +892,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 onClick={() => {
                   setSelectedPerson(null);
                   setActiveTab("photos");
+                  scrollToPageTop();
                 }}
                 className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
                   activeTab === "photos"
@@ -885,6 +910,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 onClick={() => {
                   setSelectedPerson(null);
                   setActiveTab("people");
+                  scrollToPageTop();
                 }}
                 className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
                   activeTab === "people"
@@ -907,7 +933,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             selectedEventSlug={null}
             events={album.events}
             person={selectedPerson}
-            onBack={() => setSelectedPerson(null)}
+            onBack={() => {
+              setSelectedPerson(null);
+              setActiveTab("people");
+              scrollToPageTop();
+            }}
           />
         ) : activeTab === "people" ? (
           <section className="space-y-5 px-2 sm:px-0">
@@ -918,13 +948,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </h2>
             </div>
 
-           <PeopleGrid
-  albumSlug={albumSlug}
-  selectedEventSlug={null}
-  events={album.events}
-  onPersonClick={setSelectedPerson}
-  onPeopleSelectionApply={filterByPeopleSelection}
-/>
+            <PeopleGrid
+              albumSlug={albumSlug}
+              selectedEventSlug={null}
+              events={album.events}
+              onPersonClick={openPerson}
+              onPeopleSelectionApply={filterByPeopleSelection}
+            />
           </section>
         ) : (
           <section className="space-y-5">
