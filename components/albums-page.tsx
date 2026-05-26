@@ -92,7 +92,7 @@ export function AlbumsPage() {
                 <Link
                   key={album.id}
                   href={`/albums/${album.slug}`}
-                  className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                  className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-400"
                 >
                   <div className="relative aspect-[4/3] bg-zinc-100">
                     {album.coverPhotoUrl ? (
@@ -101,7 +101,7 @@ export function AlbumsPage() {
                         alt={album.name}
                         fill
                         sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                        className="object-cover transition duration-300 group-hover:scale-[1.02]"
+                        className="object-cover"
                         unoptimized
                         priority
                       />
