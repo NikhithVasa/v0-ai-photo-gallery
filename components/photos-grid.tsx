@@ -42,77 +42,6 @@ function photosUrl(
   return query ? `${base}?${query}` : base;
 }
 
-function getPackedCollageClass(index: number, total: number) {
-  if (total === 1) {
-    return "col-span-6 row-span-4";
-  }
-
-  /**
-   * Hole-safe 12-photo pattern.
-   *
-   * Desktop grid:
-   * 6 columns
-   * fixed auto rows
-   * dense packing
-   *
-   * This pattern intentionally fills full rectangular sections:
-   *
-   * 0: hero left 3x3
-   * 1: wide top-right 3x1
-   * 2: large right 3x2
-   *
-   * 3/4/5: three balanced medium tiles
-   *
-   * 6: wide 4x2
-   * 7/8: two small stack tiles beside it
-   *
-   * 9: tall/medium 2x2
-   * 10/11: two wide stacked tiles beside it
-   */
-  const pattern = index % 12;
-
-  switch (pattern) {
-    case 0:
-      return "col-span-6 row-span-3 sm:col-span-3 sm:row-span-3";
-
-    case 1:
-      return "col-span-3 row-span-2 sm:col-span-3 sm:row-span-1";
-
-    case 2:
-      return "col-span-3 row-span-2 sm:col-span-3 sm:row-span-2";
-
-    case 3:
-      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2";
-
-    case 4:
-      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2";
-
-    case 5:
-      return "col-span-6 row-span-2 sm:col-span-2 sm:row-span-2";
-
-    case 6:
-      return "col-span-6 row-span-2 sm:col-span-4 sm:row-span-2";
-
-    case 7:
-      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-1";
-
-    case 8:
-      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-1";
-
-    case 9:
-      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2";
-
-    case 10:
-      return "col-span-3 row-span-2 sm:col-span-4 sm:row-span-1";
-
-    case 11:
-      return "col-span-6 row-span-2 sm:col-span-4 sm:row-span-1";
-
-    default:
-      return "col-span-3 row-span-2 sm:col-span-2 sm:row-span-2";
-  }
-}
-
 export function PhotosGrid({
   albumSlug,
   selectedEventSlug,
@@ -212,12 +141,19 @@ export function PhotosGrid({
 
   if (isLoading) {
     return (
-      <div className="grid grid-flow-dense auto-rows-[88px] grid-cols-6 gap-2 sm:auto-rows-[115px] lg:auto-rows-[145px]">
+      <div className="columns-1 gap-2 sm:columns-2 lg:columns-3">
         {Array.from({ length: 12 }).map((_, index) => (
-          <Skeleton
-            key={index}
-            className={`rounded-md ${getPackedCollageClass(index, 12)}`}
-          />
+          <div key={index} className="mb-2 break-inside-avoid">
+            <Skeleton
+              className={`w-full rounded-md ${
+                index % 5 === 0
+                  ? "h-80"
+                  : index % 3 === 0
+                    ? "h-56"
+                    : "h-72"
+              }`}
+            />
+          </div>
         ))}
       </div>
     );
@@ -239,21 +175,14 @@ export function PhotosGrid({
 
   return (
     <>
-      <div className="grid grid-flow-dense auto-rows-[88px] grid-cols-6 gap-2 sm:auto-rows-[115px] lg:auto-rows-[145px]">
+      <div className="columns-1 gap-2 sm:columns-2 lg:columns-3">
         {data.photos.map((photo, index) => (
-          <div
-            key={photo.id}
-            className={`min-w-0 overflow-hidden rounded-md ${getPackedCollageClass(
-              index,
-              data.photos.length
-            )}`}
-          >
+          <div key={photo.id} className="mb-2 break-inside-avoid">
             <PhotoCard
               albumSlug={albumSlug}
               photo={photo}
               index={index}
               onOpen={handleOpen}
-              forceFill
             />
           </div>
         ))}
