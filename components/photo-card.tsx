@@ -197,11 +197,18 @@ export const PhotoCard = memo(function PhotoCard({
       />
 
       <div
-        className={`pointer-events-none absolute bottom-20 left-3 z-20 text-sm font-medium tracking-wide text-white drop-shadow transition-opacity duration-200 sm:bottom-24 sm:left-4 ${
+        className={`pointer-events-none absolute bottom-24 left-3 z-20 transition-opacity duration-200 sm:bottom-28 sm:left-4 ${
           isDownloadHovering ? "opacity-100" : "opacity-0"
         }`}
       >
-        Download Photo
+        <div className="text-sm font-medium tracking-wide text-white drop-shadow">
+          Download Photo
+        </div>
+
+        <div className="mt-2 flex items-start">
+          <div className="h-px w-28 bg-white/70 sm:w-36" />
+          <div className="h-5 w-px bg-white/70" />
+        </div>
       </div>
 
       <div className="pointer-events-none absolute bottom-2 left-2 z-30 flex items-center gap-2 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 sm:bottom-3 sm:left-3">
@@ -674,11 +681,18 @@ export function PhotoLightbox({
             />
 
             <div
-              className={`pointer-events-none absolute bottom-20 left-3 z-20 text-sm font-medium tracking-wide text-white drop-shadow transition-opacity duration-200 sm:bottom-24 sm:left-4 ${
+              className={`pointer-events-none absolute bottom-28 left-3 z-20 transition-opacity duration-200 sm:bottom-32 sm:left-4 ${
                 isDownloadHovering ? "opacity-100" : "opacity-0"
               }`}
             >
-              Download Photo
+              <div className="text-sm font-medium tracking-wide text-white drop-shadow sm:text-base">
+                Download Photo
+              </div>
+
+              <div className="mt-2 flex items-start">
+                <div className="h-px w-36 bg-white/70 sm:w-44" />
+                <div className="h-7 w-px bg-white/70" />
+              </div>
             </div>
 
             <div
