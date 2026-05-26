@@ -57,7 +57,7 @@ export async function GET() {
         passwordRequired: Boolean(row.password_required),
         coverPhotoUrl: await signedUrl(row.cover_photo_s3_key),
 
-        // Keeping these as 0 so existing AlbumSummary type does not break.
+        // Filled later by /api/albums/stats
         eventCount: 0,
         photoCount: 0,
         peopleCount: 0,
