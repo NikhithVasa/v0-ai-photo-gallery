@@ -82,12 +82,12 @@ export async function GET(_request: Request, { params }: Props) {
         name: event.name,
         sortOrder: numberValue(event.sort_order),
 
-        // Filled async by /stats
+        // Loaded later by /api/albums/[albumSlug]/stats
         photoCount: 0,
         peopleCount: 0,
       })),
 
-      // Filled async by /stats
+      // Loaded later by /api/albums/[albumSlug]/stats
       photoCount: 0,
       peopleCount: 0,
     };

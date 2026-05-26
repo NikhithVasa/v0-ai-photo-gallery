@@ -72,35 +72,33 @@ export async function GET(_request: Request, { params }: Props) {
         `
         WITH event_photo_counts AS (
           SELECT
-            event_id,
+            album_event_id,
             COUNT(*)::int AS photo_count
           FROM photos
           WHERE album_id = $1::uuid
             AND COALESCE(is_deleted, false) = false
-          GROUP BY event_id
+          GROUP BY album_event_id
         ),
         event_people_counts AS (
           SELECT
-            p.event_id,
-            COUNT(DISTINCT f.person_id)::int AS people_count
-          FROM photos p
-          JOIN photo_faces f ON f.photo_id = p.id
-          JOIN people pe ON pe.id = f.person_id
-          WHERE p.album_id = $1::uuid
-            AND COALESCE(p.is_deleted, false) = false
+            pes.album_event_id,
+            COUNT(DISTINCT pes.person_id)::int AS people_count
+          FROM person_event_stats pes
+          JOIN people pe ON pe.id = pes.person_id
+          WHERE pes.photo_count > 0
             AND COALESCE(pe.is_hidden, false) = false
-            AND f.person_id IS NOT NULL
-          GROUP BY p.event_id
+          GROUP BY pes.album_event_id
         )
         SELECT
           e.id AS event_id,
           COALESCE(epc.photo_count, 0)::int AS photo_count,
           COALESCE(epec.people_count, 0)::int AS people_count
         FROM album_events e
-        LEFT JOIN event_photo_counts epc ON epc.event_id = e.id
-        LEFT JOIN event_people_counts epec ON epec.event_id = e.id
+        LEFT JOIN event_photo_counts epc ON epc.album_event_id = e.id
+        LEFT JOIN event_people_counts epec ON epec.album_event_id = e.id
         WHERE e.album_id = $1::uuid
           AND COALESCE(e.is_deleted, false) = false
+        ORDER BY e.sort_order ASC NULLS LAST, e.name ASC
         `,
         [album.id]
       ),
