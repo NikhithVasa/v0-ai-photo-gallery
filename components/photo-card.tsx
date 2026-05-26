@@ -609,7 +609,7 @@ export function PhotoLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 text-white backdrop-blur-[1px]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-white/85 text-white backdrop-blur-xl supports-[backdrop-filter]:bg-white/80"
       onClick={() => {
         if (isPeopleOpen) setIsPeopleOpen(false);
         else onClose();
@@ -628,7 +628,7 @@ export function PhotoLightbox({
           event.stopPropagation();
           onClose();
         }}
-        className={`absolute right-3 top-3 z-30 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/25 text-white shadow-lg backdrop-blur-md ring-1 ring-white/30 transition-opacity duration-200 hover:bg-white/35 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-6 sm:top-5 ${overlayVisibilityClass}`}
+        className={`absolute right-3 top-3 z-30 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/30 text-white shadow-lg backdrop-blur-md ring-1 ring-white/40 transition-opacity duration-200 hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-6 sm:top-5 ${overlayVisibilityClass}`}
         aria-label="Close photo"
       >
         <X className="h-5 w-5" />
@@ -636,7 +636,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
-        className={`absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/25 text-white shadow-lg backdrop-blur-md ring-1 ring-white/30 transition-opacity duration-200 hover:bg-white/35 focus:outline-none focus:ring-2 focus:ring-white/70 sm:left-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
+        className={`absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/30 text-white shadow-lg backdrop-blur-md ring-1 ring-white/40 transition-opacity duration-200 hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-white/70 sm:left-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handlePrev();
@@ -648,7 +648,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
-        className={`absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/25 text-white shadow-lg backdrop-blur-md ring-1 ring-white/30 transition-opacity duration-200 hover:bg-white/35 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
+        className={`absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/30 text-white shadow-lg backdrop-blur-md ring-1 ring-white/40 transition-opacity duration-200 hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handleNext();
@@ -723,7 +723,7 @@ export function PhotoLightbox({
             </div>
 
             <div
-              className={`pointer-events-auto absolute bottom-4 left-4 z-30 flex items-center gap-2 rounded-full bg-white/25 px-2 py-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/30 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayVisibilityClass}`}
+              className={`pointer-events-auto absolute bottom-4 left-4 z-30 flex items-center gap-2 rounded-full bg-white/30 px-2 py-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/40 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayVisibilityClass}`}
               onClick={(event) => event.stopPropagation()}
             >
               <button
@@ -802,7 +802,7 @@ export function PhotoLightbox({
                   setAreControlsVisible(true);
                   setIsPeopleOpen((current) => !current);
                 }}
-                className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full bg-white/25 px-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/30 transition hover:bg-white/35 focus:outline-none focus:ring-2 focus:ring-white/70"
+                className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full bg-white/30 px-1 text-white shadow-lg backdrop-blur-md ring-1 ring-white/40 transition hover:bg-white/40 focus:outline-none focus:ring-2 focus:ring-white/70"
                 aria-expanded={isPeopleOpen}
                 aria-label="Show people in this photo"
               >
