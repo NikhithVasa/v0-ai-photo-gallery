@@ -52,6 +52,7 @@ function PasswordGate({
 
   const verify = async () => {
     if (!password || isSubmitting) return;
+
     setIsSubmitting(true);
     setError("");
 
@@ -64,6 +65,7 @@ function PasswordGate({
           body: JSON.stringify({ password }),
         }
       );
+
       const data = (await response.json()) as { ok?: boolean };
 
       if (!response.ok || !data.ok) {
@@ -662,23 +664,23 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </div>
 
               {!selectedPerson && (
-  <>
-    <PeopleFilterButton
-      people={filterPeople}
-      selectedPeople={selectedFilterPeople}
-      selectedPeopleIds={selectedPeopleIds}
-      onToggle={toggleSelectedPersonId}
-      onClear={() => setSelectedPeopleIds([])}
-    />
+                <>
+                  <PeopleFilterButton
+                    people={filterPeople}
+                    selectedPeople={selectedFilterPeople}
+                    selectedPeopleIds={selectedPeopleIds}
+                    onToggle={toggleSelectedPersonId}
+                    onClear={() => setSelectedPeopleIds([])}
+                  />
 
-    {selectedPeopleIds.length > 1 && (
-      <PeopleMatchModeSelect
-        value={peopleMatchMode}
-        onChange={setPeopleMatchMode}
-      />
-    )}
-  </>
-)}
+                  {selectedPeopleIds.length > 1 && (
+                    <PeopleMatchModeSelect
+                      value={peopleMatchMode}
+                      onChange={setPeopleMatchMode}
+                    />
+                  )}
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -692,45 +694,45 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </Link>
 
               {!selectedPerson && (
-  <div
-    className="hidden items-center gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-zinc-200 sm:flex"
-    role="tablist"
-  >
-    <button
-      role="tab"
-      aria-selected={activeTab === "photos" && !selectedPerson}
-      onClick={() => {
-        setSelectedPerson(null);
-        setActiveTab("photos");
-      }}
-      className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
-        activeTab === "photos" && !selectedPerson
-          ? "bg-zinc-950 text-white"
-          : "text-zinc-600 hover:text-zinc-950"
-      }`}
-    >
-      <Images className="h-4 w-4" />
-      Photos
-    </button>
+                <div
+                  className="hidden items-center gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-zinc-200 sm:flex"
+                  role="tablist"
+                >
+                  <button
+                    role="tab"
+                    aria-selected={activeTab === "photos"}
+                    onClick={() => {
+                      setSelectedPerson(null);
+                      setActiveTab("photos");
+                    }}
+                    className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
+                      activeTab === "photos"
+                        ? "bg-zinc-950 text-white"
+                        : "text-zinc-600 hover:text-zinc-950"
+                    }`}
+                  >
+                    <Images className="h-4 w-4" />
+                    Photos
+                  </button>
 
-    <button
-      role="tab"
-      aria-selected={activeTab === "people" && !selectedPerson}
-      onClick={() => {
-        setSelectedPerson(null);
-        setActiveTab("people");
-      }}
-      className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
-        activeTab === "people" && !selectedPerson
-          ? "bg-zinc-950 text-white"
-          : "text-zinc-600 hover:text-zinc-950"
-      }`}
-    >
-      <Users className="h-4 w-4" />
-      People
-    </button>
-  </div>
-)}
+                  <button
+                    role="tab"
+                    aria-selected={activeTab === "people"}
+                    onClick={() => {
+                      setSelectedPerson(null);
+                      setActiveTab("people");
+                    }}
+                    className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
+                      activeTab === "people"
+                        ? "bg-zinc-950 text-white"
+                        : "text-zinc-600 hover:text-zinc-950"
+                    }`}
+                  >
+                    <Users className="h-4 w-4" />
+                    People
+                  </button>
+                </div>
+              )}
 
               <button
                 type="button"
@@ -744,78 +746,82 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           </div>
 
           {!selectedPerson && (
-  <div className="flex gap-2 overflow-x-auto pb-1">
-    <button
-      type="button"
-      onClick={() => changeEvent(null)}
-      className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
-        !selectedEventSlug
-          ? "bg-zinc-950 text-white"
-          : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:text-zinc-950"
-      }`}
-    >
-      All
-      <span className="ml-2 text-xs opacity-70">{album.photoCount}</span>
-    </button>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={() => changeEvent(null)}
+                className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  !selectedEventSlug
+                    ? "bg-zinc-950 text-white"
+                    : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:text-zinc-950"
+                }`}
+              >
+                All
+                <span className="ml-2 text-xs opacity-70">
+                  {album.photoCount}
+                </span>
+              </button>
 
-    {album.events.map((event) => (
-      <button
-        key={event.id}
-        type="button"
-        onClick={() => changeEvent(event.slug)}
-        className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
-          selectedEventSlug === event.slug
-            ? "bg-zinc-950 text-white"
-            : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:text-zinc-950"
-        }`}
-      >
-        {event.name}
-        <span className="ml-2 text-xs opacity-70">{event.photoCount}</span>
-      </button>
-    ))}
-  </div>
-)}  
+              {album.events.map((event) => (
+                <button
+                  key={event.id}
+                  type="button"
+                  onClick={() => changeEvent(event.slug)}
+                  className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    selectedEventSlug === event.slug
+                      ? "bg-zinc-950 text-white"
+                      : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:text-zinc-950"
+                  }`}
+                >
+                  {event.name}
+                  <span className="ml-2 text-xs opacity-70">
+                    {event.photoCount}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {!selectedPerson && (
-  <div
-    className="grid grid-cols-2 gap-2 rounded-full bg-white p-1 shadow-sm ring-1 ring-zinc-200 sm:hidden"
-    role="tablist"
-  >
-    <button
-      role="tab"
-      aria-selected={activeTab === "photos" && !selectedPerson}
-      onClick={() => {
-        setSelectedPerson(null);
-        setActiveTab("photos");
-      }}
-      className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
-        activeTab === "photos" && !selectedPerson
-          ? "bg-zinc-950 text-white"
-          : "text-zinc-600"
-      }`}
-    >
-      <Images className="h-4 w-4" />
-      Photos
-    </button>
+            <div
+              className="grid grid-cols-2 gap-2 rounded-full bg-white p-1 shadow-sm ring-1 ring-zinc-200 sm:hidden"
+              role="tablist"
+            >
+              <button
+                role="tab"
+                aria-selected={activeTab === "photos"}
+                onClick={() => {
+                  setSelectedPerson(null);
+                  setActiveTab("photos");
+                }}
+                className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
+                  activeTab === "photos"
+                    ? "bg-zinc-950 text-white"
+                    : "text-zinc-600"
+                }`}
+              >
+                <Images className="h-4 w-4" />
+                Photos
+              </button>
 
-    <button
-      role="tab"
-      aria-selected={activeTab === "people" && !selectedPerson}
-      onClick={() => {
-        setSelectedPerson(null);
-        setActiveTab("people");
-      }}
-      className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
-        activeTab === "people" && !selectedPerson
-          ? "bg-zinc-950 text-white"
-          : "text-zinc-600"
-      }`}
-    >
-      <Users className="h-4 w-4" />
-      People
-    </button>
-  </div>
-)}
+              <button
+                role="tab"
+                aria-selected={activeTab === "people"}
+                onClick={() => {
+                  setSelectedPerson(null);
+                  setActiveTab("people");
+                }}
+                className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
+                  activeTab === "people"
+                    ? "bg-zinc-950 text-white"
+                    : "text-zinc-600"
+                }`}
+              >
+                <Users className="h-4 w-4" />
+                People
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -823,7 +829,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         {selectedPerson ? (
           <PersonView
             albumSlug={albumSlug}
-            selectedEventSlug={selectedEventSlug}
+            selectedEventSlug={null}
             events={album.events}
             person={selectedPerson}
             onBack={() => setSelectedPerson(null)}
