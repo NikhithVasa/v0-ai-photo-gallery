@@ -413,8 +413,32 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [eventNameDraft, setEventNameDraft] = useState("");
   const [isSavingEventName, setIsSavingEventName] = useState(false);
 
-  const { data, error, isLoading, mutate } = useSWR<{ album: AlbumDetail }>(
-    `/api/albums/${encodeURIComponent(albumSlug)}`,
+  interface AlbumStatsResponse {
+  stats: {
+    photoCount: number;
+    peopleCount: number;
+    events: {
+      eventId: string;
+      photoCount: number;
+      peopleCount: number;
+    }[];
+  };
+}
+
+const { data, error, isLoading, mutate } = useSWR<{ album: AlbumDetail }>(
+  `/api/albums/${encodeURIComponent(albumSlug)}`,
+  fetcher,
+  {
+    dedupingInterval: 5 * 60 * 1000,
+    revalidateOnFocus: false,
+  }
+);
+
+const { data: statsData, isLoading: statsLoading } =
+  useSWR<AlbumStatsResponse>(
+    data?.album
+      ? `/api/albums/${encodeURIComponent(albumSlug)}/stats`
+      : null,
     fetcher,
     {
       dedupingInterval: 5 * 60 * 1000,
@@ -432,7 +456,28 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   );
 
-  const album = data?.album;
+const album = useMemo(() => {
+  if (!data?.album) return undefined;
+
+  const eventStatsById = new Map(
+    statsData?.stats.events.map((event) => [event.eventId, event]) ?? []
+  );
+
+  return {
+    ...data.album,
+    photoCount: statsData?.stats.photoCount ?? data.album.photoCount,
+    peopleCount: statsData?.stats.peopleCount ?? data.album.peopleCount,
+    events: data.album.events.map((event) => {
+      const stats = eventStatsById.get(event.id);
+
+      return {
+        ...event,
+        photoCount: stats?.photoCount ?? event.photoCount,
+        peopleCount: stats?.peopleCount ?? event.peopleCount,
+      };
+    }),
+  };
+}, [data?.album, statsData?.stats]);
   const filterPeople = peopleFilterData?.people ?? [];
   const selectedFilterPeople = useMemo(() => {
     const selectedIds = new Set(selectedPeopleIds);
@@ -694,7 +739,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               }`}
             >
               All
-              <span className="ml-2 text-xs opacity-70">{album.photoCount}</span>
+{statsLoading ? (
+  <span className="ml-2 inline-block h-3 w-6 animate-pulse rounded-full bg-current opacity-20" />
+) : (
+  <span className="ml-2 text-xs opacity-70">{album.photoCount}</span>
+)}
             </button>
             {album.events.map((event) => (
               <button
@@ -708,9 +757,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 }`}
               >
                 {event.name}
-                <span className="ml-2 text-xs opacity-70">
-                  {event.photoCount}
-                </span>
+        {statsLoading ? (
+  <span className="ml-2 inline-block h-3 w-6 animate-pulse rounded-full bg-current opacity-20" />
+) : (
+  <span className="ml-2 text-xs opacity-70">{event.photoCount}</span>
+)}
               </button>
             ))}
           </div>
