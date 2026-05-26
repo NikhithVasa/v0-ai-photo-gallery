@@ -41,9 +41,12 @@ export function AlbumsPage() {
 
   // TEMP: Hide Nikhith album from UI only.
   // API still returns it, but this page will not render it.
-  const visibleAlbums =
-    albumsData?.albums?.filter((album) => album.slug !== "Nikhith") ?? [];
+const SHOW_NIKHITH = true;
 
+const visibleAlbums =
+  albumsData?.albums?.filter(
+    (album) => SHOW_NIKHITH || album.slug !== "Nikhith"
+  ) ?? [];
   const statsByAlbumId = new Map(
     statsData?.stats?.map((item) => [item.albumId, item]) ?? []
   );
