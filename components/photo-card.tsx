@@ -764,12 +764,13 @@ export function PhotoLightbox({
       }}
       tabIndex={0}
     >
-      <div
-        className={`pointer-events-none absolute left-1/2 top-4 z-30 max-w-[70vw] -translate-x-1/2 truncate text-center text-sm font-medium text-zinc-900 drop-shadow-sm transition-opacity duration-200 sm:top-5 ${overlayVisibilityClass}`}
-      >
-        {photoName}
-      </div>
-
+     <div
+  className={`pointer-events-none absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/65 via-black/35 to-transparent px-16 pb-10 pt-4 text-center transition-opacity duration-200 sm:pb-12 sm:pt-5 ${overlayVisibilityClass}`}
+>
+  <div className="mx-auto max-w-[70vw] truncate text-sm font-medium text-white drop-shadow">
+    {photoName}
+  </div>
+</div>
       <button
         type="button"
         onClick={(event) => {
