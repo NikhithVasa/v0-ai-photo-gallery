@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -10,11 +11,11 @@ import {
   MessageCircle,
   Search,
   Share2,
-  Sparkles,
+  User,
   X,
 } from "lucide-react";
 import type { PeopleMatchMode } from "@/components/photos-grid";
-import type { Photo } from "@/lib/types";
+import type { Person, Photo } from "@/lib/types";
 
 interface ApsaraFloatingTriggerProps {
   onClick: () => void;
@@ -64,32 +65,56 @@ async function getDownloadUrl(albumSlug: string, photo: Photo) {
   return data.urls?.[photo.id]?.downloadUrl ?? null;
 }
 
-interface ApsaraPromptChipsProps {
-  onChipClick: (text: string) => void;
-}
-
-function ApsaraPromptChips({ onChipClick }: ApsaraPromptChipsProps) {
-  const chips = [
-    "Candid smiling moments",
-    "Photos with parents",
-    "Bride and groom portraits",
-    "Dance floor",
-    "Family near mandap",
-  ];
+function PersonAvatarButton({
+  person,
+  isSelected,
+  onClick,
+}: {
+  person: Person;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const name = person.displayName || person.defaultName;
 
   return (
-    <div className="flex gap-2 overflow-x-auto px-5 pb-4">
-      {chips.map((chip) => (
-        <button
-          key={chip}
-          type="button"
-          onClick={() => onChipClick(chip)}
-          className="shrink-0 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300"
-        >
-          {chip}
-        </button>
-      ))}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-24 flex-col items-center gap-2 text-center focus:outline-none"
+      aria-pressed={isSelected}
+      aria-label={`${isSelected ? "Remove" : "Select"} ${name}`}
+    >
+      <span
+        className={`relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-zinc-100 transition ${
+          isSelected
+            ? "ring-4 ring-zinc-950 ring-offset-4"
+            : "ring-1 ring-zinc-200 group-hover:ring-zinc-400"
+        }`}
+      >
+        {person.coverFaceUrl ? (
+          <Image
+            src={person.coverFaceUrl}
+            alt={name}
+            fill
+            sizes="80px"
+            className="object-cover"
+            unoptimized
+          />
+        ) : (
+          <User className="h-7 w-7 text-zinc-400" />
+        )}
+
+        {isSelected && (
+          <span className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-950 text-white ring-2 ring-white">
+            <Check className="h-3.5 w-3.5" />
+          </span>
+        )}
+      </span>
+
+      <span className="line-clamp-2 max-w-full text-xs font-medium text-zinc-600">
+        {name}
+      </span>
+    </button>
   );
 }
 
@@ -305,23 +330,70 @@ export function ApsaraMomentsOverlay({
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<Photo[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [isLoadingPeople, setIsLoadingPeople] = useState(false);
+  const [selectedSearchPeopleIds, setSelectedSearchPeopleIds] = useState<
+    string[]
+  >([]);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(
     null
   );
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedPeopleCount = selectedSearchPeopleIds.length;
+  const canSearch = Boolean(query.trim()) || selectedPeopleCount > 0;
+
+  const selectedSearchPeople = useMemo(() => {
+    const selectedIds = new Set(selectedSearchPeopleIds);
+    return people.filter((person) => selectedIds.has(person.id));
+  }, [people, selectedSearchPeopleIds]);
+
+  const searchLabel = selectedPeopleCount
+    ? `Search (${selectedPeopleCount})`
+    : "Search";
 
   useEffect(() => {
     if (!isOpen) {
       setQuery("");
       setResults([]);
       setHasSearched(false);
+      setSelectedSearchPeopleIds([]);
       setSelectedPhotoIndex(null);
       return;
     }
 
-    const timer = window.setTimeout(() => inputRef.current?.focus(), 120);
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 160);
     return () => window.clearTimeout(timer);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isCancelled = false;
+
+    setIsLoadingPeople(true);
+
+    fetch(`/api/albums/${encodeURIComponent(albumSlug)}/people`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("People request failed");
+        return (await response.json()) as { people?: Person[] };
+      })
+      .then((data) => {
+        if (isCancelled) return;
+        setPeople(data.people ?? []);
+      })
+      .catch((error) => {
+        console.error("Failed to load people for Apsara search:", error);
+        if (!isCancelled) setPeople([]);
+      })
+      .finally(() => {
+        if (!isCancelled) setIsLoadingPeople(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [albumSlug, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -336,7 +408,11 @@ export function ApsaraMomentsOverlay({
 
   const handleSearch = async (overrideQuery?: string) => {
     const activeQuery = (overrideQuery ?? query).trim();
-    if (!activeQuery) return;
+    const activePeopleIds = selectedSearchPeopleIds.length
+      ? selectedSearchPeopleIds
+      : selectedPeopleIds;
+
+    if (!activeQuery && !activePeopleIds.length) return;
 
     if (overrideQuery) setQuery(overrideQuery);
     setIsSearching(true);
@@ -351,8 +427,10 @@ export function ApsaraMomentsOverlay({
           body: JSON.stringify({
             query: activeQuery,
             event: selectedEventSlug,
-            people: selectedPeopleIds,
-            together: peopleMatchMode === "all",
+            people: activePeopleIds,
+            together: selectedSearchPeopleIds.length
+              ? true
+              : peopleMatchMode === "all",
             limit: 100,
           }),
         }
@@ -369,6 +447,14 @@ export function ApsaraMomentsOverlay({
     }
   };
 
+  const togglePerson = (personId: string) => {
+    setSelectedSearchPeopleIds((current) =>
+      current.includes(personId)
+        ? current.filter((id) => id !== personId)
+        : [...current, personId]
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -381,105 +467,167 @@ export function ApsaraMomentsOverlay({
       />
 
       <section
-        className="relative z-10 flex h-full w-full max-w-xl flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform"
+        className="relative z-10 flex h-full w-full max-w-[min(100vw,760px)] flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform"
         onClick={(event) => event.stopPropagation()}
         aria-label="Apsara AI photo search"
       >
-        <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-700">
-              <Sparkles className="h-4 w-4" />
-            </span>
-            <div>
-              <h2 className="text-base font-semibold text-zinc-950">
-                Apsara AI
-              </h2>
-              <p className="text-xs text-zinc-500">
-                Search your gallery in natural language.
-              </p>
-            </div>
-          </div>
+        <header className="flex items-start justify-between px-6 pb-4 pt-8 sm:px-14 sm:pt-12">
+          <h2 className="text-5xl font-normal tracking-normal text-zinc-900 sm:text-6xl">
+            Search
+          </h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-950/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+            className="flex h-12 w-12 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-950/5 focus:outline-none focus:ring-2 focus:ring-zinc-300"
             aria-label="Close Apsara AI"
           >
-            <X className="h-5 w-5" />
+            <X className="h-8 w-8 stroke-1" />
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
-          <div className="mb-5 max-w-[88%] rounded-2xl rounded-tl-md border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700 shadow-sm">
-            What photo are you looking for?
-          </div>
-
-          {isSearching && (
-            <div className="flex items-center gap-2 text-sm text-zinc-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Searching photos...
-            </div>
-          )}
-
-          {!isSearching && hasSearched && results.length === 0 && (
-            <div className="rounded-md border border-zinc-200 px-4 py-6 text-center text-sm text-zinc-500">
-              No photos found. Try a person, event, outfit color, or moment.
-            </div>
-          )}
-
-          {!isSearching && results.length > 0 && (
-            <div className="space-y-4">
-              <div className="ml-auto max-w-[88%] rounded-2xl rounded-tr-md bg-zinc-950 px-4 py-3 text-sm text-white">
-                {query}
-              </div>
-              <p className="text-sm text-zinc-500">
-                Found {results.length} {results.length === 1 ? "photo" : "photos"}
-              </p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {results.map((photo, index) => (
-                  <ApsaraPhotoCard
-                    key={photo.id}
-                    photo={photo}
-                    onClick={() => setSelectedPhotoIndex(index)}
+        <div className="flex-1 overflow-y-auto px-6 pb-32 pt-4 sm:px-14">
+          {!hasSearched ? (
+            <div className="space-y-8">
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  handleSearch();
+                }}
+              >
+                <label className="flex h-16 items-center gap-3 rounded-md border-2 border-zinc-500 px-5 text-zinc-900 focus-within:border-zinc-950">
+                  <Search className="h-7 w-7 shrink-0 stroke-1.5" />
+                  <input
+                    ref={inputRef}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search for keywords"
+                    className="min-w-0 flex-1 bg-transparent text-2xl font-light tracking-normal outline-none placeholder:text-zinc-500"
+                    aria-label="Search for keywords"
+                    disabled={isSearching}
                   />
-                ))}
+                </label>
+              </form>
+
+              <div className="space-y-4">
+                <p className="text-2xl font-light text-zinc-800">Try these:</p>
+                <button
+                  type="button"
+                  onClick={() => handleSearch("wedding dress")}
+                  className="rounded-full bg-zinc-100 px-4 py-2 text-2xl font-light text-zinc-700 transition hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+                >
+                  wedding dress
+                </button>
               </div>
+
+              <div className="h-px bg-zinc-200" />
+
+              <section className="space-y-8">
+                <h3 className="text-4xl font-normal tracking-normal text-zinc-900 sm:text-5xl">
+                  Find Yourself and others
+                </h3>
+
+                {isLoadingPeople ? (
+                  <div className="flex items-center gap-2 text-sm text-zinc-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading people...
+                  </div>
+                ) : people.length ? (
+                  <div className="flex flex-wrap gap-x-8 gap-y-8">
+                    {people.map((person) => (
+                      <PersonAvatarButton
+                        key={person.id}
+                        person={person}
+                        isSelected={selectedSearchPeopleIds.includes(person.id)}
+                        onClick={() => togglePerson(person.id)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-zinc-200 px-4 py-6 text-sm text-zinc-500">
+                    No people detected in this album yet.
+                  </div>
+                )}
+              </section>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setHasSearched(false);
+                  setResults([]);
+                }}
+                className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 transition hover:text-zinc-950"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Search again
+              </button>
+
+              <div>
+                <p className="text-sm font-medium text-zinc-500">
+                  {isSearching
+                    ? "Searching photos..."
+                    : results.length
+                      ? `Found ${results.length} ${
+                          results.length === 1 ? "photo" : "photos"
+                        }`
+                      : "No photos found"}
+                </p>
+                <h3 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">
+                  {query.trim() ||
+                    selectedSearchPeople
+                      .map((person) => person.displayName || person.defaultName)
+                      .join(", ") ||
+                    "Selected people"}
+                </h3>
+              </div>
+
+              {isSearching && (
+                <div className="flex items-center gap-2 py-10 text-sm text-zinc-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Searching photos...
+                </div>
+              )}
+
+              {!isSearching && results.length === 0 && (
+                <div className="rounded-md border border-zinc-200 px-4 py-8 text-center text-sm text-zinc-500">
+                  No photos found. Try a person, event, outfit color, or moment.
+                </div>
+              )}
+
+              {!isSearching && results.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {results.map((photo, index) => (
+                    <ApsaraPhotoCard
+                      key={photo.id}
+                      photo={photo}
+                      onClick={() => setSelectedPhotoIndex(index)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {!hasSearched && <ApsaraPromptChips onChipClick={handleSearch} />}
-
         <form
-          className="border-t border-zinc-200 p-4"
+          className="absolute inset-x-0 bottom-0 bg-white/95 px-6 py-5 shadow-[0_-20px_40px_rgba(0,0,0,0.08)] backdrop-blur sm:px-14"
           onSubmit={(event) => {
             event.preventDefault();
             handleSearch();
           }}
         >
-          <div className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-zinc-300">
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Find photos of Nikhith dancing..."
-              className="min-w-0 flex-1 bg-transparent px-1 text-sm text-zinc-950 outline-none placeholder:text-zinc-400"
-              aria-label="Search photos with Apsara AI"
-              disabled={isSearching}
-            />
-            <button
-              type="submit"
-              disabled={isSearching || !query.trim()}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-950 text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
-              aria-label="Search photos"
-            >
-              {isSearching ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={isSearching || !canSearch}
+            className="ml-auto flex h-16 w-full max-w-[300px] cursor-pointer items-center justify-center rounded-full bg-zinc-950 text-2xl font-light text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+          >
+            {isSearching ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              searchLabel
+            )}
+          </button>
         </form>
       </section>
 
