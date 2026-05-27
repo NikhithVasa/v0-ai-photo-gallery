@@ -8,6 +8,7 @@ import useSWR from "swr";
 import {
   ArrowLeft,
   Check,
+  Loader2,
   Pencil,
   Images,
   Search,
@@ -45,6 +46,12 @@ interface AlbumStatsResponse {
   };
 }
 
+interface AlbumSummaryForGate {
+  slug: string;
+  name: string;
+  coverPhotoUrl?: string | null;
+}
+
 function eventQuery(selectedEventSlug: string | null) {
   return selectedEventSlug
     ? `?event=${encodeURIComponent(selectedEventSlug)}`
@@ -53,14 +60,32 @@ function eventQuery(selectedEventSlug: string | null) {
 
 function PasswordGate({
   albumSlug,
+  albumName,
   onVerified,
 }: {
   albumSlug: string;
+  albumName: string;
   onVerified: () => void;
 }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: albumsData } = useSWR<{ albums: AlbumSummaryForGate[] }>(
+    "/api/albums",
+    fetcher,
+    {
+      dedupingInterval: 5 * 60 * 1000,
+      revalidateOnFocus: false,
+    }
+  );
+
+  const coverPhotoUrl = useMemo(() => {
+    return (
+      albumsData?.albums?.find((album) => album.slug === albumSlug)
+        ?.coverPhotoUrl ?? null
+    );
+  }, [albumsData?.albums, albumSlug]);
 
   const verify = async () => {
     if (!password || isSubmitting) return;
@@ -81,49 +106,123 @@ function PasswordGate({
       const data = (await response.json()) as { ok?: boolean };
 
       if (!response.ok || !data.ok) {
-        setError("Incorrect password.");
+        setError(
+          "Wrong code. Signed up already? Click ‘Login here’ below."
+        );
         return;
       }
 
       sessionStorage.setItem(`album:${albumSlug}:verified`, "true");
       onVerified();
     } catch {
-      setError("Could not verify password.");
+      setError(
+        "Wrong code. Signed up already? Click ‘Login here’ below."
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#fbfaf8] px-4">
-      <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-        <div className="mb-5">
-          <p className="text-sm font-medium text-zinc-500">Protected album</p>
-          <h1 className="mt-1 text-2xl font-semibold text-zinc-950">
-            Enter password
+    <main className="relative min-h-screen overflow-hidden bg-zinc-100 text-zinc-950">
+      {coverPhotoUrl && (
+        <Image
+          src={coverPhotoUrl}
+          alt={albumName}
+          fill
+          sizes="100vw"
+          className="object-cover"
+          priority
+          unoptimized
+        />
+      )}
+
+      <div className="absolute inset-0 bg-white/78 backdrop-blur-[1px]" />
+
+      <div className="relative z-10 flex min-h-screen items-start justify-center px-5 pt-10 sm:pt-12">
+        <div className="w-full max-w-[480px] text-center">
+          <p className="mb-14 font-serif text-[18px] uppercase tracking-[0.28em] text-zinc-950">
+            {albumName}
+          </p>
+
+          <h1 className="mb-14 text-[22px] font-semibold uppercase tracking-[0.22em] text-zinc-950">
+            Enter code to view this gallery
           </h1>
-        </div>
 
-        <div className="space-y-3">
-          <Input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") verify();
-            }}
-            placeholder="Password"
-          />
+          <div className="space-y-4">
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                if (error) setError("");
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") verify();
+              }}
+              placeholder="Access Code"
+              aria-label="Access code"
+              aria-invalid={Boolean(error)}
+              className={`h-12 w-full border bg-white/70 px-4 text-[16px] tracking-wide text-zinc-950 outline-none backdrop-blur-sm placeholder:text-zinc-500 focus:border-zinc-950 ${
+                error ? "border-red-500" : "border-zinc-300"
+              }`}
+            />
 
-          {error && <p className="text-sm text-rose-600">{error}</p>}
+            {error && (
+              <p className="text-left text-sm font-medium text-red-600">
+                {error}
+              </p>
+            )}
 
-          <Button
-            className="w-full"
-            onClick={verify}
-            disabled={!password || isSubmitting}
-          >
-            Unlock
-          </Button>
+            <button
+              type="button"
+              onClick={verify}
+              disabled={!password || isSubmitting}
+              className="flex h-12 w-full cursor-pointer items-center justify-center bg-zinc-800 text-[13px] font-semibold uppercase tracking-[0.28em] text-white transition hover:bg-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? (
+                <span className="flex items-center justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-white/90" />
+                  <span className="sr-only">Checking code</span>
+                </span>
+              ) : (
+                "Continue"
+              )}
+            </button>
+          </div>
+
+          <div className="mt-20 space-y-4 text-center">
+            <p className="text-[15px] tracking-wide text-zinc-950">
+              Signed up already?{" "}
+              <Link
+                href="/login"
+                className="text-zinc-950 transition hover:text-[#868686]"
+              >
+                Login here
+              </Link>
+            </p>
+
+            <p className="mx-auto max-w-[440px] text-[14px] leading-5 tracking-wide text-zinc-500">
+              Click ‘Login here’ if you signed up using your email, Facebook, or
+              Google account.
+            </p>
+
+            <p className="text-[14px] tracking-wide">
+              <Link
+                href="/legal/terms-of-service"
+                className="text-[#868686] transition hover:text-black"
+              >
+                Terms of Service
+              </Link>{" "}
+              <span className="text-[#868686]">and</span>{" "}
+              <Link
+                href="/legal/privacy-policy"
+                className="text-[#868686] transition hover:text-black"
+              >
+                Privacy Policy
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </main>
@@ -732,6 +831,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     return (
       <PasswordGate
         albumSlug={albumSlug}
+        albumName={album.name}
         onVerified={() => setIsPasswordVerified(true)}
       />
     );
