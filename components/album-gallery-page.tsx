@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
-  ArrowLeft,
   Check,
   Loader2,
   Pencil,
@@ -21,7 +20,6 @@ import { PeopleGrid } from "@/components/people-grid";
 import { PersonView } from "@/components/person-view";
 import { PhotosGrid, type PeopleMatchMode } from "@/components/photos-grid";
 import { ApsaraMomentsRoot } from "@/components/apsara-moments";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AlbumDetail, Person } from "@/lib/types";
@@ -106,18 +104,14 @@ function PasswordGate({
       const data = (await response.json()) as { ok?: boolean };
 
       if (!response.ok || !data.ok) {
-        setError(
-          "Wrong code. Signed up already? Click ‘Login here’ below."
-        );
+        setError("Wrong code. Signed up already? Click ‘Login here’ below.");
         return;
       }
 
       sessionStorage.setItem(`album:${albumSlug}:verified`, "true");
       onVerified();
     } catch {
-      setError(
-        "Wrong code. Signed up already? Click ‘Login here’ below."
-      );
+      setError("Wrong code. Signed up already? Click ‘Login here’ below.");
     } finally {
       setIsSubmitting(false);
     }
@@ -697,10 +691,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     scrollToPageTop();
   };
 
-  const filterByPeopleSelection = (
-    people: Person[],
-    mode: PeopleMatchMode
-  ) => {
+  const filterByPeopleSelection = (people: Person[], mode: PeopleMatchMode) => {
     const ids = people.map((person) => person.id);
 
     setSelectedPeopleIds(ids);
@@ -843,14 +834,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <Link
-                href="/albums"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-950/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                aria-label="Back to albums"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500">
                   Album
