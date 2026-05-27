@@ -1067,6 +1067,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         peopleMatchMode={peopleMatchMode}
         isOpen={isSearchOpen}
         onOpenChange={setIsSearchOpen}
+        onPersonOpen={openPerson}
+        onPeopleSelectionApply={filterByPeopleSelection}
       />
     </main>
   );

@@ -80,33 +80,37 @@ function PersonAvatarButton({
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-24 flex-col items-center gap-2 text-center focus:outline-none"
+      className="group flex w-20 flex-col items-center gap-2 text-center focus:outline-none"
       aria-pressed={isSelected}
       aria-label={`${isSelected ? "Remove" : "Select"} ${name}`}
     >
       <span
-        className={`relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-zinc-100 transition ${
+        className={`relative flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 transition ${
           isSelected
-            ? "ring-4 ring-zinc-950 ring-offset-4"
+            ? "ring-3 ring-zinc-950 ring-offset-3"
             : "ring-1 ring-zinc-200 group-hover:ring-zinc-400"
         }`}
       >
-        {person.coverFaceUrl ? (
-          <Image
-            src={person.coverFaceUrl}
-            alt={name}
-            fill
-            sizes="80px"
-            className="object-cover"
-            unoptimized
-          />
-        ) : (
-          <User className="h-7 w-7 text-zinc-400" />
-        )}
+        <span className="absolute inset-0 overflow-hidden rounded-full">
+          {person.coverFaceUrl ? (
+            <Image
+              src={person.coverFaceUrl}
+              alt={name}
+              fill
+              sizes="64px"
+              className="object-cover"
+              unoptimized
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center">
+              <User className="h-6 w-6 text-zinc-400" />
+            </span>
+          )}
+        </span>
 
         {isSelected && (
-          <span className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-950 text-white ring-2 ring-white">
-            <Check className="h-3.5 w-3.5" />
+          <span className="absolute -bottom-1 -right-1 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-950 text-white ring-2 ring-white">
+            <Check className="h-3.5 w-3.5 stroke-2.5" />
           </span>
         )}
       </span>
@@ -316,6 +320,8 @@ interface ApsaraMomentsOverlayProps {
   selectedEventSlug: string | null;
   selectedPeopleIds?: string[];
   peopleMatchMode?: PeopleMatchMode;
+  onPersonOpen?: (person: Person) => void;
+  onPeopleSelectionApply?: (people: Person[], mode: PeopleMatchMode) => void;
 }
 
 export function ApsaraMomentsOverlay({
@@ -325,6 +331,8 @@ export function ApsaraMomentsOverlay({
   selectedEventSlug,
   selectedPeopleIds = [],
   peopleMatchMode = "all",
+  onPersonOpen,
+  onPeopleSelectionApply,
 }: ApsaraMomentsOverlayProps) {
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -455,6 +463,22 @@ export function ApsaraMomentsOverlay({
     );
   };
 
+  const handleSubmitSearch = () => {
+    if (!query.trim() && selectedSearchPeople.length === 1) {
+      onPersonOpen?.(selectedSearchPeople[0]);
+      onClose();
+      return;
+    }
+
+    if (!query.trim() && selectedSearchPeople.length > 1) {
+      onPeopleSelectionApply?.(selectedSearchPeople, "all");
+      onClose();
+      return;
+    }
+
+    handleSearch();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -471,49 +495,49 @@ export function ApsaraMomentsOverlay({
         onClick={(event) => event.stopPropagation()}
         aria-label="Apsara AI photo search"
       >
-        <header className="flex items-start justify-between px-6 pb-4 pt-8 sm:px-14 sm:pt-12">
-          <h2 className="text-5xl font-normal tracking-normal text-zinc-900 sm:text-6xl">
+        <header className="flex items-start justify-between px-6 pb-3 pt-7 sm:px-12 sm:pt-10">
+          <h2 className="text-3xl font-normal tracking-normal text-zinc-900 sm:text-4xl">
             Search
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-12 w-12 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-950/5 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-950/5 focus:outline-none focus:ring-2 focus:ring-zinc-300"
             aria-label="Close Apsara AI"
           >
-            <X className="h-8 w-8 stroke-1" />
+            <X className="h-7 w-7 stroke-1" />
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-6 pb-32 pt-4 sm:px-14">
+        <div className="flex-1 overflow-y-auto px-6 pb-28 pt-4 sm:px-12">
           {!hasSearched ? (
-            <div className="space-y-8">
+            <div className="space-y-6">
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
-                  handleSearch();
+                  handleSubmitSearch();
                 }}
               >
-                <label className="flex h-16 items-center gap-3 rounded-md border-2 border-zinc-500 px-5 text-zinc-900 focus-within:border-zinc-950">
-                  <Search className="h-7 w-7 shrink-0 stroke-1.5" />
+                <label className="flex h-12 items-center gap-3 rounded-md border border-zinc-500 px-4 text-zinc-900 focus-within:border-zinc-950">
+                  <Search className="h-5 w-5 shrink-0 stroke-1.5" />
                   <input
                     ref={inputRef}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Search for keywords"
-                    className="min-w-0 flex-1 bg-transparent text-2xl font-light tracking-normal outline-none placeholder:text-zinc-500"
+                    className="min-w-0 flex-1 bg-transparent text-base font-light tracking-normal outline-none placeholder:text-zinc-500"
                     aria-label="Search for keywords"
                     disabled={isSearching}
                   />
                 </label>
               </form>
 
-              <div className="space-y-4">
-                <p className="text-2xl font-light text-zinc-800">Try these:</p>
+              <div className="space-y-3">
+                <p className="text-lg font-light text-zinc-800">Try these:</p>
                 <button
                   type="button"
                   onClick={() => handleSearch("wedding dress")}
-                  className="rounded-full bg-zinc-100 px-4 py-2 text-2xl font-light text-zinc-700 transition hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+                  className="rounded-full bg-zinc-100 px-4 py-2 text-base font-light text-zinc-700 transition hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-300"
                 >
                   wedding dress
                 </button>
@@ -521,8 +545,8 @@ export function ApsaraMomentsOverlay({
 
               <div className="h-px bg-zinc-200" />
 
-              <section className="space-y-8">
-                <h3 className="text-4xl font-normal tracking-normal text-zinc-900 sm:text-5xl">
+              <section className="space-y-6">
+                <h3 className="text-2xl font-normal tracking-normal text-zinc-900 sm:text-3xl">
                   Find Yourself and others
                 </h3>
 
@@ -532,7 +556,7 @@ export function ApsaraMomentsOverlay({
                     Loading people...
                   </div>
                 ) : people.length ? (
-                  <div className="flex flex-wrap gap-x-8 gap-y-8">
+                  <div className="flex flex-wrap gap-x-7 gap-y-7">
                     {people.map((person) => (
                       <PersonAvatarButton
                         key={person.id}
@@ -611,16 +635,16 @@ export function ApsaraMomentsOverlay({
         </div>
 
         <form
-          className="absolute inset-x-0 bottom-0 bg-white/95 px-6 py-5 shadow-[0_-20px_40px_rgba(0,0,0,0.08)] backdrop-blur sm:px-14"
+          className="absolute inset-x-0 bottom-0 bg-white/95 px-6 py-4 shadow-[0_-20px_40px_rgba(0,0,0,0.08)] backdrop-blur sm:px-12"
           onSubmit={(event) => {
             event.preventDefault();
-            handleSearch();
+            handleSubmitSearch();
           }}
         >
           <button
             type="submit"
             disabled={isSearching || !canSearch}
-            className="ml-auto flex h-16 w-full max-w-[300px] cursor-pointer items-center justify-center rounded-full bg-zinc-950 text-2xl font-light text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+            className="ml-auto flex h-12 w-full max-w-[220px] cursor-pointer items-center justify-center rounded-full bg-zinc-950 text-lg font-light text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
           >
             {isSearching ? (
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -651,6 +675,8 @@ interface ApsaraMomentsRootProps {
   peopleMatchMode?: PeopleMatchMode;
   isOpen?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
+  onPersonOpen?: (person: Person) => void;
+  onPeopleSelectionApply?: (people: Person[], mode: PeopleMatchMode) => void;
 }
 
 export function ApsaraMomentsRoot({
@@ -660,6 +686,8 @@ export function ApsaraMomentsRoot({
   peopleMatchMode = "all",
   isOpen: controlledIsOpen,
   onOpenChange,
+  onPersonOpen,
+  onPeopleSelectionApply,
 }: ApsaraMomentsRootProps) {
   const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(false);
   const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
@@ -675,6 +703,8 @@ export function ApsaraMomentsRoot({
         selectedEventSlug={selectedEventSlug}
         selectedPeopleIds={selectedPeopleIds}
         peopleMatchMode={peopleMatchMode}
+        onPersonOpen={onPersonOpen}
+        onPeopleSelectionApply={onPeopleSelectionApply}
       />
     </>
   );
