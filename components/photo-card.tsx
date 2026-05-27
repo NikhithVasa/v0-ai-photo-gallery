@@ -788,7 +788,7 @@ export function PhotoLightbox({
       : "transition-transform duration-300 ease-out";
 
   const imageClassName =
-    "pointer-events-none max-h-full max-w-full cursor-default select-none object-contain shadow-2xl";
+    "pointer-events-none h-full w-full cursor-default select-none object-contain shadow-2xl";
 
   return (
     <div
@@ -844,7 +844,7 @@ export function PhotoLightbox({
       </button>
 
       <div
-        className="relative flex h-full w-full cursor-default items-center justify-center px-4 py-4"
+        className="relative flex h-full w-full cursor-default items-center justify-center px-0 py-0"
         onClick={(event) => {
           event.stopPropagation();
 
@@ -860,7 +860,7 @@ export function PhotoLightbox({
         {currentImageUrl ? (
           <div
             ref={photoFrameRef}
-            className="relative inline-block max-h-[100svh] max-w-[100vw] cursor-default overflow-hidden transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
+            className="relative h-[100svh] w-[100vw] cursor-default overflow-hidden transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
             style={{
               ...entryStyle,
               touchAction: "pan-y",
@@ -887,7 +887,7 @@ export function PhotoLightbox({
               alt={photo.caption || "Photo"}
               width={photo.width ?? undefined}
               height={photo.height ?? undefined}
-              className="pointer-events-none block max-h-[100svh] max-w-[100vw] cursor-default select-none object-contain opacity-0"
+              className="pointer-events-none absolute inset-0 h-full w-full cursor-default select-none object-contain opacity-0"
               decoding="async"
               fetchPriority="high"
               draggable={false}
