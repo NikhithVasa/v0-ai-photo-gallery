@@ -1,65 +1,235 @@
-Send this to the developer:
+"use client";
 
-⸻
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import Image from "next/image";
+import { Check, Pencil, User, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import type { AlbumEvent, Person } from "@/lib/types";
 
-For mobile, I don’t want one photo per row. The reference is Pic-Time mobile gallery style: it shows a 2-column masonry grid, where photos keep their natural aspect ratio and stack tightly.
-
-Current issue:
-
-Right now mobile is showing one full-width photo per row, which makes the gallery feel too slow and empty. Users should be able to see more photos at once while scrolling.
-
-Expected mobile behavior:
-
-* Mobile should show 2 columns, not 1 column.
-* Photos should keep their original aspect ratio.
-* Do not crop the images.
-* Use width: 100% and height: auto.
-* Cards can have different heights.
-* The grid should be tightly packed like a masonry layout.
-* Only show small consistent gutters between photos.
-* No large empty holes.
-* No fixed-height tiles.
-* No object-fit: cover for the main grid thumbnails.
-
-Reference behavior:
-
-On mobile, make it look like the Pic-Time reference: two vertical masonry columns, full photos visible, different image heights, tightly packed, with consistent spacing.
-
-Implementation direction:
-
-.mobile-gallery-grid {
-  column-count: 2;
-  column-gap: 3px;
-}
-.mobile-gallery-item {
-  break-inside: avoid;
-  margin-bottom: 3px;
-  overflow: hidden;
-}
-.mobile-gallery-item img {
-  width: 100%;
-  height: auto;
-  display: block;
+interface PersonCardProps {
+  person: Person;
+  events: AlbumEvent[];
+  selectedEventSlug: string | null;
+  onClick: () => void;
+  onRename: (newName: string) => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onSelectToggle?: () => void;
 }
 
-Responsive rule:
+export function PersonCard({
+  person,
+  events,
+  selectedEventSlug,
+  onClick,
+  onRename,
+  isSelectionMode = false,
+  isSelected = false,
+  onSelectToggle,
+}: PersonCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(person.displayName || person.defaultName);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-@media (max-width: 768px) {
-  .gallery-grid {
-    column-count: 2;
-    column-gap: 3px;
-  }
-  .gallery-item {
-    break-inside: avoid;
-    margin-bottom: 3px;
-  }
-  .gallery-item img {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
+  const displayName = person.displayName || person.defaultName;
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setName(displayName);
+    }
+  }, [displayName, isEditing]);
+
+  useEffect(() => {
+    if (isSelectionMode && isEditing) {
+      setIsEditing(false);
+    }
+  }, [isSelectionMode, isEditing]);
+
+  const handleSave = () => {
+    const trimmedName = name.trim();
+
+    if (trimmedName && trimmedName !== displayName) {
+      onRename(trimmedName);
+    }
+
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setName(displayName);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      handleSave();
+    }
+
+    if (event.key === "Escape") {
+      handleCancel();
+    }
+  };
+
+  const handleMainClick = () => {
+    if (isSelectionMode) {
+      onSelectToggle?.();
+      return;
+    }
+
+    onClick();
+  };
+
+  const photoCount = person.photoCount ?? 0;
+  const photoLabel = `${photoCount} ${photoCount === 1 ? "photo" : "photos"}`;
+
+  const eventStats = events.map((event) => {
+    const stat = person.eventStats?.find(
+      (item) => item.eventSlug === event.slug
+    );
+
+    return {
+      event,
+      photoCount: stat?.photoCount ?? 0,
+    };
+  });
+
+  return (
+    <div className="group flex min-w-0 flex-col items-center gap-3">
+      <div className="relative">
+        <button
+          type="button"
+          onClick={handleMainClick}
+          className={`relative h-32 w-32 cursor-pointer overflow-hidden rounded-full bg-muted shadow-lg transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-4 focus:ring-offset-background sm:h-36 sm:w-36 ${
+            isSelected
+              ? "ring-4 ring-zinc-950 ring-offset-4 ring-offset-background"
+              : "ring-1 ring-border hover:shadow-xl"
+          }`}
+          aria-label={
+            isSelectionMode
+              ? `${isSelected ? "Unselect" : "Select"} ${displayName}`
+              : `Open ${displayName}`
+          }
+          aria-pressed={isSelectionMode ? isSelected : undefined}
+        >
+          {person.coverFaceUrl ? (
+            <Image
+              src={person.coverFaceUrl}
+              alt={displayName}
+              fill
+              sizes="(min-width: 640px) 144px, 128px"
+              className="object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-secondary">
+              <User className="h-12 w-12 text-muted-foreground" />
+            </div>
+          )}
+
+          {isSelectionMode && (
+            <span
+              className={`absolute inset-0 flex items-center justify-center transition ${
+                isSelected ? "bg-black/25" : "bg-black/0 group-hover:bg-black/10"
+              }`}
+            >
+              <span
+                className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border shadow-md transition ${
+                  isSelected
+                    ? "border-zinc-950 bg-zinc-950 text-white"
+                    : "border-white/80 bg-white/80 text-zinc-500"
+                }`}
+              >
+                {isSelected && <Check className="h-4 w-4" />}
+              </span>
+            </span>
+          )}
+        </button>
+
+        {!isEditing && !isSelectionMode && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsEditing(true);
+            }}
+            className="absolute bottom-1 right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-background/90 text-muted-foreground opacity-0 shadow-md backdrop-blur transition hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
+            aria-label={`Rename ${displayName}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <div className="flex min-w-0 max-w-[160px] flex-col items-center gap-1 text-center">
+        {isEditing ? (
+          <div className="flex items-center gap-1">
+            <Input
+              ref={inputRef}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={handleKeyDown}
+              className="h-8 w-28 px-2 text-center text-sm"
+            />
+
+            <button
+              type="button"
+              onClick={handleSave}
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full hover:bg-accent"
+              aria-label="Save name"
+            >
+              <Check className="h-4 w-4 text-primary" />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full hover:bg-accent"
+              aria-label="Cancel rename"
+            >
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleMainClick}
+            className={`max-w-full cursor-pointer truncate text-base font-semibold focus:outline-none focus:underline ${
+              isSelected
+                ? "text-zinc-950"
+                : "text-foreground hover:text-primary"
+            }`}
+          >
+            {displayName}
+          </button>
+        )}
+
+        <span className="text-sm text-muted-foreground">{photoLabel}</span>
+
+        {eventStats.length > 0 && (
+          <div className="mt-1 flex max-w-full justify-center gap-1.5">
+            {eventStats.map(({ event, photoCount }) => (
+              <span
+                key={event.id}
+                className={`h-1.5 w-5 rounded-full ${
+                  selectedEventSlug === event.slug
+                    ? "bg-zinc-950"
+                    : photoCount > 0
+                      ? "bg-zinc-400"
+                      : "bg-zinc-200"
+                }`}
+                title={`${event.name}: ${photoCount} photos`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
-
-You can phrase it like this:
-
-For mobile, please don’t switch to one photo per row. I want a 2-column masonry layout like the Pic-Time reference screenshot. Each photo should show fully without cropping, so use natural image height instead of fixed-height tiles. The photos can have different heights, but they should stack tightly in two columns with small consistent gutters. This gives users a dense gallery browsing experience instead of making them scroll through one huge image at a time.
