@@ -809,6 +809,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
+        onMouseEnter={showControlsBriefly}
         onClick={(event) => {
           event.stopPropagation();
           onClose();
@@ -821,6 +822,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
+        onMouseEnter={showControlsBriefly}
         className={`absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:left-8 sm:h-12 sm:w-12 ${overlayOpacityClass} ${overlayInteractionClass}`}
         onClick={(event) => {
           event.stopPropagation();
@@ -833,6 +835,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
+        onMouseEnter={showControlsBriefly}
         className={`absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-8 sm:h-12 sm:w-12 ${overlayOpacityClass} ${overlayInteractionClass}`}
         onClick={(event) => {
           event.stopPropagation();
@@ -873,12 +876,7 @@ export function PhotoLightbox({
             }}
             onMouseLeave={() => {
               if (!isMobilePointer && !isPeopleOpen && !isDownloadHovering) {
-                if (controlsTimerRef.current) {
-                  window.clearTimeout(controlsTimerRef.current);
-                  controlsTimerRef.current = null;
-                }
-
-                setAreControlsVisible(false);
+                startControlsTimer();
               }
             }}
           >
@@ -944,6 +942,7 @@ export function PhotoLightbox({
             />
 
             <div
+              onMouseEnter={showControlsBriefly}
               className={`absolute bottom-4 left-4 z-30 flex cursor-default items-center gap-2 rounded-full bg-white/70 px-2 py-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
               onClick={(event) => event.stopPropagation()}
             >
@@ -1014,6 +1013,7 @@ export function PhotoLightbox({
             </div>
 
             <div
+              onMouseEnter={showControlsBriefly}
               className={`absolute bottom-4 right-4 z-30 cursor-default transition-opacity duration-200 sm:bottom-5 sm:right-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
               onClick={(event) => event.stopPropagation()}
             >
