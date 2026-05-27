@@ -29,7 +29,7 @@ function photosUrl(
   albumSlug: string,
   selectedEventSlug: string | null,
   selectedPeopleIds: string[],
-  peopleMatchMode: PeopleMatchMode
+  peopleMatchMode: PeopleMatchMode,
 ) {
   const base = `/api/albums/${encodeURIComponent(albumSlug)}/photos`;
   const params = new URLSearchParams();
@@ -62,15 +62,15 @@ export function PhotosGrid({
         albumSlug,
         selectedEventSlug,
         selectedPeopleIds,
-        peopleMatchMode
+        peopleMatchMode,
       ),
-    [albumSlug, selectedEventSlug, selectedPeopleIds, peopleMatchMode]
+    [albumSlug, selectedEventSlug, selectedPeopleIds, peopleMatchMode],
   );
 
   const { data, error, isLoading } = useSWR<{ photos: Photo[] }>(
     photosRequestUrl,
     fetcher,
-    swrOptions
+    swrOptions,
   );
 
   const [lightboxState, setLightboxState] = useState<{
@@ -96,7 +96,7 @@ export function PhotosGrid({
       selectedPeopleIds,
       peopleMatchMode,
       data?.photos?.length,
-    ]
+    ],
   );
 
   const handleOpen = useCallback((index: number, originRect: PhotoOpenRect) => {
@@ -129,7 +129,7 @@ export function PhotosGrid({
         root: null,
         rootMargin: "500px 0px",
         threshold: 0.01,
-      }
+      },
     );
 
     observer.observe(sentinel);

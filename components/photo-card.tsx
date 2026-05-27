@@ -43,7 +43,7 @@ async function fetchSignedPhotoUrls(albumSlug: string, ids: string[]) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ photoIds: uniqueIds }),
-    }
+    },
   );
 
   if (!response.ok) return {};
@@ -63,7 +63,7 @@ async function fetchSignedPhotoUrls(albumSlug: string, ids: string[]) {
         downloadUrl: photo.downloadUrl,
         thumbnailUrl: photo.thumbnailUrl,
       },
-    ])
+    ]),
   ) as Record<string, SignedPhotoUrls>;
 }
 
@@ -231,7 +231,7 @@ export const PhotoCard = memo(function PhotoCard({
 
         <a
           href={`mailto:?subject=Photo&body=${encodeURIComponent(
-            imageUrl ? absoluteBrowserUrl(imageUrl) : ""
+            imageUrl ? absoluteBrowserUrl(imageUrl) : "",
           )}`}
           className="pointer-events-auto flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80"
           aria-label="Email photo"
@@ -340,23 +340,23 @@ export function PhotoLightbox({
 
   const previousImageUrl = useMemo(
     () => getPreviewUrl(previousPhoto),
-    [getPreviewUrl, previousPhoto]
+    [getPreviewUrl, previousPhoto],
   );
 
   const currentImageUrl = imageUrl;
 
   const nextImageUrl = useMemo(
     () => getPreviewUrl(nextPhoto),
-    [getPreviewUrl, nextPhoto]
+    [getPreviewUrl, nextPhoto],
   );
 
   const adjacentImagesReady = Boolean(
     currentImageUrl &&
-      previousImageUrl &&
-      nextImageUrl &&
-      preloadedUrls.has(currentImageUrl) &&
-      preloadedUrls.has(previousImageUrl) &&
-      preloadedUrls.has(nextImageUrl)
+    previousImageUrl &&
+    nextImageUrl &&
+    preloadedUrls.has(currentImageUrl) &&
+    preloadedUrls.has(previousImageUrl) &&
+    preloadedUrls.has(nextImageUrl),
   );
 
   isMobilePointerRef.current = isMobilePointer;
@@ -409,7 +409,7 @@ export function PhotoLightbox({
       setIsDownloadHovering(false);
       onNavigate(index);
     },
-    [onNavigate, showControlsBriefly]
+    [onNavigate, showControlsBriefly],
   );
 
   const handlePrev = useCallback(() => {
@@ -485,7 +485,7 @@ export function PhotoLightbox({
     }
 
     const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
+      "(prefers-reduced-motion: reduce)",
     ).matches;
 
     if (prefersReducedMotion) {
@@ -507,14 +507,16 @@ export function PhotoLightbox({
     const scaleY = originRect.height / targetRect.height;
 
     setEntryStyle({
-      opacity: 0.88,
+      opacity: 0.72,
       transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scaleX}, ${scaleY})`,
+      transformOrigin: "center center",
     });
 
     const animationFrame = window.requestAnimationFrame(() => {
       setEntryStyle({
         opacity: 1,
         transform: "translate3d(0, 0, 0) scale(1, 1)",
+        transformOrigin: "center center",
       });
     });
 
@@ -538,7 +540,7 @@ export function PhotoLightbox({
     if (!currentImageUrl) return;
 
     const urlsToPreload = uniqueUrls([previousImageUrl, nextImageUrl]).filter(
-      (url) => !preloadedUrls.has(url)
+      (url) => !preloadedUrls.has(url),
     );
 
     if (!urlsToPreload.length) return;
@@ -583,13 +585,7 @@ export function PhotoLightbox({
     }, 3000);
 
     return () => window.clearInterval(interval);
-  }, [
-    currentIndex,
-    isPlaying,
-    onNavigate,
-    photos.length,
-    showControlsBriefly,
-  ]);
+  }, [currentIndex, isPlaying, onNavigate, photos.length, showControlsBriefly]);
 
   useEffect(() => {
     const handleWindowKeyDown = (event: KeyboardEvent) => {
@@ -655,7 +651,7 @@ export function PhotoLightbox({
 
   const handleImageError = () => {
     setActiveImageIndex((current) =>
-      current < imageCandidates.length - 1 ? current + 1 : current
+      current < imageCandidates.length - 1 ? current + 1 : current,
     );
   };
 
@@ -731,8 +727,7 @@ export function PhotoLightbox({
       1;
 
     const threshold = Math.min(frameWidth * 0.24, 120);
-    const shouldNavigate =
-      Math.abs(dragOffset) > threshold || velocity > 0.55;
+    const shouldNavigate = Math.abs(dragOffset) > threshold || velocity > 0.55;
 
     setIsDragging(false);
     setIsAnimatingSwipe(true);
@@ -777,6 +772,11 @@ export function PhotoLightbox({
   const overlayOpacityClass = areOverlaysInteractive
     ? "opacity-100"
     : "opacity-0";
+
+  const displayAspectRatio =
+    photo.width && photo.height ? photo.width / photo.height : 3 / 2;
+
+  const photoFrameWidth = `min(calc(100vw - 1.5rem), 1200px, calc((100svh - 8rem) * ${displayAspectRatio}))`;
 
   const overlayInteractionClass = areOverlaysInteractive
     ? "pointer-events-auto"
@@ -863,8 +863,11 @@ export function PhotoLightbox({
         {currentImageUrl ? (
           <div
             ref={photoFrameRef}
-            className="relative h-full max-h-[calc(100svh-8rem)] w-full max-w-[calc(100vw-1.5rem)] cursor-default overflow-hidden transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform sm:max-h-[calc(100svh-10rem)] sm:max-w-[calc(100vw-3rem)]"
+            className="relative cursor-default overflow-hidden transition-[transform,opacity] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
             style={{
+              width: photoFrameWidth,
+              aspectRatio: displayAspectRatio,
+              maxHeight: "calc(100svh - 8rem)",
               ...entryStyle,
               touchAction: "pan-y",
             }}
