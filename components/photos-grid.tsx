@@ -1,235 +1,217 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import Image from "next/image";
-import { Check, Pencil, User, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import type { AlbumEvent, Person } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
+import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Photo } from "@/lib/types";
 
-interface PersonCardProps {
-  person: Person;
-  events: AlbumEvent[];
+export type PeopleMatchMode = "all" | "any";
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+const swrOptions = {
+  dedupingInterval: 60 * 60 * 1000,
+  revalidateOnFocus: false,
+  revalidateOnReconnect: false,
+};
+
+interface PhotosGridProps {
+  albumSlug: string;
   selectedEventSlug: string | null;
-  onClick: () => void;
-  onRename: (newName: string) => void;
-  isSelectionMode?: boolean;
-  isSelected?: boolean;
-  onSelectToggle?: () => void;
+  selectedPeopleIds: string[];
+  peopleMatchMode: PeopleMatchMode;
+  onPersonClick?: (personId: string) => void;
+  onReachedEnd?: () => void;
 }
 
-export function PersonCard({
-  person,
-  events,
+function photosUrl(
+  albumSlug: string,
+  selectedEventSlug: string | null,
+  selectedPeopleIds: string[],
+  peopleMatchMode: PeopleMatchMode
+) {
+  const base = `/api/albums/${encodeURIComponent(albumSlug)}/photos`;
+  const params = new URLSearchParams();
+
+  if (selectedEventSlug) params.set("event", selectedEventSlug);
+
+  if (selectedPeopleIds.length) {
+    params.set("people", selectedPeopleIds.join(","));
+  }
+
+  if (selectedPeopleIds.length > 1) {
+    params.set("peopleMode", peopleMatchMode);
+  }
+
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
+}
+
+export function PhotosGrid({
+  albumSlug,
   selectedEventSlug,
-  onClick,
-  onRename,
-  isSelectionMode = false,
-  isSelected = false,
-  onSelectToggle,
-}: PersonCardProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(person.displayName || person.defaultName);
-  const inputRef = useRef<HTMLInputElement>(null);
+  selectedPeopleIds,
+  peopleMatchMode,
+  onPersonClick,
+  onReachedEnd,
+}: PhotosGridProps) {
+  const photosRequestUrl = useMemo(
+    () =>
+      photosUrl(
+        albumSlug,
+        selectedEventSlug,
+        selectedPeopleIds,
+        peopleMatchMode
+      ),
+    [albumSlug, selectedEventSlug, selectedPeopleIds, peopleMatchMode]
+  );
 
-  const displayName = person.displayName || person.defaultName;
+  const { data, error, isLoading } = useSWR<{ photos: Photo[] }>(
+    photosRequestUrl,
+    fetcher,
+    swrOptions
+  );
+
+  const [lightboxState, setLightboxState] = useState<{
+    index: number;
+    originRect?: PhotoOpenRect;
+  } | null>(null);
+
+  const endSentinelRef = useRef<HTMLDivElement | null>(null);
+  const lastTriggeredKeyRef = useRef<string | null>(null);
+
+  const triggerKey = useMemo(
+    () =>
+      [
+        albumSlug,
+        selectedEventSlug ?? "all",
+        selectedPeopleIds.join(","),
+        peopleMatchMode,
+        data?.photos?.length ?? 0,
+      ].join(":"),
+    [
+      albumSlug,
+      selectedEventSlug,
+      selectedPeopleIds,
+      peopleMatchMode,
+      data?.photos?.length,
+    ]
+  );
+
+  const handleOpen = useCallback((index: number, originRect: PhotoOpenRect) => {
+    setLightboxState({ index, originRect });
+  }, []);
+
+  const handleNavigate = useCallback((index: number) => {
+    setLightboxState({ index });
+  }, []);
 
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
+    if (!onReachedEnd) return;
+    if (isLoading) return;
+    if (!data?.photos?.length) return;
 
-  useEffect(() => {
-    if (!isEditing) {
-      setName(displayName);
-    }
-  }, [displayName, isEditing]);
+    const sentinel = endSentinelRef.current;
+    if (!sentinel) return;
 
-  useEffect(() => {
-    if (isSelectionMode && isEditing) {
-      setIsEditing(false);
-    }
-  }, [isSelectionMode, isEditing]);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting) return;
 
-  const handleSave = () => {
-    const trimmedName = name.trim();
+        if (lastTriggeredKeyRef.current === triggerKey) return;
+        lastTriggeredKeyRef.current = triggerKey;
 
-    if (trimmedName && trimmedName !== displayName) {
-      onRename(trimmedName);
-    }
-
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setName(displayName);
-    setIsEditing(false);
-  };
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      handleSave();
-    }
-
-    if (event.key === "Escape") {
-      handleCancel();
-    }
-  };
-
-  const handleMainClick = () => {
-    if (isSelectionMode) {
-      onSelectToggle?.();
-      return;
-    }
-
-    onClick();
-  };
-
-  const photoCount = person.photoCount ?? 0;
-  const photoLabel = `${photoCount} ${photoCount === 1 ? "photo" : "photos"}`;
-
-  const eventStats = events.map((event) => {
-    const stat = person.eventStats?.find(
-      (item) => item.eventSlug === event.slug
+        onReachedEnd();
+      },
+      {
+        root: null,
+        rootMargin: "500px 0px",
+        threshold: 0.01,
+      }
     );
 
-    return {
-      event,
-      photoCount: stat?.photoCount ?? 0,
-    };
-  });
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [data?.photos?.length, isLoading, onReachedEnd, triggerKey]);
+
+  if (error) {
+    return (
+      <div className="py-12 text-center text-muted-foreground">
+        Failed to load photos. Please check your database connection.
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="columns-2 gap-[3px] sm:columns-2 sm:gap-2 lg:columns-3">
+        {Array.from({ length: 14 }).map((_, index) => (
+          <div key={index} className="mb-[3px] break-inside-avoid sm:mb-2">
+            <Skeleton
+              className={`w-full rounded-md ${
+                index % 6 === 0
+                  ? "h-56 sm:h-80"
+                  : index % 4 === 0
+                    ? "h-44 sm:h-64"
+                    : index % 3 === 0
+                      ? "h-64 sm:h-96"
+                      : "h-48 sm:h-72"
+              }`}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!data?.photos?.length) {
+    return (
+      <div className="rounded-md border border-zinc-200 bg-white px-6 py-12 text-center text-zinc-500">
+        {selectedPeopleIds.length
+          ? peopleMatchMode === "any" && selectedPeopleIds.length > 1
+            ? "No photos found for any of the selected people."
+            : "No photos found with all selected people."
+          : selectedEventSlug
+            ? "No photos found for this event yet."
+            : "No photos found in this album yet."}
+      </div>
+    );
+  }
 
   return (
-    <div className="group flex min-w-0 flex-col items-center gap-3">
-      <div className="relative">
-        <button
-          type="button"
-          onClick={handleMainClick}
-          className={`relative h-32 w-32 cursor-pointer overflow-hidden rounded-full bg-muted shadow-lg transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-4 focus:ring-offset-background sm:h-36 sm:w-36 ${
-            isSelected
-              ? "ring-4 ring-zinc-950 ring-offset-4 ring-offset-background"
-              : "ring-1 ring-border hover:shadow-xl"
-          }`}
-          aria-label={
-            isSelectionMode
-              ? `${isSelected ? "Unselect" : "Select"} ${displayName}`
-              : `Open ${displayName}`
-          }
-          aria-pressed={isSelectionMode ? isSelected : undefined}
-        >
-          {person.coverFaceUrl ? (
-            <Image
-              src={person.coverFaceUrl}
-              alt={displayName}
-              fill
-              sizes="(min-width: 640px) 144px, 128px"
-              className="object-cover"
-              unoptimized
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-secondary">
-              <User className="h-12 w-12 text-muted-foreground" />
-            </div>
-          )}
-
-          {isSelectionMode && (
-            <span
-              className={`absolute inset-0 flex items-center justify-center transition ${
-                isSelected ? "bg-black/25" : "bg-black/0 group-hover:bg-black/10"
-              }`}
-            >
-              <span
-                className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border shadow-md transition ${
-                  isSelected
-                    ? "border-zinc-950 bg-zinc-950 text-white"
-                    : "border-white/80 bg-white/80 text-zinc-500"
-                }`}
-              >
-                {isSelected && <Check className="h-4 w-4" />}
-              </span>
-            </span>
-          )}
-        </button>
-
-        {!isEditing && !isSelectionMode && (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setIsEditing(true);
-            }}
-            className="absolute bottom-1 right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-background/90 text-muted-foreground opacity-0 shadow-md backdrop-blur transition hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring group-hover:opacity-100"
-            aria-label={`Rename ${displayName}`}
+    <>
+      <div className="columns-2 gap-[3px] sm:columns-2 sm:gap-2 lg:columns-3">
+        {data.photos.map((photo, index) => (
+          <div
+            key={photo.id}
+            className="mb-[3px] break-inside-avoid overflow-hidden rounded-md sm:mb-2"
           >
-            <Pencil className="h-4 w-4" />
-          </button>
-        )}
+            <PhotoCard
+              albumSlug={albumSlug}
+              photo={photo}
+              index={index}
+              onOpen={handleOpen}
+            />
+          </div>
+        ))}
       </div>
 
-      <div className="flex min-w-0 max-w-[160px] flex-col items-center gap-1 text-center">
-        {isEditing ? (
-          <div className="flex items-center gap-1">
-            <Input
-              ref={inputRef}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onKeyDown={handleKeyDown}
-              className="h-8 w-28 px-2 text-center text-sm"
-            />
+      <div ref={endSentinelRef} className="h-px w-full" />
 
-            <button
-              type="button"
-              onClick={handleSave}
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full hover:bg-accent"
-              aria-label="Save name"
-            >
-              <Check className="h-4 w-4 text-primary" />
-            </button>
-
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full hover:bg-accent"
-              aria-label="Cancel rename"
-            >
-              <X className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={handleMainClick}
-            className={`max-w-full cursor-pointer truncate text-base font-semibold focus:outline-none focus:underline ${
-              isSelected
-                ? "text-zinc-950"
-                : "text-foreground hover:text-primary"
-            }`}
-          >
-            {displayName}
-          </button>
-        )}
-
-        <span className="text-sm text-muted-foreground">{photoLabel}</span>
-
-        {eventStats.length > 0 && (
-          <div className="mt-1 flex max-w-full justify-center gap-1.5">
-            {eventStats.map(({ event, photoCount }) => (
-              <span
-                key={event.id}
-                className={`h-1.5 w-5 rounded-full ${
-                  selectedEventSlug === event.slug
-                    ? "bg-zinc-950"
-                    : photoCount > 0
-                      ? "bg-zinc-400"
-                      : "bg-zinc-200"
-                }`}
-                title={`${event.name}: ${photoCount} photos`}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+      {lightboxState !== null && (
+        <PhotoLightbox
+          albumSlug={albumSlug}
+          photos={data.photos}
+          currentIndex={lightboxState.index}
+          originRect={lightboxState.originRect}
+          onClose={() => setLightboxState(null)}
+          onNavigate={handleNavigate}
+          onPersonClick={onPersonClick}
+        />
+      )}
+    </>
   );
 }
