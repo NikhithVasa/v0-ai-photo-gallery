@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "saathidesk.com";
-
-function normalizeHost(host: string) {
-  return host.split(":")[0].toLowerCase();
-}
+import { getCustomerSlugFromHost } from "@/lib/customer-host";
 
 function isAssetOrApiPath(pathname: string) {
   return (
@@ -15,24 +10,6 @@ function isAssetOrApiPath(pathname: string) {
     pathname.startsWith("/sitemap.xml") ||
     pathname.match(/\.(png|jpg|jpeg|webp|gif|svg|ico|css|js|map|txt|xml)$/)
   );
-}
-
-function getCustomerSlugFromHost(host: string) {
-  const normalizedHost = normalizeHost(host);
-
-  if (normalizedHost === ROOT_DOMAIN) return null;
-  if (normalizedHost === `www.${ROOT_DOMAIN}`) return null;
-
-  const suffix = `.${ROOT_DOMAIN}`;
-
-  if (!normalizedHost.endsWith(suffix)) return null;
-
-  const subdomain = normalizedHost.slice(0, -suffix.length);
-
-  if (!subdomain) return null;
-  if (subdomain === "www") return null;
-
-  return subdomain;
 }
 
 export function middleware(request: NextRequest) {

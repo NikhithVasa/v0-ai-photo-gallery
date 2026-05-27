@@ -7,6 +7,7 @@ import {
   type PersonRow,
   type PhotoRow,
 } from "@/lib/gallery-data";
+import { requireAlbumAccess } from "@/lib/album-access";
 import type { Person } from "@/lib/types";
 
 interface Props {
@@ -204,6 +205,9 @@ async function fetchResolvedPeople(albumSlug: string, personIds: string[]) {
 export async function POST(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) return accessDenied;
+
     const body = (await request.json()) as {
       query?: unknown;
       event?: unknown;

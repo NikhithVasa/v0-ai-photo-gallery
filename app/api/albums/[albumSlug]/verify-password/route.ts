@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
+import { requireAlbumAccess } from "@/lib/album-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -37,6 +38,9 @@ function passwordMatches(password: string, storedHash: string) {
 export async function POST(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) return accessDenied;
+
     const body = (await request.json()) as { password?: unknown };
     const password = typeof body.password === "string" ? body.password : "";
 

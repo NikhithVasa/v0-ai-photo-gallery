@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { signedUrl } from "@/lib/s3";
+import { requireAlbumAccess } from "@/lib/album-access";
 import type { AlbumDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -42,9 +43,11 @@ function numberValue(value: number | string | null) {
   return 0;
 }
 
-export async function GET(_request: Request, { params }: Props) {
+export async function GET(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) return accessDenied;
 
     const album = await queryOne<AlbumRow>(
       `

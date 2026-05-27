@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
+import { requireAlbumAccess } from "@/lib/album-access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -29,9 +30,11 @@ function countValue(value: number | string | null) {
   return 0;
 }
 
-export async function GET(_request: Request, { params }: Props) {
+export async function GET(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) return accessDenied;
 
     const album = await queryOne<AlbumRow>(
       `

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
+import { requireAlbumAccess } from "@/lib/album-access";
 
 interface Props {
   params: Promise<{ albumSlug: string; personId: string }>;
@@ -8,6 +9,9 @@ interface Props {
 export async function PATCH(request: Request, { params }: Props) {
   try {
     const { albumSlug, personId } = await params;
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) return accessDenied;
+
     const body = (await request.json()) as { displayName?: unknown };
     const displayName =
       typeof body.displayName === "string" ? body.displayName.trim() : "";

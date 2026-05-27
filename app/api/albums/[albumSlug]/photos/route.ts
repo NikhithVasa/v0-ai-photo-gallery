@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { toPhoto, type PhotoRow } from "@/lib/gallery-data";
+import { requireAlbumAccess } from "@/lib/album-access";
 import type { Photo } from "@/lib/types";
 
 interface Props {
@@ -16,6 +17,9 @@ function isUuid(value: string) {
 export async function GET(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) return accessDenied;
+
     const { searchParams } = new URL(request.url);
     const eventSlug = searchParams.get("event") || null;
     const personIds = (searchParams.get("people") ?? "")

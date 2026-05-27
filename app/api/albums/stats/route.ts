@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { getCustomerSlugFromRequest } from "@/lib/customer-host";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,9 +18,12 @@ function countValue(value: number | string | null) {
   return 0;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const rows = await query<AlbumStatsRow>(`
+    const customerSlug = getCustomerSlugFromRequest(request);
+
+    const rows = await query<AlbumStatsRow>(
+      `
       WITH event_counts AS (
         SELECT
           album_id,
@@ -53,8 +57,14 @@ export async function GET() {
       LEFT JOIN event_counts ec ON ec.album_id = a.id
       LEFT JOIN photo_counts pc ON pc.album_id = a.id
       LEFT JOIN people_counts pec ON pec.album_id = a.id
+      LEFT JOIN customers c
+        ON c.id = a.customer_id
+       AND COALESCE(c.is_deleted, false) = false
       WHERE COALESCE(a.is_deleted, false) = false
-    `);
+        AND ($1::text IS NULL OR c.slug = $1)
+      `,
+      [customerSlug]
+    );
 
     const stats = rows.map((row) => ({
       albumId: row.album_id,

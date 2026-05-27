@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { signedUrl } from "@/lib/s3";
+import { getCustomerSlugFromRequest } from "@/lib/customer-host";
 import type { AlbumSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -30,9 +31,12 @@ function countValue(value: number | string | null) {
   return 0;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const rows = await query<AlbumSummaryRow>(`
+    const customerSlug = getCustomerSlugFromRequest(request);
+
+    const rows = await query<AlbumSummaryRow>(
+      `
       WITH active_albums AS (
         SELECT
           a.id,
@@ -107,8 +111,12 @@ export async function GET() {
         ON c.id = a.customer_id
        AND COALESCE(c.is_deleted, false) = false
 
+      WHERE ($1::text IS NULL OR c.slug = $1)
+
       ORDER BY a.created_at DESC NULLS LAST, a.name ASC
-    `);
+      `,
+      [customerSlug]
+    );
 
     const albums: AlbumSummary[] = await Promise.all(
       rows.map(async (row) => ({
