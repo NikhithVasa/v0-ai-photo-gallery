@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import type { AlbumDetail } from "@/lib/types";
+import { signedUrl } from "@/lib/s3";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,6 +16,14 @@ interface AlbumRow {
   name: string;
   password_required: boolean | null;
   watermark_enabled: boolean | null;
+  cover_photo_s3_key: string | null;
+  photo_count: number | string | null;
+  people_count: number | string | null;
+  customer_id: string | null;
+  customer_slug: string | null;
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
 }
 
 interface EventRow {
@@ -56,15 +65,55 @@ export async function GET(_request: Request, { params }: Props) {
 
     const events = await query<EventRow>(
       `
-      SELECT
-        id,
-        slug,
-        name,
-        sort_order
-      FROM album_events
-      WHERE album_id = $1::uuid
-        AND COALESCE(is_deleted, false) = false
-      ORDER BY sort_order ASC NULLS LAST, name ASC
+SELECT
+  a.id,
+  a.slug,
+  a.name,
+  a.password_required,
+  a.watermark_enabled,
+  COALESCE(
+    a.cover_photo_s3_key,
+    fallback_cover.cover_photo_s3_key
+  ) AS cover_photo_s3_key,
+  COUNT(DISTINCT CASE
+    WHEN COALESCE(p.is_deleted, false) = false THEN p.id
+  END)::int AS photo_count,
+  COUNT(DISTINCT CASE
+    WHEN COALESCE(pe.is_hidden, false) = false THEN pe.id
+  END)::int AS people_count,
+  c.id AS customer_id,
+  c.slug AS customer_slug,
+  c.name AS customer_name,
+  c.email AS customer_email,
+  c.phone AS customer_phone
+FROM albums a
+LEFT JOIN customers c
+  ON c.id = a.customer_id
+ AND COALESCE(c.is_deleted, false) = false
+LEFT JOIN photos p ON p.album_id = a.id
+LEFT JOIN people pe ON pe.album_id = a.id
+LEFT JOIN LATERAL (
+  SELECT COALESCE(
+    p2.thumbnail_s3_key,
+    p2.watermarked_preview_s3_key,
+    p2.clean_preview_s3_key,
+    p2.original_s3_key
+  ) AS cover_photo_s3_key
+  FROM photos p2
+  WHERE p2.album_id = a.id
+    AND COALESCE(p2.is_deleted, false) = false
+  ORDER BY p2.created_at ASC
+  LIMIT 1
+) fallback_cover ON true
+WHERE a.slug = $1
+GROUP BY
+  a.id,
+  fallback_cover.cover_photo_s3_key,
+  c.id,
+  c.slug,
+  c.name,
+  c.email,
+  c.phone
       `,
       [album.id]
     );
@@ -90,6 +139,16 @@ export async function GET(_request: Request, { params }: Props) {
       // Loaded later by /api/albums/[albumSlug]/stats
       photoCount: 0,
       peopleCount: 0,
+      coverPhotoUrl: await signedUrl(album.cover_photo_s3_key),
+customer: album.customer_id
+  ? {
+      id: album.customer_id,
+      slug: album.customer_slug,
+      name: album.customer_name ?? "",
+      email: album.customer_email,
+      phone: album.customer_phone,
+    }
+  : null,
     };
 
     return NextResponse.json(

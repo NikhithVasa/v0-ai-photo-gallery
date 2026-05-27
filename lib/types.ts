@@ -1,3 +1,36 @@
+export interface AlbumCustomer {
+  id: string;
+  slug: string | null;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface AlbumSummary {
+  id: string;
+  slug: string;
+  name: string;
+  passwordRequired: boolean;
+  coverPhotoUrl: string | null;
+  eventCount: number;
+  photoCount: number;
+  peopleCount: number;
+  createdAt: string;
+  customer?: AlbumCustomer | null;
+}
+
+export interface AlbumDetail {
+  id: string;
+  slug: string;
+  name: string;
+  passwordRequired: boolean;
+  watermarkEnabled: boolean;
+  events: AlbumEvent[];
+  photoCount: number;
+  peopleCount: number;
+  customer?: AlbumCustomer | null;
+  coverPhotoUrl?: string | null;
+}
 export interface AlbumSummary {
   id: string;
   slug: string;
