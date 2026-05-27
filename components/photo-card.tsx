@@ -3,6 +3,7 @@
 import {
   memo,
   type CSSProperties,
+  type TouchEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -126,12 +127,12 @@ export const PhotoCard = memo(function PhotoCard({
     setIsDownloading(true);
 
     try {
-      const signedUrls = photo.downloadUrl
-        ? null
-        : await fetchSignedPhotoUrls(albumSlug, [photo.id]);
+      let downloadUrl = photo.downloadUrl;
 
-      const downloadUrl =
-        photo.downloadUrl || signedUrls?.[photo.id]?.downloadUrl;
+      if (!downloadUrl) {
+        const signedUrls = await fetchSignedPhotoUrls(albumSlug, [photo.id]);
+        downloadUrl = signedUrls?.[photo.id]?.downloadUrl;
+      }
 
       if (!downloadUrl) return;
 
@@ -305,9 +306,6 @@ export function PhotoLightbox({
   const [isMobilePointer, setIsMobilePointer] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [signedUrls, setSignedUrls] = useState<Record<string, SignedPhotoUrls>>(
-    {}
-  );
   const [entryStyle, setEntryStyle] = useState<CSSProperties>();
   const [preloadedUrls, setPreloadedUrls] = useState<Set<string>>(new Set());
 
@@ -332,34 +330,16 @@ export function PhotoLightbox({
   const previousPhoto = photos[previousIndex];
   const nextPhoto = photos[nextIndex];
 
-  const signedPhoto = signedUrls[photo.id];
-
-  const imageCandidates = uniqueUrls([
-    signedPhoto?.previewUrl,
-    photo.previewUrl,
-    signedPhoto?.thumbnailUrl,
-    photo.thumbnailUrl,
-  ]);
-
+  const imageCandidates = uniqueUrls([photo.previewUrl, photo.thumbnailUrl]);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
-  const downloadUrl = signedPhoto?.downloadUrl || photo.downloadUrl;
+  const downloadUrl = photo.downloadUrl;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
 
-  const getPreviewUrl = useCallback(
-    (targetPhoto: Photo | undefined) => {
-      if (!targetPhoto) return null;
-
-      return (
-        signedUrls[targetPhoto.id]?.previewUrl ||
-        targetPhoto.previewUrl ||
-        signedUrls[targetPhoto.id]?.thumbnailUrl ||
-        targetPhoto.thumbnailUrl ||
-        null
-      );
-    },
-    [signedUrls]
-  );
+  const getPreviewUrl = useCallback((targetPhoto: Photo | undefined) => {
+    if (!targetPhoto) return null;
+    return targetPhoto.previewUrl || targetPhoto.thumbnailUrl || null;
+  }, []);
 
   const previousImageUrl = useMemo(
     () => getPreviewUrl(previousPhoto),
@@ -532,37 +512,6 @@ export function PhotoLightbox({
   }, [originRect, currentIndex]);
 
   useEffect(() => {
-    let isCancelled = false;
-
-    const indexesToSign = [
-      currentIndex,
-      currentIndex + 1,
-      currentIndex - 1,
-      currentIndex + 2,
-      currentIndex - 2,
-    ];
-
-    const ids = indexesToSign
-      .map((index) => photos[(index + photos.length) % photos.length]?.id)
-      .filter((id): id is string => Boolean(id && !signedUrls[id]));
-
-    if (!ids.length) return;
-
-    fetchSignedPhotoUrls(albumSlug, ids).then((urlsById) => {
-      if (isCancelled) return;
-
-      setSignedUrls((current) => ({
-        ...current,
-        ...urlsById,
-      }));
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [albumSlug, currentIndex, photos, signedUrls]);
-
-  useEffect(() => {
     if (!currentImageUrl) return;
 
     const urlsToPreload = uniqueUrls([
@@ -589,7 +538,7 @@ export function PhotoLightbox({
           });
         })
         .catch(() => {
-          // Do not add failed URLs. Swipe will stay disabled until a usable URL is ready.
+          // Failed image is ignored so we do not render broken adjacent slides.
         });
     });
 
@@ -643,7 +592,6 @@ export function PhotoLightbox({
       if (!url) {
         const urlsById = await fetchSignedPhotoUrls(albumSlug, [photo.id]);
         url = urlsById[photo.id]?.downloadUrl;
-        setSignedUrls((current) => ({ ...current, ...urlsById }));
       }
 
       if (!url) return;
@@ -684,7 +632,7 @@ export function PhotoLightbox({
     );
   };
 
-  const handleTouchStart = (event: React.TouchEvent) => {
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (photos.length <= 1 || isAnimatingSwipe) return;
 
     if (!adjacentImagesReady) {
@@ -711,7 +659,7 @@ export function PhotoLightbox({
     setAreControlsVisible(true);
   };
 
-  const handleTouchMove = (event: React.TouchEvent) => {
+  const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
     const start = touchStartRef.current;
     if (!start || isAnimatingSwipe || !adjacentImagesReady) return;
 
