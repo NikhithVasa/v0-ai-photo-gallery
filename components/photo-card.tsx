@@ -85,6 +85,16 @@ function absoluteBrowserUrl(url: string) {
   return url.startsWith("/") ? `${window.location.origin}${url}` : url;
 }
 
+function preloadImage(url: string) {
+  return new Promise<void>((resolve, reject) => {
+    const image = new window.Image();
+    image.decoding = "async";
+    image.onload = () => resolve();
+    image.onerror = reject;
+    image.src = url;
+  });
+}
+
 interface PhotoCardProps {
   albumSlug: string;
   photo: Photo;
@@ -202,14 +212,14 @@ export const PhotoCard = memo(function PhotoCard({
       />
 
       <div
-        className={`pointer-events-none absolute inset-x-0 bottom-0 z-20 h-32 bg-gradient-to-t from-black/85 via-black/45 to-transparent transition-opacity duration-200 ${
+        className={`pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 bg-gradient-to-t from-black/80 via-black/35 to-transparent transition-opacity duration-200 ${
           isDownloadHovering
             ? "opacity-0"
             : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
         }`}
       />
 
-      <div className="pointer-events-none absolute bottom-2 left-2 z-40 flex items-center gap-2 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 sm:bottom-3 sm:left-3">
+      <div className="pointer-events-none absolute bottom-2 left-2 z-40 flex items-center gap-1 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 sm:bottom-3 sm:left-3">
         <button
           type="button"
           className="pointer-events-auto flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80"
@@ -299,6 +309,7 @@ export function PhotoLightbox({
     {}
   );
   const [entryStyle, setEntryStyle] = useState<CSSProperties>();
+  const [preloadedUrls, setPreloadedUrls] = useState<Set<string>>(new Set());
 
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -360,6 +371,15 @@ export function PhotoLightbox({
   const nextImageUrl = useMemo(
     () => getPreviewUrl(nextPhoto),
     [getPreviewUrl, nextPhoto]
+  );
+
+  const adjacentImagesReady = Boolean(
+    currentImageUrl &&
+      previousImageUrl &&
+      nextImageUrl &&
+      preloadedUrls.has(currentImageUrl) &&
+      preloadedUrls.has(previousImageUrl) &&
+      preloadedUrls.has(nextImageUrl)
   );
 
   useEffect(() => {
@@ -535,19 +555,48 @@ export function PhotoLightbox({
         ...current,
         ...urlsById,
       }));
-
-      Object.values(urlsById).forEach((urls) => {
-        if (!urls.previewUrl) return;
-
-        const image = new window.Image();
-        image.src = urls.previewUrl;
-      });
     });
 
     return () => {
       isCancelled = true;
     };
   }, [albumSlug, currentIndex, photos, signedUrls]);
+
+  useEffect(() => {
+    if (!currentImageUrl) return;
+
+    const urlsToPreload = uniqueUrls([
+      currentImageUrl,
+      previousImageUrl,
+      nextImageUrl,
+    ]).filter((url) => !preloadedUrls.has(url));
+
+    if (!urlsToPreload.length) return;
+
+    let isCancelled = false;
+
+    urlsToPreload.forEach((url) => {
+      preloadImage(url)
+        .then(() => {
+          if (isCancelled) return;
+
+          setPreloadedUrls((current) => {
+            if (current.has(url)) return current;
+
+            const next = new Set(current);
+            next.add(url);
+            return next;
+          });
+        })
+        .catch(() => {
+          // Do not add failed URLs. Swipe will stay disabled until a usable URL is ready.
+        });
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentImageUrl, nextImageUrl, previousImageUrl, preloadedUrls]);
 
   useEffect(() => {
     if (!isPlaying || photos.length <= 1) return;
@@ -638,6 +687,11 @@ export function PhotoLightbox({
   const handleTouchStart = (event: React.TouchEvent) => {
     if (photos.length <= 1 || isAnimatingSwipe) return;
 
+    if (!adjacentImagesReady) {
+      setAreControlsVisible(true);
+      return;
+    }
+
     const touch = event.touches[0];
 
     touchStartRef.current = {
@@ -659,7 +713,7 @@ export function PhotoLightbox({
 
   const handleTouchMove = (event: React.TouchEvent) => {
     const start = touchStartRef.current;
-    if (!start || isAnimatingSwipe) return;
+    if (!start || isAnimatingSwipe || !adjacentImagesReady) return;
 
     const touch = event.touches[0];
     const deltaX = touch.clientX - start.x;
@@ -687,7 +741,7 @@ export function PhotoLightbox({
     const start = touchStartRef.current;
     touchStartRef.current = null;
 
-    if (!start || isAnimatingSwipe) {
+    if (!start || isAnimatingSwipe || !adjacentImagesReady) {
       setIsDragging(false);
       setDragOffset(0);
       return;
@@ -862,7 +916,7 @@ export function PhotoLightbox({
                 }}
               >
                 <div className="flex h-full w-full shrink-0 items-center justify-center">
-                  {previousImageUrl ? (
+                  {previousImageUrl && preloadedUrls.has(previousImageUrl) ? (
                     <img
                       src={previousImageUrl}
                       alt={previousPhoto?.caption || "Previous photo"}
@@ -885,7 +939,7 @@ export function PhotoLightbox({
                 </div>
 
                 <div className="flex h-full w-full shrink-0 items-center justify-center">
-                  {nextImageUrl ? (
+                  {nextImageUrl && preloadedUrls.has(nextImageUrl) ? (
                     <img
                       src={nextImageUrl}
                       alt={nextPhoto?.caption || "Next photo"}
