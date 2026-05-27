@@ -50,14 +50,6 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="mb-8 flex items-start justify-between gap-4 sm:mb-10">
           <div className="min-w-0">
-            <Link
-              href="/"
-              className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-zinc-500 transition hover:text-zinc-950"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Customers
-            </Link>
-
             <p className="text-sm font-medium text-zinc-500">Albums</p>
             <h1 className="truncate text-3xl font-semibold tracking-normal sm:text-5xl">
               {customerName}
