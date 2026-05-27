@@ -118,6 +118,7 @@ export const PhotoCard = memo(function PhotoCard({
   onOpen,
   forceFill = false,
 }: PhotoCardProps) {
+  // This is the exact same source the lightbox will use first.
   const imageUrl = photo.thumbnailUrl || photo.previewUrl;
   const aspectRatio = photoAspectRatio(photo);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -129,6 +130,7 @@ export const PhotoCard = memo(function PhotoCard({
     try {
       let downloadUrl = photo.downloadUrl;
 
+      // Only call signed-urls API when user explicitly downloads.
       if (!downloadUrl) {
         const signedUrls = await fetchSignedPhotoUrls(albumSlug, [photo.id]);
         downloadUrl = signedUrls?.[photo.id]?.downloadUrl;
@@ -231,14 +233,7 @@ export const PhotoCard = memo(function PhotoCard({
 
         <a
           href={`mailto:?subject=Photo&body=${encodeURIComponent(
-            photo.thumbnailUrl || photo.previewUrl || photo.downloadUrl
-              ? absoluteBrowserUrl(
-                  photo.thumbnailUrl ||
-                    photo.previewUrl ||
-                    photo.downloadUrl ||
-                    ""
-                )
-              : ""
+            imageUrl ? absoluteBrowserUrl(imageUrl) : ""
           )}`}
           className="pointer-events-auto flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80"
           aria-label="Email photo"
@@ -308,6 +303,7 @@ export function PhotoLightbox({
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [entryStyle, setEntryStyle] = useState<CSSProperties>();
   const [preloadedUrls, setPreloadedUrls] = useState<Set<string>>(new Set());
+  const [canPreloadAdjacent, setCanPreloadAdjacent] = useState(false);
 
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -330,7 +326,10 @@ export function PhotoLightbox({
   const previousPhoto = photos[previousIndex];
   const nextPhoto = photos[nextIndex];
 
-  const imageCandidates = uniqueUrls([photo.previewUrl, photo.thumbnailUrl]);
+  // Important:
+  // Use the same image source as the grid first.
+  // This avoids signed-url API calls and makes the open feel local/immediate.
+  const imageCandidates = uniqueUrls([photo.thumbnailUrl, photo.previewUrl]);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const downloadUrl = photo.downloadUrl;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
@@ -338,7 +337,9 @@ export function PhotoLightbox({
 
   const getPreviewUrl = useCallback((targetPhoto: Photo | undefined) => {
     if (!targetPhoto) return null;
-    return targetPhoto.previewUrl || targetPhoto.thumbnailUrl || null;
+
+    // Use thumbnail first here too, so adjacent slides use already available gallery URLs.
+    return targetPhoto.thumbnailUrl || targetPhoto.previewUrl || null;
   }, []);
 
   const previousImageUrl = useMemo(
@@ -424,10 +425,17 @@ export function PhotoLightbox({
     setDragOffset(0);
     setIsDragging(false);
     setIsAnimatingSwipe(false);
+    setCanPreloadAdjacent(false);
 
     if (isMobilePointer) {
       setAreControlsVisible(true);
     }
+
+    const timer = window.setTimeout(() => {
+      setCanPreloadAdjacent(true);
+    }, 700);
+
+    return () => window.clearTimeout(timer);
   }, [photo.id, isMobilePointer]);
 
   useEffect(() => {
@@ -514,8 +522,20 @@ export function PhotoLightbox({
   useEffect(() => {
     if (!currentImageUrl) return;
 
+    setPreloadedUrls((current) => {
+      if (current.has(currentImageUrl)) return current;
+
+      const next = new Set(current);
+      next.add(currentImageUrl);
+      return next;
+    });
+  }, [currentImageUrl]);
+
+  useEffect(() => {
+    if (!canPreloadAdjacent) return;
+    if (!currentImageUrl) return;
+
     const urlsToPreload = uniqueUrls([
-      currentImageUrl,
       previousImageUrl,
       nextImageUrl,
     ]).filter((url) => !preloadedUrls.has(url));
@@ -545,7 +565,13 @@ export function PhotoLightbox({
     return () => {
       isCancelled = true;
     };
-  }, [currentImageUrl, nextImageUrl, previousImageUrl, preloadedUrls]);
+  }, [
+    canPreloadAdjacent,
+    currentImageUrl,
+    nextImageUrl,
+    previousImageUrl,
+    preloadedUrls,
+  ]);
 
   useEffect(() => {
     if (!isPlaying || photos.length <= 1) return;
@@ -589,6 +615,7 @@ export function PhotoLightbox({
     try {
       let url = downloadUrl;
 
+      // Only call signed-urls API when user explicitly downloads.
       if (!url) {
         const urlsById = await fetchSignedPhotoUrls(albumSlug, [photo.id]);
         url = urlsById[photo.id]?.downloadUrl;
