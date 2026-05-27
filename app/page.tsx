@@ -1,5 +1,5 @@
-import { AlbumsPage } from "@/components/albums-page";
+import { CustomersPage } from "@/components/customers-page";
 
-export default function Home() {
-  return <AlbumsPage />;
+export default function HomePage() {
+  return <CustomersPage />;
 }
