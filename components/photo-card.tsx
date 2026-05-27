@@ -315,6 +315,9 @@ export function PhotoLightbox({
   } | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
   const swipeCommitTimerRef = useRef<number | null>(null);
+  const isMobilePointerRef = useRef(isMobilePointer);
+  const isPeopleOpenRef = useRef(isPeopleOpen);
+  const isDownloadHoveringRef = useRef(isDownloadHovering);
 
   const photo = photos[currentIndex];
 
@@ -356,6 +359,10 @@ export function PhotoLightbox({
       preloadedUrls.has(nextImageUrl)
   );
 
+  isMobilePointerRef.current = isMobilePointer;
+  isPeopleOpenRef.current = isPeopleOpen;
+  isDownloadHoveringRef.current = isDownloadHovering;
+
   useEffect(() => {
     const mediaQuery = window.matchMedia("(pointer: coarse)");
 
@@ -380,13 +387,15 @@ export function PhotoLightbox({
     }
 
     controlsTimerRef.current = window.setTimeout(() => {
-      if (isMobilePointer) return;
+      controlsTimerRef.current = null;
 
-      if (!isPeopleOpen && !isDownloadHovering) {
+      if (isMobilePointerRef.current) return;
+
+      if (!isPeopleOpenRef.current && !isDownloadHoveringRef.current) {
         setAreControlsVisible(false);
       }
     }, 2000);
-  }, [isDownloadHovering, isMobilePointer, isPeopleOpen]);
+  }, []);
 
   const showControlsBriefly = useCallback(() => {
     setAreControlsVisible(true);
@@ -762,10 +771,16 @@ export function PhotoLightbox({
     onClose();
   };
 
-  const overlayVisibilityClass =
-    isMobilePointer || areControlsVisible || isPeopleOpen || isDownloadHovering
-      ? "opacity-100"
-      : "opacity-0 pointer-events-none";
+  const areOverlaysInteractive =
+    isMobilePointer || areControlsVisible || isPeopleOpen || isDownloadHovering;
+
+  const overlayOpacityClass = areOverlaysInteractive
+    ? "opacity-100"
+    : "opacity-0";
+
+  const overlayInteractionClass = areOverlaysInteractive
+    ? "pointer-events-auto"
+    : "pointer-events-none";
 
   const swipeTrackClass =
     isDragging || !isAnimatingSwipe
@@ -785,7 +800,7 @@ export function PhotoLightbox({
       tabIndex={0}
     >
       <div
-        className={`pointer-events-none absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/75 via-black/40 to-transparent px-16 pb-12 pt-4 text-center transition-opacity duration-200 sm:pb-14 sm:pt-5 ${overlayVisibilityClass}`}
+        className={`pointer-events-none absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/75 via-black/40 to-transparent px-16 pb-12 pt-4 text-center transition-opacity duration-200 sm:pb-14 sm:pt-5 ${overlayOpacityClass}`}
       >
         <div className="mx-auto max-w-[70vw] truncate text-sm font-medium text-white drop-shadow">
           {photoName}
@@ -798,7 +813,7 @@ export function PhotoLightbox({
           event.stopPropagation();
           onClose();
         }}
-        className={`absolute right-3 top-3 z-40 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/75 text-zinc-950 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-6 sm:top-5 ${overlayVisibilityClass}`}
+        className={`absolute right-3 top-3 z-40 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/75 text-zinc-950 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-6 sm:top-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
         aria-label="Close photo"
       >
         <X className="h-5 w-5 stroke-[2.25]" />
@@ -806,7 +821,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
-        className={`absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:left-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
+        className={`absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:left-8 sm:h-12 sm:w-12 ${overlayOpacityClass} ${overlayInteractionClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handlePrev();
@@ -818,7 +833,7 @@ export function PhotoLightbox({
 
       <button
         type="button"
-        className={`absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-8 sm:h-12 sm:w-12 ${overlayVisibilityClass}`}
+        className={`absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-8 sm:h-12 sm:w-12 ${overlayOpacityClass} ${overlayInteractionClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handleNext();
@@ -851,17 +866,18 @@ export function PhotoLightbox({
               touchAction: "pan-y",
             }}
             onMouseEnter={() => {
-              if (!isMobilePointer && !areControlsVisible) {
-                setAreControlsVisible(true);
-              }
+              if (!isMobilePointer) showControlsBriefly();
             }}
             onMouseMove={() => {
-              if (!isMobilePointer && !areControlsVisible) {
-                setAreControlsVisible(true);
-              }
+              if (!isMobilePointer) showControlsBriefly();
             }}
             onMouseLeave={() => {
               if (!isMobilePointer && !isPeopleOpen && !isDownloadHovering) {
+                if (controlsTimerRef.current) {
+                  window.clearTimeout(controlsTimerRef.current);
+                  controlsTimerRef.current = null;
+                }
+
                 setAreControlsVisible(false);
               }
             }}
@@ -928,7 +944,7 @@ export function PhotoLightbox({
             />
 
             <div
-              className={`pointer-events-auto absolute bottom-4 left-4 z-30 flex cursor-default items-center gap-2 rounded-full bg-white/70 px-2 py-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayVisibilityClass}`}
+              className={`absolute bottom-4 left-4 z-30 flex cursor-default items-center gap-2 rounded-full bg-white/70 px-2 py-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
               onClick={(event) => event.stopPropagation()}
             >
               <button
@@ -998,7 +1014,7 @@ export function PhotoLightbox({
             </div>
 
             <div
-              className={`pointer-events-auto absolute bottom-4 right-4 z-30 cursor-default transition-opacity duration-200 sm:bottom-5 sm:right-5 ${overlayVisibilityClass}`}
+              className={`absolute bottom-4 right-4 z-30 cursor-default transition-opacity duration-200 sm:bottom-5 sm:right-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
               onClick={(event) => event.stopPropagation()}
             >
               <button
