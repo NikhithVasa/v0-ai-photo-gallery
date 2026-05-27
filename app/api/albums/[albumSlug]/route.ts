@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
-import type { AlbumDetail } from "@/lib/types";
 import { signedUrl } from "@/lib/s3";
+import type { AlbumDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,6 +19,7 @@ interface AlbumRow {
   cover_photo_s3_key: string | null;
   photo_count: number | string | null;
   people_count: number | string | null;
+
   customer_id: string | null;
   customer_slug: string | null;
   customer_name: string | null;
@@ -31,6 +32,8 @@ interface EventRow {
   slug: string;
   name: string;
   sort_order: number | string | null;
+  photo_count: number | string | null;
+  people_count: number | string | null;
 }
 
 function numberValue(value: number | string | null) {
@@ -45,16 +48,69 @@ export async function GET(_request: Request, { params }: Props) {
 
     const album = await queryOne<AlbumRow>(
       `
+      WITH selected_album AS (
+        SELECT
+          a.id,
+          a.slug,
+          a.name,
+          a.password_required,
+          a.watermark_enabled,
+          a.cover_photo_s3_key,
+          a.customer_id
+        FROM albums a
+        WHERE a.slug = $1
+          AND COALESCE(a.is_deleted, false) = false
+        LIMIT 1
+      ),
+
+      photo_counts AS (
+        SELECT
+          p.album_id,
+          COUNT(*)::int AS photo_count
+        FROM photos p
+        JOIN selected_album a ON a.id = p.album_id
+        WHERE COALESCE(p.is_deleted, false) = false
+        GROUP BY p.album_id
+      ),
+
+      people_counts AS (
+        SELECT
+          pe.album_id,
+          COUNT(*)::int AS people_count
+        FROM people pe
+        JOIN selected_album a ON a.id = pe.album_id
+        WHERE COALESCE(pe.is_hidden, false) = false
+        GROUP BY pe.album_id
+      )
+
       SELECT
-        id,
-        slug,
-        name,
-        password_required,
-        watermark_enabled
-      FROM albums
-      WHERE slug = $1
-        AND COALESCE(is_deleted, false) = false
-      LIMIT 1
+        a.id,
+        a.slug,
+        a.name,
+        a.password_required,
+        a.watermark_enabled,
+        a.cover_photo_s3_key,
+
+        COALESCE(pc.photo_count, 0)::int AS photo_count,
+        COALESCE(pec.people_count, 0)::int AS people_count,
+
+        c.id AS customer_id,
+        c.slug AS customer_slug,
+        c.name AS customer_name,
+        c.email AS customer_email,
+        c.phone AS customer_phone
+
+      FROM selected_album a
+
+      LEFT JOIN photo_counts pc
+        ON pc.album_id = a.id
+
+      LEFT JOIN people_counts pec
+        ON pec.album_id = a.id
+
+      LEFT JOIN customers c
+        ON c.id = a.customer_id
+       AND COALESCE(c.is_deleted, false) = false
       `,
       [albumSlug]
     );
@@ -65,57 +121,61 @@ export async function GET(_request: Request, { params }: Props) {
 
     const events = await query<EventRow>(
       `
-SELECT
-  a.id,
-  a.slug,
-  a.name,
-  a.password_required,
-  a.watermark_enabled,
-  COALESCE(
-    a.cover_photo_s3_key,
-    fallback_cover.cover_photo_s3_key
-  ) AS cover_photo_s3_key,
-  COUNT(DISTINCT CASE
-    WHEN COALESCE(p.is_deleted, false) = false THEN p.id
-  END)::int AS photo_count,
-  COUNT(DISTINCT CASE
-    WHEN COALESCE(pe.is_hidden, false) = false THEN pe.id
-  END)::int AS people_count,
-  c.id AS customer_id,
-  c.slug AS customer_slug,
-  c.name AS customer_name,
-  c.email AS customer_email,
-  c.phone AS customer_phone
-FROM albums a
-LEFT JOIN customers c
-  ON c.id = a.customer_id
- AND COALESCE(c.is_deleted, false) = false
-LEFT JOIN photos p ON p.album_id = a.id
-LEFT JOIN people pe ON pe.album_id = a.id
-LEFT JOIN LATERAL (
-  SELECT COALESCE(
-    p2.thumbnail_s3_key,
-    p2.watermarked_preview_s3_key,
-    p2.clean_preview_s3_key,
-    p2.original_s3_key
-  ) AS cover_photo_s3_key
-  FROM photos p2
-  WHERE p2.album_id = a.id
-    AND COALESCE(p2.is_deleted, false) = false
-  ORDER BY p2.created_at ASC
-  LIMIT 1
-) fallback_cover ON true
-WHERE a.slug = $1
-GROUP BY
-  a.id,
-  fallback_cover.cover_photo_s3_key,
-  c.id,
-  c.slug,
-  c.name,
-  c.email,
-  c.phone
+      WITH selected_album AS (
+        SELECT id
+        FROM albums
+        WHERE slug = $1
+          AND COALESCE(is_deleted, false) = false
+        LIMIT 1
+      ),
+
+      active_events AS (
+        SELECT
+          e.id,
+          e.slug,
+          e.name,
+          e.sort_order,
+          e.album_id
+        FROM album_events e
+        JOIN selected_album a ON a.id = e.album_id
+        WHERE COALESCE(e.is_deleted, false) = false
+      ),
+
+      photo_counts AS (
+        SELECT
+          p.album_event_id,
+          COUNT(*)::int AS photo_count
+        FROM photos p
+        JOIN active_events e ON e.id = p.album_event_id
+        WHERE COALESCE(p.is_deleted, false) = false
+        GROUP BY p.album_event_id
+      ),
+
+      people_counts AS (
+        SELECT
+          pes.album_event_id,
+          COUNT(*)::int AS people_count
+        FROM person_event_stats pes
+        JOIN active_events e ON e.id = pes.album_event_id
+        WHERE COALESCE(pes.photo_count, 0) > 0
+        GROUP BY pes.album_event_id
+      )
+
+      SELECT
+        e.id,
+        e.slug,
+        e.name,
+        e.sort_order,
+        COALESCE(pc.photo_count, 0)::int AS photo_count,
+        COALESCE(pec.people_count, 0)::int AS people_count
+      FROM active_events e
+      LEFT JOIN photo_counts pc
+        ON pc.album_event_id = e.id
+      LEFT JOIN people_counts pec
+        ON pec.album_event_id = e.id
+      ORDER BY e.sort_order ASC NULLS LAST, e.name ASC
       `,
-      [album.id]
+      [albumSlug]
     );
 
     const detail: AlbumDetail = {
@@ -130,25 +190,24 @@ GROUP BY
         slug: event.slug,
         name: event.name,
         sortOrder: numberValue(event.sort_order),
-
-        // Loaded later by /api/albums/[albumSlug]/stats
-        photoCount: 0,
-        peopleCount: 0,
+        photoCount: numberValue(event.photo_count),
+        peopleCount: numberValue(event.people_count),
       })),
 
-      // Loaded later by /api/albums/[albumSlug]/stats
-      photoCount: 0,
-      peopleCount: 0,
+      photoCount: numberValue(album.photo_count),
+      peopleCount: numberValue(album.people_count),
+
       coverPhotoUrl: await signedUrl(album.cover_photo_s3_key),
-customer: album.customer_id
-  ? {
-      id: album.customer_id,
-      slug: album.customer_slug,
-      name: album.customer_name ?? "",
-      email: album.customer_email,
-      phone: album.customer_phone,
-    }
-  : null,
+
+      customer: album.customer_id
+        ? {
+            id: album.customer_id,
+            slug: album.customer_slug,
+            name: album.customer_name ?? "",
+            email: album.customer_email,
+            phone: album.customer_phone,
+          }
+        : null,
     };
 
     return NextResponse.json(
