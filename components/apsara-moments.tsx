@@ -322,6 +322,7 @@ interface ApsaraMomentsOverlayProps {
   peopleMatchMode?: PeopleMatchMode;
   onPersonOpen?: (person: Person) => void;
   onPeopleSelectionApply?: (people: Person[], mode: PeopleMatchMode) => void;
+  onTextSearch?: (query: string, people: Person[]) => void;
 }
 
 export function ApsaraMomentsOverlay({
@@ -333,6 +334,7 @@ export function ApsaraMomentsOverlay({
   peopleMatchMode = "all",
   onPersonOpen,
   onPeopleSelectionApply,
+  onTextSearch,
 }: ApsaraMomentsOverlayProps) {
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -464,6 +466,14 @@ export function ApsaraMomentsOverlay({
   };
 
   const handleSubmitSearch = () => {
+    const activeQuery = query.trim();
+
+    if (activeQuery) {
+      onTextSearch?.(activeQuery, selectedSearchPeople);
+      onClose();
+      return;
+    }
+
     if (!query.trim() && selectedSearchPeople.length === 1) {
       onPersonOpen?.(selectedSearchPeople[0]);
       onClose();
@@ -536,7 +546,10 @@ export function ApsaraMomentsOverlay({
                 <p className="text-lg font-light text-zinc-800">Try these:</p>
                 <button
                   type="button"
-                  onClick={() => handleSearch("wedding dress")}
+                  onClick={() => {
+                    onTextSearch?.("wedding dress", selectedSearchPeople);
+                    onClose();
+                  }}
                   className="rounded-full bg-zinc-100 px-4 py-2 text-base font-light text-zinc-700 transition hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-300"
                 >
                   wedding dress
@@ -677,6 +690,7 @@ interface ApsaraMomentsRootProps {
   onOpenChange?: (isOpen: boolean) => void;
   onPersonOpen?: (person: Person) => void;
   onPeopleSelectionApply?: (people: Person[], mode: PeopleMatchMode) => void;
+  onTextSearch?: (query: string, people: Person[]) => void;
 }
 
 export function ApsaraMomentsRoot({
@@ -688,6 +702,7 @@ export function ApsaraMomentsRoot({
   onOpenChange,
   onPersonOpen,
   onPeopleSelectionApply,
+  onTextSearch,
 }: ApsaraMomentsRootProps) {
   const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(false);
   const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
@@ -705,6 +720,7 @@ export function ApsaraMomentsRoot({
         peopleMatchMode={peopleMatchMode}
         onPersonOpen={onPersonOpen}
         onPeopleSelectionApply={onPeopleSelectionApply}
+        onTextSearch={onTextSearch}
       />
     </>
   );

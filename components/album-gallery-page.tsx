@@ -19,10 +19,11 @@ import {
 import { PeopleGrid } from "@/components/people-grid";
 import { PersonView } from "@/components/person-view";
 import { PhotosGrid, type PeopleMatchMode } from "@/components/photos-grid";
+import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { ApsaraMomentsRoot } from "@/components/apsara-moments";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { AlbumDetail, Person } from "@/lib/types";
+import type { AlbumDetail, Person, Photo } from "@/lib/types";
 
 type Tab = "photos" | "people";
 
@@ -220,6 +221,110 @@ function PasswordGate({
         </div>
       </div>
     </main>
+  );
+}
+
+function SearchResultsGrid({
+  albumSlug,
+  query,
+  photos,
+  isLoading,
+  error,
+  onClear,
+  onPersonClick,
+}: {
+  albumSlug: string;
+  query: string;
+  photos: Photo[];
+  isLoading: boolean;
+  error: string | null;
+  onClear: () => void;
+  onPersonClick?: (personId: string) => void;
+}) {
+  const [lightboxState, setLightboxState] = useState<{
+    index: number;
+    originRect?: PhotoOpenRect;
+  } | null>(null);
+
+  const handleOpen = (index: number, originRect: PhotoOpenRect) => {
+    setLightboxState({ index, originRect });
+  };
+
+  const handleNavigate = (index: number) => {
+    setLightboxState({ index });
+  };
+
+  return (
+    <section className="space-y-5">
+      <div className="flex flex-col gap-3 px-2 sm:flex-row sm:items-end sm:justify-between sm:px-0">
+        <div>
+          <p className="text-sm font-medium text-zinc-500">Search results</p>
+          <h2 className="text-3xl font-semibold tracking-normal sm:text-4xl">
+            {query}
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClear}
+          className="inline-flex h-9 w-fit cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-600 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+        >
+          Back to photos
+        </button>
+      </div>
+
+      {isLoading && (
+        <div className="columns-2 gap-[3px] sm:columns-2 sm:gap-2 lg:columns-3">
+          {Array.from({ length: 12 }).map((_, index) => (
+            <div key={index} className="mb-[3px] break-inside-avoid sm:mb-2">
+              <Skeleton className="h-56 w-full rounded-md sm:h-72" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && error && (
+        <div className="rounded-md border border-rose-200 bg-rose-50 px-5 py-8 text-center text-sm text-rose-700">
+          {error}
+        </div>
+      )}
+
+      {!isLoading && !error && !photos.length && (
+        <div className="rounded-md border border-zinc-200 bg-white px-6 py-12 text-center text-zinc-500">
+          No photos found for this search.
+        </div>
+      )}
+
+      {!isLoading && !error && photos.length > 0 && (
+        <div className="columns-2 gap-[3px] sm:columns-2 sm:gap-2 lg:columns-3">
+          {photos.map((photo, index) => (
+            <div
+              key={photo.id}
+              className="mb-[3px] break-inside-avoid overflow-hidden rounded-md sm:mb-2"
+            >
+              <PhotoCard
+                albumSlug={albumSlug}
+                photo={photo}
+                index={index}
+                onOpen={handleOpen}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {lightboxState !== null && (
+        <PhotoLightbox
+          albumSlug={albumSlug}
+          photos={photos}
+          currentIndex={lightboxState.index}
+          originRect={lightboxState.originRect}
+          onClose={() => setLightboxState(null)}
+          onNavigate={handleNavigate}
+          onPersonClick={onPersonClick}
+        />
+      )}
+    </section>
   );
 }
 
@@ -544,6 +649,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [eventNameDraft, setEventNameDraft] = useState("");
   const [isSavingEventName, setIsSavingEventName] = useState(false);
+  const [apsaraTextSearch, setApsaraTextSearch] = useState<{
+    query: string;
+    photos: Photo[];
+    isLoading: boolean;
+    error: string | null;
+  } | null>(null);
 
   const { data, error, isLoading, mutate } = useSWR<{ album: AlbumDetail }>(
     `/api/albums/${encodeURIComponent(albumSlug)}`,
@@ -650,6 +761,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const changeEvent = (eventSlug: string | null) => {
     setSelectedEventSlug(eventSlug);
     setEditingEventId(null);
+    setApsaraTextSearch(null);
 
     router.replace(`/albums/${albumSlug}${eventQuery(eventSlug)}`, {
       scroll: false,
@@ -678,12 +790,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   const openPerson = (person: Person) => {
+    setApsaraTextSearch(null);
     setSelectedPerson(person);
     setActiveTab("people");
     scrollToPageTop();
   };
 
   const filterByPerson = (personId: string) => {
+    setApsaraTextSearch(null);
     setSelectedPeopleIds([personId]);
     setPeopleMatchMode("all");
     setSelectedPerson(null);
@@ -694,6 +808,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const filterByPeopleSelection = (people: Person[], mode: PeopleMatchMode) => {
     const ids = people.map((person) => person.id);
 
+    setApsaraTextSearch(null);
     setSelectedPeopleIds(ids);
     setPeopleMatchMode(ids.length > 1 ? mode : "all");
     setSelectedPerson(null);
@@ -702,6 +817,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   const toggleSelectedPersonId = (personId: string) => {
+    setApsaraTextSearch(null);
     setSelectedPeopleIds((current) =>
       current.includes(personId)
         ? current.filter((id) => id !== personId)
@@ -710,6 +826,64 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setSelectedPerson(null);
     setActiveTab("photos");
     scrollToPageTop();
+  };
+
+  const runApsaraTextSearch = async (
+    searchQuery: string,
+    selectedPeople: Person[] = []
+  ) => {
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) return;
+
+    const personIds = selectedPeople.map((person) => person.id);
+
+    setSelectedPerson(null);
+    setSelectedPeopleIds([]);
+    setPeopleMatchMode("all");
+    setActiveTab("photos");
+    setApsaraTextSearch({
+      query: trimmedQuery,
+      photos: [],
+      isLoading: true,
+      error: null,
+    });
+    scrollToPageTop();
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/search`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: trimmedQuery,
+            event: selectedEventSlug,
+            people: personIds,
+            together: true,
+            limit: 100,
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error("Search request failed");
+
+      const payload = (await response.json()) as { results?: Photo[] };
+
+      setApsaraTextSearch({
+        query: trimmedQuery,
+        photos: payload.results ?? [],
+        isLoading: false,
+        error: null,
+      });
+    } catch (searchError) {
+      console.error("Apsara text search failed:", searchError);
+      setApsaraTextSearch({
+        query: trimmedQuery,
+        photos: [],
+        isLoading: false,
+        error: "Failed to search photos. Please try again.",
+      });
+    }
   };
 
   const startEditingSelectedEvent = () => {
@@ -883,6 +1057,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     aria-selected={activeTab === "photos"}
                     onClick={() => {
                       setSelectedPerson(null);
+                      setApsaraTextSearch(null);
                       setActiveTab("photos");
                       scrollToPageTop();
                     }}
@@ -901,6 +1076,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     aria-selected={activeTab === "people"}
                     onClick={() => {
                       setSelectedPerson(null);
+                      setApsaraTextSearch(null);
                       setActiveTab("people");
                       scrollToPageTop();
                     }}
@@ -974,6 +1150,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 aria-selected={activeTab === "photos"}
                 onClick={() => {
                   setSelectedPerson(null);
+                  setApsaraTextSearch(null);
                   setActiveTab("photos");
                   scrollToPageTop();
                 }}
@@ -992,6 +1169,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 aria-selected={activeTab === "people"}
                 onClick={() => {
                   setSelectedPerson(null);
+                  setApsaraTextSearch(null);
                   setActiveTab("people");
                   scrollToPageTop();
                 }}
@@ -1039,6 +1217,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               onPeopleSelectionApply={filterByPeopleSelection}
             />
           </section>
+        ) : apsaraTextSearch ? (
+          <SearchResultsGrid
+            albumSlug={albumSlug}
+            query={apsaraTextSearch.query}
+            photos={apsaraTextSearch.photos}
+            isLoading={apsaraTextSearch.isLoading}
+            error={apsaraTextSearch.error}
+            onClear={() => setApsaraTextSearch(null)}
+            onPersonClick={filterByPerson}
+          />
         ) : (
           <section className="space-y-5">
             <div className="px-2 sm:px-0">
@@ -1069,6 +1257,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         onOpenChange={setIsSearchOpen}
         onPersonOpen={openPerson}
         onPeopleSelectionApply={filterByPeopleSelection}
+        onTextSearch={runApsaraTextSearch}
       />
     </main>
   );
