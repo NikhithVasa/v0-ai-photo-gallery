@@ -118,7 +118,6 @@ export const PhotoCard = memo(function PhotoCard({
   onOpen,
   forceFill = false,
 }: PhotoCardProps) {
-  // This is the exact same source the lightbox will use first.
   const imageUrl = photo.thumbnailUrl || photo.previewUrl;
   const aspectRatio = photoAspectRatio(photo);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -130,7 +129,6 @@ export const PhotoCard = memo(function PhotoCard({
     try {
       let downloadUrl = photo.downloadUrl;
 
-      // Only call signed-urls API when user explicitly downloads.
       if (!downloadUrl) {
         const signedUrls = await fetchSignedPhotoUrls(albumSlug, [photo.id]);
         downloadUrl = signedUrls?.[photo.id]?.downloadUrl;
@@ -147,7 +145,7 @@ export const PhotoCard = memo(function PhotoCard({
   };
 
   const handleShare = async () => {
-    const url = photo.thumbnailUrl || photo.previewUrl || photo.downloadUrl;
+    const url = imageUrl || photo.downloadUrl;
     if (!url) return;
 
     const shareUrl = absoluteBrowserUrl(url);
@@ -326,9 +324,6 @@ export function PhotoLightbox({
   const previousPhoto = photos[previousIndex];
   const nextPhoto = photos[nextIndex];
 
-  // Important:
-  // Use the same image source as the grid first.
-  // This avoids signed-url API calls and makes the open feel local/immediate.
   const imageCandidates = uniqueUrls([photo.thumbnailUrl, photo.previewUrl]);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const downloadUrl = photo.downloadUrl;
@@ -337,8 +332,6 @@ export function PhotoLightbox({
 
   const getPreviewUrl = useCallback((targetPhoto: Photo | undefined) => {
     if (!targetPhoto) return null;
-
-    // Use thumbnail first here too, so adjacent slides use already available gallery URLs.
     return targetPhoto.thumbnailUrl || targetPhoto.previewUrl || null;
   }, []);
 
@@ -535,10 +528,9 @@ export function PhotoLightbox({
     if (!canPreloadAdjacent) return;
     if (!currentImageUrl) return;
 
-    const urlsToPreload = uniqueUrls([
-      previousImageUrl,
-      nextImageUrl,
-    ]).filter((url) => !preloadedUrls.has(url));
+    const urlsToPreload = uniqueUrls([previousImageUrl, nextImageUrl]).filter(
+      (url) => !preloadedUrls.has(url)
+    );
 
     if (!urlsToPreload.length) return;
 
@@ -615,7 +607,6 @@ export function PhotoLightbox({
     try {
       let url = downloadUrl;
 
-      // Only call signed-urls API when user explicitly downloads.
       if (!url) {
         const urlsById = await fetchSignedPhotoUrls(albumSlug, [photo.id]);
         url = urlsById[photo.id]?.downloadUrl;
@@ -781,9 +772,12 @@ export function PhotoLightbox({
       ? ""
       : "transition-transform duration-300 ease-out";
 
+  const imageClassName =
+    "pointer-events-none max-h-full max-w-full cursor-default select-none object-contain shadow-2xl";
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-white/90 text-white backdrop-blur-2xl supports-[backdrop-filter]:bg-white/85"
+      className="fixed inset-0 z-50 flex cursor-default items-center justify-center bg-white/90 text-white backdrop-blur-2xl supports-[backdrop-filter]:bg-white/85"
       onClick={() => {
         if (isPeopleOpen) setIsPeopleOpen(false);
         else onClose();
@@ -835,7 +829,7 @@ export function PhotoLightbox({
       </button>
 
       <div
-        className="relative flex h-full w-full items-center justify-center px-4 py-4"
+        className="relative flex h-full w-full cursor-default items-center justify-center px-4 py-4"
         onClick={(event) => {
           event.stopPropagation();
 
@@ -851,18 +845,18 @@ export function PhotoLightbox({
         {currentImageUrl ? (
           <div
             ref={photoFrameRef}
-            className="relative inline-block max-h-[100svh] max-w-[100vw] overflow-hidden transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
+            className="relative inline-block max-h-[100svh] max-w-[100vw] cursor-default overflow-hidden transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.2,0.85,0.2,1)] will-change-transform"
             style={{
               ...entryStyle,
               touchAction: "pan-y",
             }}
             onMouseEnter={() => {
-              if (!isMobilePointer) {
+              if (!isMobilePointer && !areControlsVisible) {
                 setAreControlsVisible(true);
               }
             }}
             onMouseMove={() => {
-              if (!isMobilePointer) {
+              if (!isMobilePointer && !areControlsVisible) {
                 setAreControlsVisible(true);
               }
             }}
@@ -877,9 +871,10 @@ export function PhotoLightbox({
               alt={photo.caption || "Photo"}
               width={photo.width ?? undefined}
               height={photo.height ?? undefined}
-              className="block max-h-[100svh] max-w-[100vw] object-contain opacity-0"
+              className="pointer-events-none block max-h-[100svh] max-w-[100vw] cursor-default select-none object-contain opacity-0"
               decoding="async"
               fetchPriority="high"
+              draggable={false}
               onError={handleImageError}
             />
 
@@ -890,22 +885,22 @@ export function PhotoLightbox({
                   transform: `translate3d(calc(-100% + ${dragOffset}px), 0, 0)`,
                 }}
               >
-                <div className="flex h-full w-full shrink-0 items-center justify-center">
+                <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
                   {previousImageUrl && preloadedUrls.has(previousImageUrl) ? (
                     <img
                       src={previousImageUrl}
                       alt={previousPhoto?.caption || "Previous photo"}
-                      className="max-h-full max-w-full object-contain shadow-2xl"
+                      className={imageClassName}
                       draggable={false}
                     />
                   ) : null}
                 </div>
 
-                <div className="flex h-full w-full shrink-0 items-center justify-center">
+                <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
                   <img
                     src={currentImageUrl}
                     alt={photo.caption || "Photo"}
-                    className="max-h-full max-w-full object-contain shadow-2xl"
+                    className={imageClassName}
                     decoding="async"
                     fetchPriority="high"
                     draggable={false}
@@ -913,12 +908,12 @@ export function PhotoLightbox({
                   />
                 </div>
 
-                <div className="flex h-full w-full shrink-0 items-center justify-center">
+                <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
                   {nextImageUrl && preloadedUrls.has(nextImageUrl) ? (
                     <img
                       src={nextImageUrl}
                       alt={nextPhoto?.caption || "Next photo"}
-                      className="max-h-full max-w-full object-contain shadow-2xl"
+                      className={imageClassName}
                       draggable={false}
                     />
                   ) : null}
@@ -933,7 +928,7 @@ export function PhotoLightbox({
             />
 
             <div
-              className={`pointer-events-auto absolute bottom-4 left-4 z-30 flex items-center gap-2 rounded-full bg-white/70 px-2 py-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayVisibilityClass}`}
+              className={`pointer-events-auto absolute bottom-4 left-4 z-30 flex cursor-default items-center gap-2 rounded-full bg-white/70 px-2 py-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayVisibilityClass}`}
               onClick={(event) => event.stopPropagation()}
             >
               <button
@@ -1003,7 +998,7 @@ export function PhotoLightbox({
             </div>
 
             <div
-              className={`pointer-events-auto absolute bottom-4 right-4 z-30 transition-opacity duration-200 sm:bottom-5 sm:right-5 ${overlayVisibilityClass}`}
+              className={`pointer-events-auto absolute bottom-4 right-4 z-30 cursor-default transition-opacity duration-200 sm:bottom-5 sm:right-5 ${overlayVisibilityClass}`}
               onClick={(event) => event.stopPropagation()}
             >
               <button
@@ -1044,7 +1039,7 @@ export function PhotoLightbox({
               </button>
 
               {isPeopleOpen && (
-                <div className="absolute bottom-full right-0 mb-3 w-[min(78vw,280px)] rounded-xl border border-white/20 bg-white/95 p-2 text-zinc-950 shadow-lg backdrop-blur-md">
+                <div className="absolute bottom-full right-0 mb-3 w-[min(78vw,280px)] cursor-default rounded-xl border border-white/20 bg-white/95 p-2 text-zinc-950 shadow-lg backdrop-blur-md">
                   {photoPeople.length ? (
                     <div className="space-y-1">
                       {photoPeople.map((person) => {
@@ -1095,7 +1090,7 @@ export function PhotoLightbox({
             </div>
           </div>
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-sm text-zinc-500">
+          <div className="flex h-full w-full cursor-default items-center justify-center bg-zinc-100 text-sm text-zinc-500">
             No preview available
           </div>
         )}
