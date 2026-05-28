@@ -3,7 +3,7 @@
 import {
   memo,
   type CSSProperties,
-  type TouchEvent,
+  type TouchEvent as ReactTouchEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -223,21 +223,21 @@ export const PhotoCard = memo(function PhotoCard({
       <div className="pointer-events-none absolute bottom-2 left-2 z-40 flex items-center gap-1 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 sm:bottom-3 sm:left-3">
         <button
           type="button"
-          className="pointer-events-auto flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80"
+          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80 sm:h-7 sm:w-7"
           aria-label="Favorite photo"
         >
-          <Heart className="h-4 w-4 stroke-1.5" />
+          <Heart className="h-4 w-4" strokeWidth={1.5} />
         </button>
 
         <a
           href={`mailto:?subject=Photo&body=${encodeURIComponent(
             imageUrl ? absoluteBrowserUrl(imageUrl) : "",
           )}`}
-          className="pointer-events-auto flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80"
+          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80 sm:h-7 sm:w-7"
           aria-label="Email photo"
           onClick={(event) => event.stopPropagation()}
         >
-          <Mail className="h-4 w-4 stroke-1.5" />
+          <Mail className="h-4 w-4" strokeWidth={1.5} />
         </a>
 
         <button
@@ -246,10 +246,10 @@ export const PhotoCard = memo(function PhotoCard({
             event.stopPropagation();
             handleShare();
           }}
-          className="pointer-events-auto flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80"
+          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80 sm:h-7 sm:w-7"
           aria-label="Share photo"
         >
-          <Share2 className="h-4 w-4 stroke-1.5" />
+          <Share2 className="h-4 w-4" strokeWidth={1.5} />
         </button>
 
         <button
@@ -263,10 +263,10 @@ export const PhotoCard = memo(function PhotoCard({
             handleDownload();
           }}
           disabled={isDownloading}
-          className="pointer-events-auto flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:bg-white/15 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/80 disabled:cursor-not-allowed disabled:opacity-45"
+          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:bg-white/15 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/80 disabled:cursor-not-allowed disabled:opacity-45 sm:h-7 sm:w-7"
           aria-label="Download photo"
         >
-          <Download className="h-4 w-4 stroke-1.5" />
+          <Download className="h-4 w-4" strokeWidth={1.5} />
         </button>
       </div>
     </div>
@@ -308,6 +308,7 @@ export function PhotoLightbox({
   const [isAnimatingSwipe, setIsAnimatingSwipe] = useState(false);
 
   const photoFrameRef = useRef<HTMLDivElement>(null);
+  const touchSurfaceRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -318,6 +319,8 @@ export function PhotoLightbox({
   const isMobilePointerRef = useRef(isMobilePointer);
   const isPeopleOpenRef = useRef(isPeopleOpen);
   const isDownloadHoveringRef = useRef(isDownloadHovering);
+  const isAnimatingSwipeRef = useRef(isAnimatingSwipe);
+  const adjacentImagesReadyRef = useRef(false);
 
   const photo = photos[currentIndex];
 
@@ -362,6 +365,8 @@ export function PhotoLightbox({
   isMobilePointerRef.current = isMobilePointer;
   isPeopleOpenRef.current = isPeopleOpen;
   isDownloadHoveringRef.current = isDownloadHovering;
+  isAnimatingSwipeRef.current = isAnimatingSwipe;
+  adjacentImagesReadyRef.current = adjacentImagesReady;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(pointer: coarse)");
@@ -521,7 +526,41 @@ export function PhotoLightbox({
     });
 
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [originRect, currentIndex]);
+  }, [originRect]);
+
+  useEffect(() => {
+    const touchSurface = touchSurfaceRef.current;
+    if (!touchSurface) return;
+
+    const handleNativeTouchMove = (event: globalThis.TouchEvent) => {
+      const start = touchStartRef.current;
+      if (
+        !start ||
+        isAnimatingSwipeRef.current ||
+        !adjacentImagesReadyRef.current
+      ) {
+        return;
+      }
+
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      const deltaX = touch.clientX - start.x;
+      const deltaY = touch.clientY - start.y;
+
+      if (Math.abs(deltaY) > Math.abs(deltaX) * 1.25) return;
+
+      event.preventDefault();
+    };
+
+    touchSurface.addEventListener("touchmove", handleNativeTouchMove, {
+      passive: false,
+    });
+
+    return () => {
+      touchSurface.removeEventListener("touchmove", handleNativeTouchMove);
+    };
+  }, []);
 
   useEffect(() => {
     if (!currentImageUrl) return;
@@ -655,7 +694,7 @@ export function PhotoLightbox({
     );
   };
 
-  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+  const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
     if (photos.length <= 1 || isAnimatingSwipe) return;
 
     if (!adjacentImagesReady) {
@@ -682,7 +721,7 @@ export function PhotoLightbox({
     setAreControlsVisible(true);
   };
 
-  const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+  const handleTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
     const start = touchStartRef.current;
     if (!start || isAnimatingSwipe || !adjacentImagesReady) return;
 
@@ -693,8 +732,6 @@ export function PhotoLightbox({
     if (Math.abs(deltaY) > Math.abs(deltaX) * 1.25) {
       return;
     }
-
-    event.preventDefault();
 
     const frameWidth =
       photoFrameRef.current?.getBoundingClientRect().width ||
@@ -814,7 +851,7 @@ export function PhotoLightbox({
           event.stopPropagation();
           onClose();
         }}
-        className={`absolute right-3 top-3 z-40 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/75 text-zinc-950 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-6 sm:top-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
+        className={`absolute right-3 top-3 z-40 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white/75 text-zinc-950 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-6 sm:top-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
         aria-label="Close photo"
       >
         <X className="h-5 w-5 stroke-[2.25]" />
@@ -823,30 +860,31 @@ export function PhotoLightbox({
       <button
         type="button"
         onMouseEnter={showControlsBriefly}
-        className={`absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:left-8 sm:h-12 sm:w-12 ${overlayOpacityClass} ${overlayInteractionClass}`}
+        className={`absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:left-8 sm:h-12 sm:w-12 ${overlayOpacityClass} ${overlayInteractionClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handlePrev();
         }}
         aria-label="Previous photo"
       >
-        <ChevronLeft className="h-7 w-7 stroke-1.5 sm:h-9 sm:w-9" />
+        <ChevronLeft className="h-7 w-7 sm:h-9 sm:w-9" strokeWidth={1.5} />
       </button>
 
       <button
         type="button"
         onMouseEnter={showControlsBriefly}
-        className={`absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-8 sm:h-12 sm:w-12 ${overlayOpacityClass} ${overlayInteractionClass}`}
+        className={`absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-8 sm:h-12 sm:w-12 ${overlayOpacityClass} ${overlayInteractionClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handleNext();
         }}
         aria-label="Next photo"
       >
-        <ChevronRight className="h-7 w-7 stroke-1.5 sm:h-9 sm:w-9" />
+        <ChevronRight className="h-7 w-7 sm:h-9 sm:w-9" strokeWidth={1.5} />
       </button>
 
       <div
+        ref={touchSurfaceRef}
         className="relative flex h-full w-full cursor-default items-center justify-center px-3 py-16 sm:px-6 sm:py-20"
         onClick={(event) => {
           event.stopPropagation();
@@ -863,7 +901,7 @@ export function PhotoLightbox({
         {currentImageUrl ? (
           <div
             ref={photoFrameRef}
-            className="relative cursor-default overflow-hidden transition-[transform,opacity] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
+            className="relative cursor-default overflow-hidden transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
             style={{
               width: photoFrameWidth,
               aspectRatio: displayAspectRatio,
@@ -955,7 +993,7 @@ export function PhotoLightbox({
                   setAreControlsVisible(true);
                   setIsPlaying((current) => !current);
                 }}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
                 aria-pressed={isPlaying}
               >
@@ -969,10 +1007,10 @@ export function PhotoLightbox({
               <button
                 type="button"
                 onClick={() => setAreControlsVisible(true)}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 aria-label="Favorite photo"
               >
-                <Heart className="h-4 w-4 stroke-1.5" />
+                <Heart className="h-4 w-4" strokeWidth={1.5} />
               </button>
 
               <button
@@ -981,10 +1019,10 @@ export function PhotoLightbox({
                   setAreControlsVisible(true);
                   handleShare();
                 }}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 aria-label="Share photo"
               >
-                <Share2 className="h-4 w-4 stroke-1.5" />
+                <Share2 className="h-4 w-4" strokeWidth={1.5} />
               </button>
 
               <button
@@ -1008,10 +1046,10 @@ export function PhotoLightbox({
                   handleDownload();
                 }}
                 disabled={isDownloading}
-                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 disabled:cursor-not-allowed disabled:opacity-45"
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 disabled:cursor-not-allowed disabled:opacity-45"
                 aria-label="Download photo"
               >
-                <Download className="h-4 w-4 stroke-1.5" />
+                <Download className="h-4 w-4" strokeWidth={1.5} />
               </button>
             </div>
 
@@ -1026,7 +1064,7 @@ export function PhotoLightbox({
                   setAreControlsVisible(true);
                   setIsPeopleOpen((current) => !current);
                 }}
-                className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full bg-white/70 px-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                className="flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-full bg-white/70 px-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
                 aria-expanded={isPeopleOpen}
                 aria-label="Show people in this photo"
               >

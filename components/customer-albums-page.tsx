@@ -106,7 +106,7 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-400">
-                      <Images className="h-10 w-10 stroke-1.5" />
+                      <Images className="h-10 w-10" strokeWidth={1.5} />
                     </div>
                   )}
 

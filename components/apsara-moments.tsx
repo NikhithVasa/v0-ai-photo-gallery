@@ -529,7 +529,7 @@ export function ApsaraMomentsOverlay({
                 }}
               >
                 <label className="flex h-12 items-center gap-3 rounded-md border border-zinc-500 px-4 text-zinc-900 focus-within:border-zinc-950">
-                  <Search className="h-5 w-5 shrink-0 stroke-1.5" />
+                  <Search className="h-5 w-5 shrink-0" strokeWidth={1.5} />
                   <input
                     ref={inputRef}
                     value={query}
