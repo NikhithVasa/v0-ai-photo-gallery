@@ -28,6 +28,8 @@ export interface PhotoRow {
   watermarked_preview_s3_key: string | null;
   thumbnail_s3_key: string | null;
   annotated_s3_key: string | null;
+  compression_status?: string | null;
+  watermark_status?: string | null;
   person_search_text?: string | null;
   qwen_description?: string | null;
   people?: unknown;
@@ -70,19 +72,31 @@ export function toAlbumEvent(row: AlbumEventRow): AlbumEvent {
   };
 }
 
+function derivativeReady(status: string | null | undefined) {
+  return status === undefined || status === null || status === "completed";
+}
+
 function gridKey(row: PhotoRow) {
   return (
-    row.thumbnail_s3_key ??
-    row.watermarked_preview_s3_key ??
-    row.clean_preview_s3_key ??
+    (derivativeReady(row.compression_status) ? row.thumbnail_s3_key : null) ??
+    (derivativeReady(row.watermark_status)
+      ? row.watermarked_preview_s3_key
+      : null) ??
+    (derivativeReady(row.compression_status)
+      ? row.clean_preview_s3_key
+      : null) ??
     row.original_s3_key
   );
 }
 
 function previewKey(row: PhotoRow) {
   return (
-    row.watermarked_preview_s3_key ??
-    row.clean_preview_s3_key ??
+    (derivativeReady(row.watermark_status)
+      ? row.watermarked_preview_s3_key
+      : null) ??
+    (derivativeReady(row.compression_status)
+      ? row.clean_preview_s3_key
+      : null) ??
     row.original_s3_key
   );
 }
@@ -173,15 +187,13 @@ export async function signedPhotoUrlBundle(row: Pick<
   | "clean_preview_s3_key"
   | "watermarked_preview_s3_key"
   | "thumbnail_s3_key"
+  | "compression_status"
+  | "watermark_status"
 >) {
   const [previewUrl, downloadUrl, thumbnailUrl] = await Promise.all([
-    signedUrl(
-      row.watermarked_preview_s3_key ??
-        row.clean_preview_s3_key ??
-        row.original_s3_key
-    ),
+    signedUrl(previewKey(row as PhotoRow)),
     signedDownloadUrl(row.original_s3_key, row.file_name ?? undefined),
-    signedUrl(row.thumbnail_s3_key),
+    signedUrl(gridKey(row as PhotoRow)),
   ]);
 
   return {

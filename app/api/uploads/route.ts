@@ -132,17 +132,40 @@ async function createOrGetAlbum(body: UploadRequestBody) {
   );
 }
 
-async function createOrGetEvent(albumId: string, body: UploadRequestBody) {
+async function createOrGetEvent(album: AlbumRow, body: UploadRequestBody) {
   const eventName = body.eventName?.trim();
   const eventSlug = body.eventSlug?.trim();
   const sourcePrefixSelect = (await hasEventSourcePrefix())
     ? "source_prefix"
     : "NULL::text AS source_prefix";
+  const hasSourcePrefix = sourcePrefixSelect === "source_prefix";
 
   if (eventName) {
     const slug = slugify(eventName);
+    const sourcePrefix = `albums/${album.slug}/events/${slug}`;
     return queryOne<EventRow>(
+      hasSourcePrefix
+        ? `
+      INSERT INTO album_events(album_id, name, slug, source_prefix, sort_order, created_at, updated_at)
+      VALUES(
+        $1::uuid,
+        $2,
+        $3,
+        $4,
+        COALESCE(
+          (SELECT MAX(sort_order) + 1 FROM album_events WHERE album_id = $1::uuid),
+          1
+        ),
+        now(),
+        now()
+      )
+      ON CONFLICT(album_id, slug) DO UPDATE SET
+        name = EXCLUDED.name,
+        source_prefix = COALESCE(album_events.source_prefix, EXCLUDED.source_prefix),
+        updated_at = now()
+      RETURNING id, slug, name, ${sourcePrefixSelect}
       `
+        : `
       INSERT INTO album_events(album_id, name, slug, sort_order, created_at, updated_at)
       VALUES(
         $1::uuid,
@@ -160,7 +183,9 @@ async function createOrGetEvent(albumId: string, body: UploadRequestBody) {
         updated_at = now()
       RETURNING id, slug, name, ${sourcePrefixSelect}
       `,
-      [albumId, eventName, slug]
+      hasSourcePrefix
+        ? [album.id, eventName, slug, sourcePrefix]
+        : [album.id, eventName, slug]
     );
   }
 
@@ -174,7 +199,7 @@ async function createOrGetEvent(albumId: string, body: UploadRequestBody) {
       AND slug = $2
       AND COALESCE(is_deleted, false) = false
     `,
-    [albumId, eventSlug]
+      [album.id, eventSlug]
   );
 }
 
@@ -188,7 +213,11 @@ function buildPhotoKeys(
   const ext = extensionFromFileName(fileName);
   const stem = safeStem(fileName);
   const base =
-    sourcePrefix?.trim().replace(/^\/+|\/+$/g, "") ||
+    sourcePrefix
+      ?.trim()
+      .replace(/^s3:\/\/[^/]+\//, "")
+      .replace(/^https?:\/\/[^/]+\//, "")
+      .replace(/^\/+|\/+$/g, "") ||
     `albums/${albumSlug}/events/${eventSlug}`;
 
   return {
@@ -233,7 +262,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
 
-    const event = await createOrGetEvent(album.id, body);
+    const event = await createOrGetEvent(album, body);
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }

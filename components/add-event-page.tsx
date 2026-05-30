@@ -17,11 +17,12 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import type { AlbumDetail } from "@/lib/types";
+import type { AlbumDetail, AlbumEvent } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 type UploadStatus = "ready" | "uploading" | "uploaded" | "failed";
+type UploadTarget = "new" | "existing";
 
 interface QueuedFile {
   localId: string;
@@ -73,6 +74,8 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
+  const [uploadTarget, setUploadTarget] = useState<UploadTarget>("new");
+  const [selectedExistingEventSlug, setSelectedExistingEventSlug] = useState("");
   const [runAi, setRunAi] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -90,9 +93,22 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
 
   const album = data?.album;
   const uploadedCount = queuedFiles.filter((file) => file.status === "uploaded").length;
-  const canCreate = Boolean(title.trim() && queuedFiles.length && !isUploading);
+  const filesReadyToUpload = queuedFiles.filter(
+    (file) => file.status === "ready" || file.status === "failed",
+  );
+  const selectedExistingEvent = album?.events.find(
+    (event) => event.slug === selectedExistingEventSlug,
+  );
+  const canCreate = Boolean(
+    filesReadyToUpload.length &&
+      !isUploading &&
+      (uploadTarget === "new" ? title.trim() : selectedExistingEventSlug),
+  );
 
-  const eventTitle = title.trim() || "Add a Title";
+  const eventTitle =
+    uploadTarget === "existing"
+      ? selectedExistingEvent?.name || "Select an event"
+      : title.trim() || "Add a Title";
   const mediaSummary = useMemo(() => {
     if (!queuedFiles.length) return "No photos selected";
     if (uploadedCount === queuedFiles.length) return "All photos uploaded";
@@ -106,6 +122,11 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   useEffect(() => {
     queuedFilesRef.current = queuedFiles;
   }, [queuedFiles]);
+
+  useEffect(() => {
+    if (selectedExistingEventSlug || !album?.events.length) return;
+    setSelectedExistingEventSlug(album.events[0].slug);
+  }, [album?.events, selectedExistingEventSlug]);
 
   useEffect(() => {
     return () => {
@@ -199,11 +220,26 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
 
   const createEvent = async () => {
     const eventName = title.trim();
-    if (!eventName || !queuedFiles.length || isUploading) return;
+    const eventSlug =
+      uploadTarget === "existing" ? selectedExistingEventSlug : undefined;
+    const filesToUpload = queuedFiles.filter(
+      (item) => item.status === "ready" || item.status === "failed",
+    );
+
+    if (
+      isUploading ||
+      !filesToUpload.length ||
+      (uploadTarget === "new" && !eventName) ||
+      (uploadTarget === "existing" && !eventSlug)
+    ) {
+      return;
+    }
 
     setIsUploading(true);
     setErrorMessage("");
-    queuedFiles.forEach((item) => updateFile(item.localId, { status: "uploading" }));
+    filesToUpload.forEach((item) =>
+      updateFile(item.localId, { status: "uploading", error: undefined }),
+    );
     const completedLocalIds = new Set<string>();
 
     try {
@@ -213,8 +249,9 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
         body: JSON.stringify({
           mode: "existing",
           albumSlug,
-          eventName,
-          files: queuedFiles.map((item) => ({
+          eventSlug,
+          eventName: uploadTarget === "new" ? eventName : undefined,
+          files: filesToUpload.map((item) => ({
             fileName: item.file.name,
             size: item.file.size,
             contentType: item.file.type || "application/octet-stream",
@@ -235,7 +272,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       const completedPhotoIds: string[] = [];
 
       for (const [index, upload] of prepared.uploads.entries()) {
-        const item = queuedFiles[index];
+        const item = filesToUpload[index];
         const uploadResponse = await fetch(upload.uploadUrl, {
           method: "PUT",
           headers: { "Content-Type": upload.contentType },
@@ -288,7 +325,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       const message =
         error instanceof Error ? error.message : "Event upload failed unexpectedly";
       setErrorMessage(message);
-      queuedFiles.forEach((item) => {
+      filesToUpload.forEach((item) => {
         if (!completedLocalIds.has(item.localId)) {
           updateFile(item.localId, { status: "failed", error: message });
         }
@@ -331,7 +368,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                 {album.customer?.name || album.name}
               </p>
               <h1 className="truncate text-lg font-semibold sm:text-xl">
-                New event
+                {uploadTarget === "new" ? "New event" : "Add photos"}
               </h1>
             </div>
           </div>
@@ -347,7 +384,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
             ) : (
               <Upload className="h-4 w-4" />
             )}
-            Create
+            {uploadTarget === "new" ? "Create" : "Upload"}
           </button>
         </div>
       </header>
@@ -373,20 +410,33 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
         {coverPreviewUrl && <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px]" />}
 
         <div className="relative z-10 mx-auto flex min-h-[430px] max-w-5xl flex-col items-center justify-center px-5 pt-10 text-center">
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Add a Title"
-            aria-label="Event title"
-            className="w-full border-0 bg-transparent text-center text-6xl font-bold tracking-normal text-zinc-700 outline-none placeholder:text-zinc-500 sm:text-7xl"
-          />
-          <input
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Add a description"
-            aria-label="Event description"
-            className="mt-4 w-full border-0 bg-transparent text-center text-3xl font-normal tracking-normal text-zinc-500 outline-none placeholder:text-zinc-400 sm:text-4xl"
-          />
+          {uploadTarget === "new" ? (
+            <>
+              <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Add a Title"
+                aria-label="Event title"
+                className="w-full border-0 bg-transparent text-center text-6xl font-bold tracking-normal text-zinc-700 outline-none placeholder:text-zinc-500 sm:text-7xl"
+              />
+              <input
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Add a description"
+                aria-label="Event description"
+                className="mt-4 w-full border-0 bg-transparent text-center text-3xl font-normal tracking-normal text-zinc-500 outline-none placeholder:text-zinc-400 sm:text-4xl"
+              />
+            </>
+          ) : (
+            <>
+              <h1 className="text-5xl font-bold tracking-normal text-zinc-700 sm:text-7xl">
+                Add photos
+              </h1>
+              <p className="mt-4 text-3xl text-zinc-500 sm:text-4xl">
+                {selectedExistingEvent?.name || "Select an event"}
+              </p>
+            </>
+          )}
 
           <button
             type="button"
@@ -468,22 +518,33 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => mediaInputRef.current?.click()}
-            className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center"
-          >
-            <span className="mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-white/90 text-zinc-400 shadow-[0_18px_60px_rgba(24,24,27,0.18)] ring-1 ring-zinc-200 backdrop-blur-xl">
-              <FileImage className="h-12 w-12" strokeWidth={1.4} />
-            </span>
-            <span className="text-4xl font-bold tracking-normal text-zinc-900">
-              Upload Media
-            </span>
-            <span className="mt-3 text-2xl text-zinc-400">
-              Drop or{" "}
-              <span className="font-semibold text-[#4457ff]">Select Source</span>
-            </span>
-          </button>
+          {queuedFiles.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => mediaInputRef.current?.click()}
+              className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center"
+            >
+              <span className="mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-white/90 text-zinc-400 shadow-[0_18px_60px_rgba(24,24,27,0.18)] ring-1 ring-zinc-200 backdrop-blur-xl">
+                <FileImage className="h-12 w-12" strokeWidth={1.4} />
+              </span>
+              <span className="text-4xl font-bold tracking-normal text-zinc-900">
+                Upload Media
+              </span>
+              <span className="mt-3 text-2xl text-zinc-400">
+                Drop or{" "}
+                <span className="font-semibold text-[#4457ff]">Select Source</span>
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => mediaInputRef.current?.click()}
+              className="absolute right-4 top-4 z-20 flex h-10 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-lg transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            >
+              <Upload className="h-4 w-4" />
+              Add Photos
+            </button>
+          )}
 
           <input
             ref={mediaInputRef}
@@ -499,8 +560,9 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
           <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-zinc-950">Destination</p>
             <p className="mt-1 text-sm text-zinc-500">
-              {eventTitle} will be added to {album.customer?.name || album.name}.
-              Photos upload to the event originals folder in S3.
+              {uploadTarget === "new" ? `${eventTitle} will be added to` : `${eventTitle} in`}{" "}
+              {album.customer?.name || album.name}. Photos upload to the event
+              originals folder in S3.
             </p>
             <div className="mt-4 rounded-2xl bg-zinc-50 px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-400">
@@ -508,6 +570,74 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
               </p>
               <p className="mt-1 text-sm font-medium text-zinc-800">{mediaSummary}</p>
             </div>
+          </div>
+
+          <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-semibold text-zinc-950">Upload target</p>
+            <div className="mt-3 grid grid-cols-2 gap-1 rounded-full bg-zinc-100 p-1">
+              <button
+                type="button"
+                onClick={() => setUploadTarget("new")}
+                className={`h-9 rounded-full text-sm font-semibold transition ${
+                  uploadTarget === "new"
+                    ? "bg-white text-zinc-950 shadow-sm"
+                    : "text-zinc-500"
+                }`}
+              >
+                New event
+              </button>
+              <button
+                type="button"
+                onClick={() => setUploadTarget("existing")}
+                className={`h-9 rounded-full text-sm font-semibold transition ${
+                  uploadTarget === "existing"
+                    ? "bg-white text-zinc-950 shadow-sm"
+                    : "text-zinc-500"
+                }`}
+              >
+                Existing
+              </button>
+            </div>
+
+            {uploadTarget === "existing" && (
+              <div className="mt-4 space-y-3">
+                <select
+                  value={selectedExistingEventSlug}
+                  onChange={(event) =>
+                    setSelectedExistingEventSlug(event.target.value)
+                  }
+                  className="h-11 w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium outline-none transition focus:border-zinc-400 focus:bg-white focus:ring-2 focus:ring-zinc-200"
+                  aria-label="Select existing event"
+                >
+                  {(album.events as AlbumEvent[]).map((event) => (
+                    <option key={event.id} value={event.slug}>
+                      {event.name}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedExistingEvent && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-2xl bg-zinc-50 p-3">
+                      <p className="text-xs uppercase tracking-[0.08em] text-zinc-400">
+                        Photos
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-zinc-900">
+                        {selectedExistingEvent.photoCount}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-zinc-50 p-3">
+                      <p className="text-xs uppercase tracking-[0.08em] text-zinc-400">
+                        People
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-zinc-900">
+                        {selectedExistingEvent.peopleCount}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm">

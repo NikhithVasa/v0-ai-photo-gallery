@@ -45,6 +45,8 @@ export async function GET(request: Request, { params }: Props) {
         p.watermarked_preview_s3_key,
         p.thumbnail_s3_key,
         p.annotated_s3_key,
+        p.compression_status,
+        p.watermark_status,
         e.slug AS event_slug,
         e.name AS event_name,
         COALESCE(photo_people_summary.people, '[]'::jsonb) AS people
