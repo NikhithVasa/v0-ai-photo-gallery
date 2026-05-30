@@ -13,11 +13,12 @@ import {
   Info,
   Loader2,
   Sparkles,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import type { AlbumDetail, AlbumEvent } from "@/lib/types";
+import type { AlbumDetail, AlbumEvent, Photo } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -78,11 +79,15 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const [selectedExistingEventSlug, setSelectedExistingEventSlug] = useState("");
   const [runAi, setRunAi] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
+  const [deletingPhotoIds, setDeletingPhotoIds] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const coverPreviewUrlRef = useRef<string | null>(null);
   const queuedFilesRef = useRef<QueuedFile[]>([]);
 
-  const { data, error, isLoading } = useSWR<{ album: AlbumDetail }>(
+  const { data, error, isLoading, mutate: mutateAlbum } = useSWR<{
+    album: AlbumDetail;
+  }>(
     `/api/albums/${encodeURIComponent(albumSlug)}`,
     fetcher,
     {
@@ -92,6 +97,21 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   );
 
   const album = data?.album;
+  const selectedEventPhotosUrl =
+    uploadTarget === "existing" && selectedExistingEventSlug
+      ? `/api/albums/${encodeURIComponent(albumSlug)}/photos?event=${encodeURIComponent(
+          selectedExistingEventSlug,
+        )}`
+      : null;
+  const {
+    data: selectedEventPhotosData,
+    isLoading: selectedEventPhotosLoading,
+    mutate: mutateSelectedEventPhotos,
+  } = useSWR<{ photos: Photo[] }>(selectedEventPhotosUrl, fetcher, {
+    dedupingInterval: 0,
+    revalidateOnFocus: false,
+  });
+  const selectedEventPhotos = selectedEventPhotosData?.photos ?? [];
   const uploadedCount = queuedFiles.filter((file) => file.status === "uploaded").length;
   const filesReadyToUpload = queuedFiles.filter(
     (file) => file.status === "ready" || file.status === "failed",
@@ -215,6 +235,89 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
 
     if (!uploadResponse.ok) {
       throw new Error(`Cover upload failed (${uploadResponse.status})`);
+    }
+  };
+
+  const deleteSelectedEvent = async () => {
+    if (!selectedExistingEvent || isDeletingEvent) return;
+
+    const shouldDelete = window.confirm(
+      `Delete "${selectedExistingEvent.name}" and hide all of its photos?`,
+    );
+    if (!shouldDelete) return;
+
+    setIsDeletingEvent(true);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/events`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: selectedExistingEvent.id }),
+        },
+      );
+      const payload = (await response.json()) as {
+        error?: string;
+        events?: AlbumEvent[];
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not delete event");
+      }
+
+      const nextEvent = payload.events?.[0];
+      setSelectedExistingEventSlug(nextEvent?.slug ?? "");
+      await Promise.all([mutateAlbum(), mutateSelectedEventPhotos()]);
+      toast({
+        title: "Event deleted",
+        description: `${selectedExistingEvent.name} was removed from this album.`,
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Event deletion failed",
+      );
+    } finally {
+      setIsDeletingEvent(false);
+    }
+  };
+
+  const deletePhoto = async (photo: Photo) => {
+    if (deletingPhotoIds.includes(photo.id)) return;
+
+    const shouldDelete = window.confirm(
+      `Delete ${photo.fileName || "this photo"} from ${selectedExistingEvent?.name || "this event"}?`,
+    );
+    if (!shouldDelete) return;
+
+    setDeletingPhotoIds((current) => [...current, photo.id]);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/photos/${encodeURIComponent(
+          photo.id,
+        )}`,
+        { method: "DELETE" },
+      );
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not delete photo");
+      }
+
+      await Promise.all([mutateSelectedEventPhotos(), mutateAlbum()]);
+      toast({
+        title: "Photo deleted",
+        description: photo.fileName || "Photo removed from this event.",
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Photo deletion failed",
+      );
+    } finally {
+      setDeletingPhotoIds((current) => current.filter((id) => id !== photo.id));
     }
   };
 
@@ -617,24 +720,104 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                 </select>
 
                 {selectedExistingEvent && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-2xl bg-zinc-50 p-3">
-                      <p className="text-xs uppercase tracking-[0.08em] text-zinc-400">
-                        Photos
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-zinc-900">
-                        {selectedExistingEvent.photoCount}
-                      </p>
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-2xl bg-zinc-50 p-3">
+                        <p className="text-xs uppercase tracking-[0.08em] text-zinc-400">
+                          Photos
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-zinc-900">
+                          {selectedEventPhotosData
+                            ? selectedEventPhotos.length
+                            : selectedExistingEvent.photoCount}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-zinc-50 p-3">
+                        <p className="text-xs uppercase tracking-[0.08em] text-zinc-400">
+                          People
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-zinc-900">
+                          {selectedExistingEvent.peopleCount}
+                        </p>
+                      </div>
                     </div>
-                    <div className="rounded-2xl bg-zinc-50 p-3">
-                      <p className="text-xs uppercase tracking-[0.08em] text-zinc-400">
-                        People
-                      </p>
-                      <p className="mt-1 text-lg font-semibold text-zinc-900">
-                        {selectedExistingEvent.peopleCount}
-                      </p>
+
+                    <button
+                      type="button"
+                      onClick={deleteSelectedEvent}
+                      disabled={isDeletingEvent}
+                      className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isDeletingEvent ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      Delete Event
+                    </button>
+
+                    <div className="rounded-[20px] border border-zinc-200 bg-zinc-50 p-3">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-zinc-900">
+                          Event photos
+                        </p>
+                        {selectedEventPhotosLoading && (
+                          <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                        )}
+                      </div>
+
+                      {!selectedEventPhotosLoading &&
+                        selectedEventPhotos.length === 0 && (
+                          <p className="py-6 text-center text-sm text-zinc-500">
+                            No photos in this event yet.
+                          </p>
+                        )}
+
+                      {selectedEventPhotos.length > 0 && (
+                        <div className="grid max-h-80 grid-cols-3 gap-2 overflow-y-auto pr-1">
+                          {selectedEventPhotos.map((photo) => {
+                            const isDeleting = deletingPhotoIds.includes(photo.id);
+
+                            return (
+                              <div
+                                key={photo.id}
+                                className="group relative aspect-square overflow-hidden rounded-xl bg-zinc-200"
+                              >
+                                {photo.thumbnailUrl || photo.previewUrl ? (
+                                  <Image
+                                    src={photo.thumbnailUrl || photo.previewUrl || ""}
+                                    alt={photo.fileName || "Event photo"}
+                                    fill
+                                    sizes="96px"
+                                    className="object-cover"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-zinc-400">
+                                    <FileImage className="h-5 w-5" />
+                                  </div>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => deletePhoto(photo)}
+                                  disabled={isDeleting}
+                                  className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-rose-600 opacity-0 shadow-sm transition hover:bg-rose-50 disabled:opacity-80 group-hover:opacity-100"
+                                  aria-label={`Delete ${photo.fileName || "photo"}`}
+                                >
+                                  {isDeleting ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             )}

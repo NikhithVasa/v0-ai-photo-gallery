@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -162,4 +163,18 @@ export async function signedUploadUrl(
   });
 
   return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
+}
+
+export async function deleteS3Object(key?: string | null): Promise<void> {
+  if (!key) return;
+  if (!key.startsWith("albums/") || key.includes("..") || key.endsWith("/")) {
+    return;
+  }
+
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+    })
+  );
 }
