@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 
 interface CompleteRequestBody {
   photoIds?: unknown;
+  runAi?: unknown;
 }
 
 function isUuid(value: string) {
@@ -24,14 +25,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "photoIds are required" }, { status: 400 });
     }
 
+    const runAi = body.runAi !== false;
+
     await query(
       `
       UPDATE photos
       SET upload_status = 'completed',
+          face_index_status = CASE WHEN $2::boolean THEN face_index_status ELSE 'skipped' END,
+          qwen_status = CASE WHEN $2::boolean THEN qwen_status ELSE 'skipped' END,
+          search_index_status = CASE WHEN $2::boolean THEN search_index_status ELSE 'skipped' END,
           updated_at = now()
       WHERE id = ANY($1::uuid[])
       `,
-      [photoIds]
+      [photoIds, runAi]
     );
 
     await query(
@@ -62,6 +68,37 @@ export async function POST(request: Request) {
       `,
       [photoIds]
     );
+
+    if (runAi) {
+      await query(
+        `
+        INSERT INTO processing_jobs(
+          album_id,
+          album_event_id,
+          photo_id,
+          job_type,
+          status,
+          created_at,
+          updated_at
+        )
+        SELECT
+          album_id,
+          album_event_id,
+          id,
+          'face_index_photo',
+          'pending',
+          now(),
+          now()
+        FROM photos
+        WHERE id = ANY($1::uuid[])
+        ON CONFLICT(photo_id, job_type) DO UPDATE SET
+          status = 'pending',
+          error_message = NULL,
+          updated_at = now()
+        `,
+        [photoIds]
+      );
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

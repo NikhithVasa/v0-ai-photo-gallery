@@ -10,8 +10,8 @@ import {
   Loader2,
   Pencil,
   Images,
+  Plus,
   Search,
-  Upload,
   User,
   Users,
   X,
@@ -948,6 +948,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   const eventLabel = selectedEvent?.name ?? "All events";
+  const isAiDataLoadingForEvent = Boolean(
+    selectedEvent && selectedEvent.photoCount > 0 && selectedEvent.peopleCount === 0
+  );
 
   const eventHeader = selectedEvent ? (
     <EventNameControl
@@ -1039,12 +1042,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
             <div className="flex items-center gap-2">
               <Link
-                href={`/upload?album=${encodeURIComponent(albumSlug)}`}
+                href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
                 className="flex h-9 w-9 items-center justify-center gap-2 rounded-full bg-zinc-950 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
-                aria-label="Upload photos"
+                aria-label="Add event"
               >
-                <Upload className="h-4 w-4" />
-                <span className="hidden sm:inline">Upload</span>
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Event</span>
               </Link>
 
               {!selectedPerson && (
@@ -1137,6 +1140,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   </span>
                 </button>
               ))}
+
+              <Link
+                href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
+                className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 ring-1 ring-zinc-200 transition hover:text-zinc-950"
+              >
+                <Plus className="h-4 w-4" />
+                Add Event
+              </Link>
             </div>
           )}
 
@@ -1234,6 +1245,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               <h2 className="text-3xl font-semibold tracking-normal sm:text-4xl">
                 Photos
               </h2>
+              {isAiDataLoadingForEvent && (
+                <div className="mt-4 rounded-2xl border border-[#d8ddff] bg-[#f3f5ff] px-4 py-3 text-sm text-zinc-700">
+                  AI data is loading for this event. Photos are available now;
+                  people and search details will appear after processing finishes.
+                </div>
+              )}
             </div>
 
             <PhotosGrid
