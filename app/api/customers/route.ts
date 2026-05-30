@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,6 +19,33 @@ function countValue(value: number | string | null) {
   if (typeof value === "number") return value;
   if (typeof value === "string") return Number.parseInt(value, 10) || 0;
   return 0;
+}
+
+function slugify(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || randomUUID()
+  );
+}
+
+async function availableCustomerSlug(name: string) {
+  const baseSlug = slugify(name);
+  const existing = await queryOne<{ id: string }>(
+    `
+    SELECT id
+    FROM customers
+    WHERE slug = $1
+      AND COALESCE(is_deleted, false) = false
+    LIMIT 1
+    `,
+    [baseSlug]
+  );
+
+  if (!existing) return baseSlug;
+  return `${baseSlug}-${randomUUID().slice(0, 8)}`;
 }
 
 export async function GET() {
@@ -59,6 +87,81 @@ export async function GET() {
 
     return NextResponse.json(
       { error: "Failed to fetch customers" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json()) as {
+      name?: unknown;
+      email?: unknown;
+      phone?: unknown;
+      notes?: unknown;
+    };
+
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const email =
+      typeof body.email === "string" && body.email.trim()
+        ? body.email.trim()
+        : null;
+    const phone =
+      typeof body.phone === "string" && body.phone.trim()
+        ? body.phone.trim()
+        : null;
+    const notes =
+      typeof body.notes === "string" && body.notes.trim()
+        ? body.notes.trim()
+        : null;
+
+    if (!name) {
+      return NextResponse.json({ error: "name is required" }, { status: 400 });
+    }
+
+    const slug = await availableCustomerSlug(name);
+    const customer = await queryOne<CustomerRow>(
+      `
+      INSERT INTO customers(name, slug, email, phone, notes, created_at, updated_at)
+      VALUES($1, $2, $3, $4, $5, now(), now())
+      RETURNING
+        id,
+        slug,
+        name,
+        email,
+        phone,
+        0::int AS album_count,
+        created_at
+      `,
+      [name, slug, email, phone, notes]
+    );
+
+    if (!customer) {
+      return NextResponse.json(
+        { error: "Could not create customer" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      customer: {
+        id: customer.id,
+        slug: customer.slug,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        albumCount: 0,
+        createdAt:
+          customer.created_at instanceof Date
+            ? customer.created_at.toISOString()
+            : customer.created_at ?? "",
+      },
+    });
+  } catch (error) {
+    console.error("Error creating customer:", error);
+
+    return NextResponse.json(
+      { error: "Failed to create customer" },
       { status: 500 }
     );
   }

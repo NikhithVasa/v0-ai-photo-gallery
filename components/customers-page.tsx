@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import { Users } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -28,11 +28,21 @@ export function CustomersPage() {
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-8 sm:mb-10">
-          <p className="text-sm font-medium text-zinc-500">Customers</p>
-          <h1 className="text-3xl font-semibold tracking-normal sm:text-5xl">
-            Galleries
-          </h1>
+        <header className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-zinc-500">Customers</p>
+            <h1 className="text-3xl font-semibold tracking-normal sm:text-5xl">
+              Galleries
+            </h1>
+          </div>
+
+          <Link
+            href="/customers/new"
+            className="inline-flex h-11 w-fit items-center justify-center gap-2 rounded-full bg-zinc-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          >
+            <Plus className="h-4 w-4" />
+            Add Customer
+          </Link>
         </header>
 
         {error && (
@@ -44,7 +54,7 @@ export function CustomersPage() {
         {isLoading && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, index) => (
-              <Skeleton key={index} className="h-44 rounded-xl" />
+              <Skeleton key={index} className="h-44 rounded-lg" />
             ))}
           </div>
         )}
@@ -61,7 +71,7 @@ export function CustomersPage() {
               <Link
                 key={customer.id}
                 href={`/customers/${customer.slug}`}
-                className="group flex min-h-44 flex-col justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                className="group flex min-h-44 flex-col justify-between rounded-lg border border-zinc-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-400"
               >
                 <div>
                   <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 transition group-hover:bg-zinc-950 group-hover:text-white">
