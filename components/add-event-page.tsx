@@ -145,8 +145,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const canSaveCover = Boolean(
     coverFile &&
       !isUploading &&
-      !isSavingCover &&
-      (uploadTarget === "existing" ? selectedExistingEventSlug : title.trim())
+      !isSavingCover
   );
 
   const eventTitle =
@@ -320,7 +319,8 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
 
   const saveCoverOnly = async () => {
     const eventSlug =
-      uploadTarget === "existing" ? selectedExistingEventSlug : title.trim();
+      (uploadTarget === "existing" ? selectedExistingEventSlug : title.trim()) ||
+      "cover";
     if (!coverFile || !eventSlug || isSavingCover) return;
 
     setIsSavingCover(true);
@@ -634,17 +634,19 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
           chooseCover(event.dataTransfer.files);
         }}
       >
-        {coverPreviewUrl && (
+        {(coverPreviewUrl || album.coverPhotoUrl) && (
           <Image
-            src={coverPreviewUrl}
-            alt="Event cover preview"
+            src={coverPreviewUrl || album.coverPhotoUrl || ""}
+            alt={coverPreviewUrl ? "Event cover preview" : `${album.name} cover`}
             fill
             sizes="100vw"
             className="object-cover"
             unoptimized
           />
         )}
-        {coverPreviewUrl && <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px]" />}
+        {(coverPreviewUrl || album.coverPhotoUrl) && (
+          <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px]" />
+        )}
 
         <div className="relative z-10 mx-auto flex min-h-[430px] max-w-5xl flex-col items-center justify-center px-5 pt-10 text-center">
           {uploadTarget === "new" ? (
@@ -682,9 +684,9 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
             aria-label="Drop or select cover photo"
           >
             <ImageUp className="h-4 w-4" strokeWidth={1.6} />
-            <span>Drop or</span>
+            <span>{coverPreviewUrl || album.coverPhotoUrl ? "Change" : "Drop or"}</span>
             <span className="text-zinc-600 group-hover:text-zinc-950">
-              Select Cover
+              Cover
             </span>
           </button>
           {coverFile && (

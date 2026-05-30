@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Lock, Loader2, Trash2, RefreshCw, X } from "lucide-react";
+import { Check, Copy, Lock, Loader2, RefreshCw, Trash2, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface PasscodeManagerProps {
@@ -21,6 +21,7 @@ export function AlbumPasscodeManager({
 }: PasscodeManagerProps) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [hasPassword, setHasPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -43,8 +44,10 @@ export function AlbumPasscodeManager({
       };
 
       if (data.passwordRequired && data.hasPassword) {
-        setCurrentPassword("••••••");
+        setHasPassword(true);
+        setCurrentPassword("Passcode is set");
       } else {
+        setHasPassword(false);
         setCurrentPassword("");
       }
     } catch (err) {
@@ -52,19 +55,35 @@ export function AlbumPasscodeManager({
     }
   }
 
-  const generateNewPasscode = async () => {
+  const generateNewPasscode = () => {
+    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const bytes = crypto.getRandomValues(new Uint8Array(6));
+    const generated = Array.from(bytes)
+      .map((byte) => chars[byte % chars.length])
+      .join("");
+
+    setNewPassword(generated);
+    setShowPassword(true);
+    setError("");
+  };
+
+  const savePasscode = async () => {
+    const password = newPassword.trim();
+
+    if (password.length < 4) {
+      setError("Passcode must be at least 4 characters.");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
 
     try {
-      const response = await fetch(
-        `/api${endpoint}/password`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ generateNew: true }),
-        }
-      );
+      const response = await fetch(`/api${endpoint}/password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
 
       const data = (await response.json()) as {
         success?: boolean;
@@ -73,18 +92,19 @@ export function AlbumPasscodeManager({
       };
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to generate passcode");
+        throw new Error(data.error || "Failed to save passcode");
       }
 
-      setNewPassword(data.password || "");
-      setCurrentPassword(data.password || "");
+      setHasPassword(true);
+      setCurrentPassword("Passcode is set");
       onChanged?.();
       toast({
-        title: "Passcode generated",
-        description: `New passcode for ${albumName}: ${data.password}`,
+        title: "Passcode saved",
+        description: `${albumName} passcode was updated.`,
       });
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to generate passcode";
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to save passcode";
       setError(errorMsg);
       toast({
         title: "Error",
@@ -120,6 +140,7 @@ export function AlbumPasscodeManager({
         throw new Error(data.error || "Failed to remove passcode");
       }
 
+      setHasPassword(false);
       setCurrentPassword("");
       setNewPassword("");
       onChanged?.();
@@ -141,8 +162,8 @@ export function AlbumPasscodeManager({
   };
 
   const copyToClipboard = () => {
-    if (currentPassword && currentPassword !== "••••••") {
-      navigator.clipboard.writeText(currentPassword);
+    if (newPassword) {
+      navigator.clipboard.writeText(newPassword);
       toast({
         title: "Copied",
         description: "Passcode copied to clipboard.",
@@ -174,13 +195,37 @@ export function AlbumPasscodeManager({
             </p>
             <div className="flex items-center gap-2">
               <input
-                type={showPassword ? "text" : "password"}
+                type="text"
                 value={currentPassword}
                 readOnly
                 className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-mono text-zinc-950"
                 placeholder="No passcode set"
               />
-              {currentPassword && currentPassword !== "••••••" && (
+              {hasPassword && (
+                <span className="inline-flex h-9 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-semibold text-emerald-700">
+                  <Check className="h-3.5 w-3.5" />
+                  Active
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-sm font-medium text-zinc-700">
+              New Passcode
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(event) => {
+                  setNewPassword(event.target.value);
+                  if (error) setError("");
+                }}
+                className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-mono text-zinc-950 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+                placeholder="Type a new passcode"
+              />
+              {newPassword && (
                 <button
                   onClick={copyToClipboard}
                   className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-950"
@@ -189,7 +234,7 @@ export function AlbumPasscodeManager({
                   <Copy className="h-4 w-4" />
                 </button>
               )}
-              {currentPassword && (
+              {(newPassword || hasPassword) && (
                 <button
                   onClick={() => setShowPassword(!showPassword)}
                   className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-950"
@@ -201,6 +246,11 @@ export function AlbumPasscodeManager({
                 </button>
               )}
             </div>
+            {newPassword && (
+              <p className="mt-2 text-xs text-zinc-500">
+                Click Save Passcode to apply this value.
+              </p>
+            )}
           </div>
 
           {error && (
@@ -213,17 +263,26 @@ export function AlbumPasscodeManager({
             <button
               onClick={generateNewPasscode}
               disabled={isLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Generate Passcode
+            </button>
+
+            <button
+              onClick={savePasscode}
+              disabled={isLoading || newPassword.trim().length < 4}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <RefreshCw className="h-4 w-4" />
+                <Check className="h-4 w-4" />
               )}
-              Generate Passcode
+              Save Passcode
             </button>
 
-            {currentPassword && (
+            {hasPassword && (
               <button
                 onClick={removePasscode}
                 disabled={isLoading}

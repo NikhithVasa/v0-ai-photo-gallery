@@ -21,6 +21,7 @@ export function AlbumCoverEditor({
   onClose,
 }: AlbumCoverEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
@@ -41,12 +42,13 @@ export function AlbumCoverEditor({
     }
 
     setError("");
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
   };
 
   const handleUpload = async () => {
-    const fileInput = fileInputRef.current;
-    const file = fileInput?.files?.[0];
+    const file = selectedFile;
 
     if (!file || !previewUrl) {
       setError("No file selected");
@@ -73,19 +75,23 @@ export function AlbumCoverEditor({
 
       const uploadRequest = (await uploadRequestResponse.json()) as {
         error?: string;
-        uploadUrl?: string;
+        upload?: {
+          uploadUrl: string;
+          contentType: string;
+          key: string;
+        };
       };
 
-      if (!uploadRequestResponse.ok || !uploadRequest.uploadUrl) {
+      if (!uploadRequestResponse.ok || !uploadRequest.upload?.uploadUrl) {
         throw new Error(
           uploadRequest.error || "Failed to get upload URL"
         );
       }
 
       // Step 2: Upload file to S3
-      const uploadResponse = await fetch(uploadRequest.uploadUrl, {
+      const uploadResponse = await fetch(uploadRequest.upload.uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
+        headers: { "Content-Type": uploadRequest.upload.contentType },
         body: file,
       });
 
@@ -95,6 +101,7 @@ export function AlbumCoverEditor({
 
       // Clear preview and file input
       if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setSelectedFile(null);
       setPreviewUrl(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
 
@@ -103,7 +110,7 @@ export function AlbumCoverEditor({
         description: `${albumName} cover photo has been updated.`,
       });
 
-      onCoverUpdated(previewUrl || currentCoverUrl || "");
+      onCoverUpdated(`/api/media?key=${encodeURIComponent(uploadRequest.upload.key)}`);
       onClose();
     } catch (err) {
       const errorMsg =
@@ -137,27 +144,45 @@ export function AlbumCoverEditor({
 
         <div className="space-y-4 px-6 py-4">
           {/* Current Cover Preview */}
-          {currentCoverUrl && !previewUrl && (
+          {currentCoverUrl && (
+            <div>
+              <p className="mb-2 text-sm font-medium text-zinc-700">
+                Current Cover
+              </p>
+              <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
+                <Image
+                  src={currentCoverUrl}
+                  alt={albumName}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+            </div>
+          )}
+
+          {!currentCoverUrl && !previewUrl && (
             <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
-              <Image
-                src={currentCoverUrl}
-                alt={albumName}
-                fill
-                className="object-cover"
-                unoptimized
-              />
+              <div className="flex h-full w-full items-center justify-center text-sm text-zinc-400">
+                No current cover photo
+              </div>
             </div>
           )}
 
           {/* New Cover Preview */}
           {previewUrl && (
-            <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
-              <Image
-                src={previewUrl}
-                alt="Preview"
-                fill
-                className="object-cover"
-              />
+            <div>
+              <p className="mb-2 text-sm font-medium text-zinc-700">
+                New Cover
+              </p>
+              <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
+                <Image
+                  src={previewUrl}
+                  alt="Preview"
+                  fill
+                  className="object-cover"
+                />
+              </div>
             </div>
           )}
 
@@ -198,7 +223,7 @@ export function AlbumCoverEditor({
             </button>
             <button
               onClick={handleUpload}
-              disabled={!previewUrl || isUploading}
+              disabled={!selectedFile || isUploading}
               className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isUploading ? (
