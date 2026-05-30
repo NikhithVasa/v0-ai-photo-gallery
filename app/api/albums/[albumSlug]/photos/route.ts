@@ -90,6 +90,7 @@ export async function GET(request: Request, { params }: Props) {
           END
         )
         AND COALESCE(p.is_deleted, false) = false
+        AND p.upload_status = 'completed'
       ORDER BY p.created_at ASC
       `,
       [albumSlug, eventSlug, personIds.length ? personIds : null, peopleMode === "all"]

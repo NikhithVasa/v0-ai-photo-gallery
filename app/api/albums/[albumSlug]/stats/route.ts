@@ -60,6 +60,7 @@ export async function GET(request: Request, { params }: Props) {
             FROM photos p
             WHERE p.album_id = $1::uuid
               AND COALESCE(p.is_deleted, false) = false
+              AND p.upload_status = 'completed'
           ) AS photo_count,
           (
             SELECT COUNT(*)::int
@@ -80,6 +81,7 @@ export async function GET(request: Request, { params }: Props) {
           FROM photos
           WHERE album_id = $1::uuid
             AND COALESCE(is_deleted, false) = false
+            AND upload_status = 'completed'
           GROUP BY album_event_id
         ),
         event_people_counts AS (

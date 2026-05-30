@@ -307,6 +307,7 @@ const keywordTerms =
       WHERE a.slug = $1
         AND ($2::text IS NULL OR e.slug = $2)
         AND COALESCE(p.is_deleted, false) = false
+        AND p.upload_status = 'completed'
         AND (
           $3::text IS NULL
           OR p.search_text ILIKE '%' || $3 || '%'

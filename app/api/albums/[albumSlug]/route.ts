@@ -87,6 +87,7 @@ export async function GET(request: Request, { params }: Props) {
         FROM photos p
         JOIN selected_album a ON a.id = p.album_id
         WHERE COALESCE(p.is_deleted, false) = false
+          AND p.upload_status = 'completed'
         GROUP BY p.album_id
       ),
 
@@ -169,6 +170,7 @@ export async function GET(request: Request, { params }: Props) {
         FROM photos p
         JOIN active_events e ON e.id = p.album_event_id
         WHERE COALESCE(p.is_deleted, false) = false
+          AND p.upload_status = 'completed'
         GROUP BY p.album_event_id
       ),
 

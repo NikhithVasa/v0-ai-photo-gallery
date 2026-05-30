@@ -221,6 +221,7 @@ export async function fetchAlbumEvents(albumSlug: string) {
     LEFT JOIN photos p
       ON p.album_event_id = e.id
      AND COALESCE(p.is_deleted, false) = false
+     AND p.upload_status = 'completed'
     LEFT JOIN person_event_stats pes ON pes.album_event_id = e.id
     WHERE a.slug = $1
       AND COALESCE(e.is_deleted, false) = false

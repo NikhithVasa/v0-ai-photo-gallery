@@ -66,6 +66,7 @@ export async function GET(request: Request, { params }: Props) {
         AND pp.person_id = $2
         AND ($3::text IS NULL OR e.slug = $3)
         AND COALESCE(p.is_deleted, false) = false
+        AND p.upload_status = 'completed'
       ORDER BY p.created_at ASC
       `,
       [albumSlug, personId, eventSlug]

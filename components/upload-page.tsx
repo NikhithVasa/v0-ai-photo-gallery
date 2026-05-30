@@ -215,16 +215,35 @@ export function UploadPage() {
           s3Key: upload.originalS3Key,
         });
 
-        const uploadResponse = await fetch(upload.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": upload.contentType },
-          body: item.file,
-        });
+        let uploadSucceeded = false;
 
-        if (!uploadResponse.ok) {
+        try {
+          const uploadResponse = await fetch(upload.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": upload.contentType },
+            body: item.file,
+          });
+          uploadSucceeded = uploadResponse.ok;
+        } catch {
+          uploadSucceeded = false;
+        }
+
+        if (!uploadSucceeded) {
+          const fallbackResponse = await fetch(
+            `/api/uploads/${encodeURIComponent(upload.id)}/file`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": upload.contentType },
+              body: item.file,
+            },
+          );
+          uploadSucceeded = fallbackResponse.ok;
+        }
+
+        if (!uploadSucceeded) {
           updateFile(item.localId, {
             status: "failed",
-            error: `S3 upload failed (${uploadResponse.status})`,
+            error: "S3 upload failed",
           });
           continue;
         }

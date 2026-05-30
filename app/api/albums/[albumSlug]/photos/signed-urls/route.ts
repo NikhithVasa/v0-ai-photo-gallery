@@ -63,6 +63,7 @@ export async function POST(request: Request, { params }: Props) {
       WHERE a.slug = $1
         AND p.id = ANY($2::uuid[])
         AND COALESCE(p.is_deleted, false) = false
+        AND p.upload_status = 'completed'
       `,
       [albumSlug, photoIds]
     );

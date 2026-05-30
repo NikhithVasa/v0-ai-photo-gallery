@@ -38,6 +38,7 @@ export async function GET(request: Request) {
           COUNT(*)::int AS photo_count
         FROM photos
         WHERE COALESCE(is_deleted, false) = false
+          AND upload_status = 'completed'
         GROUP BY album_id
       ),
       people_counts AS (
