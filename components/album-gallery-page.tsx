@@ -678,13 +678,20 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   );
 
-  const { data: statsData } = useSWR<AlbumStatsResponse>(
+  // Check if any event has photos but no people (AI still processing)
+  const hasEventsLoadingAi = useMemo(() => {
+    return data?.album?.events?.some(
+      (event) => (event.photoCount ?? 0) > 0 && (event.peopleCount ?? 0) === 0
+    );
+  }, [data?.album?.events]);
+
+  const { data: statsData, mutate: mutateStats } = useSWR<AlbumStatsResponse>(
     data?.album
       ? `/api/albums/${encodeURIComponent(albumSlug)}/stats`
       : null,
     fetcher,
     {
-      dedupingInterval: 5 * 60 * 1000,
+      dedupingInterval: hasEventsLoadingAi ? 10 * 1000 : 5 * 60 * 1000, // Refresh every 10s if AI is loading, else 5 minutes
       revalidateOnFocus: false,
     }
   );
@@ -964,7 +971,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   const eventLabel = selectedEvent?.name ?? "All events";
   const isAiDataLoadingForEvent = Boolean(
-    selectedEvent && selectedEvent.photoCount > 0 && selectedEvent.peopleCount === 0
+    selectedEvent && 
+    selectedEvent.photoCount > 0 && 
+    selectedEvent.peopleCount === 0 &&
+    data?.album?.photoCount > 0 // Only show if album has photos (indicating active processing)
   );
 
   const eventHeader = selectedEvent ? (
@@ -1128,10 +1138,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               <Link
                 href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
                 className="flex h-9 w-9 items-center justify-center gap-2 rounded-full bg-zinc-950 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
-                aria-label="Add event"
+                aria-label="Manage events"
               >
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Add Event</span>
+                <span className="hidden sm:inline">Manage Events</span>
               </Link>
 
               {!selectedPerson && (

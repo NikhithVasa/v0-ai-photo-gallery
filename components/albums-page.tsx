@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import useSWR from "swr";
 import { CalendarDays, Images, Lock, Plus, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlbumPasscodeManager } from "@/components/album-passcode-manager";
 import type { AlbumSummary } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -17,6 +19,11 @@ interface AlbumStats {
 }
 
 export function AlbumsPage() {
+  const [selectedAlbumForPasscode, setSelectedAlbumForPasscode] = useState<{
+    slug: string;
+    name: string;
+  } | null>(null);
+
   const {
     data: albumsData,
     error: albumsError,
@@ -97,50 +104,64 @@ const visibleAlbums =
               const stats = statsByAlbumId.get(album.id);
 
               return (
-                <Link
+                <div
                   key={album.id}
-                  href={`/albums/${album.slug}`}
-                  className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                  className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md"
                 >
-                  <div className="relative aspect-[4/3] bg-zinc-100">
-                    {album.coverPhotoUrl ? (
-                      <Image
-                        src={album.coverPhotoUrl}
-                        alt={album.name}
-                        fill
-                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                        className="object-cover"
-                        unoptimized
-                        priority
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-400">
-                        <Images className="h-10 w-10" strokeWidth={1.5} />
-                      </div>
-                    )}
+                  <Link
+                    href={`/albums/${album.slug}`}
+                    className="block focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                  >
+                    <div className="relative aspect-[4/3] bg-zinc-100">
+                      {album.coverPhotoUrl ? (
+                        <Image
+                          src={album.coverPhotoUrl}
+                          alt={album.name}
+                          fill
+                          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                          className="object-cover"
+                          unoptimized
+                          priority
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-400">
+                          <Images className="h-10 w-10" strokeWidth={1.5} />
+                        </div>
+                      )}
 
-                    {album.passwordRequired && (
-                      <div className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow-sm backdrop-blur">
-                        <Lock className="h-4 w-4" />
-                      </div>
-                    )}
+                      {album.passwordRequired && (
+                        <button
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setSelectedAlbumForPasscode({
+                              slug: album.slug,
+                              name: album.name,
+                            });
+                          }}
+                          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow-sm transition hover:bg-white backdrop-blur focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                          aria-label="Manage passcode"
+                        >
+                          <Lock className="h-4 w-4" />
+                        </button>
+                      )}
 
-                    {album.isExpired && (
-                      <div className="absolute left-3 top-3 rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-white shadow-sm">
-                        Expired
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-3 p-4">
-                    <div>
-                      <h2 className="truncate text-lg font-semibold">
-                        {album.name}
-                      </h2>
-                      <p className="text-sm text-zinc-500">
-                        {album.albumDate || album.slug}
-                      </p>
+                      {album.isExpired && (
+                        <div className="absolute left-3 top-3 rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-white shadow-sm">
+                          Expired
+                        </div>
+                      )}
                     </div>
+
+                    <div className="space-y-3 p-4">
+                      <div>
+                        <h2 className="truncate text-lg font-semibold">
+                          {album.name}
+                        </h2>
+                        <p className="text-sm text-zinc-500">
+                          {album.albumDate || album.slug}
+                        </p>
+                      </div>
 
                     <div className="flex flex-wrap gap-3 text-sm text-zinc-600">
                       {statsLoading && !stats ? (
@@ -173,12 +194,21 @@ const visibleAlbums =
                       )}
                     </div>
                   </div>
-                </Link>
+                  </Link>
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {selectedAlbumForPasscode && (
+        <AlbumPasscodeManager
+          albumSlug={selectedAlbumForPasscode.slug}
+          albumName={selectedAlbumForPasscode.name}
+          onClose={() => setSelectedAlbumForPasscode(null)}
+        />
+      )}
     </main>
   );
 }

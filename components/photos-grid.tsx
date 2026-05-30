@@ -138,9 +138,24 @@ export function PhotosGrid({
   }, [data?.photos?.length, isLoading, onReachedEnd, triggerKey]);
 
   if (error) {
+    console.error("Photos loading error:", error);
     return (
-      <div className="py-12 text-center text-muted-foreground">
-        Failed to load photos. Please check your database connection.
+      <div className="rounded-md border border-rose-200 bg-rose-50 px-6 py-12 text-center">
+        <p className="text-sm font-medium text-rose-700">
+          Failed to load photos
+        </p>
+        <p className="mt-1 text-xs text-rose-600">
+          {error?.message || "Please check your database connection and try again."}
+        </p>
+        <button
+          onClick={() => {
+            // Trigger manual refresh by changing a dummy dependency
+            window.location.reload();
+          }}
+          className="mt-4 inline-flex h-8 items-center gap-2 rounded-full border border-rose-300 bg-white px-3 text-xs font-medium text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-400"
+        >
+          Retry
+        </button>
       </div>
     );
   }
