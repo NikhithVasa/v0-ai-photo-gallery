@@ -347,6 +347,13 @@ function Hero({ reveal }: { reveal: MotionProps }) {
                 />
               </Link>
 
+              <Link
+                href="/login"
+                className="inline-flex h-12 items-center rounded-full border border-stone-300 bg-white/80 px-6 text-sm font-medium text-stone-800 backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
+              >
+                Sign In
+              </Link>
+
               <a
                 href="#features"
                 className="inline-flex h-12 items-center rounded-full border border-stone-300 bg-white/80 px-6 text-sm font-medium text-stone-800 backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
