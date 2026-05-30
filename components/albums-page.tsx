@@ -9,7 +9,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlbumPasscodeManager } from "@/components/album-passcode-manager";
 import type { AlbumSummary } from "@/lib/types";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed");
+  return data;
+};
 
 interface AlbumStats {
   albumId: string;
@@ -28,6 +33,7 @@ export function AlbumsPage() {
     data: albumsData,
     error: albumsError,
     isLoading: albumsLoading,
+    mutate: mutateAlbums,
   } = useSWR<{ albums: AlbumSummary[] }>("/api/albums", fetcher, {
     dedupingInterval: 0,
     revalidateOnFocus: false,
@@ -129,22 +135,24 @@ const visibleAlbums =
                         </div>
                       )}
 
-                      {album.passwordRequired && (
-                        <button
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            setSelectedAlbumForPasscode({
-                              slug: album.slug,
-                              name: album.name,
-                            });
-                          }}
-                          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow-sm transition hover:bg-white backdrop-blur focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                          aria-label="Manage passcode"
-                        >
-                          <Lock className="h-4 w-4" />
-                        </button>
-                      )}
+                      <button
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setSelectedAlbumForPasscode({
+                            slug: album.slug,
+                            name: album.name,
+                          });
+                        }}
+                        className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400 ${
+                          album.passwordRequired
+                            ? "text-zinc-800"
+                            : "text-zinc-400"
+                        }`}
+                        aria-label="Manage passcode"
+                      >
+                        <Lock className="h-4 w-4" />
+                      </button>
 
                       {album.isExpired && (
                         <div className="absolute left-3 top-3 rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-white shadow-sm">
@@ -206,6 +214,7 @@ const visibleAlbums =
         <AlbumPasscodeManager
           albumSlug={selectedAlbumForPasscode.slug}
           albumName={selectedAlbumForPasscode.name}
+          onChanged={() => mutateAlbums()}
           onClose={() => setSelectedAlbumForPasscode(null)}
         />
       )}

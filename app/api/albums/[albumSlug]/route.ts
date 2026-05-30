@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { signedUrl } from "@/lib/s3";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
 import type { AlbumDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ interface AlbumRow {
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
+  customer_cover_photo_s3_key: string | null;
+  customer_password_required: boolean | null;
 }
 
 interface EventRow {
@@ -55,6 +58,8 @@ function dateValue(value: Date | string | null) {
 
 export async function GET(request: Request, { params }: Props) {
   try {
+    await ensureCustomerAccessSchema();
+
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;
@@ -120,7 +125,9 @@ export async function GET(request: Request, { params }: Props) {
         c.slug AS customer_slug,
         c.name AS customer_name,
         c.email AS customer_email,
-        c.phone AS customer_phone
+        c.phone AS customer_phone,
+        c.cover_photo_s3_key AS customer_cover_photo_s3_key,
+        c.password_required AS customer_password_required
 
       FROM selected_album a
 
@@ -233,6 +240,8 @@ export async function GET(request: Request, { params }: Props) {
             name: album.customer_name ?? "",
             email: album.customer_email,
             phone: album.customer_phone,
+            coverPhotoUrl: await signedUrl(album.customer_cover_photo_s3_key),
+            passwordRequired: Boolean(album.customer_password_required),
           }
         : null,
     };

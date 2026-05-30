@@ -3,12 +3,24 @@ import { NextResponse } from "next/server";
 import { s3 } from "@/lib/s3";
 
 function isAllowedMediaKey(value: string) {
-  return (
-    value.startsWith("albums/") &&
-    !value.includes("..") &&
-    !value.startsWith("/") &&
-    !value.endsWith("/")
-  );
+  if (!value || value.includes("..") || value.startsWith("/") || value.endsWith("/")) {
+    return false;
+  }
+
+  const allowedPrefixes = [
+    "albums/",
+    "customers/",
+    process.env.ORIGINAL_PREFIX,
+    process.env.AI_INPUT_PREFIX,
+    process.env.PREVIEW_PREFIX,
+    process.env.THUMB_PREFIX,
+    process.env.FACES_PREFIX,
+    process.env.ANNOTATED_PREFIX,
+  ]
+    .filter((prefix): prefix is string => Boolean(prefix?.trim()))
+    .map((prefix) => (prefix.endsWith("/") ? prefix : `${prefix}/`));
+
+  return allowedPrefixes.some((prefix) => value.startsWith(prefix));
 }
 
 function toWebStream(body: unknown): ReadableStream<Uint8Array> | null {

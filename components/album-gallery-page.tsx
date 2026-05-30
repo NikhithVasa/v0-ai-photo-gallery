@@ -28,7 +28,12 @@ import type { AlbumDetail, Person, Photo } from "@/lib/types";
 
 type Tab = "photos" | "people";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed");
+  return data;
+};
 
 interface AlbumGalleryPageProps {
   albumSlug: string;
@@ -42,6 +47,7 @@ interface AlbumStatsResponse {
       eventId: string;
       photoCount: number;
       peopleCount: number;
+      pendingAiCount?: number;
     }[];
   };
 }
@@ -970,11 +976,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   const eventLabel = selectedEvent?.name ?? "All events";
+  const selectedEventStats = statsData?.stats.events.find(
+    (event) => event.eventId === selectedEvent?.id
+  );
   const isAiDataLoadingForEvent = Boolean(
-    selectedEvent && 
-    selectedEvent.photoCount > 0 && 
-    selectedEvent.peopleCount === 0 &&
-    data?.album?.photoCount > 0 // Only show if album has photos (indicating active processing)
+    selectedEvent && (selectedEventStats?.pendingAiCount ?? 0) > 0
   );
 
   const eventHeader = selectedEvent ? (
@@ -1240,7 +1246,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 ring-1 ring-zinc-200 transition hover:text-zinc-950"
               >
                 <Plus className="h-4 w-4" />
-                Add Event
+                Manage Events
               </Link>
             </div>
           )}

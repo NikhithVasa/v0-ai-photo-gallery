@@ -10,7 +10,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
 import type { AlbumEvent, Person, Photo } from "@/lib/types";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed");
+  return data;
+};
 
 const swrOptions = {
   dedupingInterval: 60 * 60 * 1000,

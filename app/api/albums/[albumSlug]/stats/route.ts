@@ -22,6 +22,7 @@ interface EventStatsRow {
   event_id: string;
   photo_count: number | string | null;
   people_count: number | string | null;
+  pending_ai_count: number | string | null;
 }
 
 function countValue(value: number | string | null) {
@@ -77,7 +78,12 @@ export async function GET(request: Request, { params }: Props) {
         WITH event_photo_counts AS (
           SELECT
             album_event_id,
-            COUNT(*)::int AS photo_count
+            COUNT(*)::int AS photo_count,
+            COUNT(*) FILTER (
+              WHERE (face_index_status IS NOT NULL AND face_index_status <> 'completed')
+                 OR (qwen_status IS NOT NULL AND qwen_status <> 'completed')
+                 OR (search_index_status IS NOT NULL AND search_index_status <> 'completed')
+            )::int AS pending_ai_count
           FROM photos
           WHERE album_id = $1::uuid
             AND COALESCE(is_deleted, false) = false
@@ -97,7 +103,8 @@ export async function GET(request: Request, { params }: Props) {
         SELECT
           e.id AS event_id,
           COALESCE(epc.photo_count, 0)::int AS photo_count,
-          COALESCE(epec.people_count, 0)::int AS people_count
+          COALESCE(epec.people_count, 0)::int AS people_count,
+          COALESCE(epc.pending_ai_count, 0)::int AS pending_ai_count
         FROM album_events e
         LEFT JOIN event_photo_counts epc ON epc.album_event_id = e.id
         LEFT JOIN event_people_counts epec ON epec.album_event_id = e.id
@@ -118,6 +125,7 @@ export async function GET(request: Request, { params }: Props) {
             eventId: event.event_id,
             photoCount: countValue(event.photo_count),
             peopleCount: countValue(event.people_count),
+            pendingAiCount: countValue(event.pending_ai_count),
           })),
         },
       },

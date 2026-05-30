@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Copy, Lock, Loader2, Trash2, RefreshCw, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -8,12 +8,16 @@ interface PasscodeManagerProps {
   albumSlug: string;
   albumName: string;
   onClose: () => void;
+  entityType?: "album" | "customer";
+  onChanged?: () => void;
 }
 
 export function AlbumPasscodeManager({
   albumSlug,
   albumName,
   onClose,
+  entityType = "album",
+  onChanged,
 }: PasscodeManagerProps) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -21,11 +25,18 @@ export function AlbumPasscodeManager({
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const loadPasscodeStatus = async () => {
+  const endpoint = `/${entityType === "album" ? "albums" : "customers"}/${encodeURIComponent(
+    albumSlug
+  )}`;
+  const label = entityType === "album" ? "album" : "customer";
+
+  useEffect(() => {
+    void loadPasscodeStatus();
+  }, [endpoint]);
+
+  async function loadPasscodeStatus() {
     try {
-      const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/password`
-      );
+      const response = await fetch(`/api${endpoint}/password`);
       const data = (await response.json()) as {
         passwordRequired?: boolean;
         hasPassword?: boolean;
@@ -33,11 +44,13 @@ export function AlbumPasscodeManager({
 
       if (data.passwordRequired && data.hasPassword) {
         setCurrentPassword("••••••");
+      } else {
+        setCurrentPassword("");
       }
     } catch (err) {
       console.error("Failed to load passcode status:", err);
     }
-  };
+  }
 
   const generateNewPasscode = async () => {
     setIsLoading(true);
@@ -45,7 +58,7 @@ export function AlbumPasscodeManager({
 
     try {
       const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/password`,
+        `/api${endpoint}/password`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -65,6 +78,7 @@ export function AlbumPasscodeManager({
 
       setNewPassword(data.password || "");
       setCurrentPassword(data.password || "");
+      onChanged?.();
       toast({
         title: "Passcode generated",
         description: `New passcode for ${albumName}: ${data.password}`,
@@ -83,14 +97,14 @@ export function AlbumPasscodeManager({
   };
 
   const removePasscode = async () => {
-    if (!confirm("Remove passcode from this album?")) return;
+    if (!confirm(`Remove passcode from this ${label}?`)) return;
 
     setIsLoading(true);
     setError("");
 
     try {
       const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/password`,
+        `/api${endpoint}/password`,
         {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
@@ -108,9 +122,10 @@ export function AlbumPasscodeManager({
 
       setCurrentPassword("");
       setNewPassword("");
+      onChanged?.();
       toast({
         title: "Passcode removed",
-        description: `${albumName} is now open to all visitors.`,
+        description: `${albumName} ${label} page is now open to visitors.`,
       });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Failed to remove passcode";

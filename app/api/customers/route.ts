@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
+import { signedUrl } from "@/lib/s3";
+import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -11,6 +13,8 @@ interface CustomerRow {
   name: string;
   email: string | null;
   phone: string | null;
+  cover_photo_s3_key: string | null;
+  password_required: boolean | null;
   album_count: number | string | null;
   created_at: Date | string | null;
 }
@@ -50,6 +54,8 @@ async function availableCustomerSlug(name: string) {
 
 export async function GET() {
   try {
+    await ensureCustomerAccessSchema();
+
     const rows = await query<CustomerRow>(`
       SELECT
         c.id,
@@ -57,6 +63,8 @@ export async function GET() {
         c.name,
         c.email,
         c.phone,
+        c.cover_photo_s3_key,
+        c.password_required,
         COUNT(a.id)::int AS album_count,
         c.created_at
       FROM customers c
@@ -68,18 +76,22 @@ export async function GET() {
       ORDER BY c.created_at DESC NULLS LAST, c.name ASC
     `);
 
-    const customers = rows.map((row) => ({
-      id: row.id,
-      slug: row.slug,
-      name: row.name,
-      email: row.email,
-      phone: row.phone,
-      albumCount: countValue(row.album_count),
-      createdAt:
-        row.created_at instanceof Date
-          ? row.created_at.toISOString()
-          : row.created_at ?? "",
-    }));
+    const customers = await Promise.all(
+      rows.map(async (row) => ({
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        coverPhotoUrl: await signedUrl(row.cover_photo_s3_key),
+        passwordRequired: Boolean(row.password_required),
+        albumCount: countValue(row.album_count),
+        createdAt:
+          row.created_at instanceof Date
+            ? row.created_at.toISOString()
+            : row.created_at ?? "",
+      }))
+    );
 
     return NextResponse.json({ customers });
   } catch (error) {
@@ -94,6 +106,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await ensureCustomerAccessSchema();
+
     const body = (await request.json()) as {
       name?: unknown;
       email?: unknown;
@@ -130,6 +144,8 @@ export async function POST(request: Request) {
         name,
         email,
         phone,
+        cover_photo_s3_key,
+        password_required,
         0::int AS album_count,
         created_at
       `,
@@ -150,6 +166,8 @@ export async function POST(request: Request) {
         name: customer.name,
         email: customer.email,
         phone: customer.phone,
+        coverPhotoUrl: await signedUrl(customer.cover_photo_s3_key),
+        passwordRequired: Boolean(customer.password_required),
         albumCount: 0,
         createdAt:
           customer.created_at instanceof Date

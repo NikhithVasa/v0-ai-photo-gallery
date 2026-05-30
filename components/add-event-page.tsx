@@ -20,7 +20,12 @@ import {
 import { toast } from "@/hooks/use-toast";
 import type { AlbumDetail, AlbumEvent, Photo } from "@/lib/types";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed");
+  return data;
+};
 
 type UploadStatus = "ready" | "uploading" | "uploaded" | "failed";
 type UploadTarget = "new" | "existing";
@@ -79,6 +84,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const [selectedExistingEventSlug, setSelectedExistingEventSlug] = useState("");
   const [runAi, setRunAi] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSavingCover, setIsSavingCover] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [deletingPhotoIds, setDeletingPhotoIds] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
@@ -105,6 +111,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       : null;
   const {
     data: selectedEventPhotosData,
+    error: selectedEventPhotosError,
     isLoading: selectedEventPhotosLoading,
     mutate: mutateSelectedEventPhotos,
   } = useSWR<{ photos: Photo[] }>(selectedEventPhotosUrl, fetcher, {
@@ -123,6 +130,12 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
     filesReadyToUpload.length &&
       !isUploading &&
       (uploadTarget === "new" ? title.trim() : selectedExistingEventSlug),
+  );
+  const canSaveCover = Boolean(
+    coverFile &&
+      !isUploading &&
+      !isSavingCover &&
+      (uploadTarget === "existing" ? selectedExistingEventSlug : title.trim())
   );
 
   const eventTitle =
@@ -235,6 +248,33 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
 
     if (!uploadResponse.ok) {
       throw new Error(`Cover upload failed (${uploadResponse.status})`);
+    }
+  };
+
+  const saveCoverOnly = async () => {
+    const eventSlug =
+      uploadTarget === "existing" ? selectedExistingEventSlug : title.trim();
+    if (!coverFile || !eventSlug || isSavingCover) return;
+
+    setIsSavingCover(true);
+    setErrorMessage("");
+
+    try {
+      await uploadCover(eventSlug);
+      toast({
+        title: "Cover updated",
+        description: `${album?.name || "Album"} cover photo was updated.`,
+      });
+      setCoverFile(null);
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+      setCoverPreviewUrl(null);
+      await mutateAlbum();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Cover update failed",
+      );
+    } finally {
+      setIsSavingCover(false);
     }
   };
 
@@ -572,6 +612,21 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
               Select Cover
             </span>
           </button>
+          {coverFile && (
+            <button
+              type="button"
+              onClick={saveCoverOnly}
+              disabled={!canSaveCover}
+              className="absolute bottom-6 right-6 flex h-10 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-lg transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSavingCover ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ImageUp className="h-4 w-4" />
+              )}
+              Save Cover
+            </button>
+          )}
           <input
             ref={coverInputRef}
             type="file"
@@ -786,6 +841,16 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                       </div>
 
                       {!selectedEventPhotosLoading &&
+                        selectedEventPhotosError && (
+                          <p className="py-6 text-center text-sm text-rose-600">
+                            {selectedEventPhotosError instanceof Error
+                              ? selectedEventPhotosError.message
+                              : "Could not load event photos."}
+                          </p>
+                        )}
+
+                      {!selectedEventPhotosLoading &&
+                        !selectedEventPhotosError &&
                         selectedEventPhotos.length === 0 && (
                           <p className="py-6 text-center text-sm text-zinc-500">
                             No photos in this event yet.

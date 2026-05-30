@@ -8,7 +8,12 @@ import type { Photo } from "@/lib/types";
 
 export type PeopleMatchMode = "all" | "any";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed");
+  return data;
+};
 
 const swrOptions = {
   dedupingInterval: 60 * 60 * 1000,

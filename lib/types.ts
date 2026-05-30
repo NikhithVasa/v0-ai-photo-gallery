@@ -4,6 +4,8 @@ export interface AlbumCustomer {
   name: string;
   email?: string | null;
   phone?: string | null;
+  passwordRequired?: boolean;
+  coverPhotoUrl?: string | null;
 }
 
 export interface AlbumSummary {

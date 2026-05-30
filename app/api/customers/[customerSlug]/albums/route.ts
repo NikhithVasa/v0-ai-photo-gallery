@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { signedUrl } from "@/lib/s3";
 import { getCustomerSlugFromRequest } from "@/lib/customer-host";
+import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
 import type { AlbumSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,8 @@ interface CustomerAlbumRow {
   customer_name: string;
   customer_email: string | null;
   customer_phone: string | null;
+  customer_cover_photo_s3_key: string | null;
+  customer_password_required: boolean | null;
 }
 
 function countValue(value: number | string | null) {
@@ -47,6 +50,8 @@ function dateValue(value: Date | string | null) {
 
 export async function GET(request: Request, { params }: Props) {
   try {
+    await ensureCustomerAccessSchema();
+
     const { customerSlug } = await params;
     const hostCustomerSlug = getCustomerSlugFromRequest(request);
     const hideExpired = Boolean(hostCustomerSlug);
@@ -59,7 +64,9 @@ export async function GET(request: Request, { params }: Props) {
           c.slug,
           c.name,
           c.email,
-          c.phone
+          c.phone,
+          c.cover_photo_s3_key,
+          c.password_required
         FROM customers c
         WHERE c.slug = $1
           AND COALESCE(c.is_deleted, false) = false
@@ -135,7 +142,9 @@ export async function GET(request: Request, { params }: Props) {
         c.slug AS customer_slug,
         c.name AS customer_name,
         c.email AS customer_email,
-        c.phone AS customer_phone
+        c.phone AS customer_phone,
+        c.cover_photo_s3_key AS customer_cover_photo_s3_key,
+        c.password_required AS customer_password_required
 
       FROM customer_albums a
       JOIN customer c ON c.id = a.customer_id
@@ -154,9 +163,11 @@ export async function GET(request: Request, { params }: Props) {
         name: string;
         email: string | null;
         phone: string | null;
+        cover_photo_s3_key: string | null;
+        password_required: boolean | null;
       }>(
         `
-        SELECT id, slug, name, email, phone
+        SELECT id, slug, name, email, phone, cover_photo_s3_key, password_required
         FROM customers
         WHERE slug = $1
           AND COALESCE(is_deleted, false) = false
@@ -181,6 +192,8 @@ export async function GET(request: Request, { params }: Props) {
           name: customer.name,
           email: customer.email,
           phone: customer.phone,
+          coverPhotoUrl: await signedUrl(customer.cover_photo_s3_key),
+          passwordRequired: Boolean(customer.password_required),
         },
         albums: [],
       });
@@ -212,6 +225,8 @@ export async function GET(request: Request, { params }: Props) {
           name: row.customer_name,
           email: row.customer_email,
           phone: row.customer_phone,
+          coverPhotoUrl: await signedUrl(row.customer_cover_photo_s3_key),
+          passwordRequired: Boolean(row.customer_password_required),
         },
       }))
     );
@@ -223,6 +238,8 @@ export async function GET(request: Request, { params }: Props) {
         name: first.customer_name,
         email: first.customer_email,
         phone: first.customer_phone,
+        coverPhotoUrl: await signedUrl(first.customer_cover_photo_s3_key),
+        passwordRequired: Boolean(first.customer_password_required),
       },
       albums,
     });

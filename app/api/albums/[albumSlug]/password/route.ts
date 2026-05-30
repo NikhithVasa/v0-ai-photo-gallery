@@ -1,7 +1,7 @@
-import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { generateRandomAccessCode, hashAccessCode } from "@/lib/access-code";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -17,21 +17,6 @@ interface AlbumPasswordRow {
   slug: string;
   password_required: boolean | null;
   password_hash: string | null;
-}
-
-function generateRandomPassword(length: number = 6): string {
-  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  let password = "";
-  const bytes = randomBytes(length);
-  for (let i = 0; i < length; i++) {
-    password += chars[bytes[i] % chars.length];
-  }
-  return password;
-}
-
-function hashPassword(password: string): string {
-  const digest = createHash("sha256").update(password).digest("hex");
-  return `sha256:${digest}`;
 }
 
 export async function GET(request: Request, { params }: Props) {
@@ -86,9 +71,7 @@ export async function POST(request: Request, { params }: Props) {
       );
     }
 
-    const password = generateNew
-      ? generateRandomPassword()
-      : providedPassword;
+    const password = generateNew ? generateRandomAccessCode() : providedPassword;
 
     if (password.length < 4) {
       return NextResponse.json(
@@ -97,7 +80,7 @@ export async function POST(request: Request, { params }: Props) {
       );
     }
 
-    const passwordHash = hashPassword(password);
+    const passwordHash = hashAccessCode(password);
 
     const album = await queryOne<AlbumPasswordRow>(
       `

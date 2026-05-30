@@ -1,51 +1,51 @@
 import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
-import { requireAlbumAccess } from "@/lib/album-access";
 import { accessCodeMatches } from "@/lib/access-code";
+import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
 
 interface Props {
-  params: Promise<{ albumSlug: string }>;
+  params: Promise<{ customerSlug: string }>;
 }
 
-interface AlbumPasswordRow {
+interface CustomerPasswordRow {
   password_required: boolean | null;
   password_hash: string | null;
 }
 
 export async function POST(request: Request, { params }: Props) {
   try {
-    const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
-    if (accessDenied) return accessDenied;
-
+    await ensureCustomerAccessSchema();
+    const { customerSlug } = await params;
     const body = (await request.json()) as { password?: unknown };
     const password = typeof body.password === "string" ? body.password : "";
 
-    const album = await queryOne<AlbumPasswordRow>(
+    const customer = await queryOne<CustomerPasswordRow>(
       `
       SELECT password_required, password_hash
-      FROM albums
+      FROM customers
       WHERE slug = $1
+        AND COALESCE(is_deleted, false) = false
+      LIMIT 1
       `,
-      [albumSlug]
+      [customerSlug]
     );
 
-    if (!album) {
+    if (!customer) {
       return NextResponse.json({ ok: false }, { status: 404 });
     }
 
-    if (!album.password_required) {
+    if (!customer.password_required) {
       return NextResponse.json({ ok: true });
     }
 
-    if (!password || !album.password_hash) {
+    if (!password || !customer.password_hash) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
 
-    const ok = accessCodeMatches(password, album.password_hash);
+    const ok = accessCodeMatches(password, customer.password_hash);
     return NextResponse.json({ ok }, { status: ok ? 200 : 401 });
   } catch (error) {
-    console.error("Error verifying album password:", error);
+    console.error("Error verifying customer password:", error);
     return NextResponse.json(
       { ok: false, error: "Failed to verify password" },
       { status: 500 }

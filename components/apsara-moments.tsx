@@ -80,12 +80,12 @@ function PersonAvatarButton({
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-20 flex-col items-center gap-2 text-center focus:outline-none"
+      className="group flex w-16 flex-col items-center gap-2 text-center focus:outline-none sm:w-20"
       aria-pressed={isSelected}
       aria-label={`${isSelected ? "Remove" : "Select"} ${name}`}
     >
       <span
-        className={`relative flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 transition ${
+        className={`relative flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100 transition sm:h-16 sm:w-16 ${
           isSelected
             ? "ring-3 ring-zinc-950 ring-offset-3"
             : "ring-1 ring-zinc-200 group-hover:ring-zinc-400"
@@ -569,7 +569,7 @@ export function ApsaraMomentsOverlay({
                     Loading people...
                   </div>
                 ) : people.length ? (
-                  <div className="flex flex-wrap gap-x-7 gap-y-7">
+                  <div className="grid grid-cols-4 gap-x-2 gap-y-5 sm:flex sm:flex-wrap sm:gap-x-7 sm:gap-y-7">
                     {people.map((person) => (
                       <PersonAvatarButton
                         key={person.id}

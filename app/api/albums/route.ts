@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { signedUploadUrl, signedUrl } from "@/lib/s3";
 import { getCustomerSlugFromRequest } from "@/lib/customer-host";
+import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
 import type { AlbumSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,8 @@ interface AlbumSummaryRow {
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
+  customer_cover_photo_s3_key: string | null;
+  customer_password_required: boolean | null;
 }
 
 function countValue(value: number | string | null) {
@@ -104,6 +107,8 @@ async function availableAlbumSlug(baseValue: string) {
 
 export async function GET(request: Request) {
   try {
+    await ensureCustomerAccessSchema();
+
     const customerSlug = getCustomerSlugFromRequest(request);
 
     const rows = await query<AlbumSummaryRow>(
@@ -174,7 +179,9 @@ export async function GET(request: Request) {
         c.slug AS customer_slug,
         c.name AS customer_name,
         c.email AS customer_email,
-        c.phone AS customer_phone
+        c.phone AS customer_phone,
+        c.cover_photo_s3_key AS customer_cover_photo_s3_key,
+        c.password_required AS customer_password_required
 
       FROM active_albums a
 
@@ -236,6 +243,8 @@ export async function GET(request: Request) {
               name: row.customer_name ?? "",
               email: row.customer_email,
               phone: row.customer_phone,
+              coverPhotoUrl: await signedUrl(row.customer_cover_photo_s3_key),
+              passwordRequired: Boolean(row.customer_password_required),
             }
           : null,
       }))
@@ -254,6 +263,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await ensureCustomerAccessSchema();
+
     const body = (await request.json()) as {
       customerName?: unknown;
       albumName?: unknown;
