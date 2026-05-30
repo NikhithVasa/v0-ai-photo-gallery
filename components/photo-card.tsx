@@ -16,12 +16,15 @@ import {
   ChevronRight,
   Download,
   Heart,
+  Loader2,
   Mail,
   Pause,
   Play,
   Share2,
+  Sparkles,
   User,
   Users,
+  Wand2,
   X,
 } from "lucide-react";
 import { photoAspectRatio } from "@/lib/photo-layout";
@@ -80,6 +83,59 @@ function triggerDownload(url: string, fileName: string) {
 function uniqueUrls(urls: Array<string | null | undefined>) {
   return Array.from(new Set(urls.filter((url): url is string => Boolean(url))));
 }
+
+const AI_EDIT_PRESETS = [
+  {
+    key: "remove_background",
+    label: "Remove background",
+    prompt: "Remove the background and keep only the subject cleanly cut out.",
+  },
+  {
+    key: "blur_background",
+    label: "Blur background",
+    prompt: "Blur the background while keeping the subject sharp and natural.",
+  },
+  {
+    key: "enhance_lighting",
+    label: "Enhance lighting",
+    prompt: "Improve lighting, brighten the image, and keep skin tones natural.",
+  },
+  {
+    key: "remove_object",
+    label: "Remove object",
+    prompt: "Remove unwanted distracting objects and fill the background naturally.",
+  },
+  {
+    key: "add_dog",
+    label: "Add dog",
+    prompt: "Add a realistic dog next to the subject and match perspective and lighting naturally.",
+  },
+  {
+    key: "retouch_portrait",
+    label: "Retouch portrait",
+    prompt: "Retouch the portrait subtly, smooth skin gently, and keep the face natural.",
+  },
+  {
+    key: "vibrant_colors",
+    label: "Vibrant colors",
+    prompt: "Enhance colors to look vibrant and rich while staying natural.",
+  },
+  {
+    key: "studio_portrait",
+    label: "Studio portrait",
+    prompt: "Convert the image into a clean professional studio portrait style.",
+  },
+  {
+    key: "extend_background",
+    label: "Extend background",
+    prompt: "Extend the background naturally beyond the current frame.",
+  },
+  {
+    key: "oil_painting",
+    label: "Oil painting",
+    prompt: "Transform the image into a detailed oil painting style.",
+  },
+];
 
 function absoluteBrowserUrl(url: string) {
   if (typeof window === "undefined") return url;
@@ -295,6 +351,16 @@ export function PhotoLightbox({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPeopleOpen, setIsPeopleOpen] = useState(false);
+  const [isAiEditOpen, setIsAiEditOpen] = useState(false);
+  const [selectedAiPreset, setSelectedAiPreset] = useState("");
+  const [aiEditPrompt, setAiEditPrompt] = useState("");
+  const [isSubmittingAiEdit, setIsSubmittingAiEdit] = useState(false);
+  const [aiEditError, setAiEditError] = useState("");
+  const [aiEditResult, setAiEditResult] = useState<{
+    editedUrl?: string | null;
+    runpodJobId?: string | null;
+    status?: string;
+  } | null>(null);
   const [areControlsVisible, setAreControlsVisible] = useState(false);
   const [isMobilePointer, setIsMobilePointer] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
@@ -428,6 +494,11 @@ export function PhotoLightbox({
   useEffect(() => {
     setActiveImageIndex(0);
     setIsPeopleOpen(false);
+    setIsAiEditOpen(false);
+    setSelectedAiPreset("");
+    setAiEditPrompt("");
+    setAiEditError("");
+    setAiEditResult(null);
     setIsDownloadHovering(false);
     setDragOffset(0);
     setIsDragging(false);
@@ -637,13 +708,14 @@ export function PhotoLightbox({
       }
 
       if (event.key === "Escape") {
-        onClose();
+        if (isAiEditOpen) setIsAiEditOpen(false);
+        else onClose();
       }
     };
 
     window.addEventListener("keydown", handleWindowKeyDown);
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
-  }, [handlePrev, handleNext, onClose]);
+  }, [handlePrev, handleNext, isAiEditOpen, onClose]);
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -686,6 +758,60 @@ export function PhotoLightbox({
     }
 
     await navigator.clipboard?.writeText(shareUrl);
+  };
+
+  const submitAiEdit = async () => {
+    if (isSubmittingAiEdit) return;
+
+    const selectedPreset = AI_EDIT_PRESETS.find(
+      (preset) => preset.key === selectedAiPreset,
+    );
+    const prompt = aiEditPrompt.trim();
+
+    if (!selectedPreset && !prompt) {
+      setAiEditError("Choose a preset or describe the edit.");
+      return;
+    }
+
+    setIsSubmittingAiEdit(true);
+    setAiEditError("");
+    setAiEditResult(null);
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/photos/${encodeURIComponent(
+          photo.id,
+        )}/ai-edit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            presetPromptKey: selectedPreset?.key ?? null,
+            prompt,
+          }),
+        },
+      );
+      const payload = (await response.json()) as {
+        error?: string;
+        edit?: {
+          editedUrl?: string | null;
+          runpodJobId?: string | null;
+          status?: string;
+        };
+      };
+
+      if (!response.ok || !payload.edit) {
+        throw new Error(payload.error || "Could not submit AI edit");
+      }
+
+      setAiEditResult(payload.edit);
+    } catch (error) {
+      setAiEditError(
+        error instanceof Error ? error.message : "Could not submit AI edit",
+      );
+    } finally {
+      setIsSubmittingAiEdit(false);
+    }
   };
 
   const handleImageError = () => {
@@ -831,7 +957,8 @@ export function PhotoLightbox({
     <div
       className="fixed inset-0 z-50 flex cursor-default items-center justify-center bg-white/90 text-white backdrop-blur-2xl supports-[backdrop-filter]:bg-white/85"
       onClick={() => {
-        if (isPeopleOpen) setIsPeopleOpen(false);
+        if (isAiEditOpen) setIsAiEditOpen(false);
+        else if (isPeopleOpen) setIsPeopleOpen(false);
         else onClose();
       }}
       tabIndex={0}
@@ -1017,6 +1144,19 @@ export function PhotoLightbox({
                 type="button"
                 onClick={() => {
                   setAreControlsVisible(true);
+                  setIsPeopleOpen(false);
+                  setIsAiEditOpen(true);
+                }}
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                aria-label="Edit photo with AI"
+              >
+                <Wand2 className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAreControlsVisible(true);
                   handleShare();
                 }}
                 className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
@@ -1152,6 +1292,135 @@ export function PhotoLightbox({
           </div>
         )}
       </div>
+
+      {isAiEditOpen && (
+        <aside
+          className="absolute bottom-0 right-0 top-0 z-50 flex w-full max-w-md cursor-default flex-col border-l border-zinc-200 bg-white text-zinc-950 shadow-2xl sm:w-[420px]"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500">
+                AI photo edit
+              </p>
+              <h2 className="truncate text-lg font-semibold">
+                {photo.fileName || "Selected photo"}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAiEditOpen(false)}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
+              aria-label="Close AI editor"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-zinc-100">
+              {currentImageUrl ? (
+                <img
+                  src={currentImageUrl}
+                  alt={photo.fileName || "Selected photo"}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm text-zinc-400">
+                  No preview
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-3 text-sm font-semibold text-zinc-950">
+                Preset edits
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {AI_EDIT_PRESETS.map((preset) => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedAiPreset((current) =>
+                        current === preset.key ? "" : preset.key,
+                      );
+                      setAiEditError("");
+                    }}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      selectedAiPreset === preset.key
+                        ? "bg-zinc-950 text-white"
+                        : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-zinc-950">
+                Describe your edit
+              </span>
+              <textarea
+                value={aiEditPrompt}
+                onChange={(event) => {
+                  setAiEditPrompt(event.target.value);
+                  setAiEditError("");
+                }}
+                rows={4}
+                placeholder="Add a golden retriever next to the bride and match the lighting naturally."
+                className="w-full resize-none rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white focus:ring-2 focus:ring-zinc-200"
+              />
+            </label>
+
+            {aiEditError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {aiEditError}
+              </div>
+            )}
+
+            {aiEditResult && (
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-950">
+                  <Sparkles className="h-4 w-4" />
+                  {aiEditResult.editedUrl ? "Edit complete" : "Edit submitted"}
+                </div>
+                {aiEditResult.editedUrl ? (
+                  <img
+                    src={aiEditResult.editedUrl}
+                    alt="AI edited result"
+                    className="mt-3 w-full rounded-md"
+                  />
+                ) : (
+                  <p className="text-sm text-zinc-600">
+                    {aiEditResult.runpodJobId
+                      ? `RunPod job ${aiEditResult.runpodJobId} is processing.`
+                      : "The edit job is processing."}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-zinc-200 p-5">
+            <button
+              type="button"
+              onClick={submitAiEdit}
+              disabled={isSubmittingAiEdit}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSubmittingAiEdit ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4" />
+              )}
+              Edit Photo with AI
+            </button>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

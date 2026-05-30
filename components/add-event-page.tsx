@@ -29,6 +29,15 @@ const fetcher = async (url: string) => {
 
 type UploadStatus = "ready" | "uploading" | "uploaded" | "failed";
 type UploadTarget = "new" | "existing";
+type AiAction =
+  | "run_event"
+  | "process_new"
+  | "sample"
+  | "retry_captions"
+  | "rebuild_search"
+  | "retry_faces"
+  | "check_status"
+  | "clean_temp";
 
 interface QueuedFile {
   localId: string;
@@ -85,6 +94,8 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const [runAi, setRunAi] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isSavingCover, setIsSavingCover] = useState(false);
+  const [runningAiAction, setRunningAiAction] = useState<AiAction | null>(null);
+  const [aiJobMessage, setAiJobMessage] = useState("");
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [deletingPhotoIds, setDeletingPhotoIds] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
@@ -214,6 +225,62 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       current.map((item) => (item.localId === localId ? { ...item, ...patch } : item)),
     );
   };
+
+  const submitAiAction = async (
+    action: AiAction,
+    eventSlugs: string[],
+    options: { maxFiles?: number } = {},
+  ) => {
+    if (!eventSlugs.length || runningAiAction) return;
+
+    setRunningAiAction(action);
+    setAiJobMessage("");
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/ai`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            eventSlugs,
+            maxFiles: options.maxFiles,
+          }),
+        },
+      );
+      const payload = (await response.json()) as {
+        error?: string;
+        runpod?: { id?: string; status?: string };
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not submit AI job");
+      }
+
+      const jobLabel = payload.runpod?.id
+        ? `Job ${payload.runpod.id} submitted.`
+        : "AI job submitted.";
+      setAiJobMessage(jobLabel);
+      toast({
+        title: "AI job submitted",
+        description: jobLabel,
+      });
+      await Promise.all([mutateAlbum(), mutateSelectedEventPhotos()]);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "AI job submission failed",
+      );
+    } finally {
+      setRunningAiAction(null);
+    }
+  };
+
+  const selectedAiEventSlugs =
+    uploadTarget === "existing" && selectedExistingEventSlug
+      ? [selectedExistingEventSlug]
+      : album?.events.map((event) => event.slug) ?? [];
 
   const uploadCover = async (eventSlug: string) => {
     if (!coverFile) return;
@@ -469,6 +536,14 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       }
 
       await uploadCover(prepared.event.slug);
+
+      if (runAi) {
+        try {
+          await submitAiAction("process_new", [prepared.event.slug]);
+        } catch {
+          // submitAiAction already surfaces the error; upload success should remain intact.
+        }
+      }
 
       toast({
         title: "Photos uploaded successfully",
@@ -941,6 +1016,48 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                 />
               </button>
             </div>
+
+            <div className="mt-4 grid gap-2">
+              {[
+                ["run_event", "Run AI for Event"],
+                ["process_new", "Process New Photos Only"],
+                ["sample", "Run Sample Test on 20 Photos"],
+                ["retry_captions", "Retry AI Captions"],
+                ["retry_faces", "Retry Face Detection"],
+                ["rebuild_search", "Rebuild Search Index"],
+                ["check_status", "Check AI Status"],
+                ["clean_temp", "Clean AI Temp Files"],
+              ].map(([action, label]) => (
+                <button
+                  key={action}
+                  type="button"
+                  onClick={() =>
+                    submitAiAction(action as AiAction, selectedAiEventSlugs, {
+                      maxFiles: action === "sample" ? 20 : undefined,
+                    })
+                  }
+                  disabled={
+                    !selectedAiEventSlugs.length ||
+                    Boolean(runningAiAction) ||
+                    isUploading
+                  }
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {runningAiAction === action ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {aiJobMessage && (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {aiJobMessage}
+              </div>
+            )}
           </div>
 
           {errorMessage && (
