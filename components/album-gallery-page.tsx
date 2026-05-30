@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
   Check,
+  ChevronDown,
   Loader2,
   Pencil,
   Images,
@@ -55,6 +56,18 @@ function eventQuery(selectedEventSlug: string | null) {
   return selectedEventSlug
     ? `?event=${encodeURIComponent(selectedEventSlug)}`
     : "";
+}
+
+function formatAlbumDate(value?: string | null) {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+
+  return new Intl.DateTimeFormat("en", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
 }
 
 function PasswordGate({
@@ -721,13 +734,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     () => album?.events.find((event) => event.slug === selectedEventSlug),
     [album?.events, selectedEventSlug]
   );
+  const albumDateLabel = formatAlbumDate(album?.albumDate);
 
-  const scrollToPageTop = () => {
+  const scrollToGalleryTop = () => {
     requestAnimationFrame(() => {
+      const shell = document.getElementById("album-gallery-shell");
       window.scrollTo({
-        top: 0,
+        top: shell ? Math.max(shell.offsetTop - 8, 0) : 0,
         left: 0,
-        behavior: "auto",
+        behavior: "smooth",
       });
     });
   };
@@ -767,7 +782,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       scroll: false,
     });
 
-    scrollToPageTop();
+    scrollToGalleryTop();
   };
 
   const goToNextEvent = () => {
@@ -793,7 +808,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setApsaraTextSearch(null);
     setSelectedPerson(person);
     setActiveTab("people");
-    scrollToPageTop();
+    scrollToGalleryTop();
   };
 
   const filterByPerson = (personId: string) => {
@@ -802,7 +817,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setPeopleMatchMode("all");
     setSelectedPerson(null);
     setActiveTab("photos");
-    scrollToPageTop();
+    scrollToGalleryTop();
   };
 
   const filterByPeopleSelection = (people: Person[], mode: PeopleMatchMode) => {
@@ -813,7 +828,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setPeopleMatchMode(ids.length > 1 ? mode : "all");
     setSelectedPerson(null);
     setActiveTab("photos");
-    scrollToPageTop();
+    scrollToGalleryTop();
   };
 
   const toggleSelectedPersonId = (personId: string) => {
@@ -825,7 +840,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     );
     setSelectedPerson(null);
     setActiveTab("photos");
-    scrollToPageTop();
+    scrollToGalleryTop();
   };
 
   const runApsaraTextSearch = async (
@@ -847,7 +862,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       isLoading: true,
       error: null,
     });
-    scrollToPageTop();
+    scrollToGalleryTop();
 
     try {
       const response = await fetch(
@@ -1007,16 +1022,85 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
-      <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-[#fbfaf8]/90 backdrop-blur-xl">
+      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-white px-5 py-16 text-center">
+        {album.coverPhotoUrl && (
+          <Image
+            src={album.coverPhotoUrl}
+            alt={album.name}
+            fill
+            sizes="100vw"
+            className="object-cover opacity-[0.18]"
+            priority
+            unoptimized
+          />
+        )}
+        <div className="absolute inset-0 bg-white/72 backdrop-blur-[2px]" />
+
+        <div className="relative z-10 flex w-full max-w-4xl flex-col items-center">
+          <div className="relative aspect-[4/5] w-[min(72vw,420px)] overflow-hidden rounded-[30px] bg-zinc-100 shadow-[0_34px_90px_rgba(24,24,27,0.18)] ring-1 ring-zinc-200">
+            {album.coverPhotoUrl ? (
+              <Image
+                src={album.coverPhotoUrl}
+                alt={album.name}
+                fill
+                sizes="(min-width: 768px) 420px, 72vw"
+                className="object-cover"
+                priority
+                unoptimized
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-zinc-300">
+                <Images className="h-20 w-20" strokeWidth={1.3} />
+              </div>
+            )}
+          </div>
+
+          <h1 className="mt-8 text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">
+            {album.customer?.name || album.name}
+          </h1>
+
+          {albumDateLabel && (
+            <p className="mt-3 text-xl font-medium text-zinc-500">
+              {albumDateLabel}
+            </p>
+          )}
+
+          {album.description && (
+            <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-500">
+              {album.description}
+            </p>
+          )}
+
+          {album.isExpired && (
+            <div className="mt-5 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-rose-700">
+              Album expired
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={scrollToGalleryTop}
+            className="mt-10 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+            aria-label="Scroll to gallery"
+          >
+            <ChevronDown className="h-6 w-6" />
+          </button>
+        </div>
+      </section>
+
+      <header
+        id="album-gallery-shell"
+        className="sticky top-0 z-30 border-b border-zinc-200/80 bg-[#fbfaf8]/90 backdrop-blur-xl"
+      >
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500">
-                  Album
+                  {album.peopleCount} people
                 </p>
                 <h1 className="truncate text-xl font-semibold sm:text-2xl">
-                  {album.name}
+                  {album.customer?.name || album.name}
                 </h1>
               </div>
 
@@ -1062,7 +1146,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                       setSelectedPerson(null);
                       setApsaraTextSearch(null);
                       setActiveTab("photos");
-                      scrollToPageTop();
+                      scrollToGalleryTop();
                     }}
                     className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                       activeTab === "photos"
@@ -1081,7 +1165,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                       setSelectedPerson(null);
                       setApsaraTextSearch(null);
                       setActiveTab("people");
-                      scrollToPageTop();
+                      scrollToGalleryTop();
                     }}
                     className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                       activeTab === "people"
@@ -1163,7 +1247,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   setSelectedPerson(null);
                   setApsaraTextSearch(null);
                   setActiveTab("photos");
-                  scrollToPageTop();
+                  scrollToGalleryTop();
                 }}
                 className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
                   activeTab === "photos"
@@ -1182,7 +1266,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   setSelectedPerson(null);
                   setApsaraTextSearch(null);
                   setActiveTab("people");
-                  scrollToPageTop();
+                  scrollToGalleryTop();
                 }}
                 className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
                   activeTab === "people"
@@ -1208,7 +1292,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             onBack={() => {
               setSelectedPerson(null);
               setActiveTab("people");
-              scrollToPageTop();
+              scrollToGalleryTop();
             }}
           />
         ) : activeTab === "people" ? (

@@ -25,6 +25,7 @@ export async function canAccessAlbumFromCustomerSlug(
     WHERE a.slug = $1
       AND c.slug = $2
       AND COALESCE(a.is_deleted, false) = false
+      AND (a.expires_at IS NULL OR a.expires_at >= CURRENT_DATE)
     LIMIT 1
     `,
     [albumSlug, customerSlug]

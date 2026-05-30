@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { signedUrl } from "@/lib/s3";
+import { getCustomerSlugFromRequest } from "@/lib/customer-host";
 import type { AlbumSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,10 @@ interface CustomerAlbumRow {
   id: string;
   slug: string;
   name: string;
+  description: string | null;
+  album_date: Date | string | null;
+  expires_at: Date | string | null;
+  is_expired: boolean | null;
   password_required: boolean | null;
   cover_photo_s3_key: string | null;
   event_count: number | string | null;
@@ -34,9 +39,17 @@ function countValue(value: number | string | null) {
   return 0;
 }
 
-export async function GET(_request: Request, { params }: Props) {
+function dateValue(value: Date | string | null) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return value;
+}
+
+export async function GET(request: Request, { params }: Props) {
   try {
     const { customerSlug } = await params;
+    const hostCustomerSlug = getCustomerSlugFromRequest(request);
+    const hideExpired = Boolean(hostCustomerSlug);
 
     const rows = await query<CustomerAlbumRow>(
       `
@@ -58,6 +71,10 @@ export async function GET(_request: Request, { params }: Props) {
           a.id,
           a.slug,
           a.name,
+          a.description,
+          a.album_date,
+          a.expires_at,
+          (a.expires_at IS NOT NULL AND a.expires_at < CURRENT_DATE) AS is_expired,
           a.password_required,
           a.cover_photo_s3_key,
           a.created_at,
@@ -65,6 +82,7 @@ export async function GET(_request: Request, { params }: Props) {
         FROM albums a
         JOIN customer c ON c.id = a.customer_id
         WHERE COALESCE(a.is_deleted, false) = false
+          AND ($2::boolean = false OR a.expires_at IS NULL OR a.expires_at >= CURRENT_DATE)
       ),
 
       event_counts AS (
@@ -101,6 +119,10 @@ export async function GET(_request: Request, { params }: Props) {
         a.id,
         a.slug,
         a.name,
+        a.description,
+        a.album_date,
+        a.expires_at,
+        a.is_expired,
         a.password_required,
         a.cover_photo_s3_key,
         COALESCE(ec.event_count, 0)::int AS event_count,
@@ -121,7 +143,7 @@ export async function GET(_request: Request, { params }: Props) {
       LEFT JOIN people_counts pec ON pec.album_id = a.id
       ORDER BY a.created_at DESC NULLS LAST, a.name ASC
       `,
-      [customerSlug]
+      [customerSlug, hideExpired]
     );
 
     if (!rows.length) {
@@ -170,6 +192,10 @@ export async function GET(_request: Request, { params }: Props) {
         id: row.id,
         slug: row.slug,
         name: row.name,
+        description: row.description,
+        albumDate: dateValue(row.album_date),
+        expiresAt: dateValue(row.expires_at),
+        isExpired: Boolean(row.is_expired),
         passwordRequired: Boolean(row.password_required),
         coverPhotoUrl: await signedUrl(row.cover_photo_s3_key),
         eventCount: countValue(row.event_count),

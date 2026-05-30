@@ -15,6 +15,10 @@ interface AlbumRow {
   id: string;
   slug: string;
   name: string;
+  description: string | null;
+  album_date: Date | string | null;
+  expires_at: Date | string | null;
+  is_expired: boolean | null;
   password_required: boolean | null;
   watermark_enabled: boolean | null;
   cover_photo_s3_key: string | null;
@@ -43,6 +47,12 @@ function numberValue(value: number | string | null) {
   return 0;
 }
 
+function dateValue(value: Date | string | null) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return value;
+}
+
 export async function GET(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
@@ -56,6 +66,10 @@ export async function GET(request: Request, { params }: Props) {
           a.id,
           a.slug,
           a.name,
+          a.description,
+          a.album_date,
+          a.expires_at,
+          (a.expires_at IS NOT NULL AND a.expires_at < CURRENT_DATE) AS is_expired,
           a.password_required,
           a.watermark_enabled,
           a.cover_photo_s3_key,
@@ -90,6 +104,10 @@ export async function GET(request: Request, { params }: Props) {
         a.id,
         a.slug,
         a.name,
+        a.description,
+        a.album_date,
+        a.expires_at,
+        a.is_expired,
         a.password_required,
         a.watermark_enabled,
         a.cover_photo_s3_key,
@@ -185,6 +203,10 @@ export async function GET(request: Request, { params }: Props) {
       id: album.id,
       slug: album.slug,
       name: album.name,
+      description: album.description,
+      albumDate: dateValue(album.album_date),
+      expiresAt: dateValue(album.expires_at),
+      isExpired: Boolean(album.is_expired),
       passwordRequired: Boolean(album.password_required),
       watermarkEnabled: Boolean(album.watermark_enabled),
 

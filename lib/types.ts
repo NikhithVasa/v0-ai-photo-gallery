@@ -10,6 +10,10 @@ export interface AlbumSummary {
   id: string;
   slug: string;
   name: string;
+  description?: string | null;
+  albumDate?: string | null;
+  expiresAt?: string | null;
+  isExpired?: boolean;
   passwordRequired: boolean;
   coverPhotoUrl: string | null;
   eventCount: number;
@@ -23,6 +27,10 @@ export interface AlbumDetail {
   id: string;
   slug: string;
   name: string;
+  description?: string | null;
+  albumDate?: string | null;
+  expiresAt?: string | null;
+  isExpired?: boolean;
   passwordRequired: boolean;
   watermarkEnabled: boolean;
   events: AlbumEvent[];
@@ -31,34 +39,12 @@ export interface AlbumDetail {
   customer?: AlbumCustomer | null;
   coverPhotoUrl?: string | null;
 }
-export interface AlbumSummary {
-  id: string;
-  slug: string;
-  name: string;
-  passwordRequired: boolean;
-  coverPhotoUrl: string | null;
-  eventCount: number;
-  photoCount: number;
-  peopleCount: number;
-  createdAt: string;
-}
 
 export interface AlbumEvent {
   id: string;
   slug: string;
   name: string;
   sortOrder: number;
-  photoCount: number;
-  peopleCount: number;
-}
-
-export interface AlbumDetail {
-  id: string;
-  slug: string;
-  name: string;
-  passwordRequired: boolean;
-  watermarkEnabled: boolean;
-  events: AlbumEvent[];
   photoCount: number;
   peopleCount: number;
 }

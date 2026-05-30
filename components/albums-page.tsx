@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import useSWR from "swr";
-import { CalendarDays, Images, Lock, Upload, Users } from "lucide-react";
+import { CalendarDays, Images, Lock, Plus, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AlbumSummary } from "@/lib/types";
 
@@ -63,11 +63,11 @@ const visibleAlbums =
           </div>
 
           <Link
-            href="/upload"
+            href="/albums/new"
             className="flex h-10 shrink-0 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
           >
-            <Upload className="h-4 w-4" />
-            Upload
+            <Plus className="h-4 w-4" />
+            Add Album
           </Link>
         </header>
 
@@ -124,6 +124,12 @@ const visibleAlbums =
                         <Lock className="h-4 w-4" />
                       </div>
                     )}
+
+                    {album.isExpired && (
+                      <div className="absolute left-3 top-3 rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-white shadow-sm">
+                        Expired
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-3 p-4">
@@ -131,7 +137,9 @@ const visibleAlbums =
                       <h2 className="truncate text-lg font-semibold">
                         {album.name}
                       </h2>
-                      <p className="text-sm text-zinc-500">{album.slug}</p>
+                      <p className="text-sm text-zinc-500">
+                        {album.albumDate || album.slug}
+                      </p>
                     </div>
 
                     <div className="flex flex-wrap gap-3 text-sm text-zinc-600">
