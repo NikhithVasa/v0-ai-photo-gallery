@@ -751,14 +751,48 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverTitle = album?.name || "";
   const coverCreditName = album?.customer?.name || album?.name || "";
 
-  const scrollToGalleryTop = () => {
+  const scrollToGalleryTop = (mode: "normal" | "soothing" = "normal") => {
     requestAnimationFrame(() => {
       const shell = document.getElementById("album-gallery-shell");
-      window.scrollTo({
-        top: shell ? Math.max(shell.offsetTop - 8, 0) : 0,
-        left: 0,
-        behavior: "smooth",
-      });
+      const targetTop = shell ? Math.max(shell.offsetTop - 8, 0) : 0;
+
+      if (
+        mode === "normal" ||
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        window.scrollTo({
+          top: targetTop,
+          left: 0,
+          behavior: "smooth",
+        });
+        return;
+      }
+
+      const startTop = window.scrollY;
+      const distance = targetTop - startTop;
+      const duration = 1500;
+      const startedAt = performance.now();
+      const easeInOutCubic = (value: number) =>
+        value < 0.5
+          ? 4 * value * value * value
+          : 1 - Math.pow(-2 * value + 2, 3) / 2;
+      const easeOutCubic = (value: number) => 1 - Math.pow(1 - value, 3);
+
+      const animate = (now: number) => {
+        const elapsed = Math.min((now - startedAt) / duration, 1);
+        const progress =
+          elapsed < 0.68
+            ? 0.78 * easeInOutCubic(elapsed / 0.68)
+            : 0.78 + 0.22 * easeOutCubic((elapsed - 0.68) / 0.32);
+
+        window.scrollTo(0, startTop + distance * progress);
+
+        if (elapsed < 1) {
+          window.requestAnimationFrame(animate);
+        }
+      };
+
+      window.requestAnimationFrame(animate);
     });
   };
 
@@ -1115,7 +1149,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
           <button
             type="button"
-            onClick={scrollToGalleryTop}
+            onClick={() => scrollToGalleryTop("soothing")}
             className="absolute bottom-5 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7"
             aria-label="Scroll to gallery"
           >
