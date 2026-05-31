@@ -40,6 +40,9 @@ type AiAction =
   | "check_status"
   | "clean_temp";
 
+const PHOTO_UPLOAD_MAX_RETRIES = 3;
+const PHOTO_UPLOAD_RETRY_DELAY_MS = 600;
+
 interface QueuedFile {
   localId: string;
   file: File;
@@ -78,6 +81,10 @@ function statusText(status: UploadStatus) {
     uploaded: "Uploaded",
     failed: "Failed",
   }[status];
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 export function AddEventPage({ albumSlug }: AddEventPageProps) {
@@ -586,34 +593,65 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       for (const [index, upload] of prepared.uploads.entries()) {
         const item = filesToUpload[index];
         let uploadSucceeded = false;
+        let lastUploadError = "Upload failed";
 
-        try {
-          const uploadResponse = await fetch(upload.uploadUrl, {
-            method: "PUT",
-            headers: { "Content-Type": upload.contentType },
-            body: item.file,
+        for (
+          let attempt = 0;
+          attempt <= PHOTO_UPLOAD_MAX_RETRIES && !uploadSucceeded;
+          attempt += 1
+        ) {
+          updateFile(item.localId, {
+            status: "uploading",
+            error:
+              attempt > 0
+                ? `Retrying upload (${attempt}/${PHOTO_UPLOAD_MAX_RETRIES})`
+                : undefined,
           });
-          uploadSucceeded = uploadResponse.ok;
-        } catch {
-          uploadSucceeded = false;
-        }
 
-        if (!uploadSucceeded) {
-          const fallbackResponse = await fetch(
-            `/api/uploads/${encodeURIComponent(upload.id)}/file`,
-            {
+          try {
+            const uploadResponse = await fetch(upload.uploadUrl, {
               method: "PUT",
               headers: { "Content-Type": upload.contentType },
               body: item.file,
-            },
-          );
-          uploadSucceeded = fallbackResponse.ok;
+            });
+            uploadSucceeded = uploadResponse.ok;
+            if (!uploadResponse.ok) {
+              lastUploadError = `S3 upload failed (${uploadResponse.status})`;
+            }
+          } catch {
+            lastUploadError = "S3 upload failed";
+            uploadSucceeded = false;
+          }
+
+          if (!uploadSucceeded) {
+            try {
+              const fallbackResponse = await fetch(
+                `/api/uploads/${encodeURIComponent(upload.id)}/file`,
+                {
+                  method: "PUT",
+                  headers: { "Content-Type": upload.contentType },
+                  body: item.file,
+                },
+              );
+              uploadSucceeded = fallbackResponse.ok;
+              if (!fallbackResponse.ok) {
+                lastUploadError = `Fallback upload failed (${fallbackResponse.status})`;
+              }
+            } catch {
+              lastUploadError = "Fallback upload failed";
+              uploadSucceeded = false;
+            }
+          }
+
+          if (!uploadSucceeded && attempt < PHOTO_UPLOAD_MAX_RETRIES) {
+            await wait(PHOTO_UPLOAD_RETRY_DELAY_MS);
+          }
         }
 
         if (!uploadSucceeded) {
           updateFile(item.localId, {
             status: "failed",
-            error: "S3 upload failed",
+            error: `${lastUploadError}. Retried ${PHOTO_UPLOAD_MAX_RETRIES} times.`,
           });
           continue;
         }
@@ -741,7 +779,8 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-3 text-left text-white">
                   <p className="truncate text-xs font-medium">{item.file.name}</p>
                   <p className="text-[11px] text-white/75">
-                    {statusText(item.status)} · {formatBytes(item.file.size)}
+                    {item.error || statusText(item.status)} ·{" "}
+                    {formatBytes(item.file.size)}
                   </p>
                 </div>
                 {item.status === "uploaded" && (
