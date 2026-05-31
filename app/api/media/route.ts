@@ -1,6 +1,6 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
-import { s3 } from "@/lib/s3";
+import { listS3Keys, s3 } from "@/lib/s3";
 
 function isAllowedMediaKey(value: string) {
   if (!value || value.includes("..") || value.startsWith("/") || value.endsWith("/")) {
@@ -32,6 +32,46 @@ function toWebStream(body: unknown): ReadableStream<Uint8Array> | null {
   return null;
 }
 
+async function getMediaObject(key: string) {
+  return s3.send(
+    new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+    })
+  );
+}
+
+async function fallbackOriginalKey(key: string) {
+  const match = key.match(
+    /^(.*\/events\/[^/]+)\/(?:thumbnails|previews-clean|previews-watermarked|ai-input|annotated)\/([0-9a-f-]+)\.(?:webp|jpe?g|png)$/i
+  );
+
+  if (!match) return null;
+
+  const [, eventPrefix, photoUuid] = match;
+  const originalPrefix = `${eventPrefix}/originals/${photoUuid}_`;
+  const keys = await listS3Keys(originalPrefix);
+  return keys[0] ?? null;
+}
+
+function mediaResponse(object: Awaited<ReturnType<typeof getMediaObject>>) {
+  const stream = toWebStream(object.Body);
+
+  if (!stream) {
+    return NextResponse.json(
+      { error: "Media body unavailable" },
+      { status: 404 }
+    );
+  }
+
+  return new Response(stream, {
+    headers: {
+      "Cache-Control": "private, max-age=300",
+      "Content-Type": object.ContentType ?? "application/octet-stream",
+    },
+  });
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const key = searchParams.get("key") ?? "";
@@ -41,28 +81,18 @@ export async function GET(request: Request) {
   }
 
   try {
-    const object = await s3.send(
-      new GetObjectCommand({
-        Bucket: process.env.S3_BUCKET!,
-        Key: key,
-      })
-    );
-    const stream = toWebStream(object.Body);
+    return mediaResponse(await getMediaObject(key));
+  } catch (error) {
+    const fallbackKey = await fallbackOriginalKey(key).catch(() => null);
 
-    if (!stream) {
-      return NextResponse.json(
-        { error: "Media body unavailable" },
-        { status: 404 }
-      );
+    if (fallbackKey) {
+      try {
+        return mediaResponse(await getMediaObject(fallbackKey));
+      } catch (fallbackError) {
+        console.error("Error proxying fallback media:", fallbackError);
+      }
     }
 
-    return new Response(stream, {
-      headers: {
-        "Cache-Control": "private, max-age=300",
-        "Content-Type": object.ContentType ?? "application/octet-stream",
-      },
-    });
-  } catch (error) {
     console.error("Error proxying media:", error);
     return NextResponse.json({ error: "Media not found" }, { status: 404 });
   }
