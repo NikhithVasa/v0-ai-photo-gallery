@@ -748,6 +748,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     [album?.events, selectedEventSlug]
   );
   const albumDateLabel = formatAlbumDate(album?.albumDate);
+  const coverTitle = album?.customer?.name || album?.name || "";
+  const photographerName = "24 Frames Photography";
 
   const scrollToGalleryTop = () => {
     requestAnimationFrame(() => {
@@ -1052,34 +1054,52 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         )}
         <div className="absolute inset-0 bg-white/72 backdrop-blur-[2px]" />
 
-        <div className="relative z-10 flex w-full max-w-4xl flex-col items-center">
-          <div className="relative aspect-[4/5] w-[min(72vw,420px)] overflow-hidden rounded-[30px] bg-zinc-100 shadow-[0_34px_90px_rgba(24,24,27,0.18)] ring-1 ring-zinc-200">
-            {album.coverPhotoUrl ? (
-              <Image
-                src={album.coverPhotoUrl}
-                alt={album.name}
-                fill
-                sizes="(min-width: 768px) 420px, 72vw"
-                className="object-cover"
-                priority
-                unoptimized
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-zinc-300">
-                <Images className="h-20 w-20" strokeWidth={1.3} />
+        <div className="relative z-10 flex w-full max-w-6xl flex-col items-center">
+          <div className="relative grid w-full items-center gap-8 sm:grid-cols-[90px_minmax(260px,420px)_minmax(220px,1fr)] sm:gap-10 lg:gap-14">
+            <div className="order-2 flex justify-center sm:order-1 sm:h-[400px] sm:items-center">
+              <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[400px] sm:-rotate-90">
+                <span>Photos by</span>
+                <span className="ml-1 text-zinc-800">{photographerName}</span>
               </div>
-            )}
+            </div>
+
+            <div className="order-1 flex justify-center sm:order-2">
+              <div className="relative aspect-[4/5] w-[min(72vw,420px)] overflow-hidden rounded-[30px] bg-zinc-100 shadow-[0_34px_90px_rgba(24,24,27,0.18)] ring-1 ring-zinc-200">
+                {album.coverPhotoUrl ? (
+                  <Image
+                    src={album.coverPhotoUrl}
+                    alt={album.name}
+                    fill
+                    sizes="(min-width: 768px) 420px, 72vw"
+                    className="object-cover"
+                    priority
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-zinc-300">
+                    <Images className="h-20 w-20" strokeWidth={1.3} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="order-3 flex justify-center text-center sm:justify-start sm:text-left">
+              <div className="flex items-center gap-4 text-zinc-950">
+                <h1 className="max-w-[18rem] text-3xl font-semibold uppercase tracking-[0.08em] sm:text-4xl lg:text-5xl">
+                  {coverTitle}
+                </h1>
+
+                {albumDateLabel && (
+                  <>
+                    <span className="h-px w-10 shrink-0 bg-zinc-400" />
+                    <p className="text-base font-medium text-zinc-500 sm:text-lg">
+                      {albumDateLabel}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-
-          <h1 className="mt-8 text-4xl font-semibold tracking-normal text-zinc-950 sm:text-6xl">
-            {album.customer?.name || album.name}
-          </h1>
-
-          {albumDateLabel && (
-            <p className="mt-3 text-xl font-medium text-zinc-500">
-              {albumDateLabel}
-            </p>
-          )}
 
           {album.description && (
             <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-500">
