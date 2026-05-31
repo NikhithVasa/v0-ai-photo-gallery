@@ -748,8 +748,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     [album?.events, selectedEventSlug]
   );
   const albumDateLabel = formatAlbumDate(album?.albumDate);
-  const coverTitle = album?.customer?.name || album?.name || "";
-  const photographerName = "24 Frames Photography";
+  const coverTitle = album?.name || "";
+  const coverCreditName = album?.customer?.name || album?.name || "";
 
   const scrollToGalleryTop = () => {
     requestAnimationFrame(() => {
@@ -1055,11 +1055,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         <div className="absolute inset-0 bg-white/72 backdrop-blur-[2px]" />
 
         <div className="relative z-10 flex w-full max-w-6xl flex-col items-center pb-16">
-          <div className="relative grid w-full items-center gap-5 sm:grid-cols-[80px_minmax(250px,380px)_minmax(220px,1fr)] sm:gap-8 lg:gap-12">
+          <div className="relative grid w-full items-center gap-5 sm:grid-cols-[1fr_minmax(250px,380px)_1fr] sm:gap-8 lg:gap-12">
             <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
               <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[340px] sm:-rotate-90">
                 <span>Photos by</span>
-                <span className="ml-1 text-zinc-800">{photographerName}</span>
+                <span className="ml-1 text-zinc-800">{coverCreditName}</span>
               </div>
             </div>
 
