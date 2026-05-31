@@ -12,6 +12,7 @@ import {
   ImageUp,
   Info,
   Loader2,
+  ShieldCheck,
   Sparkles,
   Trash2,
   Upload,
@@ -985,37 +986,62 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
           </div>
 
           <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#4457ff]" />
-                  <p className="text-sm font-semibold text-zinc-950">Run images to AI</p>
-                  <span className="group relative inline-flex">
-                    <Info className="h-4 w-4 text-zinc-400" />
-                    <span className="pointer-events-none absolute right-0 top-6 z-30 w-72 rounded-2xl border border-zinc-200 bg-white p-3 text-left text-xs leading-5 text-zinc-600 opacity-0 shadow-xl transition group-hover:opacity-100">
-                      AI runs on local servers. It will not be used to train models,
-                      the data will never leak, and we will never sell it to a 3rd party.
-                    </span>
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Creates people, search, and photo intelligence for this event.
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-[#4457ff]" />
+                <p className="text-sm font-semibold text-zinc-950">
+                  AI processing
                 </p>
+                <span className="group relative inline-flex">
+                  <Info className="h-4 w-4 text-zinc-400" />
+                  <span className="pointer-events-none absolute right-0 top-6 z-30 w-72 rounded-2xl border border-zinc-200 bg-white p-3 text-left text-xs leading-5 text-zinc-600 opacity-0 shadow-xl transition group-hover:opacity-100">
+                    AI runs on local servers. It is not used to train models,
+                    data is not shared, and it is never sold to a third party.
+                  </span>
+                </span>
               </div>
 
               <button
                 type="button"
                 onClick={() => setRunAi((current) => !current)}
-                aria-pressed={runAi}
-                className={`relative h-7 w-12 rounded-full transition ${
-                  runAi ? "bg-[#4457ff]" : "bg-zinc-200"
+                role="switch"
+                aria-checked={runAi}
+                className={`mt-3 flex w-full items-center justify-between gap-4 rounded-2xl border p-3 text-left transition ${
+                  runAi
+                    ? "border-[#4457ff]/30 bg-[#4457ff]/5"
+                    : "border-zinc-200 bg-zinc-50"
                 }`}
               >
+                <span className="flex min-w-0 items-start gap-3">
+                  <span
+                    className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                      runAi
+                        ? "bg-[#4457ff] text-white"
+                        : "bg-zinc-200 text-zinc-500"
+                    }`}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-zinc-950">
+                      Process new uploads with AI
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-5 text-zinc-500">
+                      Creates people, search, and photo intelligence after photos
+                      finish uploading.
+                    </span>
+                  </span>
+                </span>
+
                 <span
-                  className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
-                    runAi ? "left-6" : "left-1"
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                    runAi
+                      ? "bg-[#4457ff] text-white"
+                      : "bg-white text-zinc-500 ring-1 ring-zinc-200"
                   }`}
-                />
+                >
+                  {runAi ? "Enabled" : "Disabled"}
+                </span>
               </button>
             </div>
 
