@@ -590,6 +590,208 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
     );
   }
 
+  const renderUploadArea = (variant: "large" | "side") => {
+    const isSide = variant === "side";
+
+    return (
+      <div
+        className={`relative overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-[0_28px_80px_rgba(24,24,27,0.08)] ${
+          isSide ? "min-h-[360px]" : "min-h-[520px]"
+        }`}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          addMedia(event.dataTransfer.files);
+        }}
+      >
+        <div
+          className={`pointer-events-none absolute inset-0 grid gap-7 opacity-60 ${
+            isSide ? "grid-cols-2 p-5" : "grid-cols-4 p-8"
+          }`}
+        >
+          {Array.from({ length: isSide ? 6 : 10 }).map((_, index) => (
+            <div
+              key={index}
+              className={`rounded-[18px] border border-zinc-200 bg-zinc-50 ${
+                !isSide && index % 3 === 0 ? "row-span-2" : ""
+              }`}
+            />
+          ))}
+        </div>
+
+        {queuedFiles.length > 0 && (
+          <div
+            className={`relative z-10 gap-3 p-4 ${
+              isSide ? "columns-2" : "columns-2 sm:columns-3 lg:columns-4"
+            }`}
+          >
+            {queuedFiles.map((item) => (
+              <div
+                key={item.localId}
+                className="group relative mb-3 break-inside-avoid overflow-hidden rounded-[18px] bg-zinc-100 shadow-sm ring-1 ring-zinc-200"
+              >
+                <Image
+                  src={item.previewUrl}
+                  alt={item.file.name}
+                  width={320}
+                  height={420}
+                  className="h-auto w-full object-cover"
+                  unoptimized
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-3 text-left text-white">
+                  <p className="truncate text-xs font-medium">{item.file.name}</p>
+                  <p className="text-[11px] text-white/75">
+                    {statusText(item.status)} · {formatBytes(item.file.size)}
+                  </p>
+                </div>
+                {item.status === "uploaded" && (
+                  <CheckCircle2 className="absolute right-3 top-3 h-5 w-5 rounded-full bg-white text-emerald-600" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeMedia(item.localId)}
+                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-zinc-600 opacity-0 shadow-sm transition hover:text-zinc-950 group-hover:opacity-100"
+                  aria-label={`Remove ${item.file.name}`}
+                  disabled={isUploading}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {queuedFiles.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => mediaInputRef.current?.click()}
+            className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center"
+          >
+            <span
+              className={`mb-5 flex items-center justify-center rounded-full bg-white/90 text-zinc-400 shadow-[0_18px_60px_rgba(24,24,27,0.18)] ring-1 ring-zinc-200 backdrop-blur-xl ${
+                isSide ? "h-[72px] w-[72px]" : "h-24 w-24"
+              }`}
+            >
+              <FileImage
+                className={isSide ? "h-9 w-9" : "h-12 w-12"}
+                strokeWidth={1.4}
+              />
+            </span>
+            <span
+              className={`font-bold tracking-normal text-zinc-900 ${
+                isSide ? "text-2xl" : "text-4xl"
+              }`}
+            >
+              Upload Media
+            </span>
+            <span
+              className={`mt-3 text-zinc-400 ${isSide ? "text-lg" : "text-2xl"}`}
+            >
+              Drop or{" "}
+              <span className="font-semibold text-[#4457ff]">Select Source</span>
+            </span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => mediaInputRef.current?.click()}
+            className="absolute right-4 top-4 z-20 flex h-10 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-lg transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+          >
+            <Upload className="h-4 w-4" />
+            Add Photos
+          </button>
+        )}
+
+        <input
+          ref={mediaInputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => addMedia(event.target.files)}
+        />
+      </div>
+    );
+  };
+
+  const renderSelectedEventPhotos = () => (
+    <div className="min-h-[520px] rounded-[28px] border border-zinc-200 bg-white p-5 shadow-[0_28px_80px_rgba(24,24,27,0.08)]">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-zinc-950">
+            {selectedExistingEvent?.name || "Event photos"}
+          </p>
+          <p className="mt-1 text-sm text-zinc-500">
+            All photos currently in this event.
+          </p>
+        </div>
+        {selectedEventPhotosLoading && (
+          <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+        )}
+      </div>
+
+      {!selectedEventPhotosLoading && selectedEventPhotosError && (
+        <p className="py-16 text-center text-sm text-rose-600">
+          {selectedEventPhotosError instanceof Error
+            ? selectedEventPhotosError.message
+            : "Could not load event photos."}
+        </p>
+      )}
+
+      {!selectedEventPhotosLoading &&
+        !selectedEventPhotosError &&
+        selectedEventPhotos.length === 0 && (
+          <p className="py-16 text-center text-sm text-zinc-500">
+            No photos in this event yet.
+          </p>
+        )}
+
+      {selectedEventPhotos.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {selectedEventPhotos.map((photo) => {
+            const isDeleting = deletingPhotoIds.includes(photo.id);
+
+            return (
+              <div
+                key={photo.id}
+                className="group relative aspect-square overflow-hidden rounded-2xl bg-zinc-200"
+              >
+                {photo.thumbnailUrl || photo.previewUrl ? (
+                  <Image
+                    src={photo.thumbnailUrl || photo.previewUrl || ""}
+                    alt={photo.fileName || "Event photo"}
+                    fill
+                    sizes="(min-width: 1280px) 160px, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw"
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-zinc-400">
+                    <FileImage className="h-6 w-6" />
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => deletePhoto(photo)}
+                  disabled={isDeleting}
+                  className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-rose-600 opacity-0 shadow-sm transition hover:bg-rose-50 disabled:opacity-80 group-hover:opacity-100"
+                  aria-label={`Delete ${photo.fileName || "photo"}`}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-[#fbfaf8]/88 backdrop-blur-2xl">
@@ -717,100 +919,9 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       </section>
 
       <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
-        <div
-          className="relative min-h-[520px] overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-[0_28px_80px_rgba(24,24,27,0.08)]"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            addMedia(event.dataTransfer.files);
-          }}
-        >
-          <div className="pointer-events-none absolute inset-0 grid grid-cols-4 gap-7 p-8 opacity-60">
-            {Array.from({ length: 10 }).map((_, index) => (
-              <div
-                key={index}
-                className={`rounded-[18px] border border-zinc-200 bg-zinc-50 ${
-                  index % 3 === 0 ? "row-span-2" : ""
-                }`}
-              />
-            ))}
-          </div>
-
-          {queuedFiles.length > 0 && (
-            <div className="relative z-10 columns-2 gap-3 p-4 sm:columns-3 lg:columns-4">
-              {queuedFiles.map((item) => (
-                <div
-                  key={item.localId}
-                  className="group relative mb-3 break-inside-avoid overflow-hidden rounded-[18px] bg-zinc-100 shadow-sm ring-1 ring-zinc-200"
-                >
-                  <Image
-                    src={item.previewUrl}
-                    alt={item.file.name}
-                    width={320}
-                    height={420}
-                    className="h-auto w-full object-cover"
-                    unoptimized
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-3 text-left text-white">
-                    <p className="truncate text-xs font-medium">{item.file.name}</p>
-                    <p className="text-[11px] text-white/75">
-                      {statusText(item.status)} · {formatBytes(item.file.size)}
-                    </p>
-                  </div>
-                  {item.status === "uploaded" && (
-                    <CheckCircle2 className="absolute right-3 top-3 h-5 w-5 rounded-full bg-white text-emerald-600" />
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeMedia(item.localId)}
-                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-zinc-600 opacity-0 shadow-sm transition hover:text-zinc-950 group-hover:opacity-100"
-                    aria-label={`Remove ${item.file.name}`}
-                    disabled={isUploading}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {queuedFiles.length === 0 ? (
-            <button
-              type="button"
-              onClick={() => mediaInputRef.current?.click()}
-              className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center"
-            >
-              <span className="mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-white/90 text-zinc-400 shadow-[0_18px_60px_rgba(24,24,27,0.18)] ring-1 ring-zinc-200 backdrop-blur-xl">
-                <FileImage className="h-12 w-12" strokeWidth={1.4} />
-              </span>
-              <span className="text-4xl font-bold tracking-normal text-zinc-900">
-                Upload Media
-              </span>
-              <span className="mt-3 text-2xl text-zinc-400">
-                Drop or{" "}
-                <span className="font-semibold text-[#4457ff]">Select Source</span>
-              </span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => mediaInputRef.current?.click()}
-              className="absolute right-4 top-4 z-20 flex h-10 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-lg transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            >
-              <Upload className="h-4 w-4" />
-              Add Photos
-            </button>
-          )}
-
-          <input
-            ref={mediaInputRef}
-            type="file"
-            multiple
-            accept="image/*"
-            className="hidden"
-            onChange={(event) => addMedia(event.target.files)}
-          />
-        </div>
+        {uploadTarget === "existing"
+          ? renderSelectedEventPhotos()
+          : renderUploadArea("large")}
 
         <aside className="space-y-4">
           <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm">
@@ -908,83 +1019,13 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                       )}
                       Delete Event
                     </button>
-
-                    <div className="rounded-[20px] border border-zinc-200 bg-zinc-50 p-3">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-zinc-900">
-                          Event photos
-                        </p>
-                        {selectedEventPhotosLoading && (
-                          <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-                        )}
-                      </div>
-
-                      {!selectedEventPhotosLoading &&
-                        selectedEventPhotosError && (
-                          <p className="py-6 text-center text-sm text-rose-600">
-                            {selectedEventPhotosError instanceof Error
-                              ? selectedEventPhotosError.message
-                              : "Could not load event photos."}
-                          </p>
-                        )}
-
-                      {!selectedEventPhotosLoading &&
-                        !selectedEventPhotosError &&
-                        selectedEventPhotos.length === 0 && (
-                          <p className="py-6 text-center text-sm text-zinc-500">
-                            No photos in this event yet.
-                          </p>
-                        )}
-
-                      {selectedEventPhotos.length > 0 && (
-                        <div className="grid max-h-80 grid-cols-3 gap-2 overflow-y-auto pr-1">
-                          {selectedEventPhotos.map((photo) => {
-                            const isDeleting = deletingPhotoIds.includes(photo.id);
-
-                            return (
-                              <div
-                                key={photo.id}
-                                className="group relative aspect-square overflow-hidden rounded-xl bg-zinc-200"
-                              >
-                                {photo.thumbnailUrl || photo.previewUrl ? (
-                                  <Image
-                                    src={photo.thumbnailUrl || photo.previewUrl || ""}
-                                    alt={photo.fileName || "Event photo"}
-                                    fill
-                                    sizes="96px"
-                                    className="object-cover"
-                                    unoptimized
-                                  />
-                                ) : (
-                                  <div className="flex h-full w-full items-center justify-center text-zinc-400">
-                                    <FileImage className="h-5 w-5" />
-                                  </div>
-                                )}
-
-                                <button
-                                  type="button"
-                                  onClick={() => deletePhoto(photo)}
-                                  disabled={isDeleting}
-                                  className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-rose-600 opacity-0 shadow-sm transition hover:bg-rose-50 disabled:opacity-80 group-hover:opacity-100"
-                                  aria-label={`Delete ${photo.fileName || "photo"}`}
-                                >
-                                  {isDeleting ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  )}
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
                   </>
                 )}
               </div>
             )}
           </div>
+
+          {uploadTarget === "existing" && renderUploadArea("side")}
 
           <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm">
             <div>
