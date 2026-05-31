@@ -278,9 +278,10 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   };
 
   const selectedAiEventSlugs =
-    uploadTarget === "existing" && selectedExistingEventSlug
-      ? [selectedExistingEventSlug]
-      : album?.events.map((event) => event.slug) ?? [];
+    uploadTarget === "existing" && selectedExistingEvent
+      ? [selectedExistingEvent.slug]
+      : [];
+  const canRunSelectedEventAi = Boolean(selectedAiEventSlugs.length);
 
   const uploadCover = async (eventSlug: string) => {
     if (!coverFile) return;
@@ -1045,40 +1046,62 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
               </button>
             </div>
 
-            <div className="mt-4 grid gap-2">
-              {[
-                ["run_event", "Run AI for Event"],
-                ["process_new", "Process New Photos Only"],
-                ["sample", "Run Sample Test on 20 Photos"],
-                ["retry_captions", "Retry AI Captions"],
-                ["retry_faces", "Retry Face Detection"],
-                ["rebuild_search", "Rebuild Search Index"],
-                ["check_status", "Check AI Status"],
-                ["clean_temp", "Clean AI Temp Files"],
-              ].map(([action, label]) => (
-                <button
-                  key={action}
-                  type="button"
-                  onClick={() =>
-                    submitAiAction(action as AiAction, selectedAiEventSlugs, {
-                      maxFiles: action === "sample" ? 20 : undefined,
-                    })
-                  }
-                  disabled={
-                    !selectedAiEventSlugs.length ||
-                    Boolean(runningAiAction) ||
-                    isUploading
-                  }
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {runningAiAction === action ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
-                  {label}
-                </button>
-              ))}
+            <div className="mt-4 border-t border-zinc-100 pt-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-950">
+                    Event AI actions
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {canRunSelectedEventAi
+                      ? `Runs only for ${selectedExistingEvent?.name}.`
+                      : "Select an existing event to run these options."}
+                  </p>
+                </div>
+                {canRunSelectedEventAi && (
+                  <span className="max-w-[140px] truncate rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-600">
+                    {selectedExistingEvent?.name}
+                  </span>
+                )}
+              </div>
+
+              {canRunSelectedEventAi ? (
+                <div className="grid gap-2">
+                  {[
+                    ["run_event", "Run AI for this event"],
+                    ["process_new", "Process new photos only"],
+                    ["sample", "Run sample test on 20 photos"],
+                    ["retry_captions", "Retry AI captions"],
+                    ["retry_faces", "Retry face detection"],
+                    ["rebuild_search", "Rebuild search index"],
+                    ["check_status", "Check AI status"],
+                    ["clean_temp", "Clean AI temp files"],
+                  ].map(([action, label]) => (
+                    <button
+                      key={action}
+                      type="button"
+                      onClick={() =>
+                        submitAiAction(action as AiAction, selectedAiEventSlugs, {
+                          maxFiles: action === "sample" ? 20 : undefined,
+                        })
+                      }
+                      disabled={Boolean(runningAiAction) || isUploading}
+                      className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {runningAiAction === action ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4" />
+                      )}
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-5 text-center text-sm text-zinc-500">
+                  Switch Upload target to Existing and choose an event.
+                </div>
+              )}
             </div>
 
             {aiJobMessage && (
