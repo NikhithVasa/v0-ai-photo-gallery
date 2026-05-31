@@ -3,7 +3,6 @@ import { Geist, Geist_Mono, Inter, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from '@/components/ui/toaster'
 import { AuthProvider } from '@/lib/auth-context'
-import { Header } from '@/components/header'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -20,8 +19,8 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'AI Photo Gallery',
-  description: 'Browse, search, and explore your photos with AI-powered search and face recognition',
+  title: 'Apsara Galleries',
+  description: 'Browse, search, and explore private photo galleries with AI-powered search and face recognition',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -51,7 +50,6 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${playfair.variable} bg-background`}>
       <body className="font-sans antialiased">
         <AuthProvider>
-          <Header />
           {children}
           <Toaster />
         </AuthProvider>
