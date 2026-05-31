@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import useSWR from "swr";
-import { Lock, Plus, Trash2, Users } from "lucide-react";
+import { ImageUp, Loader2, Lock, Plus, Trash2, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlbumPasscodeManager } from "@/components/album-passcode-manager";
 import { toast } from "@/hooks/use-toast";
@@ -29,8 +29,14 @@ interface CustomerSummary {
 }
 
 export function CustomersPage() {
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const [selectedCustomerForPasscode, setSelectedCustomerForPasscode] =
     useState<{ slug: string; name: string } | null>(null);
+  const [selectedCustomerForCover, setSelectedCustomerForCover] =
+    useState<CustomerSummary | null>(null);
+  const [uploadingCoverSlug, setUploadingCoverSlug] = useState<string | null>(
+    null
+  );
   const [deletingCustomerSlug, setDeletingCustomerSlug] = useState<string | null>(
     null
   );
@@ -80,6 +86,73 @@ export function CustomersPage() {
     }
   };
 
+  const chooseCustomerCover = (customer: CustomerSummary) => {
+    setSelectedCustomerForCover(customer);
+    coverInputRef.current?.click();
+  };
+
+  const uploadCustomerCover = async (files: FileList | null) => {
+    const customer = selectedCustomerForCover;
+    const file = Array.from(files ?? []).find((item) =>
+      item.type.startsWith("image/")
+    );
+    if (!customer || !file || uploadingCoverSlug) return;
+
+    setUploadingCoverSlug(customer.slug);
+
+    try {
+      const response = await fetch(
+        `/api/customers/${encodeURIComponent(customer.slug)}/cover`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: file.name,
+            size: file.size,
+            contentType: file.type || "application/octet-stream",
+          }),
+        }
+      );
+      const payload = (await response.json()) as {
+        error?: string;
+        upload?: { uploadUrl: string; contentType: string };
+      };
+
+      if (!response.ok || !payload.upload) {
+        throw new Error(payload.error || "Could not prepare cover upload");
+      }
+
+      const uploadResponse = await fetch(payload.upload.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": payload.upload.contentType },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Cover upload failed (${uploadResponse.status})`);
+      }
+
+      await mutate();
+      toast({
+        title: "Cover updated",
+        description: `${customer.name} cover photo was updated.`,
+      });
+    } catch (coverError) {
+      toast({
+        title: "Cover update failed",
+        description:
+          coverError instanceof Error
+            ? coverError.message
+            : "Could not update cover photo",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingCoverSlug(null);
+      setSelectedCustomerForCover(null);
+      if (coverInputRef.current) coverInputRef.current.value = "";
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -122,6 +195,14 @@ export function CustomersPage() {
 
         {!!data?.customers?.length && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => uploadCustomerCover(event.target.files)}
+            />
+
             {data.customers.map((customer) => (
               <div
                 key={customer.id}
@@ -163,6 +244,20 @@ export function CustomersPage() {
                 </Link>
 
                 <div className="absolute right-3 top-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => chooseCustomerCover(customer)}
+                    disabled={uploadingCoverSlug === customer.slug}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:opacity-50"
+                    aria-label={`Edit ${customer.name} cover photo`}
+                  >
+                    {uploadingCoverSlug === customer.slug ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ImageUp className="h-4 w-4" />
+                    )}
+                  </button>
+
                   <button
                     type="button"
                     onClick={() =>
