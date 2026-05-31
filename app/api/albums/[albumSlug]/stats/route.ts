@@ -80,9 +80,33 @@ export async function GET(request: Request, { params }: Props) {
             album_event_id,
             COUNT(*)::int AS photo_count,
             COUNT(*) FILTER (
-              WHERE (face_index_status IS NOT NULL AND face_index_status <> 'completed')
-                 OR (qwen_status IS NOT NULL AND qwen_status <> 'completed')
-                 OR (search_index_status IS NOT NULL AND search_index_status <> 'completed')
+              WHERE lower(COALESCE(face_index_status, '')) IN (
+                      'pending',
+                      'queued',
+                      'submitted',
+                      'processing',
+                      'running',
+                      'started',
+                      'in_progress'
+                    )
+                 OR lower(COALESCE(qwen_status, '')) IN (
+                      'pending',
+                      'queued',
+                      'submitted',
+                      'processing',
+                      'running',
+                      'started',
+                      'in_progress'
+                    )
+                 OR lower(COALESCE(search_index_status, '')) IN (
+                      'pending',
+                      'queued',
+                      'submitted',
+                      'processing',
+                      'running',
+                      'started',
+                      'in_progress'
+                    )
             )::int AS pending_ai_count
           FROM photos
           WHERE album_id = $1::uuid
