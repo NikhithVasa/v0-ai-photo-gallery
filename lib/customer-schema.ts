@@ -23,6 +23,7 @@ export function ensurePeopleMergeSchema() {
     await query(
       `
       ALTER TABLE people
+        ADD COLUMN IF NOT EXISTS is_hidden boolean NOT NULL DEFAULT false,
         ADD COLUMN IF NOT EXISTS merged_into_person_id uuid,
         ADD COLUMN IF NOT EXISTS merged_at timestamptz
       `,
@@ -37,8 +38,37 @@ export function ensurePeopleMergeSchema() {
         target_person_id uuid NOT NULL,
         source_person_id uuid NOT NULL,
         cover_person_id uuid,
+        cover_face_s3_key text,
+        merged_photo_count integer,
+        merged_face_count integer,
         created_at timestamptz NOT NULL DEFAULT now()
       )
+      `,
+      []
+    );
+
+    await query(
+      `
+      ALTER TABLE person_merge_history
+        ADD COLUMN IF NOT EXISTS cover_face_s3_key text,
+        ADD COLUMN IF NOT EXISTS merged_photo_count integer,
+        ADD COLUMN IF NOT EXISTS merged_face_count integer
+      `,
+      []
+    );
+
+    await query(
+      `
+      CREATE INDEX IF NOT EXISTS people_merged_into_person_id_idx
+      ON people (merged_into_person_id)
+      `,
+      []
+    );
+
+    await query(
+      `
+      CREATE INDEX IF NOT EXISTS person_merge_history_album_target_idx
+      ON person_merge_history (album_id, target_person_id)
       `,
       []
     );

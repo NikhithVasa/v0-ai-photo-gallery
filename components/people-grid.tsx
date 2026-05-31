@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import useSWR from "swr";
 import { Check, GitMerge, Images, Loader2, Users, X } from "lucide-react";
@@ -67,14 +67,24 @@ export function PeopleGrid({
     () => new Set(selectedPersonIds),
     [selectedPersonIds]
   );
-const resetSelection = () => {
-  setIsSelectionMode(false);
-  setSelectedPersonIds([]);
-  setSelectionMode("all");
-  setIsMergeDialogOpen(false);
-  setMergeCoverPersonId("");
-  setMergeError("");
-};
+
+  useEffect(() => {
+    if (!isMergeDialogOpen) return;
+    if (selectedPeople.some((person) => person.id === mergeCoverPersonId)) {
+      return;
+    }
+
+    setMergeCoverPersonId(selectedPeople[0]?.id ?? "");
+  }, [isMergeDialogOpen, mergeCoverPersonId, selectedPeople]);
+
+  const resetSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedPersonIds([]);
+    setSelectionMode("all");
+    setIsMergeDialogOpen(false);
+    setMergeCoverPersonId("");
+    setMergeError("");
+  };
 
   const togglePerson = (personId: string) => {
     setSelectedPersonIds((current) =>
@@ -101,7 +111,15 @@ const resetSelection = () => {
   const mergeSelectedPeople = async () => {
     if (selectedPeople.length < 2 || isMergingPeople) return;
 
-    const [targetPerson, ...sourcePeople] = selectedPeople;
+    const targetPerson =
+      selectedPeople.find((person) => person.id === mergeCoverPersonId) ??
+      selectedPeople[0];
+    const sourcePeople = selectedPeople.filter(
+      (person) => person.id !== targetPerson.id
+    );
+
+    if (!sourcePeople.length) return;
+
     setIsMergingPeople(true);
     setMergeError("");
 
@@ -234,7 +252,7 @@ const resetSelection = () => {
               className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 sm:w-auto"
             >
               <Users className="h-4 w-4" />
-              Select multiple people
+              Select / merge faces
             </button>
           )}
         </div>
@@ -335,7 +353,7 @@ const resetSelection = () => {
                 className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
               >
                 <GitMerge className="h-4 w-4" />
-                Merge
+                Merge faces
               </button>
             </div>
           </div>
@@ -367,14 +385,22 @@ const resetSelection = () => {
 
       {isMergeDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-lg border border-zinc-200 bg-white shadow-xl">
+          <div
+            className="w-full max-w-lg rounded-lg border border-zinc-200 bg-white shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="merge-faces-title"
+          >
             <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
               <div>
-                <h3 className="text-lg font-semibold text-zinc-950">
-                  Merge people
+                <h3
+                  id="merge-faces-title"
+                  className="text-lg font-semibold text-zinc-950"
+                >
+                  Merge faces
                 </h3>
                 <p className="text-sm text-zinc-500">
-                  Choose the face to show after merging.
+                  Pick the face photo that should stay in the People list.
                 </p>
               </div>
               <button
@@ -425,7 +451,9 @@ const resetSelection = () => {
                         {displayName}
                       </span>
                       <span className="text-xs text-zinc-500">
-                        {person.photoCount} photos
+                        {isSelected
+                          ? "This face stays"
+                          : `${person.photoCount} photos move here`}
                       </span>
                     </span>
                     <span
@@ -468,7 +496,7 @@ const resetSelection = () => {
                 ) : (
                   <GitMerge className="h-4 w-4" />
                 )}
-                Merge people
+                Merge faces
               </button>
             </div>
           </div>

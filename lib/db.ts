@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { Signer } from "@aws-sdk/rds-signer";
 
 const RDS_HOST =
@@ -96,4 +96,40 @@ export async function queryOne<T>(
 ): Promise<T | null> {
   const rows = await query<T>(text, params);
   return rows[0] ?? null;
+}
+
+async function runTransaction<T>(
+  pool: Pool,
+  callback: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    const result = await callback(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function withTransaction<T>(
+  callback: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  try {
+    const pool = await getPool();
+    return await runTransaction(pool, callback);
+  } catch (error) {
+    if (!isAuthTokenError(error)) {
+      throw error;
+    }
+
+    await resetPool();
+    const pool = await getPool();
+    return runTransaction(pool, callback);
+  }
 }
