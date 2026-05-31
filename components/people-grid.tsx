@@ -453,7 +453,9 @@ export function PeopleGrid({
                       <span className="text-xs text-zinc-500">
                         {isSelected
                           ? "This face stays"
-                          : `${person.photoCount} photos move here`}
+                          : `${person.photoCount} photo${
+                              person.photoCount === 1 ? "" : "s"
+                            } move here`}
                       </span>
                     </span>
                     <span

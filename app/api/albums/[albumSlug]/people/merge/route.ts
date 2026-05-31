@@ -168,17 +168,13 @@ export async function POST(request: Request, { params }: Props) {
           person_id,
           album_event_id,
           photo_count,
-          face_count,
-          created_at,
-          updated_at
+          face_count
         )
         SELECT
           $1::uuid,
           pp.album_event_id,
           COUNT(DISTINCT pp.photo_id)::int,
-          COUNT(*)::int,
-          now(),
-          now()
+          COUNT(*)::int
         FROM photo_people pp
         WHERE pp.person_id = $1::uuid
         GROUP BY pp.album_event_id
