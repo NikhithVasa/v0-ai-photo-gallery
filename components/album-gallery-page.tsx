@@ -1040,7 +1040,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
-      <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-white px-5 py-16 text-center">
+      <section className="relative flex min-h-[100svh] flex-col items-center justify-center overflow-hidden bg-white px-5 py-8 text-center sm:py-10">
         {album.coverPhotoUrl && (
           <Image
             src={album.coverPhotoUrl}
@@ -1054,23 +1054,23 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         )}
         <div className="absolute inset-0 bg-white/72 backdrop-blur-[2px]" />
 
-        <div className="relative z-10 flex w-full max-w-6xl flex-col items-center">
-          <div className="relative grid w-full items-center gap-8 sm:grid-cols-[90px_minmax(260px,420px)_minmax(220px,1fr)] sm:gap-10 lg:gap-14">
-            <div className="order-2 flex justify-center sm:order-1 sm:h-[400px] sm:items-center">
-              <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[400px] sm:-rotate-90">
+        <div className="relative z-10 flex w-full max-w-6xl flex-col items-center pb-16">
+          <div className="relative grid w-full items-center gap-5 sm:grid-cols-[80px_minmax(250px,380px)_minmax(220px,1fr)] sm:gap-8 lg:gap-12">
+            <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
+              <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[340px] sm:-rotate-90">
                 <span>Photos by</span>
                 <span className="ml-1 text-zinc-800">{photographerName}</span>
               </div>
             </div>
 
             <div className="order-1 flex justify-center sm:order-2">
-              <div className="relative aspect-[4/5] w-[min(72vw,420px)] overflow-hidden rounded-[30px] bg-zinc-100 shadow-[0_34px_90px_rgba(24,24,27,0.18)] ring-1 ring-zinc-200">
+              <div className="relative aspect-[4/5] w-[min(62vw,320px)] overflow-hidden rounded-[24px] bg-zinc-100 shadow-[0_30px_74px_rgba(24,24,27,0.16)] ring-1 ring-zinc-200 sm:w-[min(32vw,380px)] sm:rounded-[30px]">
                 {album.coverPhotoUrl ? (
                   <Image
                     src={album.coverPhotoUrl}
                     alt={album.name}
                     fill
-                    sizes="(min-width: 768px) 420px, 72vw"
+                    sizes="(min-width: 768px) 380px, 62vw"
                     className="object-cover"
                     priority
                     unoptimized
@@ -1085,7 +1085,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
             <div className="order-3 flex justify-center text-center sm:justify-start sm:text-left">
               <div className="flex items-center gap-4 text-zinc-950">
-                <h1 className="max-w-[18rem] text-3xl font-semibold uppercase tracking-[0.08em] sm:text-4xl lg:text-5xl">
+                <h1 className="max-w-[18rem] text-2xl font-semibold uppercase tracking-[0.08em] sm:text-4xl lg:text-5xl">
                   {coverTitle}
                 </h1>
 
@@ -1116,7 +1116,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           <button
             type="button"
             onClick={scrollToGalleryTop}
-            className="mt-10 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+            className="absolute bottom-5 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7"
             aria-label="Scroll to gallery"
           >
             <ChevronDown className="h-6 w-6" />
