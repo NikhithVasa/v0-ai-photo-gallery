@@ -99,6 +99,8 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const [aiJobMessage, setAiJobMessage] = useState("");
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [deletingPhotoIds, setDeletingPhotoIds] = useState<string[]>([]);
+  const [isPhotoSelectMode, setIsPhotoSelectMode] = useState(false);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const coverPreviewUrlRef = useRef<string | null>(null);
   const queuedFilesRef = useRef<QueuedFile[]>([]);
@@ -171,6 +173,21 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
     if (selectedExistingEventSlug || !album?.events.length) return;
     setSelectedExistingEventSlug(album.events[0].slug);
   }, [album?.events, selectedExistingEventSlug]);
+
+  useEffect(() => {
+    setIsPhotoSelectMode(false);
+    setSelectedPhotoIds([]);
+  }, [selectedExistingEventSlug, uploadTarget]);
+
+  useEffect(() => {
+    if (!selectedPhotoIds.length) return;
+
+    const photoIds = new Set(selectedEventPhotos.map((photo) => photo.id));
+    setSelectedPhotoIds((current) => {
+      const next = current.filter((id) => photoIds.has(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [selectedEventPhotos, selectedPhotoIds.length]);
 
   useEffect(() => {
     return () => {
@@ -427,6 +444,89 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       );
     } finally {
       setDeletingPhotoIds((current) => current.filter((id) => id !== photo.id));
+    }
+  };
+
+  const togglePhotoSelection = (photoId: string) => {
+    setSelectedPhotoIds((current) =>
+      current.includes(photoId)
+        ? current.filter((id) => id !== photoId)
+        : [...current, photoId]
+    );
+  };
+
+  const selectAllEventPhotos = () => {
+    setSelectedPhotoIds(selectedEventPhotos.map((photo) => photo.id));
+  };
+
+  const deleteSelectedPhotos = async () => {
+    if (!selectedPhotoIds.length || deletingPhotoIds.length) return;
+
+    const count = selectedPhotoIds.length;
+    const shouldDelete = window.confirm(
+      `Delete ${count} selected photo${count === 1 ? "" : "s"} from ${
+        selectedExistingEvent?.name || "this event"
+      }?`
+    );
+    if (!shouldDelete) return;
+
+    const photoIdsToDelete = [...selectedPhotoIds];
+    setDeletingPhotoIds(photoIdsToDelete);
+    setErrorMessage("");
+
+    try {
+      const results = await Promise.allSettled(
+        photoIdsToDelete.map(async (photoId) => {
+          const response = await fetch(
+            `/api/albums/${encodeURIComponent(albumSlug)}/photos/${encodeURIComponent(
+              photoId
+            )}`,
+            { method: "DELETE" }
+          );
+          const payload = (await response.json()) as { error?: string };
+
+          if (!response.ok) {
+            throw new Error(payload.error || "Could not delete photo");
+          }
+
+          return photoId;
+        })
+      );
+      const deletedIds = results
+        .filter(
+          (result): result is PromiseFulfilledResult<string> =>
+            result.status === "fulfilled"
+        )
+        .map((result) => result.value);
+      const failedCount = results.length - deletedIds.length;
+
+      if (deletedIds.length) {
+        setSelectedPhotoIds((current) =>
+          current.filter((id) => !deletedIds.includes(id))
+        );
+        if (!failedCount) setIsPhotoSelectMode(false);
+        await Promise.all([mutateSelectedEventPhotos(), mutateAlbum()]);
+        toast({
+          title: "Photos deleted",
+          description: `${deletedIds.length} photo${
+            deletedIds.length === 1 ? "" : "s"
+          } removed from ${selectedExistingEvent?.name || "this event"}.`,
+        });
+      }
+
+      if (failedCount) {
+        throw new Error(
+          `${failedCount} photo${failedCount === 1 ? "" : "s"} could not be deleted`
+        );
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Photo deletion failed"
+      );
+    } finally {
+      setDeletingPhotoIds((current) =>
+        current.filter((id) => !photoIdsToDelete.includes(id))
+      );
     }
   };
 
@@ -714,21 +814,79 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
     );
   };
 
-  const renderSelectedEventPhotos = () => (
-    <div className="min-h-[520px] rounded-[28px] border border-zinc-200 bg-white p-5 shadow-[0_28px_80px_rgba(24,24,27,0.08)]">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-zinc-950">
-            {selectedExistingEvent?.name || "Event photos"}
-          </p>
-          <p className="mt-1 text-sm text-zinc-500">
-            All photos currently in this event.
-          </p>
+  const renderSelectedEventPhotos = () => {
+    const hasEventPhotos = selectedEventPhotos.length > 0;
+    const selectedCount = selectedPhotoIds.length;
+    const allPhotosSelected =
+      hasEventPhotos && selectedCount === selectedEventPhotos.length;
+
+    return (
+      <div className="min-h-[520px] rounded-[28px] border border-zinc-200 bg-white p-5 shadow-[0_28px_80px_rgba(24,24,27,0.08)]">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-zinc-950">
+              {selectedExistingEvent?.name || "Event photos"}
+            </p>
+            <p className="mt-1 text-sm text-zinc-500">
+              {isPhotoSelectMode
+                ? `${selectedCount} selected`
+                : "All photos currently in this event."}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedEventPhotosLoading && (
+              <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+            )}
+
+            {hasEventPhotos && !isPhotoSelectMode && (
+              <button
+                type="button"
+                onClick={() => setIsPhotoSelectMode(true)}
+                className="h-9 rounded-full border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950"
+              >
+                Select photos
+              </button>
+            )}
+
+            {isPhotoSelectMode && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    allPhotosSelected ? setSelectedPhotoIds([]) : selectAllEventPhotos()
+                  }
+                  className="h-9 rounded-full border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950"
+                >
+                  {allPhotosSelected ? "Clear all" : "Select all"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPhotoSelectMode(false);
+                    setSelectedPhotoIds([]);
+                  }}
+                  className="h-9 rounded-full border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-950"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteSelectedPhotos}
+                  disabled={!selectedCount || Boolean(deletingPhotoIds.length)}
+                  className="flex h-9 items-center gap-2 rounded-full bg-rose-600 px-3 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {deletingPhotoIds.length ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  Delete selected
+                </button>
+              </>
+            )}
+          </div>
         </div>
-        {selectedEventPhotosLoading && (
-          <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-        )}
-      </div>
 
       {!selectedEventPhotosLoading && selectedEventPhotosError && (
         <p className="py-16 text-center text-sm text-rose-600">
@@ -750,11 +908,40 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {selectedEventPhotos.map((photo) => {
             const isDeleting = deletingPhotoIds.includes(photo.id);
+            const isSelected = selectedPhotoIds.includes(photo.id);
 
             return (
               <div
                 key={photo.id}
-                className="group relative aspect-square overflow-hidden rounded-2xl bg-zinc-200"
+                onClick={() => {
+                  if (isPhotoSelectMode) {
+                    togglePhotoSelection(photo.id);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    isPhotoSelectMode &&
+                    (event.key === "Enter" || event.key === " ")
+                  ) {
+                    event.preventDefault();
+                    togglePhotoSelection(photo.id);
+                  }
+                }}
+                className={`group relative aspect-square overflow-hidden rounded-2xl bg-zinc-200 text-left transition focus:outline-none focus:ring-2 focus:ring-zinc-400 ${
+                  isSelected
+                    ? "ring-4 ring-zinc-950 ring-offset-2 ring-offset-white"
+                    : "ring-1 ring-transparent"
+                } ${isPhotoSelectMode ? "cursor-pointer" : ""}`}
+                role={isPhotoSelectMode ? "button" : undefined}
+                tabIndex={isPhotoSelectMode ? 0 : undefined}
+                aria-pressed={isPhotoSelectMode ? isSelected : undefined}
+                aria-label={
+                  isPhotoSelectMode
+                    ? `${isSelected ? "Unselect" : "Select"} ${
+                        photo.fileName || "photo"
+                      }`
+                    : photo.fileName || "Event photo"
+                }
               >
                 {photo.thumbnailUrl || photo.previewUrl ? (
                   <Image
@@ -771,26 +958,42 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => deletePhoto(photo)}
-                  disabled={isDeleting}
-                  className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-rose-600 opacity-0 shadow-sm transition hover:bg-rose-50 disabled:opacity-80 group-hover:opacity-100"
-                  aria-label={`Delete ${photo.fileName || "photo"}`}
-                >
-                  {isDeleting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                </button>
+                {isPhotoSelectMode ? (
+                  <span
+                    className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition ${
+                      isSelected
+                        ? "border-zinc-950 bg-zinc-950 text-white"
+                        : "border-white/80 bg-white/90 text-zinc-400"
+                    }`}
+                  >
+                    {isSelected && <CheckCircle2 className="h-4 w-4" />}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deletePhoto(photo);
+                    }}
+                    disabled={isDeleting}
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-rose-600 opacity-0 shadow-sm transition hover:bg-rose-50 disabled:opacity-80 group-hover:opacity-100"
+                    aria-label={`Delete ${photo.fileName || "photo"}`}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
