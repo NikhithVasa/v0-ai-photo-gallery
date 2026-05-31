@@ -1144,7 +1144,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           <button
             type="button"
             onClick={() => scrollToGalleryTop("soothing")}
-            className="absolute bottom-5 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7"
+            className="absolute bottom-5 left-1/2 flex h-12 w-12 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7"
             aria-label="Scroll to gallery"
           >
             <ChevronDown className="h-6 w-6" />
