@@ -1028,7 +1028,7 @@ export function PhotoLightbox({
         {currentImageUrl ? (
           <div
             ref={photoFrameRef}
-            className="relative cursor-default overflow-hidden transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
+            className="relative cursor-default overflow-hidden transition-[transform,opacity] duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
             style={{
               width: photoFrameWidth,
               aspectRatio: displayAspectRatio,
