@@ -654,6 +654,8 @@ function EventNameControl({
 export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const autoCoverScrollDoneRef = useRef(false);
+  const autoCoverScrollTimerRef = useRef<number | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>("photos");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -789,6 +791,50 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       window.requestAnimationFrame(animate);
     });
   };
+
+  useEffect(() => {
+    autoCoverScrollDoneRef.current = false;
+  }, [albumSlug]);
+
+  useEffect(() => {
+    if (!album || (album.passwordRequired && !isPasswordVerified)) return;
+    if (autoCoverScrollDoneRef.current) return;
+
+    const cancelAutoScroll = () => {
+      autoCoverScrollDoneRef.current = true;
+      if (autoCoverScrollTimerRef.current !== null) {
+        window.clearTimeout(autoCoverScrollTimerRef.current);
+        autoCoverScrollTimerRef.current = null;
+      }
+    };
+
+    autoCoverScrollTimerRef.current = window.setTimeout(() => {
+      autoCoverScrollTimerRef.current = null;
+
+      if (autoCoverScrollDoneRef.current || window.scrollY > 24) return;
+
+      autoCoverScrollDoneRef.current = true;
+      scrollToGalleryTop("soothing");
+    }, 5000);
+
+    window.addEventListener("wheel", cancelAutoScroll, { passive: true });
+    window.addEventListener("touchstart", cancelAutoScroll, { passive: true });
+    window.addEventListener("pointerdown", cancelAutoScroll);
+    window.addEventListener("keydown", cancelAutoScroll);
+    window.addEventListener("scroll", cancelAutoScroll, { passive: true });
+
+    return () => {
+      if (autoCoverScrollTimerRef.current !== null) {
+        window.clearTimeout(autoCoverScrollTimerRef.current);
+        autoCoverScrollTimerRef.current = null;
+      }
+      window.removeEventListener("wheel", cancelAutoScroll);
+      window.removeEventListener("touchstart", cancelAutoScroll);
+      window.removeEventListener("pointerdown", cancelAutoScroll);
+      window.removeEventListener("keydown", cancelAutoScroll);
+      window.removeEventListener("scroll", cancelAutoScroll);
+    };
+  }, [album, isPasswordVerified]);
 
   useEffect(() => {
     const eventFromUrl = searchParams.get("event") || null;
