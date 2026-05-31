@@ -770,20 +770,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
       const startTop = window.scrollY;
       const distance = targetTop - startTop;
-      const duration = 1500;
+      const duration = 1300;
       const startedAt = performance.now();
-      const easeInOutCubic = (value: number) =>
-        value < 0.5
-          ? 4 * value * value * value
-          : 1 - Math.pow(-2 * value + 2, 3) / 2;
-      const easeOutCubic = (value: number) => 1 - Math.pow(1 - value, 3);
+      const easeInOutSine = (value: number) =>
+        -(Math.cos(Math.PI * value) - 1) / 2;
 
       const animate = (now: number) => {
         const elapsed = Math.min((now - startedAt) / duration, 1);
-        const progress =
-          elapsed < 0.68
-            ? 0.78 * easeInOutCubic(elapsed / 0.68)
-            : 0.78 + 0.22 * easeOutCubic((elapsed - 0.68) / 0.32);
+        const progress = easeInOutSine(elapsed);
 
         window.scrollTo(0, startTop + distance * progress);
 
