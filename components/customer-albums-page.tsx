@@ -60,6 +60,7 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
   const [isPasscodeManagerOpen, setIsPasscodeManagerOpen] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
+  const [deletingAlbumSlugs, setDeletingAlbumSlugs] = useState<string[]>([]);
   const { data, error, isLoading, mutate } = useSWR<CustomerAlbumsResponse>(
     `/api/customers/${encodeURIComponent(customerSlug)}/albums`,
     fetcher,
@@ -204,6 +205,48 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
         variant: "destructive",
       });
       setIsDeletingCustomer(false);
+    }
+  };
+
+  const deleteAlbum = async (album: AlbumSummary) => {
+    if (deletingAlbumSlugs.includes(album.slug)) return;
+
+    const ok = window.confirm(
+      `Delete "${album.name}"? This will hide this album from ${customerName}.`
+    );
+    if (!ok) return;
+
+    setDeletingAlbumSlugs((current) => [...current, album.slug]);
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(album.slug)}`,
+        { method: "DELETE" }
+      );
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not delete album");
+      }
+
+      await mutate();
+      toast({
+        title: "Album deleted",
+        description: `${album.name} was removed from ${customerName}.`,
+      });
+    } catch (deleteError) {
+      toast({
+        title: "Delete failed",
+        description:
+          deleteError instanceof Error
+            ? deleteError.message
+            : "Could not delete album",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingAlbumSlugs((current) =>
+        current.filter((slug) => slug !== album.slug)
+      );
     }
   };
 
@@ -373,6 +416,30 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
                 className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-400"
               >
                 <div className="relative aspect-[4/3] bg-zinc-100">
+                  {(() => {
+                    const isDeletingAlbum = deletingAlbumSlugs.includes(album.slug);
+
+                    return (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          deleteAlbum(album);
+                        }}
+                        disabled={isDeletingAlbum}
+                        className="absolute bottom-3 right-3 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/90 text-rose-600 opacity-0 shadow-sm backdrop-blur transition hover:bg-rose-50 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-70 group-hover:opacity-100"
+                        aria-label={`Delete ${album.name}`}
+                      >
+                        {isDeletingAlbum ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    );
+                  })()}
+
                   {album.coverPhotoUrl ? (
                     <Image
                       src={album.coverPhotoUrl}

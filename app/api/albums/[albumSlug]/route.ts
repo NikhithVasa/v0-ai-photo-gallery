@@ -264,3 +264,35 @@ export async function GET(request: Request, { params }: Props) {
     );
   }
 }
+
+export async function DELETE(_request: Request, { params }: Props) {
+  try {
+    const { albumSlug } = await params;
+
+    const album = await queryOne<{ id: string; name: string }>(
+      `
+      UPDATE albums
+      SET is_deleted = true,
+          deleted_at = now(),
+          updated_at = now()
+      WHERE slug = $1
+        AND COALESCE(is_deleted, false) = false
+      RETURNING id, name
+      `,
+      [albumSlug]
+    );
+
+    if (!album) {
+      return NextResponse.json({ error: "Album not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, album });
+  } catch (error) {
+    console.error("Error deleting album:", error);
+
+    return NextResponse.json(
+      { error: "Failed to delete album" },
+      { status: 500 }
+    );
+  }
+}
