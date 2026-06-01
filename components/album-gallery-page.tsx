@@ -8,6 +8,7 @@ import useSWR from "swr";
 import {
   Check,
   ChevronDown,
+  Download,
   Loader2,
   LayoutTemplate,
   Pencil,
@@ -25,6 +26,14 @@ import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { ApsaraMomentsRoot } from "@/components/apsara-moments";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { AlbumDetail, Person, Photo } from "@/lib/types";
 
 type Tab = "photos" | "people";
@@ -63,6 +72,15 @@ function eventQuery(selectedEventSlug: string | null) {
   return selectedEventSlug
     ? `?event=${encodeURIComponent(selectedEventSlug)}`
     : "";
+}
+
+function triggerBrowserDownload(url: string) {
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
 }
 
 function formatAlbumDate(value?: string | null) {
@@ -652,6 +670,116 @@ function EventNameControl({
   );
 }
 
+function AlbumDownloadMenu({
+  albumSlug,
+  events,
+  selectedEventSlug,
+  selectedPeopleIds,
+  selectedPeople,
+  peopleMatchMode,
+}: {
+  albumSlug: string;
+  events: AlbumDetail["events"];
+  selectedEventSlug: string | null;
+  selectedPeopleIds: string[];
+  selectedPeople: Person[];
+  peopleMatchMode: PeopleMatchMode;
+}) {
+  const downloadUrl = (options?: { eventSlug?: string | null; people?: boolean }) => {
+    const params = new URLSearchParams();
+
+    if (options?.eventSlug) params.set("event", options.eventSlug);
+
+    if (options?.people && selectedPeopleIds.length) {
+      params.set("people", selectedPeopleIds.join(","));
+      if (selectedPeopleIds.length > 1) {
+        params.set("peopleMode", peopleMatchMode);
+      }
+    }
+
+    const query = params.toString();
+    return `/api/albums/${encodeURIComponent(albumSlug)}/downloads${
+      query ? `?${query}` : ""
+    }`;
+  };
+
+  const selectedEvent = events.find((event) => event.slug === selectedEventSlug);
+  const peopleLabel =
+    selectedPeople.length === 1
+      ? selectedPeople[0].displayName || selectedPeople[0].defaultName
+      : `${selectedPeopleIds.length} people`;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex h-9 w-9 cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+          aria-label="Download photos"
+        >
+          <Download className="h-4 w-4" />
+          <span className="hidden sm:inline">Download</span>
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel>Download originals</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => triggerBrowserDownload(downloadUrl())}>
+          <Download className="h-4 w-4" />
+          Download all
+        </DropdownMenuItem>
+
+        {events.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            {events.map((event) => (
+              <DropdownMenuItem
+                key={event.id}
+                onSelect={() =>
+                  triggerBrowserDownload(downloadUrl({ eventSlug: event.slug }))
+                }
+              >
+                <Download className="h-4 w-4" />
+                <span className="min-w-0 flex-1 truncate">
+                  Download {event.name}
+                </span>
+                <span className="text-xs text-zinc-500">
+                  {event.photoCount}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </>
+        )}
+
+        {selectedPeopleIds.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() =>
+                triggerBrowserDownload(
+                  downloadUrl({
+                    eventSlug: selectedEventSlug,
+                    people: true,
+                  }),
+                )
+              }
+            >
+              <Download className="h-4 w-4" />
+              <span className="min-w-0 flex-1 truncate">
+                Download filtered people images
+              </span>
+            </DropdownMenuItem>
+            <p className="px-2 pb-1 text-xs text-zinc-500">
+              {peopleLabel}
+              {selectedEvent ? ` in ${selectedEvent.name}` : ""}
+            </p>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1236,6 +1364,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             </div>
 
             <div className="flex items-center gap-2">
+              <AlbumDownloadMenu
+                albumSlug={albumSlug}
+                events={album.events}
+                selectedEventSlug={selectedEventSlug}
+                selectedPeopleIds={selectedPeopleIds}
+                selectedPeople={selectedFilterPeople}
+                peopleMatchMode={peopleMatchMode}
+              />
+
               <Link
                 href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
                 className="flex h-9 w-9 items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
