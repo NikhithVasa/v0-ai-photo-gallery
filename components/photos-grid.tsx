@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { photoAspectRatio } from "@/lib/photo-layout";
 import type { Photo } from "@/lib/types";
 
 export type PeopleMatchMode = "all" | "any";
@@ -28,6 +30,9 @@ interface PhotosGridProps {
   peopleMatchMode: PeopleMatchMode;
   onPersonClick?: (personId: string) => void;
   onReachedEnd?: () => void;
+  isSelectionMode?: boolean;
+  selectedPhotoIds?: string[];
+  onTogglePhoto?: (photoId: string) => void;
 }
 
 function photosUrl(
@@ -60,6 +65,9 @@ export function PhotosGrid({
   peopleMatchMode,
   onPersonClick,
   onReachedEnd,
+  isSelectionMode = false,
+  selectedPhotoIds = [],
+  onTogglePhoto,
 }: PhotosGridProps) {
   const photosRequestUrl = useMemo(
     () =>
@@ -82,6 +90,10 @@ export function PhotosGrid({
     index: number;
     originRect?: PhotoOpenRect;
   } | null>(null);
+  const selectedPhotoIdSet = useMemo(
+    () => new Set(selectedPhotoIds),
+    [selectedPhotoIds],
+  );
 
   const endSentinelRef = useRef<HTMLDivElement | null>(null);
   const lastTriggeredKeyRef = useRef<string | null>(null);
@@ -209,19 +221,57 @@ export function PhotosGrid({
             key={photo.id}
             className="mb-[3px] break-inside-avoid overflow-hidden rounded-md sm:mb-2"
           >
-            <PhotoCard
-              albumSlug={albumSlug}
-              photo={photo}
-              index={index}
-              onOpen={handleOpen}
-            />
+            {isSelectionMode ? (
+              <button
+                type="button"
+                onClick={() => onTogglePhoto?.(photo.id)}
+                aria-pressed={selectedPhotoIdSet.has(photo.id)}
+                className={`group relative w-full cursor-pointer overflow-hidden rounded-md bg-muted text-left shadow-sm ring-1 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
+                  selectedPhotoIdSet.has(photo.id)
+                    ? "ring-2 ring-zinc-950"
+                    : "ring-border hover:ring-zinc-400"
+                }`}
+                style={{ aspectRatio: photoAspectRatio(photo) }}
+              >
+                {photo.thumbnailUrl || photo.previewUrl ? (
+                  <img
+                    src={photo.thumbnailUrl || photo.previewUrl || ""}
+                    alt={photo.caption || photo.fileName || "Photo"}
+                    className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]"
+                    loading={index < 48 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+                    No preview
+                  </span>
+                )}
+
+                <span
+                  className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full shadow-sm ${
+                    selectedPhotoIdSet.has(photo.id)
+                      ? "bg-zinc-950 text-white"
+                      : "bg-white/90 text-zinc-400"
+                  }`}
+                >
+                  <Check className="h-4 w-4" />
+                </span>
+              </button>
+            ) : (
+              <PhotoCard
+                albumSlug={albumSlug}
+                photo={photo}
+                index={index}
+                onOpen={handleOpen}
+              />
+            )}
           </div>
         ))}
       </div>
 
       <div ref={endSentinelRef} className="h-px w-full" />
 
-      {lightboxState !== null && (
+      {lightboxState !== null && !isSelectionMode && (
         <PhotoLightbox
           albumSlug={albumSlug}
           photos={data.photos}

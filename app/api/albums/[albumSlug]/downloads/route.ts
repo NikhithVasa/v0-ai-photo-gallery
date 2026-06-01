@@ -60,8 +60,19 @@ function sanitizeSegment(value: string) {
   );
 }
 
-function zipFileName(albumSlug: string, eventSlug: string | null, hasPeople: boolean) {
-  const suffix = eventSlug ? eventSlug : hasPeople ? "filtered-people" : "all";
+function zipFileName(
+  albumSlug: string,
+  eventSlug: string | null,
+  hasPeople: boolean,
+  hasSelectedPhotos: boolean,
+) {
+  const suffix = hasSelectedPhotos
+    ? "selected"
+    : eventSlug
+      ? eventSlug
+      : hasPeople
+        ? "filtered-people"
+        : "all";
   return `${sanitizeSegment(albumSlug)}-${sanitizeSegment(suffix)}.zip`;
 }
 
@@ -227,6 +238,7 @@ async function fetchDownloadRows(
   eventSlug: string | null,
   personIds: string[],
   peopleMode: "all" | "any",
+  photoIds: string[],
 ) {
   return query<DownloadPhotoRow>(
     `
@@ -265,9 +277,16 @@ async function fetchDownloadRows(
       AND COALESCE(p.is_deleted, false) = false
       AND p.upload_status = 'completed'
       AND p.original_s3_key IS NOT NULL
+      AND ($5::uuid[] IS NULL OR p.id = ANY($5::uuid[]))
     ORDER BY e.sort_order ASC NULLS LAST, e.name ASC, p.created_at ASC
     `,
-    [albumSlug, eventSlug, personIds.length ? personIds : null, peopleMode === "all"],
+    [
+      albumSlug,
+      eventSlug,
+      personIds.length ? personIds : null,
+      peopleMode === "all",
+      photoIds.length ? photoIds : null,
+    ],
   );
 }
 
@@ -284,8 +303,19 @@ export async function GET(request: Request, { params }: Props) {
       .split(",")
       .map((id) => id.trim())
       .filter((id) => id && isUuid(id));
+    const photoIds = (searchParams.get("photos") ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id && isUuid(id))
+      .slice(0, 500);
 
-    const rows = await fetchDownloadRows(albumSlug, eventSlug, personIds, peopleMode);
+    const rows = await fetchDownloadRows(
+      albumSlug,
+      eventSlug,
+      personIds,
+      peopleMode,
+      photoIds,
+    );
     const entries = uniqueZipEntries(rows);
 
     if (!entries.length) {
@@ -356,6 +386,7 @@ export async function GET(request: Request, { params }: Props) {
           albumSlug,
           eventSlug,
           personIds.length > 0,
+          photoIds.length > 0,
         )}"`,
         "Cache-Control": "no-store",
       },

@@ -677,6 +677,7 @@ function AlbumDownloadMenu({
   selectedPeopleIds,
   selectedPeople,
   peopleMatchMode,
+  selectedDownloadPhotoIds,
 }: {
   albumSlug: string;
   events: AlbumDetail["events"];
@@ -684,11 +685,19 @@ function AlbumDownloadMenu({
   selectedPeopleIds: string[];
   selectedPeople: Person[];
   peopleMatchMode: PeopleMatchMode;
+  selectedDownloadPhotoIds: string[];
 }) {
-  const downloadUrl = (options?: { eventSlug?: string | null; people?: boolean }) => {
+  const downloadUrl = (options?: {
+    eventSlug?: string | null;
+    people?: boolean;
+    selected?: boolean;
+  }) => {
     const params = new URLSearchParams();
 
     if (options?.eventSlug) params.set("event", options.eventSlug);
+    if (options?.selected && selectedDownloadPhotoIds.length) {
+      params.set("photos", selectedDownloadPhotoIds.join(","));
+    }
 
     if (options?.people && selectedPeopleIds.length) {
       params.set("people", selectedPeopleIds.join(","));
@@ -728,6 +737,22 @@ function AlbumDownloadMenu({
           <Download className="h-4 w-4" />
           Download all
         </DropdownMenuItem>
+
+        {selectedDownloadPhotoIds.length > 0 && (
+          <DropdownMenuItem
+            onSelect={() =>
+              triggerBrowserDownload(downloadUrl({ selected: true }))
+            }
+          >
+            <Check className="h-4 w-4" />
+            <span className="min-w-0 flex-1 truncate">
+              Download selected photos
+            </span>
+            <span className="text-xs text-zinc-500">
+              {selectedDownloadPhotoIds.length}
+            </span>
+          </DropdownMenuItem>
+        )}
 
         {events.length > 0 && (
           <>
@@ -796,6 +821,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isPasswordVerified, setIsPasswordVerified] = useState(false);
+  const [isCoverDismissed, setIsCoverDismissed] = useState(false);
+  const [isPhotoSelectionMode, setIsPhotoSelectionMode] = useState(false);
+  const [selectedDownloadPhotoIds, setSelectedDownloadPhotoIds] = useState<string[]>([]);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [eventNameDraft, setEventNameDraft] = useState("");
   const [isSavingEventName, setIsSavingEventName] = useState(false);
@@ -883,6 +911,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverCreditName = album?.customer?.name || album?.name || "";
 
   const scrollToGalleryTop = (mode: "normal" | "soothing" = "normal") => {
+    if (!isCoverDismissed) {
+      setIsCoverDismissed(true);
+      requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
+      return;
+    }
+
     requestAnimationFrame(() => {
       const shell = document.getElementById("album-gallery-shell");
       const targetTop = shell ? Math.max(shell.offsetTop - 8, 0) : 0;
@@ -923,7 +957,29 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   useEffect(() => {
     autoCoverScrollDoneRef.current = false;
+    setIsCoverDismissed(false);
+    setIsPhotoSelectionMode(false);
+    setSelectedDownloadPhotoIds([]);
   }, [albumSlug]);
+
+  useEffect(() => {
+    if (isCoverDismissed) return;
+
+    const dismissWhenGalleryIsReached = () => {
+      const shell = document.getElementById("album-gallery-shell");
+      if (!shell) return;
+
+      if (window.scrollY >= Math.max(shell.offsetTop - 24, 0)) {
+        setIsCoverDismissed(true);
+        requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
+      }
+    };
+
+    window.addEventListener("scroll", dismissWhenGalleryIsReached, {
+      passive: true,
+    });
+    return () => window.removeEventListener("scroll", dismissWhenGalleryIsReached);
+  }, [isCoverDismissed]);
 
   useEffect(() => {
     if (!album || (album.passwordRequired && !isPasswordVerified)) return;
@@ -1059,6 +1115,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setSelectedPerson(null);
     setActiveTab("photos");
     scrollToGalleryTop();
+  };
+
+  const toggleSelectedDownloadPhotoId = (photoId: string) => {
+    setSelectedDownloadPhotoIds((current) =>
+      current.includes(photoId)
+        ? current.filter((id) => id !== photoId)
+        : [...current, photoId]
+    );
   };
 
   const runApsaraTextSearch = async (
@@ -1243,89 +1307,91 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
-      <section className="relative flex min-h-[100svh] flex-col items-center justify-center overflow-hidden bg-white px-5 py-8 text-center sm:py-10">
-        {album.coverPhotoUrl && (
-          <Image
-            src={album.coverPhotoUrl}
-            alt={album.name}
-            fill
-            sizes="100vw"
-            className="object-cover opacity-[0.18]"
-            priority
-            unoptimized
-          />
-        )}
-        <div className="absolute inset-0 bg-white/72 backdrop-blur-[2px]" />
+      {!isCoverDismissed && (
+        <section className="relative flex min-h-[100svh] flex-col items-center justify-center overflow-hidden bg-white px-5 py-8 text-center sm:py-10">
+          {album.coverPhotoUrl && (
+            <Image
+              src={album.coverPhotoUrl}
+              alt={album.name}
+              fill
+              sizes="100vw"
+              className="object-cover opacity-[0.18]"
+              priority
+              unoptimized
+            />
+          )}
+          <div className="absolute inset-0 bg-white/72 backdrop-blur-[2px]" />
 
-        <div className="relative z-10 flex w-full max-w-6xl flex-col items-center pb-16">
-          <div className="relative grid w-full items-center gap-5 sm:grid-cols-[1fr_minmax(250px,380px)_1fr] sm:gap-8 lg:gap-12">
-            <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
-              <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[340px] sm:-rotate-90">
-                <span>Photos by</span>
-                <span className="ml-1 text-zinc-800">{coverCreditName}</span>
+          <div className="relative z-10 flex w-full max-w-6xl flex-col items-center pb-16">
+            <div className="relative grid w-full items-center gap-5 sm:grid-cols-[1fr_minmax(250px,380px)_1fr] sm:gap-8 lg:gap-12">
+              <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
+                <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[340px] sm:-rotate-90">
+                  <span>Photos by</span>
+                  <span className="ml-1 text-zinc-800">{coverCreditName}</span>
+                </div>
+              </div>
+
+              <div className="order-1 flex justify-center sm:order-2">
+                <div className="relative aspect-[4/5] w-[min(62vw,320px)] overflow-hidden rounded-[24px] bg-zinc-100 shadow-[0_30px_74px_rgba(24,24,27,0.16)] ring-1 ring-zinc-200 sm:w-[min(32vw,380px)] sm:rounded-[30px]">
+                  {album.coverPhotoUrl ? (
+                    <Image
+                      src={album.coverPhotoUrl}
+                      alt={album.name}
+                      fill
+                      sizes="(min-width: 768px) 380px, 62vw"
+                      className="object-cover"
+                      priority
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-zinc-300">
+                      <Images className="h-20 w-20" strokeWidth={1.3} />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="order-3 flex justify-center text-center sm:justify-start sm:text-left">
+                <div className="flex items-center gap-4 text-zinc-950">
+                  <h1 className="max-w-[18rem] text-2xl font-semibold uppercase tracking-[0.08em] sm:text-4xl lg:text-5xl">
+                    {coverTitle}
+                  </h1>
+
+                  {albumDateLabel && (
+                    <>
+                      <span className="h-px w-10 shrink-0 bg-zinc-400" />
+                      <p className="text-base font-medium text-zinc-500 sm:text-lg">
+                        {albumDateLabel}
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="order-1 flex justify-center sm:order-2">
-              <div className="relative aspect-[4/5] w-[min(62vw,320px)] overflow-hidden rounded-[24px] bg-zinc-100 shadow-[0_30px_74px_rgba(24,24,27,0.16)] ring-1 ring-zinc-200 sm:w-[min(32vw,380px)] sm:rounded-[30px]">
-                {album.coverPhotoUrl ? (
-                  <Image
-                    src={album.coverPhotoUrl}
-                    alt={album.name}
-                    fill
-                    sizes="(min-width: 768px) 380px, 62vw"
-                    className="object-cover"
-                    priority
-                    unoptimized
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-zinc-300">
-                    <Images className="h-20 w-20" strokeWidth={1.3} />
-                  </div>
-                )}
-              </div>
-            </div>
+            {album.description && (
+              <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-500">
+                {album.description}
+              </p>
+            )}
 
-            <div className="order-3 flex justify-center text-center sm:justify-start sm:text-left">
-              <div className="flex items-center gap-4 text-zinc-950">
-                <h1 className="max-w-[18rem] text-2xl font-semibold uppercase tracking-[0.08em] sm:text-4xl lg:text-5xl">
-                  {coverTitle}
-                </h1>
-
-                {albumDateLabel && (
-                  <>
-                    <span className="h-px w-10 shrink-0 bg-zinc-400" />
-                    <p className="text-base font-medium text-zinc-500 sm:text-lg">
-                      {albumDateLabel}
-                    </p>
-                  </>
-                )}
+            {album.isExpired && (
+              <div className="mt-5 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-rose-700">
+                Album expired
               </div>
-            </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => scrollToGalleryTop("soothing")}
+              className="absolute bottom-5 left-1/2 flex h-12 w-12 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7"
+              aria-label="Scroll to gallery"
+            >
+              <ChevronDown className="h-6 w-6" />
+            </button>
           </div>
-
-          {album.description && (
-            <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-500">
-              {album.description}
-            </p>
-          )}
-
-          {album.isExpired && (
-            <div className="mt-5 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-rose-700">
-              Album expired
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => scrollToGalleryTop("soothing")}
-            className="absolute bottom-5 left-1/2 flex h-12 w-12 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7"
-            aria-label="Scroll to gallery"
-          >
-            <ChevronDown className="h-6 w-6" />
-          </button>
-        </div>
-      </section>
+        </section>
+      )}
 
       <header
         id="album-gallery-shell"
@@ -1371,7 +1437,33 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 selectedPeopleIds={selectedPeopleIds}
                 selectedPeople={selectedFilterPeople}
                 peopleMatchMode={peopleMatchMode}
+                selectedDownloadPhotoIds={selectedDownloadPhotoIds}
               />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPhotoSelectionMode((current) => !current);
+                  setActiveTab("photos");
+                  setSelectedPerson(null);
+                  setApsaraTextSearch(null);
+                  scrollToGalleryTop();
+                }}
+                className={`flex h-9 w-9 cursor-pointer items-center justify-center gap-2 rounded-full border text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3 ${
+                  isPhotoSelectionMode
+                    ? "border-zinc-950 bg-zinc-950 text-white"
+                    : "border-zinc-200 bg-white text-zinc-700 hover:text-zinc-950"
+                }`}
+                aria-pressed={isPhotoSelectionMode}
+                aria-label="Select photos"
+              >
+                <Check className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {isPhotoSelectionMode
+                    ? `${selectedDownloadPhotoIds.length} Selected`
+                    : "Select"}
+                </span>
+              </button>
 
               <Link
                 href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
@@ -1583,9 +1675,41 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           <section className="space-y-5">
             <div className="px-2 sm:px-0">
               {eventHeader}
-              <h2 className="text-3xl font-semibold tracking-normal sm:text-4xl">
-                Photos
-              </h2>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <h2 className="text-3xl font-semibold tracking-normal sm:text-4xl">
+                  Photos
+                </h2>
+
+                {isPhotoSelectionMode && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-500">
+                      {selectedDownloadPhotoIds.length} selected
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDownloadPhotoIds([])}
+                      disabled={!selectedDownloadPhotoIds.length}
+                      className="h-9 cursor-pointer rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-600 shadow-sm transition hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        triggerBrowserDownload(
+                          `/api/albums/${encodeURIComponent(
+                            albumSlug
+                          )}/downloads?photos=${selectedDownloadPhotoIds.join(",")}`
+                        )
+                      }
+                      disabled={!selectedDownloadPhotoIds.length}
+                      className="h-9 cursor-pointer rounded-full bg-zinc-950 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Download Selected
+                    </button>
+                  </div>
+                )}
+              </div>
               {isAiDataLoadingForEvent && (
                 <div className="mt-4 rounded-2xl border border-[#d8ddff] bg-[#f3f5ff] px-4 py-3 text-sm text-zinc-700">
                   AI data is loading for this event. Photos are available now;
@@ -1601,6 +1725,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               peopleMatchMode={peopleMatchMode}
               onPersonClick={filterByPerson}
               onReachedEnd={goToNextEvent}
+              isSelectionMode={isPhotoSelectionMode}
+              selectedPhotoIds={selectedDownloadPhotoIds}
+              onTogglePhoto={toggleSelectedDownloadPhotoId}
             />
           </section>
         )}

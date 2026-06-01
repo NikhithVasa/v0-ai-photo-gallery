@@ -12,6 +12,7 @@ import {
   LayoutTemplate,
   RefreshCcw,
   Shuffle,
+  Upload,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,10 @@ interface CellAdjustment {
 interface CollageBuilderPageProps {
   initialAlbumSlug?: string;
 }
+
+type CollagePhoto = Photo & {
+  isLocalUpload?: boolean;
+};
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -242,6 +247,10 @@ function resolvePhotoUrl(photo: Photo, originalUrls: Record<string, string>) {
   return originalUrls[photo.id] || photo.previewUrl || photo.thumbnailUrl || "";
 }
 
+function isLocalImageUrl(src: string) {
+  return src.startsWith("blob:") || src.startsWith("data:");
+}
+
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -256,7 +265,9 @@ function downloadBlob(blob: Blob, fileName: string) {
 function loadCanvasImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new window.Image();
-    image.crossOrigin = "anonymous";
+    if (!isLocalImageUrl(src)) {
+      image.crossOrigin = "anonymous";
+    }
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("Image could not be loaded for export"));
     image.src = src;
@@ -371,10 +382,12 @@ function PhotoTile({
   selected,
   onToggle,
 }: {
-  photo: Photo;
+  photo: CollagePhoto;
   selected: boolean;
   onToggle: () => void;
 }) {
+  const src = photo.thumbnailUrl || photo.previewUrl || "";
+
   return (
     <button
       type="button"
@@ -384,21 +397,29 @@ function PhotoTile({
       }`}
       aria-pressed={selected}
     >
-      {(photo.thumbnailUrl || photo.previewUrl) && (
-        <Image
-          src={photo.thumbnailUrl || photo.previewUrl || ""}
-          alt={photo.fileName || "Photo"}
-          fill
-          sizes="132px"
-          className="object-cover transition group-hover:scale-[1.03]"
-          unoptimized
-        />
+      {src && (
+        isLocalImageUrl(src) ? (
+          <img
+            src={src}
+            alt={photo.fileName || "Photo"}
+            className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.03]"
+          />
+        ) : (
+          <Image
+            src={src}
+            alt={photo.fileName || "Photo"}
+            fill
+            sizes="132px"
+            className="object-cover transition group-hover:scale-[1.03]"
+            unoptimized
+          />
+        )
       )}
       <span className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 shadow-sm">
         {selected && <Check className="h-4 w-4 text-zinc-950" />}
       </span>
       <span className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/65 to-transparent px-2 pb-2 pt-8 text-[11px] font-medium text-white">
-        {photo.eventName}
+        {photo.isLocalUpload ? "Uploaded" : photo.eventName}
       </span>
     </button>
   );
@@ -420,8 +441,9 @@ function CollageCell({
   onSelect,
   onDragStart,
   onDrop,
+  onRemove,
 }: {
-  photo?: Photo;
+  photo?: CollagePhoto;
   src: string;
   frame: CellFrame;
   index: number;
@@ -436,6 +458,7 @@ function CollageCell({
   onSelect: () => void;
   onDragStart: () => void;
   onDrop: () => void;
+  onRemove: () => void;
 }) {
   return (
     <button
@@ -465,19 +488,52 @@ function CollageCell({
         }}
       >
         {photo && src ? (
-          <Image
-            src={src}
-            alt={photo.fileName || `Photo ${index + 1}`}
-            fill
-            sizes="(min-width: 1024px) 640px, 90vw"
-            className="h-full w-full"
-            style={{
-              objectFit: fitMode,
-              objectPosition: imagePosition,
-              transform: `scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
-            }}
-            unoptimized
-          />
+          <>
+            {isLocalImageUrl(src) ? (
+              <img
+                src={src}
+                alt={photo.fileName || `Photo ${index + 1}`}
+                className="absolute inset-0 h-full w-full"
+                style={{
+                  objectFit: fitMode,
+                  objectPosition: imagePosition,
+                  transform: `scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
+                }}
+              />
+            ) : (
+              <Image
+                src={src}
+                alt={photo.fileName || `Photo ${index + 1}`}
+                fill
+                sizes="(min-width: 1024px) 640px, 90vw"
+                className="h-full w-full"
+                style={{
+                  objectFit: fitMode,
+                  objectPosition: imagePosition,
+                  transform: `scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
+                }}
+                unoptimized
+              />
+            )}
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(event) => {
+                event.stopPropagation();
+                onRemove();
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                event.stopPropagation();
+                onRemove();
+              }}
+              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition hover:bg-black"
+              aria-label={`Remove photo ${index + 1}`}
+            >
+              <X className="h-4 w-4" />
+            </span>
+          </>
         ) : (
           <span className="flex h-full w-full items-center justify-center text-zinc-400">
             <ImagePlus className="h-6 w-6" />
@@ -490,6 +546,8 @@ function CollageCell({
 
 export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps) {
   const previewRef = useRef<HTMLDivElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const uploadedPhotosRef = useRef<CollagePhoto[]>([]);
   const draggedCellRef = useRef<number | null>(null);
 
   const [albumSlug, setAlbumSlug] = useState(initialAlbumSlug ?? "");
@@ -513,6 +571,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const [selectedCellIndex, setSelectedCellIndex] = useState(0);
   const [cellAdjustments, setCellAdjustments] = useState<Record<string, CellAdjustment>>({});
   const [originalUrls, setOriginalUrls] = useState<Record<string, string>>({});
+  const [uploadedPhotos, setUploadedPhotos] = useState<CollagePhoto[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
   const [isPasswordVerified, setIsPasswordVerified] = useState(false);
@@ -570,6 +629,20 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     setOriginalUrls({});
   }, [albumSlug, eventSlug]);
 
+  useEffect(() => {
+    uploadedPhotosRef.current = uploadedPhotos;
+  }, [uploadedPhotos]);
+
+  useEffect(() => {
+    return () => {
+      for (const photo of uploadedPhotosRef.current) {
+        if (photo.previewUrl?.startsWith("blob:")) {
+          URL.revokeObjectURL(photo.previewUrl);
+        }
+      }
+    };
+  }, []);
+
   const peopleOptions = useMemo(() => {
     const people = new Map<string, string>();
     for (const photo of photosData?.photos ?? []) {
@@ -584,7 +657,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
 
   const filteredPhotos = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const photos = (photosData?.photos ?? []).filter((photo) => {
+    const photos = [...(photosData?.photos ?? []), ...uploadedPhotos].filter((photo) => {
       if (personFilter !== "all" && !photo.people?.some((person) => person.id === personFilter)) {
         return false;
       }
@@ -597,16 +670,21 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     }
 
     return photos;
-  }, [photosData?.photos, personFilter, query, sortMode]);
+  }, [photosData?.photos, personFilter, query, sortMode, uploadedPhotos]);
 
   const photoById = useMemo(() => {
-    return new Map((photosData?.photos ?? []).map((photo) => [photo.id, photo]));
-  }, [photosData?.photos]);
+    return new Map(
+      [...(photosData?.photos ?? []), ...uploadedPhotos].map((photo) => [
+        photo.id,
+        photo,
+      ]),
+    );
+  }, [photosData?.photos, uploadedPhotos]);
 
   const selectedPhotos = useMemo(() => {
     return selectedPhotoIds
       .map((id) => photoById.get(id))
-      .filter((photo): photo is Photo => Boolean(photo));
+      .filter((photo): photo is CollagePhoto => Boolean(photo));
   }, [photoById, selectedPhotoIds]);
 
   const output = useMemo(() => {
@@ -633,10 +711,16 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     let isCancelled = false;
 
     async function signOriginals() {
+      const remotePhotoIds = selectedPhotoIds.filter((id) => !id.startsWith("local:"));
+      if (!remotePhotoIds.length) {
+        setOriginalUrls({});
+        return;
+      }
+
       const response = await fetch(`/api/albums/${encodeURIComponent(albumSlug)}/photos/signed-urls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: selectedPhotoIds }),
+        body: JSON.stringify({ ids: remotePhotoIds }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to sign originals");
@@ -669,6 +753,56 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const autoFill = () => {
     setSelectedPhotoIds(filteredPhotos.slice(0, templateCount).map((photo) => photo.id));
     setSelectedCellIndex(0);
+  };
+
+  const removePhotoAtIndex = (photoIndex: number) => {
+    setSelectedPhotoIds((current) => {
+      if (!current[photoIndex]) return current;
+      return current.filter((_, index) => index !== photoIndex);
+    });
+    setSelectedCellIndex((current) => Math.max(0, Math.min(current, selectedPhotoIds.length - 2)));
+  };
+
+  const handleUploadedFiles = (files: FileList | null) => {
+    const imageFiles = Array.from(files ?? []).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+    if (!imageFiles.length) return;
+
+    const createdPhotos: CollagePhoto[] = imageFiles.map((file) => {
+      const url = URL.createObjectURL(file);
+      return {
+        id: `local:${crypto.randomUUID()}`,
+        albumId: "local",
+        albumSlug: albumSlug || "local",
+        eventId: "local",
+        eventSlug: "uploaded",
+        eventName: "Uploaded",
+        fileName: file.name,
+        caption: null,
+        searchText: file.name,
+        previewUrl: url,
+        thumbnailUrl: url,
+        downloadUrl: url,
+        width: null,
+        height: null,
+        originalS3Key: null,
+        cleanPreviewS3Key: null,
+        watermarkedPreviewS3Key: null,
+        thumbnailS3Key: null,
+        annotatedS3Key: null,
+        people: [],
+        isLocalUpload: true,
+      };
+    });
+
+    setUploadedPhotos((current) => [...createdPhotos, ...current]);
+    setSelectedPhotoIds((current) => [
+      ...current,
+      ...createdPhotos.map((photo) => photo.id),
+    ]);
+
+    if (uploadInputRef.current) uploadInputRef.current.value = "";
   };
 
   const shufflePhotos = () => {
@@ -1099,6 +1233,22 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                   Clear
                 </Button>
               </div>
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(event) => handleUploadedFiles(event.target.files)}
+              />
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => uploadInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4" />
+                Upload Images
+              </Button>
             </div>
           </section>
 
@@ -1199,14 +1349,22 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               }}
             >
               {backgroundMode === "blur" && assignedPhotos[0] && resolvePhotoUrl(assignedPhotos[0], originalUrls) && (
-                <Image
-                  src={resolvePhotoUrl(assignedPhotos[0], originalUrls)}
-                  alt=""
-                  fill
-                  sizes="960px"
-                  className="scale-110 object-cover blur-2xl"
-                  unoptimized
-                />
+                isLocalImageUrl(resolvePhotoUrl(assignedPhotos[0], originalUrls)) ? (
+                  <img
+                    src={resolvePhotoUrl(assignedPhotos[0], originalUrls)}
+                    alt=""
+                    className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl"
+                  />
+                ) : (
+                  <Image
+                    src={resolvePhotoUrl(assignedPhotos[0], originalUrls)}
+                    alt=""
+                    fill
+                    sizes="960px"
+                    className="scale-110 object-cover blur-2xl"
+                    unoptimized
+                  />
+                )
               )}
               <div className="absolute inset-0">
                 {isDiagonal ? (
@@ -1248,19 +1406,50 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                           }}
                           aria-label={`Diagonal collage cell ${index + 1}`}
                         >
-                          <Image
-                            src={resolvePhotoUrl(photo, originalUrls)}
-                            alt={photo.fileName || `Photo ${index + 1}`}
-                            fill
-                            sizes="960px"
-                            className="h-full w-full"
-                            style={{
-                              objectFit: fitMode,
-                              objectPosition: imagePosition,
-                              transform: `scale(${cellAdjustments[photo.id]?.zoom ?? 1}) rotate(${cellAdjustments[photo.id]?.rotate ?? 0}deg)`,
+                          {isLocalImageUrl(resolvePhotoUrl(photo, originalUrls)) ? (
+                            <img
+                              src={resolvePhotoUrl(photo, originalUrls)}
+                              alt={photo.fileName || `Photo ${index + 1}`}
+                              className="absolute inset-0 h-full w-full"
+                              style={{
+                                objectFit: fitMode,
+                                objectPosition: imagePosition,
+                                transform: `scale(${cellAdjustments[photo.id]?.zoom ?? 1}) rotate(${cellAdjustments[photo.id]?.rotate ?? 0}deg)`,
+                              }}
+                            />
+                          ) : (
+                            <Image
+                              src={resolvePhotoUrl(photo, originalUrls)}
+                              alt={photo.fileName || `Photo ${index + 1}`}
+                              fill
+                              sizes="960px"
+                              className="h-full w-full"
+                              style={{
+                                objectFit: fitMode,
+                                objectPosition: imagePosition,
+                                transform: `scale(${cellAdjustments[photo.id]?.zoom ?? 1}) rotate(${cellAdjustments[photo.id]?.rotate ?? 0}deg)`,
+                              }}
+                              unoptimized
+                            />
+                          )}
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              removePhotoAtIndex(index);
                             }}
-                            unoptimized
-                          />
+                            onKeyDown={(event) => {
+                              if (event.key !== "Enter" && event.key !== " ") return;
+                              event.preventDefault();
+                              event.stopPropagation();
+                              removePhotoAtIndex(index);
+                            }}
+                            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition hover:bg-black"
+                            aria-label={`Remove photo ${index + 1}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </span>
                         </button>
                       );
                     })}
@@ -1297,6 +1486,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                           if (draggedCellRef.current !== null) swapCells(draggedCellRef.current, photoIndex);
                           draggedCellRef.current = null;
                         }}
+                        onRemove={() => removePhotoAtIndex(photoIndex)}
                       />
                     );
                   })
