@@ -476,6 +476,7 @@ function CollageCell({
   onDragStart,
   onDrop,
   onRemove,
+  onAdjustChange,
 }: {
   photo?: CollagePhoto;
   src: string;
@@ -505,12 +506,8 @@ function CollageCell({
   return (
     <button
       type="button"
-      draggable={Boolean(photo)}
+      draggable={false}
       onClick={onSelect}
-      onDragStart={(event) => {
-        event.dataTransfer.setData("text/plain", String(index));
-        onDragStart();
-      }}
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
       className={`absolute overflow-hidden bg-zinc-200 transition focus:outline-none ${
@@ -612,6 +609,27 @@ function CollageCell({
                 unoptimized
               />
             )}
+            <span
+              draggable
+              role="button"
+              tabIndex={0}
+              onDragStart={(event) => {
+                event.stopPropagation();
+                event.dataTransfer.setData("text/plain", String(index));
+                onDragStart();
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+              }}
+              className="absolute bottom-2 left-2 flex h-7 w-7 cursor-grab items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition hover:bg-black active:cursor-grabbing"
+              aria-label={`Drag photo ${index + 1}`}
+              title="Drag to swap cells"
+            >
+              <Shuffle className="h-4 w-4" />
+            </span>
             <span
               role="button"
               tabIndex={0}
@@ -1183,9 +1201,12 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
           const y = frame.y * output.height + scaledGap / 2;
           const w = frame.w * output.width - scaledGap;
           const h = frame.h * output.height - scaledGap;
-          const adjustment = cellAdjustments[photo.id] ?? { zoom: 1, rotate: 0 };
-          adjustment.offsetX = adjustment.offsetX ?? 0;
-          adjustment.offsetY = adjustment.offsetY ?? 0;
+          const adjustment = {
+            zoom: cellAdjustments[photo.id]?.zoom ?? 1,
+            rotate: cellAdjustments[photo.id]?.rotate ?? 0,
+            offsetX: cellAdjustments[photo.id]?.offsetX ?? 0,
+            offsetY: cellAdjustments[photo.id]?.offsetY ?? 0,
+          };
 
           ctx.save();
           roundedRect(ctx, x, y, w, h, scaledRadius);

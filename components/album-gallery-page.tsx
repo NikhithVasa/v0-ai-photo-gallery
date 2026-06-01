@@ -1068,6 +1068,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const searchParams = useSearchParams();
   const autoCoverScrollDoneRef = useRef(false);
   const autoCoverScrollTimerRef = useRef<number | null>(null);
+  const coverScrollAnimationFrameRef = useRef<number | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>("photos");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -1180,6 +1181,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const shareSettings = publicShareData?.share ?? null;
   const downloadsEnabled = shareSettings?.allowDownloads ?? true;
 
+  const cancelGalleryScrollAnimation = () => {
+    if (coverScrollAnimationFrameRef.current === null) return;
+    window.cancelAnimationFrame(coverScrollAnimationFrameRef.current);
+    coverScrollAnimationFrameRef.current = null;
+  };
+
   const scrollToGalleryTop = (mode: "normal" | "soothing" = "normal") => {
     requestAnimationFrame(() => {
       // Cancel any pending auto-scroll so a subsequent timer doesn't
@@ -1189,9 +1196,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         window.clearTimeout(autoCoverScrollTimerRef.current);
         autoCoverScrollTimerRef.current = null;
       }
-
-      // Mark cover dismissed so UI state remains consistent immediately.
-      setIsCoverDismissed(true);
+      cancelGalleryScrollAnimation();
 
       const shell = document.getElementById("album-gallery-shell");
       const targetTop = shell ? Math.max(shell.offsetTop - 8, 0) : 0;
@@ -1222,11 +1227,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         window.scrollTo(0, startTop + distance * progress);
 
         if (elapsed < 1) {
-          window.requestAnimationFrame(animate);
+          coverScrollAnimationFrameRef.current = window.requestAnimationFrame(animate);
+          return;
         }
+
+        coverScrollAnimationFrameRef.current = null;
+        setIsCoverDismissed(true);
+        requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
       };
 
-      window.requestAnimationFrame(animate);
+      coverScrollAnimationFrameRef.current = window.requestAnimationFrame(animate);
     });
   };
 
@@ -1252,10 +1262,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
       if (window.scrollY >= Math.max(shell.offsetTop - 24, 0)) {
         // Mark the cover as dismissed when the gallery is reached.
-        // Do not force-scroll back to the top — that prevented the
-        // user from remaining in the gallery after clicking the down
-        // button (it would immediately jump back to the cover).
+        // Cancel the in-flight animation before removing the cover;
+        // otherwise the stale target can keep scrolling after layout shifts.
+        cancelGalleryScrollAnimation();
         setIsCoverDismissed(true);
+        requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
       }
     };
 
@@ -1290,18 +1301,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     window.addEventListener("touchstart", cancelAutoScroll, { passive: true });
     window.addEventListener("pointerdown", cancelAutoScroll);
     window.addEventListener("keydown", cancelAutoScroll);
-    window.addEventListener("scroll", cancelAutoScroll, { passive: true });
 
     return () => {
       if (autoCoverScrollTimerRef.current !== null) {
         window.clearTimeout(autoCoverScrollTimerRef.current);
         autoCoverScrollTimerRef.current = null;
       }
+      cancelGalleryScrollAnimation();
       window.removeEventListener("wheel", cancelAutoScroll);
       window.removeEventListener("touchstart", cancelAutoScroll);
       window.removeEventListener("pointerdown", cancelAutoScroll);
       window.removeEventListener("keydown", cancelAutoScroll);
-      window.removeEventListener("scroll", cancelAutoScroll);
     };
   }, [album, isPasswordVerified]);
 
