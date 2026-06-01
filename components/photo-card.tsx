@@ -158,55 +158,204 @@ export interface PhotoOpenRect {
   height: number;
 }
 
-function WatermarkOverlay({
-  settings,
-  className = "",
-}: {
-  settings?: AlbumShareSettings | null;
-  className?: string;
-}) {
-  if (!settings?.watermarkEnabled || !settings.watermarkText) return null;
+function drawImageToRect(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+  fit: "cover" | "contain",
+) {
+  const imageRatio = image.naturalWidth / image.naturalHeight;
+  const rectRatio = width / height;
+  let drawWidth = width;
+  let drawHeight = height;
 
-  if (settings.watermarkMode === "full") {
-    return (
-      <div
-        className={`pointer-events-none absolute inset-0 z-30 opacity-35 ${className}`}
-        style={{
-          backgroundImage: `repeating-linear-gradient(-28deg, transparent 0 72px, rgba(255,255,255,.72) 72px 74px, transparent 74px 148px)`,
-        }}
-      >
-        <div className="grid h-full w-[160%] -translate-x-[18%] -rotate-[18deg] grid-cols-3 gap-x-16 gap-y-12 py-8 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,.65)] sm:text-sm">
-          {Array.from({ length: 24 }).map((_, index) => (
-            <span key={index} className="whitespace-nowrap">
-              {settings.watermarkText}
-            </span>
-          ))}
-        </div>
-      </div>
-    );
+  if (fit === "cover") {
+    if (imageRatio > rectRatio) drawHeight = height;
+    else drawWidth = width;
+    if (imageRatio > rectRatio) drawWidth = height * imageRatio;
+    else drawHeight = width / imageRatio;
+  } else {
+    if (imageRatio > rectRatio) {
+      drawWidth = width;
+      drawHeight = width / imageRatio;
+    } else {
+      drawHeight = height;
+      drawWidth = height * imageRatio;
+    }
   }
 
+  ctx.drawImage(
+    image,
+    (width - drawWidth) / 2,
+    (height - drawHeight) / 2,
+    drawWidth,
+    drawHeight,
+  );
+}
+
+function drawWatermark(
+  ctx: CanvasRenderingContext2D,
+  settings: AlbumShareSettings,
+  width: number,
+  height: number,
+) {
+  if (!settings.watermarkText) return;
+
+  const text = settings.watermarkText.toUpperCase();
+  const fontSize = Math.max(13, Math.round(Math.min(width, height) * 0.035));
+
+  ctx.save();
+  ctx.font = `700 ${fontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255,255,255,0.62)";
+  ctx.strokeStyle = "rgba(0,0,0,0.28)";
+  ctx.lineWidth = Math.max(2, fontSize * 0.12);
+
+  if (settings.watermarkMode === "full") {
+    const stepX = Math.max(180, ctx.measureText(text).width + 70);
+    const stepY = Math.max(90, fontSize * 4.8);
+
+    ctx.translate(width / 2, height / 2);
+    ctx.rotate((-24 * Math.PI) / 180);
+    ctx.translate(-width / 2, -height / 2);
+
+    for (let y = -height; y < height * 2; y += stepY) {
+      for (let x = -width; x < width * 2; x += stepX) {
+        ctx.strokeText(text, x, y);
+        ctx.fillText(text, x, y);
+      }
+    }
+
+    ctx.restore();
+    return;
+  }
+
+  const padding = Math.max(14, Math.round(Math.min(width, height) * 0.035));
   const positions = settings.watermarkPositions.length
     ? settings.watermarkPositions
     : ["bottom_right"];
-  const positionClass: Record<string, string> = {
-    top_left: "left-3 top-3",
-    top_right: "right-3 top-3",
-    bottom_left: "bottom-3 left-3",
-    bottom_right: "bottom-3 right-3",
-  };
+
+  for (const position of positions) {
+    let x = padding;
+    let y = padding + fontSize / 2;
+    ctx.textAlign = "left";
+
+    if (position.endsWith("right")) {
+      x = width - padding;
+      ctx.textAlign = "right";
+    }
+
+    if (position.startsWith("bottom")) {
+      y = height - padding - fontSize / 2;
+    }
+
+    ctx.strokeText(text, x, y);
+    ctx.fillText(text, x, y);
+  }
+
+  ctx.restore();
+}
+
+function WatermarkedImage({
+  src,
+  alt,
+  className,
+  fit = "cover",
+  settings,
+  loading,
+  decoding,
+  fetchPriority,
+  draggable,
+  onError,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  fit?: "cover" | "contain";
+  settings?: AlbumShareSettings | null;
+  loading?: "eager" | "lazy";
+  decoding?: "async" | "auto" | "sync";
+  fetchPriority?: "high" | "low" | "auto";
+  draggable?: boolean;
+  onError?: () => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [fallback, setFallback] = useState(false);
+  const watermarkEnabled = Boolean(settings?.watermarkEnabled && settings.watermarkText);
+
+  useEffect(() => {
+    if (!watermarkEnabled || !settings) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    let isCancelled = false;
+    const image = new window.Image();
+    image.crossOrigin = "anonymous";
+    image.decoding = decoding ?? "async";
+
+    const draw = () => {
+      if (isCancelled) return;
+      if (!image.complete || !image.naturalWidth || !image.naturalHeight) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const cssWidth = Math.max(1, rect.width);
+      const cssHeight = Math.max(1, rect.height);
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.round(cssWidth * ratio);
+      canvas.height = Math.round(cssHeight * ratio);
+      canvas.style.aspectRatio = `${image.naturalWidth} / ${image.naturalHeight}`;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, cssWidth, cssHeight);
+      drawImageToRect(ctx, image, cssWidth, cssHeight, fit);
+      drawWatermark(ctx, settings, cssWidth, cssHeight);
+    };
+
+    image.onload = draw;
+    image.onerror = () => {
+      setFallback(true);
+      onError?.();
+    };
+    image.src = src;
+
+    const resizeObserver = new ResizeObserver(draw);
+    resizeObserver.observe(canvas);
+
+    return () => {
+      isCancelled = true;
+      resizeObserver.disconnect();
+    };
+  }, [decoding, fit, onError, settings, src, watermarkEnabled]);
+
+  if (!watermarkEnabled || fallback) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        loading={loading}
+        decoding={decoding}
+        fetchPriority={fetchPriority}
+        draggable={draggable}
+        onError={onError}
+      />
+    );
+  }
 
   return (
-    <div className={`pointer-events-none absolute inset-0 z-30 ${className}`}>
-      {positions.map((position) => (
-        <span
-          key={position}
-          className={`absolute ${positionClass[position] ?? positionClass.bottom_right} rounded-sm bg-black/32 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white shadow-sm backdrop-blur-[1px] sm:text-xs`}
-        >
-          {settings.watermarkText}
-        </span>
-      ))}
-    </div>
+    <canvas
+      ref={canvasRef}
+      aria-label={alt}
+      role="img"
+      className={className}
+      draggable={draggable}
+    />
   );
 }
 
@@ -290,15 +439,15 @@ export const PhotoCard = memo(function PhotoCard({
         aria-label={photo.caption ? `Open ${photo.caption}` : "Open photo"}
       >
         {imageUrl ? (
-          <img
+          <WatermarkedImage
             src={imageUrl}
             alt={photo.caption || "Photo"}
-            width={photo.width ?? undefined}
-            height={photo.height ?? undefined}
             className="absolute inset-0 h-full w-full object-cover"
             loading={index < 48 ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={index < 12 ? "high" : "auto"}
+            settings={shareSettings}
+            fit="cover"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-secondary">
@@ -373,7 +522,6 @@ export const PhotoCard = memo(function PhotoCard({
         )}
       </div>
 
-      <WatermarkOverlay settings={shareSettings} />
     </div>
   );
 });
@@ -451,6 +599,7 @@ export function PhotoLightbox({
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const downloadUrl = photo.downloadUrl;
   const canDownload = shareSettings?.allowDownloads ?? true;
+  const canEditPhoto = !shareSettings;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
 
@@ -1100,16 +1249,16 @@ export function PhotoLightbox({
               }
             }}
           >
-            <img
+            <WatermarkedImage
               src={currentImageUrl}
               alt={photo.caption || "Photo"}
-              width={photo.width ?? undefined}
-              height={photo.height ?? undefined}
               className="pointer-events-none absolute inset-0 h-full w-full cursor-default select-none object-contain opacity-0"
               decoding="async"
               fetchPriority="high"
               draggable={false}
               onError={handleImageError}
+              settings={shareSettings}
+              fit="contain"
             />
 
             <div className="absolute inset-0 overflow-hidden">
@@ -1121,17 +1270,19 @@ export function PhotoLightbox({
               >
                 <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
                   {previousImageUrl && preloadedUrls.has(previousImageUrl) ? (
-                    <img
+                    <WatermarkedImage
                       src={previousImageUrl}
                       alt={previousPhoto?.caption || "Previous photo"}
                       className={imageClassName}
                       draggable={false}
+                      settings={shareSettings}
+                      fit="contain"
                     />
                   ) : null}
                 </div>
 
                 <div className="relative flex h-full w-full shrink-0 cursor-default items-center justify-center">
-                  <img
+                  <WatermarkedImage
                     src={currentImageUrl}
                     alt={photo.caption || "Photo"}
                     className={imageClassName}
@@ -1139,17 +1290,20 @@ export function PhotoLightbox({
                     fetchPriority="high"
                     draggable={false}
                     onError={handleImageError}
+                    settings={shareSettings}
+                    fit="contain"
                   />
-                  <WatermarkOverlay settings={shareSettings} />
                 </div>
 
                 <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
                   {nextImageUrl && preloadedUrls.has(nextImageUrl) ? (
-                    <img
+                    <WatermarkedImage
                       src={nextImageUrl}
                       alt={nextPhoto?.caption || "Next photo"}
                       className={imageClassName}
                       draggable={false}
+                      settings={shareSettings}
+                      fit="contain"
                     />
                   ) : null}
                 </div>
@@ -1193,18 +1347,20 @@ export function PhotoLightbox({
                 <Heart className="h-4 w-4" strokeWidth={1.5} />
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setAreControlsVisible(true);
-                  setIsPeopleOpen(false);
-                  setIsAiEditOpen(true);
-                }}
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                aria-label="Edit photo with AI"
-              >
-                <Wand2 className="h-4 w-4" strokeWidth={1.5} />
-              </button>
+              {canEditPhoto && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAreControlsVisible(true);
+                    setIsPeopleOpen(false);
+                    setIsAiEditOpen(true);
+                  }}
+                  className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                  aria-label="Edit photo with AI"
+                >
+                  <Wand2 className="h-4 w-4" strokeWidth={1.5} />
+                </button>
+              )}
 
               <button
                 type="button"

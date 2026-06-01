@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
-import type { AlbumEvent, Person, Photo } from "@/lib/types";
+import type { AlbumEvent, AlbumShareSettings, Person, Photo } from "@/lib/types";
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -29,6 +29,7 @@ interface PersonViewProps {
   events: AlbumEvent[];
   person: Person;
   onBack: () => void;
+  shareSettings?: AlbumShareSettings | null;
 }
 
 function personPhotosUrl(
@@ -51,6 +52,7 @@ export function PersonView({
   events,
   person,
   onBack,
+  shareSettings,
 }: PersonViewProps) {
   const [activeEventSlug, setActiveEventSlug] = useState<string | null>(
     selectedEventSlug
@@ -220,6 +222,7 @@ export function PersonView({
                     photo={photo}
                     index={index}
                     onOpen={handleOpen}
+                    shareSettings={shareSettings}
                   />
                 </div>
               ))}
@@ -236,6 +239,7 @@ export function PersonView({
               originRect={lightboxState.originRect}
               onClose={() => setLightboxState(null)}
               onNavigate={handleNavigate}
+              shareSettings={shareSettings}
             />
           )}
         </>

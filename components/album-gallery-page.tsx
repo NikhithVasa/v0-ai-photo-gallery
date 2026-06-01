@@ -1929,6 +1929,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               setActiveTab("people");
               scrollToGalleryTop();
             }}
+            shareSettings={shareSettings}
           />
         ) : activeTab === "people" ? (
           <section className="space-y-5 px-2 sm:px-0">

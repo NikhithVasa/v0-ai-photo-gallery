@@ -258,6 +258,12 @@ function isLocalImageUrl(src: string) {
   return src.startsWith("blob:") || src.startsWith("data:");
 }
 
+function trimTrailingEmptyIds(photoIds: string[]) {
+  const next = [...photoIds];
+  while (next.length && !next[next.length - 1]) next.pop();
+  return next;
+}
+
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -404,7 +410,10 @@ function PhotoTile({
       type="button"
       draggable
       onClick={onToggle}
-      onDragStart={onDragStart}
+      onDragStart={(event) => {
+        event.dataTransfer.setData("text/plain", photo.id);
+        onDragStart?.();
+      }}
       className={`group relative aspect-square overflow-hidden rounded-md bg-zinc-100 text-left ring-offset-2 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
         active
           ? "ring-2 ring-sky-500"
@@ -482,7 +491,10 @@ function CollageCell({
       type="button"
       draggable={Boolean(photo)}
       onClick={onSelect}
-      onDragStart={onDragStart}
+      onDragStart={(event) => {
+        event.dataTransfer.setData("text/plain", String(index));
+        onDragStart();
+      }}
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
       className={`absolute overflow-hidden bg-zinc-200 transition focus:outline-none ${
@@ -701,10 +713,9 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   }, [photosData?.photos, uploadedPhotos]);
 
   const selectedPhotos = useMemo(() => {
-    return selectedPhotoIds
-      .map((id) => photoById.get(id))
-      .filter((photo): photo is CollagePhoto => Boolean(photo));
+    return selectedPhotoIds.map((id) => (id ? photoById.get(id) : undefined));
   }, [photoById, selectedPhotoIds]);
+  const selectedPhotoCount = selectedPhotoIds.filter(Boolean).length;
 
   const output = useMemo(() => {
     const selected = outputSizes.find((item) => item.id === outputId) ?? outputSizes[0];
@@ -719,18 +730,19 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const frames = useMemo(() => framesForTemplate(template), [template]);
   const templateCount = templatePhotoCount(template);
   const assignedPhotos = selectedPhotos.slice(0, templateCount);
+  const hasAssignedPhotos = assignedPhotos.some(Boolean);
   const selectedCellPhoto = assignedPhotos[selectedCellIndex];
   const selectedAdjustment = selectedCellPhoto
     ? cellAdjustments[selectedCellPhoto.id] ?? { zoom: 1, rotate: 0 }
     : { zoom: 1, rotate: 0 };
 
   useEffect(() => {
-    if (!albumSlug || !selectedPhotoIds.length) return;
+    if (!albumSlug || !selectedPhotoIds.some(Boolean)) return;
 
     let isCancelled = false;
 
     async function signOriginals() {
-      const remotePhotoIds = selectedPhotoIds.filter((id) => !id.startsWith("local:"));
+      const remotePhotoIds = selectedPhotoIds.filter((id) => id && !id.startsWith("local:"));
       if (!remotePhotoIds.length) {
         setOriginalUrls({});
         return;
@@ -770,13 +782,18 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
 
   const placePhotoAtIndex = (photoId: string, photoIndex: number) => {
     setSelectedPhotoIds((current) => {
-      const next = current.filter((id) => id !== photoId);
+      const next = [...current];
+      const existingIndex = next.indexOf(photoId);
       while (next.length <= photoIndex) next.push("");
+      if (existingIndex >= 0) {
+        [next[existingIndex], next[photoIndex]] = [next[photoIndex], next[existingIndex]];
+        return trimTrailingEmptyIds(next);
+      }
       next[photoIndex] = photoId;
-      return next.filter(Boolean);
+      return trimTrailingEmptyIds(next);
     });
     setSelectedCellIndex(photoIndex);
-    setActiveSourcePhotoId(photoId);
+    setActiveSourcePhotoId(null);
   };
 
   const autoFill = () => {
@@ -787,9 +804,11 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const removePhotoAtIndex = (photoIndex: number) => {
     setSelectedPhotoIds((current) => {
       if (!current[photoIndex]) return current;
-      return current.filter((_, index) => index !== photoIndex);
+      const next = [...current];
+      next[photoIndex] = "";
+      return trimTrailingEmptyIds(next);
     });
-    setSelectedCellIndex((current) => Math.max(0, Math.min(current, selectedPhotoIds.length - 2)));
+    setSelectedCellIndex((current) => Math.max(0, Math.min(current, templateCount - 1)));
   };
 
   const handleUploadedFiles = (files: FileList | null) => {
@@ -849,7 +868,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       if (!next[fromIndex]) return current;
       while (next.length <= toIndex) next.push("");
       [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
-      return next.filter(Boolean);
+      return trimTrailingEmptyIds(next);
     });
   };
 
@@ -965,7 +984,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   };
 
   const exportImage = async (format: "png" | "jpeg") => {
-    if (!assignedPhotos.length) return;
+    if (!hasAssignedPhotos) return;
 
     setIsExporting(true);
     setExportError("");
@@ -981,6 +1000,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
 
       const imageCache = new Map<string, HTMLImageElement>();
       for (const photo of assignedPhotos) {
+        if (!photo) continue;
         const src = resolvePhotoUrl(photo, originalUrls);
         if (!src) continue;
         imageCache.set(photo.id, await loadCanvasImage(src));
@@ -1221,13 +1241,13 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               <ImagePlus className="h-4 w-4" />
               Auto Fill
             </Button>
-            <Button variant="outline" onClick={shufflePhotos} disabled={selectedPhotoIds.length < 2}>
+            <Button variant="outline" onClick={shufflePhotos} disabled={selectedPhotoCount < 2}>
               <Shuffle className="h-4 w-4" />
               Shuffle
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button disabled={!assignedPhotos.length || isExporting}>
+                <Button disabled={!hasAssignedPhotos || isExporting}>
                   <Download className="h-4 w-4" />
                   Download
                   <ChevronDown className="h-4 w-4" />
@@ -1294,7 +1314,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                   <ImagePlus className="h-4 w-4" />
                   Auto Fill
                 </Button>
-                <Button variant="outline" onClick={() => setSelectedPhotoIds([])} disabled={!selectedPhotoIds.length}>
+                <Button variant="outline" onClick={() => setSelectedPhotoIds([])} disabled={!selectedPhotoCount}>
                   <X className="h-4 w-4" />
                   Clear
                 </Button>
@@ -1315,30 +1335,6 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 <Upload className="h-4 w-4" />
                 Upload Images
               </Button>
-              {uploadedPhotos.length > 0 && (
-                <div className="space-y-2 rounded-md border border-zinc-200 bg-zinc-50 p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
-                      Uploaded images
-                    </p>
-                    <span className="text-xs text-zinc-500">
-                      {uploadedPhotos.length}
-                    </span>
-                  </div>
-                  <div className="grid max-h-44 grid-cols-4 gap-2 overflow-y-auto pr-1">
-                    {uploadedPhotos.map((photo) => (
-                      <PhotoTile
-                        key={photo.id}
-                        photo={photo}
-                        selected={selectedPhotoIds.includes(photo.id)}
-                        active={activeSourcePhotoId === photo.id}
-                        onToggle={() => togglePhoto(photo.id)}
-                        onDragStart={() => handleSourceDragStart(photo.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </section>
 
@@ -1347,13 +1343,38 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               <div>
                 <h2 className="font-semibold">Photos</h2>
                 <p className="text-sm text-zinc-500">
-                  {selectedPhotoIds.length} selected / {templateCount} needed
+                  {selectedPhotoCount} selected / {templateCount} needed
                 </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={shufflePhotos} disabled={selectedPhotoIds.length < 2} aria-label="Shuffle photos">
+              <Button variant="ghost" size="icon" onClick={shufflePhotos} disabled={selectedPhotoCount < 2} aria-label="Shuffle photos">
                 <Shuffle className="h-4 w-4" />
               </Button>
             </div>
+
+            {uploadedPhotos.length > 0 && (
+              <div className="mb-4 space-y-2 rounded-md border border-zinc-200 bg-zinc-50 p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+                    Uploaded images
+                  </p>
+                  <span className="text-xs text-zinc-500">
+                    {uploadedPhotos.length}
+                  </span>
+                </div>
+                <div className="grid max-h-44 grid-cols-3 gap-2 overflow-y-auto pr-1">
+                  {uploadedPhotos.map((photo) => (
+                    <PhotoTile
+                      key={photo.id}
+                      photo={photo}
+                      selected={selectedPhotoIds.includes(photo.id)}
+                      active={activeSourcePhotoId === photo.id}
+                      onToggle={() => togglePhoto(photo.id)}
+                      onDragStart={() => handleSourceDragStart(photo.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search photos or people" />
@@ -1427,7 +1448,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button disabled={!assignedPhotos.length || isExporting} size="sm">
+                  <Button disabled={!hasAssignedPhotos || isExporting} size="sm">
                     Download
                   </Button>
                 </DropdownMenuTrigger>
@@ -1494,7 +1515,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                           key={photo?.id ?? `empty-${index}`}
                           onClick={() => handleCellSelect(index)}
                           draggable={Boolean(photo)}
-                          onDragStart={() => {
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData("text/plain", String(index));
                             draggedCellRef.current = index;
                             draggedPhotoIdRef.current = null;
                           }}
@@ -1565,7 +1587,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                         </button>
                       );
                     })}
-                    {!assignedPhotos.length && (
+                    {!hasAssignedPhotos && (
                       <div className="absolute inset-0 flex items-center justify-center text-zinc-500">
                         Select photos or use Auto Fill
                       </div>
@@ -1774,14 +1796,23 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 <Label htmlFor="transparent-background" className="text-sm">Transparent background</Label>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button onClick={() => exportImage("png")} disabled={!assignedPhotos.length || isExporting}>
-                  <Download className="h-4 w-4" />
-                  PNG
-                </Button>
-                <Button variant="outline" onClick={() => exportImage("jpeg")} disabled={!assignedPhotos.length || isExporting}>
-                  <Download className="h-4 w-4" />
-                  JPG
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button disabled={!hasAssignedPhotos || isExporting} className="col-span-2">
+                      <Download className="h-4 w-4" />
+                      Download
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuItem onSelect={() => exportImage("png")}>
+                      PNG
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => exportImage("jpeg")}>
+                      JPG
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <Button variant="outline" disabled className="w-full" title="Saving collages requires the optional collages table and upload endpoint.">
                 Save to Album
