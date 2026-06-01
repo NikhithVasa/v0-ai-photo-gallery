@@ -9,6 +9,7 @@ import {
   Check,
   ChevronDown,
   Loader2,
+  LayoutTemplate,
   Pencil,
   Images,
   Plus,
@@ -1235,6 +1236,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             </div>
 
             <div className="flex items-center gap-2">
+              <Link
+                href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
+                className="flex h-9 w-9 items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+                aria-label="Create collage"
+              >
+                <LayoutTemplate className="h-4 w-4" />
+                <span className="hidden sm:inline">Create Collage</span>
+              </Link>
+
               <Link
                 href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
                 className="flex h-9 w-9 items-center justify-center gap-2 rounded-full bg-zinc-950 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"

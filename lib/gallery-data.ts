@@ -190,10 +190,11 @@ export async function signedPhotoUrlBundle(row: Pick<
   | "compression_status"
   | "watermark_status"
 >) {
-  const [previewUrl, downloadUrl, thumbnailUrl] = await Promise.all([
+  const [previewUrl, downloadUrl, thumbnailUrl, originalUrl] = await Promise.all([
     signedUrl(previewKey(row as PhotoRow)),
     signedDownloadUrl(row.original_s3_key, row.file_name ?? undefined),
     signedUrl(gridKey(row as PhotoRow)),
+    signedUrl(row.original_s3_key),
   ]);
 
   return {
@@ -201,6 +202,7 @@ export async function signedPhotoUrlBundle(row: Pick<
     previewUrl,
     downloadUrl,
     thumbnailUrl,
+    originalUrl,
   };
 }
 

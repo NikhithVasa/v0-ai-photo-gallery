@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: Props) {
         : [];
     const photoIds = rawIds
       .filter((id): id is string => typeof id === "string" && isUuid(id))
-      .slice(0, 12);
+      .slice(0, 60);
 
     if (!photoIds.length) {
       return NextResponse.json({ urls: {}, photos: [] });
@@ -76,6 +76,7 @@ export async function POST(request: Request, { params }: Props) {
           previewUrl: photo.previewUrl,
           downloadUrl: photo.downloadUrl,
           thumbnailUrl: photo.thumbnailUrl,
+          originalUrl: photo.originalUrl,
         },
       ])
     );
