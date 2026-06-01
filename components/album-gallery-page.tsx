@@ -1240,8 +1240,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       if (!shell) return;
 
       if (window.scrollY >= Math.max(shell.offsetTop - 24, 0)) {
+        // Mark the cover as dismissed when the gallery is reached.
+        // Do not force-scroll back to the top — that prevented the
+        // user from remaining in the gallery after clicking the down
+        // button (it would immediately jump back to the cover).
         setIsCoverDismissed(true);
-        requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
       }
     };
 
