@@ -1182,6 +1182,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   const scrollToGalleryTop = (mode: "normal" | "soothing" = "normal") => {
     requestAnimationFrame(() => {
+      // Cancel any pending auto-scroll so a subsequent timer doesn't
+      // re-run after the user intentionally navigates to the gallery.
+      autoCoverScrollDoneRef.current = true;
+      if (autoCoverScrollTimerRef.current !== null) {
+        window.clearTimeout(autoCoverScrollTimerRef.current);
+        autoCoverScrollTimerRef.current = null;
+      }
+
+      // Mark cover dismissed so UI state remains consistent immediately.
+      setIsCoverDismissed(true);
+
       const shell = document.getElementById("album-gallery-shell");
       const targetTop = shell ? Math.max(shell.offsetTop - 8, 0) : 0;
 
