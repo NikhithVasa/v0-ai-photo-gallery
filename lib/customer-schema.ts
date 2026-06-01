@@ -106,3 +106,48 @@ export function ensurePhotoEditSchema() {
 
   return photoEditSchemaPromise;
 }
+
+let albumShareLinkSchemaPromise: Promise<void> | null = null;
+
+export function ensureAlbumShareLinkSchema() {
+  albumShareLinkSchemaPromise ??= (async () => {
+    await query(
+      `
+      CREATE TABLE IF NOT EXISTS album_share_links (
+        id uuid PRIMARY KEY,
+        token text NOT NULL UNIQUE,
+        album_id uuid NOT NULL,
+        customer_id uuid,
+        album_name text NOT NULL,
+        customer_name text,
+        allow_downloads boolean NOT NULL DEFAULT false,
+        watermark_enabled boolean NOT NULL DEFAULT false,
+        watermark_text text,
+        watermark_mode text NOT NULL DEFAULT 'corners',
+        watermark_positions text[] NOT NULL DEFAULT ARRAY['bottom_right']::text[],
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )
+      `,
+      []
+    );
+
+    await query(
+      `
+      CREATE INDEX IF NOT EXISTS album_share_links_album_id_idx
+      ON album_share_links (album_id)
+      `,
+      []
+    );
+
+    await query(
+      `
+      CREATE INDEX IF NOT EXISTS album_share_links_token_idx
+      ON album_share_links (token)
+      `,
+      []
+    );
+  })();
+
+  return albumShareLinkSchemaPromise;
+}

@@ -113,3 +113,15 @@ export interface SearchResult {
   reason: string | null;
   score: number;
 }
+
+export interface AlbumShareSettings {
+  token?: string;
+  albumSlug?: string;
+  albumName?: string;
+  customerName?: string | null;
+  allowDownloads: boolean;
+  watermarkEnabled: boolean;
+  watermarkText: string | null;
+  watermarkMode: "full" | "corners";
+  watermarkPositions: string[];
+}

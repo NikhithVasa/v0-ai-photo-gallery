@@ -107,6 +107,7 @@ export function UploadPage() {
   const uploadedCount = queuedFiles.filter((file) => file.status === "uploaded").length;
   const failedCount = queuedFiles.filter((file) => file.status === "failed").length;
   const readyCount = queuedFiles.filter((file) => file.status === "ready").length;
+  const failedFiles = queuedFiles.filter((file) => file.status === "failed");
   const canUpload = Boolean(
     queuedFiles.some((file) => file.status === "ready" || file.status === "failed") &&
     !isUploading &&
@@ -163,9 +164,12 @@ export function UploadPage() {
     setQueuedFiles((current) => current.filter((file) => file.status !== "uploaded"));
   };
 
-  const uploadFiles = async () => {
+  const uploadFiles = async (localIds?: string[]) => {
+    const targetIds = localIds ? new Set(localIds) : null;
     const filesToUpload = queuedFiles.filter(
-      (item) => item.status === "ready" || item.status === "failed"
+      (item) =>
+        (item.status === "ready" || item.status === "failed") &&
+        (!targetIds || targetIds.has(item.localId))
     );
     if (!filesToUpload.length) return;
 
@@ -298,7 +302,7 @@ export function UploadPage() {
           </div>
 
           <Button
-            onClick={uploadFiles}
+            onClick={() => uploadFiles()}
             disabled={!canUpload}
             className="rounded-full px-4"
           >
@@ -328,6 +332,58 @@ export function UploadPage() {
                 </button>
               )}
             </div>
+
+            {failedFiles.length > 0 && (
+              <div className="border-b border-rose-100 bg-rose-50/70 px-4 py-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-rose-700">
+                      Failed uploads
+                    </p>
+                    <p className="text-xs text-rose-600">
+                      {failedFiles.length} photo{failedFiles.length === 1 ? "" : "s"} need retry
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => uploadFiles(failedFiles.map((file) => file.localId))}
+                    disabled={isUploading}
+                  >
+                    Retry failed
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  {failedFiles.map((item) => (
+                    <div
+                      key={item.localId}
+                      className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-zinc-800">
+                          {item.file.name}
+                        </p>
+                        {item.error && (
+                          <p className="truncate text-xs text-rose-600">
+                            {item.error}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => uploadFiles([item.localId])}
+                        disabled={isUploading}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {queuedFiles.length === 0 ? (
               <div className="flex h-[50vh] items-center justify-center px-6 text-center">
@@ -364,9 +420,22 @@ export function UploadPage() {
                         </p>
                       )}
                     </div>
-                    <span className="self-center rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
-                      {statusLabel(item.status)}
-                    </span>
+                    <div className="flex items-center gap-2 self-center">
+                      {item.status === "failed" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => uploadFiles([item.localId])}
+                          disabled={isUploading}
+                        >
+                          Retry
+                        </Button>
+                      )}
+                      <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
+                        {statusLabel(item.status)}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

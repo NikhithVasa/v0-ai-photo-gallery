@@ -8,6 +8,7 @@ import useSWR from "swr";
 import {
   Check,
   ChevronDown,
+  Copy,
   Download,
   Loader2,
   LayoutTemplate,
@@ -15,6 +16,7 @@ import {
   Images,
   Plus,
   Search,
+  Share2,
   User,
   Users,
   X,
@@ -24,8 +26,21 @@ import { PersonView } from "@/components/person-view";
 import { PhotosGrid, type PeopleMatchMode } from "@/components/photos-grid";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { ApsaraMomentsRoot } from "@/components/apsara-moments";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +49,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { AlbumDetail, Person, Photo } from "@/lib/types";
+import type { AlbumDetail, AlbumShareSettings, Person, Photo } from "@/lib/types";
 
 type Tab = "photos" | "people";
 
@@ -62,16 +77,22 @@ interface AlbumStatsResponse {
   };
 }
 
+interface PublicShareResponse {
+  share: AlbumShareSettings;
+}
+
 interface AlbumSummaryForGate {
   slug: string;
   name: string;
   coverPhotoUrl?: string | null;
 }
 
-function eventQuery(selectedEventSlug: string | null) {
-  return selectedEventSlug
-    ? `?event=${encodeURIComponent(selectedEventSlug)}`
-    : "";
+function eventQuery(selectedEventSlug: string | null, shareToken = "") {
+  const params = new URLSearchParams();
+  if (selectedEventSlug) params.set("event", selectedEventSlug);
+  if (shareToken) params.set("share", shareToken);
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }
 
 function triggerBrowserDownload(url: string) {
@@ -270,6 +291,7 @@ function SearchResultsGrid({
   error,
   onClear,
   onPersonClick,
+  shareSettings,
 }: {
   albumSlug: string;
   query: string;
@@ -278,6 +300,7 @@ function SearchResultsGrid({
   error: string | null;
   onClear: () => void;
   onPersonClick?: (personId: string) => void;
+  shareSettings?: AlbumShareSettings | null;
 }) {
   const [lightboxState, setLightboxState] = useState<{
     index: number;
@@ -345,6 +368,7 @@ function SearchResultsGrid({
                 photo={photo}
                 index={index}
                 onOpen={handleOpen}
+                shareSettings={shareSettings}
               />
             </div>
           ))}
@@ -360,6 +384,7 @@ function SearchResultsGrid({
           onClose={() => setLightboxState(null)}
           onNavigate={handleNavigate}
           onPersonClick={onPersonClick}
+          shareSettings={shareSettings}
         />
       )}
     </section>
@@ -678,6 +703,7 @@ function AlbumDownloadMenu({
   selectedPeople,
   peopleMatchMode,
   selectedDownloadPhotoIds,
+  downloadsEnabled = true,
 }: {
   albumSlug: string;
   events: AlbumDetail["events"];
@@ -686,7 +712,10 @@ function AlbumDownloadMenu({
   selectedPeople: Person[];
   peopleMatchMode: PeopleMatchMode;
   selectedDownloadPhotoIds: string[];
+  downloadsEnabled?: boolean;
 }) {
+  if (!downloadsEnabled) return null;
+
   const downloadUrl = (options?: {
     eventSlug?: string | null;
     people?: boolean;
@@ -805,6 +834,235 @@ function AlbumDownloadMenu({
   );
 }
 
+interface AlbumShareResponse {
+  share: (AlbumShareSettings & { id?: string; url: string }) | null;
+  defaults?: AlbumShareSettings;
+}
+
+const cornerOptions = [
+  { id: "top_left", label: "Top left" },
+  { id: "top_right", label: "Top right" },
+  { id: "bottom_left", label: "Bottom left" },
+  { id: "bottom_right", label: "Bottom right" },
+];
+
+function AlbumShareDialog({
+  albumSlug,
+  defaultWatermarkText,
+}: {
+  albumSlug: string;
+  defaultWatermarkText: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [allowDownloads, setAllowDownloads] = useState(false);
+  const [watermarkEnabled, setWatermarkEnabled] = useState(false);
+  const [watermarkText, setWatermarkText] = useState(defaultWatermarkText);
+  const [watermarkMode, setWatermarkMode] =
+    useState<AlbumShareSettings["watermarkMode"]>("corners");
+  const [watermarkPositions, setWatermarkPositions] =
+    useState<string[]>(["bottom_right"]);
+  const [shareUrl, setShareUrl] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [status, setStatus] = useState("");
+
+  const { data, mutate } = useSWR<AlbumShareResponse>(
+    isOpen ? `/api/albums/${encodeURIComponent(albumSlug)}/share` : null,
+    fetcher,
+    {
+      dedupingInterval: 15 * 1000,
+      revalidateOnFocus: false,
+    },
+  );
+
+  useEffect(() => {
+    if (!isOpen || !data) return;
+
+    const source = data.share ?? data.defaults;
+    if (!source) return;
+
+    setAllowDownloads(source.allowDownloads);
+    setWatermarkEnabled(source.watermarkEnabled);
+    setWatermarkText(source.watermarkText || defaultWatermarkText);
+    setWatermarkMode(source.watermarkMode);
+    setWatermarkPositions(
+      source.watermarkPositions?.length
+        ? source.watermarkPositions
+        : ["bottom_right"],
+    );
+
+    if (data.share?.url) setShareUrl(data.share.url);
+  }, [data, defaultWatermarkText, isOpen]);
+
+  const toggleCorner = (position: string) => {
+    setWatermarkPositions((current) => {
+      const next = current.includes(position)
+        ? current.filter((item) => item !== position)
+        : [...current, position];
+      return next.length ? next : ["bottom_right"];
+    });
+  };
+
+  const save = async () => {
+    setIsSaving(true);
+    setStatus("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/share`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            allowDownloads,
+            watermarkEnabled,
+            watermarkText,
+            watermarkMode,
+            watermarkPositions,
+          }),
+        },
+      );
+      const payload = (await response.json()) as AlbumShareResponse | { error?: string };
+
+      if (!response.ok || !("share" in payload) || !payload.share) {
+        throw new Error("error" in payload ? payload.error : "Failed to save");
+      }
+
+      setShareUrl(payload.share.url);
+      setStatus("Saved");
+      await mutate(payload as AlbumShareResponse, { revalidate: false });
+    } catch (error) {
+      console.error("Failed to save share link:", error);
+      setStatus("Failed to save");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const copyLink = async () => {
+    if (!shareUrl) return;
+    await navigator.clipboard?.writeText(shareUrl);
+    setStatus("Copied");
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="flex h-9 w-9 cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+          aria-label="Share album link"
+        >
+          <Share2 className="h-4 w-4" />
+          <span className="hidden sm:inline">Share</span>
+        </button>
+      </DialogTrigger>
+
+      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Share album link</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <div className="flex items-center justify-between gap-4 rounded-md border border-zinc-200 p-3">
+            <Label htmlFor="share-allow-downloads" className="text-sm font-medium">
+              Allow downloads
+            </Label>
+            <Switch
+              id="share-allow-downloads"
+              checked={allowDownloads}
+              onCheckedChange={setAllowDownloads}
+            />
+          </div>
+
+          <div className="space-y-3 rounded-md border border-zinc-200 p-3">
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="share-watermark" className="text-sm font-medium">
+                Watermark
+              </Label>
+              <Switch
+                id="share-watermark"
+                checked={watermarkEnabled}
+                onCheckedChange={setWatermarkEnabled}
+              />
+            </div>
+
+            {watermarkEnabled && (
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="share-watermark-text">Company name</Label>
+                  <Input
+                    id="share-watermark-text"
+                    value={watermarkText}
+                    onChange={(event) => setWatermarkText(event.target.value)}
+                  />
+                </div>
+
+                <RadioGroup
+                  value={watermarkMode}
+                  onValueChange={(value) => {
+                    const nextMode = value as AlbumShareSettings["watermarkMode"];
+                    setWatermarkMode(nextMode);
+                    if (nextMode === "corners" && !watermarkPositions.length) {
+                      setWatermarkPositions(["bottom_right"]);
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-zinc-200 px-3 py-2">
+                    <RadioGroupItem value="full" />
+                    <span className="text-sm font-medium">Full photo</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-zinc-200 px-3 py-2">
+                    <RadioGroupItem value="corners" />
+                    <span className="text-sm font-medium">Corners</span>
+                  </label>
+                </RadioGroup>
+
+                {watermarkMode === "corners" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {cornerOptions.map((option) => (
+                      <label
+                        key={option.id}
+                        className="flex cursor-pointer items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm"
+                      >
+                        <Checkbox
+                          checked={watermarkPositions.includes(option.id)}
+                          onCheckedChange={() => toggleCorner(option.id)}
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {shareUrl && (
+            <div className="flex gap-2">
+              <Input value={shareUrl} readOnly className="font-mono text-xs" />
+              <Button type="button" variant="outline" size="icon" onClick={copyLink}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {status && (
+            <p className="text-sm font-medium text-zinc-500">{status}</p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button type="button" onClick={save} disabled={isSaving}>
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save link
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -909,6 +1167,18 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const albumDateLabel = formatAlbumDate(album?.albumDate);
   const coverTitle = album?.name || "";
   const coverCreditName = album?.customer?.name || album?.name || "";
+  const shareToken = searchParams.get("share") || "";
+  const isShareView = Boolean(shareToken);
+  const { data: publicShareData } = useSWR<PublicShareResponse>(
+    shareToken ? `/api/share/${encodeURIComponent(shareToken)}` : null,
+    fetcher,
+    {
+      dedupingInterval: 60 * 1000,
+      revalidateOnFocus: false,
+    },
+  );
+  const shareSettings = publicShareData?.share ?? null;
+  const downloadsEnabled = shareSettings?.allowDownloads ?? true;
 
   const scrollToGalleryTop = (mode: "normal" | "soothing" = "normal") => {
     requestAnimationFrame(() => {
@@ -955,6 +1225,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setIsPhotoSelectionMode(false);
     setSelectedDownloadPhotoIds([]);
   }, [albumSlug]);
+
+  useEffect(() => {
+    if (downloadsEnabled) return;
+    setIsPhotoSelectionMode(false);
+    setSelectedDownloadPhotoIds([]);
+  }, [downloadsEnabled]);
 
   useEffect(() => {
     if (isCoverDismissed) return;
@@ -1046,7 +1322,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setEditingEventId(null);
     setApsaraTextSearch(null);
 
-    router.replace(`/albums/${albumSlug}${eventQuery(eventSlug)}`, {
+    router.replace(`/albums/${albumSlug}${eventQuery(eventSlug, shareToken)}`, {
       scroll: false,
     });
 
@@ -1246,7 +1522,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     selectedEvent && (selectedEventStats?.pendingAiCount ?? 0) > 0
   );
 
-  const eventHeader = selectedEvent ? (
+  const eventHeader = selectedEvent && !isShareView ? (
     <EventNameControl
       eventName={selectedEvent.name}
       isEditing={editingEventId === selectedEvent.id}
@@ -1432,50 +1708,64 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 selectedPeople={selectedFilterPeople}
                 peopleMatchMode={peopleMatchMode}
                 selectedDownloadPhotoIds={selectedDownloadPhotoIds}
+                downloadsEnabled={downloadsEnabled}
               />
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsPhotoSelectionMode((current) => !current);
-                  setActiveTab("photos");
-                  setSelectedPerson(null);
-                  setApsaraTextSearch(null);
-                  scrollToGalleryTop();
-                }}
-                className={`flex h-9 w-9 cursor-pointer items-center justify-center gap-2 rounded-full border text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3 ${
-                  isPhotoSelectionMode
-                    ? "border-zinc-950 bg-zinc-950 text-white"
-                    : "border-zinc-200 bg-white text-zinc-700 hover:text-zinc-950"
-                }`}
-                aria-pressed={isPhotoSelectionMode}
-                aria-label="Select photos"
-              >
-                <Check className="h-4 w-4" />
-                <span className="hidden sm:inline">
-                  {isPhotoSelectionMode
-                    ? `${selectedDownloadPhotoIds.length} Selected`
-                    : "Select"}
-                </span>
-              </button>
+              {downloadsEnabled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPhotoSelectionMode((current) => !current);
+                    setActiveTab("photos");
+                    setSelectedPerson(null);
+                    setApsaraTextSearch(null);
+                    scrollToGalleryTop();
+                  }}
+                  className={`flex h-9 w-9 cursor-pointer items-center justify-center gap-2 rounded-full border text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3 ${
+                    isPhotoSelectionMode
+                      ? "border-zinc-950 bg-zinc-950 text-white"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:text-zinc-950"
+                  }`}
+                  aria-pressed={isPhotoSelectionMode}
+                  aria-label="Select photos"
+                >
+                  <Check className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {isPhotoSelectionMode
+                      ? `${selectedDownloadPhotoIds.length} Selected`
+                      : "Select"}
+                  </span>
+                </button>
+              )}
 
-              <Link
-                href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
-                className="flex h-9 w-9 items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
-                aria-label="Create collage"
-              >
-                <LayoutTemplate className="h-4 w-4" />
-                <span className="hidden sm:inline">Create Collage</span>
-              </Link>
+              {!isShareView && (
+                <AlbumShareDialog
+                  albumSlug={albumSlug}
+                  defaultWatermarkText={album.customer?.name || album.name}
+                />
+              )}
 
-              <Link
-                href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
-                className="flex h-9 w-9 items-center justify-center gap-2 rounded-full bg-zinc-950 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
-                aria-label="Manage events"
-              >
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Manage Events</span>
-              </Link>
+              {!isShareView && (
+                <Link
+                  href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
+                  className="flex h-9 w-9 items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+                  aria-label="Create collage"
+                >
+                  <LayoutTemplate className="h-4 w-4" />
+                  <span className="hidden sm:inline">Create Collage</span>
+                </Link>
+              )}
+
+              {!isShareView && (
+                <Link
+                  href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
+                  className="flex h-9 w-9 items-center justify-center gap-2 rounded-full bg-zinc-950 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+                  aria-label="Manage events"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Manage Events</span>
+                </Link>
+              )}
 
               {!selectedPerson && (
                 <div
@@ -1568,13 +1858,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 </button>
               ))}
 
-              <Link
-                href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
-                className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 ring-1 ring-zinc-200 transition hover:text-zinc-950"
-              >
-                <Plus className="h-4 w-4" />
-                Manage Events
-              </Link>
+              {!isShareView && (
+                <Link
+                  href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 ring-1 ring-zinc-200 transition hover:text-zinc-950"
+                >
+                  <Plus className="h-4 w-4" />
+                  Manage Events
+                </Link>
+              )}
             </div>
           )}
 
@@ -1664,6 +1956,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             error={apsaraTextSearch.error}
             onClear={() => setApsaraTextSearch(null)}
             onPersonClick={filterByPerson}
+            shareSettings={shareSettings}
           />
         ) : (
           <section className="space-y-5">
@@ -1674,7 +1967,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   Photos
                 </h2>
 
-                {isPhotoSelectionMode && (
+                {downloadsEnabled && isPhotoSelectionMode && (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-zinc-500">
                       {selectedDownloadPhotoIds.length} selected
@@ -1719,9 +2012,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               peopleMatchMode={peopleMatchMode}
               onPersonClick={filterByPerson}
               onReachedEnd={goToNextEvent}
-              isSelectionMode={isPhotoSelectionMode}
+              isSelectionMode={downloadsEnabled && isPhotoSelectionMode}
               selectedPhotoIds={selectedDownloadPhotoIds}
               onTogglePhoto={toggleSelectedDownloadPhotoId}
+              shareSettings={shareSettings}
             />
           </section>
         )}

@@ -7,6 +7,7 @@ import useSWR from "swr";
 import {
   ArrowLeft,
   Check,
+  ChevronDown,
   Download,
   ImagePlus,
   LayoutTemplate,
@@ -22,6 +23,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { AlbumDetail, AlbumSummary, Photo } from "@/lib/types";
 
 type CollageTemplate =
@@ -380,20 +387,30 @@ function TemplateGlyph({ template }: { template: CollageTemplate }) {
 function PhotoTile({
   photo,
   selected,
+  active,
   onToggle,
+  onDragStart,
 }: {
   photo: CollagePhoto;
   selected: boolean;
+  active?: boolean;
   onToggle: () => void;
+  onDragStart?: () => void;
 }) {
   const src = photo.thumbnailUrl || photo.previewUrl || "";
 
   return (
     <button
       type="button"
+      draggable
       onClick={onToggle}
+      onDragStart={onDragStart}
       className={`group relative aspect-square overflow-hidden rounded-md bg-zinc-100 text-left ring-offset-2 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
-        selected ? "ring-2 ring-zinc-950" : "ring-1 ring-zinc-200 hover:ring-zinc-400"
+        active
+          ? "ring-2 ring-sky-500"
+          : selected
+            ? "ring-2 ring-zinc-950"
+            : "ring-1 ring-zinc-200 hover:ring-zinc-400"
       }`}
       aria-pressed={selected}
     >
@@ -549,11 +566,13 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const uploadedPhotosRef = useRef<CollagePhoto[]>([]);
   const draggedCellRef = useRef<number | null>(null);
+  const draggedPhotoIdRef = useRef<string | null>(null);
 
   const [albumSlug, setAlbumSlug] = useState(initialAlbumSlug ?? "");
   const [eventSlug, setEventSlug] = useState("all");
   const [template, setTemplate] = useState<CollageTemplate>("grid_2x2");
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
+  const [activeSourcePhotoId, setActiveSourcePhotoId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [personFilter, setPersonFilter] = useState("all");
   const [sortMode, setSortMode] = useState("gallery");
@@ -657,7 +676,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
 
   const filteredPhotos = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const photos = [...(photosData?.photos ?? []), ...uploadedPhotos].filter((photo) => {
+    const photos = (photosData?.photos ?? []).filter((photo) => {
       if (personFilter !== "all" && !photo.people?.some((person) => person.id === personFilter)) {
         return false;
       }
@@ -670,7 +689,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     }
 
     return photos;
-  }, [photosData?.photos, personFilter, query, sortMode, uploadedPhotos]);
+  }, [photosData?.photos, personFilter, query, sortMode]);
 
   const photoById = useMemo(() => {
     return new Map(
@@ -743,11 +762,21 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   }, [albumSlug, selectedPhotoIds]);
 
   const togglePhoto = (photoId: string) => {
+    setActiveSourcePhotoId(photoId);
     setSelectedPhotoIds((current) =>
-      current.includes(photoId)
-        ? current.filter((id) => id !== photoId)
-        : [...current, photoId],
+      current.includes(photoId) ? current : [...current, photoId],
     );
+  };
+
+  const placePhotoAtIndex = (photoId: string, photoIndex: number) => {
+    setSelectedPhotoIds((current) => {
+      const next = current.filter((id) => id !== photoId);
+      while (next.length <= photoIndex) next.push("");
+      next[photoIndex] = photoId;
+      return next.filter(Boolean);
+    });
+    setSelectedCellIndex(photoIndex);
+    setActiveSourcePhotoId(photoId);
   };
 
   const autoFill = () => {
@@ -797,10 +826,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     });
 
     setUploadedPhotos((current) => [...createdPhotos, ...current]);
-    setSelectedPhotoIds((current) => [
-      ...current,
-      ...createdPhotos.map((photo) => photo.id),
-    ]);
+    setActiveSourcePhotoId(createdPhotos[0]?.id ?? null);
 
     if (uploadInputRef.current) uploadInputRef.current.value = "";
   };
@@ -820,10 +846,37 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     if (fromIndex === toIndex) return;
     setSelectedPhotoIds((current) => {
       const next = [...current];
-      if (!next[fromIndex] || !next[toIndex]) return current;
+      if (!next[fromIndex]) return current;
+      while (next.length <= toIndex) next.push("");
       [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
-      return next;
+      return next.filter(Boolean);
     });
+  };
+
+  const handleSourceDragStart = (photoId: string) => {
+    draggedPhotoIdRef.current = photoId;
+    draggedCellRef.current = null;
+    setActiveSourcePhotoId(photoId);
+  };
+
+  const handleCellSelect = (photoIndex: number) => {
+    if (activeSourcePhotoId) {
+      placePhotoAtIndex(activeSourcePhotoId, photoIndex);
+      return;
+    }
+
+    setSelectedCellIndex(photoIndex);
+  };
+
+  const handleCellDrop = (photoIndex: number) => {
+    if (draggedPhotoIdRef.current) {
+      placePhotoAtIndex(draggedPhotoIdRef.current, photoIndex);
+    } else if (draggedCellRef.current !== null) {
+      swapCells(draggedCellRef.current, photoIndex);
+    }
+
+    draggedPhotoIdRef.current = null;
+    draggedCellRef.current = null;
   };
 
   const updateSelectedAdjustment = (partial: Partial<CellAdjustment>) => {
@@ -1172,10 +1225,23 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               <Shuffle className="h-4 w-4" />
               Shuffle
             </Button>
-            <Button onClick={() => exportImage("png")} disabled={!assignedPhotos.length || isExporting}>
-              <Download className="h-4 w-4" />
-              PNG
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button disabled={!assignedPhotos.length || isExporting}>
+                  <Download className="h-4 w-4" />
+                  Download
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onSelect={() => exportImage("png")}>
+                  PNG
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportImage("jpeg")}>
+                  JPG
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -1249,6 +1315,30 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 <Upload className="h-4 w-4" />
                 Upload Images
               </Button>
+              {uploadedPhotos.length > 0 && (
+                <div className="space-y-2 rounded-md border border-zinc-200 bg-zinc-50 p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+                      Uploaded images
+                    </p>
+                    <span className="text-xs text-zinc-500">
+                      {uploadedPhotos.length}
+                    </span>
+                  </div>
+                  <div className="grid max-h-44 grid-cols-4 gap-2 overflow-y-auto pr-1">
+                    {uploadedPhotos.map((photo) => (
+                      <PhotoTile
+                        key={photo.id}
+                        photo={photo}
+                        selected={selectedPhotoIds.includes(photo.id)}
+                        active={activeSourcePhotoId === photo.id}
+                        onToggle={() => togglePhoto(photo.id)}
+                        onDragStart={() => handleSourceDragStart(photo.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
@@ -1305,7 +1395,9 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                     key={photo.id}
                     photo={photo}
                     selected={selectedPhotoIds.includes(photo.id)}
+                    active={activeSourcePhotoId === photo.id}
                     onToggle={() => togglePhoto(photo.id)}
+                    onDragStart={() => handleSourceDragStart(photo.id)}
                   />
                 ))}
             </div>
@@ -1333,9 +1425,21 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               <Button variant="outline" onClick={autoFill} disabled={!filteredPhotos.length} size="sm">
                 Fill
               </Button>
-              <Button onClick={() => exportImage("png")} disabled={!assignedPhotos.length || isExporting} size="sm">
-                PNG
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button disabled={!assignedPhotos.length || isExporting} size="sm">
+                    Download
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-36">
+                  <DropdownMenuItem onSelect={() => exportImage("png")}>
+                    PNG
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => exportImage("jpeg")}>
+                    JPG
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
@@ -1369,7 +1473,9 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               <div className="absolute inset-0">
                 {isDiagonal ? (
                   <>
-                    {assignedPhotos.slice(0, template === "diagonal_2" ? 2 : 4).map((photo, index) => {
+                    {Array.from({ length: template === "diagonal_2" ? 2 : 4 }).map((_, index) => {
+                      const photo = assignedPhotos[index];
+                      const src = photo ? resolvePhotoUrl(photo, originalUrls) : "";
                       const clipPaths =
                         template === "diagonal_2"
                           ? [
@@ -1385,17 +1491,15 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                       return (
                         <button
                           type="button"
-                          key={photo.id}
-                          onClick={() => setSelectedCellIndex(index)}
-                          draggable
+                          key={photo?.id ?? `empty-${index}`}
+                          onClick={() => handleCellSelect(index)}
+                          draggable={Boolean(photo)}
                           onDragStart={() => {
                             draggedCellRef.current = index;
+                            draggedPhotoIdRef.current = null;
                           }}
                           onDragOver={(event) => event.preventDefault()}
-                          onDrop={() => {
-                            if (draggedCellRef.current !== null) swapCells(draggedCellRef.current, index);
-                            draggedCellRef.current = null;
-                          }}
+                          onDrop={() => handleCellDrop(index)}
                           className={`absolute inset-0 overflow-hidden focus:outline-none ${
                             selectedCellIndex === index ? "ring-2 ring-sky-500 ring-inset" : ""
                           }`}
@@ -1406,9 +1510,10 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                           }}
                           aria-label={`Diagonal collage cell ${index + 1}`}
                         >
-                          {isLocalImageUrl(resolvePhotoUrl(photo, originalUrls)) ? (
+                          {photo && src ? (
+                            isLocalImageUrl(src) ? (
                             <img
-                              src={resolvePhotoUrl(photo, originalUrls)}
+                              src={src}
                               alt={photo.fileName || `Photo ${index + 1}`}
                               className="absolute inset-0 h-full w-full"
                               style={{
@@ -1419,7 +1524,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                             />
                           ) : (
                             <Image
-                              src={resolvePhotoUrl(photo, originalUrls)}
+                              src={src}
                               alt={photo.fileName || `Photo ${index + 1}`}
                               fill
                               sizes="960px"
@@ -1431,25 +1536,32 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                               }}
                               unoptimized
                             />
+                            )
+                          ) : (
+                            <span className="absolute inset-0 flex items-center justify-center bg-zinc-100/80 text-zinc-400">
+                              <ImagePlus className="h-6 w-6" />
+                            </span>
                           )}
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              removePhotoAtIndex(index);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key !== "Enter" && event.key !== " ") return;
-                              event.preventDefault();
-                              event.stopPropagation();
-                              removePhotoAtIndex(index);
-                            }}
-                            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition hover:bg-black"
-                            aria-label={`Remove photo ${index + 1}`}
-                          >
-                            <X className="h-4 w-4" />
-                          </span>
+                          {photo && (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                removePhotoAtIndex(index);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key !== "Enter" && event.key !== " ") return;
+                                event.preventDefault();
+                                event.stopPropagation();
+                                removePhotoAtIndex(index);
+                              }}
+                              className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition hover:bg-black"
+                              aria-label={`Remove photo ${index + 1}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -1478,14 +1590,12 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                         borderWidth={borderWidth}
                         borderColor={borderColor}
                         gap={gap}
-                        onSelect={() => setSelectedCellIndex(photoIndex)}
+                        onSelect={() => handleCellSelect(photoIndex)}
                         onDragStart={() => {
                           draggedCellRef.current = photoIndex;
+                          draggedPhotoIdRef.current = null;
                         }}
-                        onDrop={() => {
-                          if (draggedCellRef.current !== null) swapCells(draggedCellRef.current, photoIndex);
-                          draggedCellRef.current = null;
-                        }}
+                        onDrop={() => handleCellDrop(photoIndex)}
                         onRemove={() => removePhotoAtIndex(photoIndex)}
                       />
                     );

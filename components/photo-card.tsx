@@ -28,7 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { photoAspectRatio } from "@/lib/photo-layout";
-import type { Photo } from "@/lib/types";
+import type { AlbumShareSettings, Photo } from "@/lib/types";
 
 interface SignedPhotoUrls {
   previewUrl: string | null;
@@ -148,6 +148,7 @@ interface PhotoCardProps {
   index: number;
   onOpen: (index: number, originRect: PhotoOpenRect) => void;
   forceFill?: boolean;
+  shareSettings?: AlbumShareSettings | null;
 }
 
 export interface PhotoOpenRect {
@@ -157,17 +158,71 @@ export interface PhotoOpenRect {
   height: number;
 }
 
+function WatermarkOverlay({
+  settings,
+  className = "",
+}: {
+  settings?: AlbumShareSettings | null;
+  className?: string;
+}) {
+  if (!settings?.watermarkEnabled || !settings.watermarkText) return null;
+
+  if (settings.watermarkMode === "full") {
+    return (
+      <div
+        className={`pointer-events-none absolute inset-0 z-30 opacity-35 ${className}`}
+        style={{
+          backgroundImage: `repeating-linear-gradient(-28deg, transparent 0 72px, rgba(255,255,255,.72) 72px 74px, transparent 74px 148px)`,
+        }}
+      >
+        <div className="grid h-full w-[160%] -translate-x-[18%] -rotate-[18deg] grid-cols-3 gap-x-16 gap-y-12 py-8 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,.65)] sm:text-sm">
+          {Array.from({ length: 24 }).map((_, index) => (
+            <span key={index} className="whitespace-nowrap">
+              {settings.watermarkText}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const positions = settings.watermarkPositions.length
+    ? settings.watermarkPositions
+    : ["bottom_right"];
+  const positionClass: Record<string, string> = {
+    top_left: "left-3 top-3",
+    top_right: "right-3 top-3",
+    bottom_left: "bottom-3 left-3",
+    bottom_right: "bottom-3 right-3",
+  };
+
+  return (
+    <div className={`pointer-events-none absolute inset-0 z-30 ${className}`}>
+      {positions.map((position) => (
+        <span
+          key={position}
+          className={`absolute ${positionClass[position] ?? positionClass.bottom_right} rounded-sm bg-black/32 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white shadow-sm backdrop-blur-[1px] sm:text-xs`}
+        >
+          {settings.watermarkText}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export const PhotoCard = memo(function PhotoCard({
   albumSlug,
   photo,
   index,
   onOpen,
   forceFill = false,
+  shareSettings,
 }: PhotoCardProps) {
   const imageUrl = photo.thumbnailUrl || photo.previewUrl;
   const aspectRatio = photoAspectRatio(photo);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
+  const canDownload = shareSettings?.allowDownloads ?? true;
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -298,23 +353,27 @@ export const PhotoCard = memo(function PhotoCard({
           <Share2 className="h-4 w-4" strokeWidth={1.5} />
         </button>
 
-        <button
-          type="button"
-          onMouseEnter={() => setIsDownloadHovering(true)}
-          onMouseLeave={() => setIsDownloadHovering(false)}
-          onFocus={() => setIsDownloadHovering(true)}
-          onBlur={() => setIsDownloadHovering(false)}
-          onClick={(event) => {
-            event.stopPropagation();
-            handleDownload();
-          }}
-          disabled={isDownloading}
-          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:bg-white/15 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/80 disabled:cursor-not-allowed disabled:opacity-45 sm:h-7 sm:w-7"
-          aria-label="Download photo"
-        >
-          <Download className="h-4 w-4" strokeWidth={1.5} />
-        </button>
+        {canDownload && (
+          <button
+            type="button"
+            onMouseEnter={() => setIsDownloadHovering(true)}
+            onMouseLeave={() => setIsDownloadHovering(false)}
+            onFocus={() => setIsDownloadHovering(true)}
+            onBlur={() => setIsDownloadHovering(false)}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleDownload();
+            }}
+            disabled={isDownloading}
+            className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:bg-white/15 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/80 disabled:cursor-not-allowed disabled:opacity-45 sm:h-7 sm:w-7"
+            aria-label="Download photo"
+          >
+            <Download className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+        )}
       </div>
+
+      <WatermarkOverlay settings={shareSettings} />
     </div>
   );
 });
@@ -327,6 +386,7 @@ interface PhotoLightboxProps {
   onClose: () => void;
   onNavigate: (index: number) => void;
   onPersonClick?: (personId: string) => void;
+  shareSettings?: AlbumShareSettings | null;
 }
 
 export function PhotoLightbox({
@@ -337,6 +397,7 @@ export function PhotoLightbox({
   onClose,
   onNavigate,
   onPersonClick,
+  shareSettings,
 }: PhotoLightboxProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -389,6 +450,7 @@ export function PhotoLightbox({
   const imageCandidates = uniqueUrls([photo.thumbnailUrl, photo.previewUrl]);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const downloadUrl = photo.downloadUrl;
+  const canDownload = shareSettings?.allowDownloads ?? true;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
 
@@ -1068,7 +1130,7 @@ export function PhotoLightbox({
                   ) : null}
                 </div>
 
-                <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
+                <div className="relative flex h-full w-full shrink-0 cursor-default items-center justify-center">
                   <img
                     src={currentImageUrl}
                     alt={photo.caption || "Photo"}
@@ -1078,6 +1140,7 @@ export function PhotoLightbox({
                     draggable={false}
                     onError={handleImageError}
                   />
+                  <WatermarkOverlay settings={shareSettings} />
                 </div>
 
                 <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
@@ -1155,32 +1218,34 @@ export function PhotoLightbox({
                 <Share2 className="h-4 w-4" strokeWidth={1.5} />
               </button>
 
-              <button
-                type="button"
-                onMouseEnter={() => {
-                  setAreControlsVisible(true);
-                  setIsDownloadHovering(true);
-                }}
-                onMouseLeave={() => {
-                  setIsDownloadHovering(false);
-                }}
-                onFocus={() => {
-                  setAreControlsVisible(true);
-                  setIsDownloadHovering(true);
-                }}
-                onBlur={() => {
-                  setIsDownloadHovering(false);
-                }}
-                onClick={() => {
-                  setAreControlsVisible(true);
-                  handleDownload();
-                }}
-                disabled={isDownloading}
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 disabled:cursor-not-allowed disabled:opacity-45"
-                aria-label="Download photo"
-              >
-                <Download className="h-4 w-4" strokeWidth={1.5} />
-              </button>
+              {canDownload && (
+                <button
+                  type="button"
+                  onMouseEnter={() => {
+                    setAreControlsVisible(true);
+                    setIsDownloadHovering(true);
+                  }}
+                  onMouseLeave={() => {
+                    setIsDownloadHovering(false);
+                  }}
+                  onFocus={() => {
+                    setAreControlsVisible(true);
+                    setIsDownloadHovering(true);
+                  }}
+                  onBlur={() => {
+                    setIsDownloadHovering(false);
+                  }}
+                  onClick={() => {
+                    setAreControlsVisible(true);
+                    handleDownload();
+                  }}
+                  disabled={isDownloading}
+                  className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 disabled:cursor-not-allowed disabled:opacity-45"
+                  aria-label="Download photo"
+                >
+                  <Download className="h-4 w-4" strokeWidth={1.5} />
+                </button>
+              )}
             </div>
 
             <div
