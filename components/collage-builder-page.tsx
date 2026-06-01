@@ -81,6 +81,8 @@ interface CellFrame {
 interface CellAdjustment {
   zoom: number;
   rotate: number;
+  offsetX?: number;
+  offsetY?: number;
 }
 
 interface CollageBuilderPageProps {
@@ -345,6 +347,12 @@ function drawImageInRect(
   if (position === "left") dx = x;
   if (position === "right") dx = x + w - drawW;
 
+  // Apply pan offsets (in pixels) to the draw position.
+  const offX = adjustment.offsetX ?? 0;
+  const offY = adjustment.offsetY ?? 0;
+  dx += offX;
+  dy += offY;
+
   ctx.save();
   ctx.translate(x + w / 2, y + h / 2);
   ctx.rotate((adjustment.rotate * Math.PI) / 180);
@@ -485,7 +493,15 @@ function CollageCell({
   onDragStart: () => void;
   onDrop: () => void;
   onRemove: () => void;
+  onAdjustChange?: (partial: Partial<CellAdjustment>) => void;
 }) {
+  const panStateRef = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    startOffsetX: number;
+    startOffsetY: number;
+  }>({ active: false, startX: 0, startY: 0, startOffsetX: 0, startOffsetY: 0 });
   return (
     <button
       type="button"
@@ -526,8 +542,34 @@ function CollageCell({
                 style={{
                   objectFit: fitMode,
                   objectPosition: imagePosition,
-                  transform: `scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
+                  transform: `translate(${adjustment.offsetX ?? 0}px, ${adjustment.offsetY ?? 0}px) scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
+                  touchAction: selected ? "none" : undefined,
+                  cursor: selected ? "grab" : undefined,
                 }}
+                onPointerDown={(e) => {
+                  if (!selected || !onAdjustChange) return;
+                  const target = e.currentTarget as Element;
+                  (target as HTMLElement).setPointerCapture(e.pointerId);
+                  panStateRef.current.active = true;
+                  panStateRef.current.startX = e.clientX;
+                  panStateRef.current.startY = e.clientY;
+                  panStateRef.current.startOffsetX = adjustment.offsetX ?? 0;
+                  panStateRef.current.startOffsetY = adjustment.offsetY ?? 0;
+                }}
+                onPointerMove={(e) => {
+                  if (!selected || !onAdjustChange) return;
+                  if (!panStateRef.current.active) return;
+                  const dx = e.clientX - panStateRef.current.startX;
+                  const dy = e.clientY - panStateRef.current.startY;
+                  onAdjustChange({ offsetX: panStateRef.current.startOffsetX + dx, offsetY: panStateRef.current.startOffsetY + dy });
+                }}
+                onPointerUp={(e) => {
+                  if (!selected || !onAdjustChange) return;
+                  const target = e.currentTarget as Element;
+                  try { (target as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
+                  panStateRef.current.active = false;
+                }}
+                onPointerCancel={() => { panStateRef.current.active = false; }}
               />
             ) : (
               <Image
@@ -539,8 +581,34 @@ function CollageCell({
                 style={{
                   objectFit: fitMode,
                   objectPosition: imagePosition,
-                  transform: `scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
+                  transform: `translate(${adjustment.offsetX ?? 0}px, ${adjustment.offsetY ?? 0}px) scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
+                  touchAction: selected ? "none" : undefined,
+                  cursor: selected ? "grab" : undefined,
                 }}
+                onPointerDown={(e) => {
+                  if (!selected || !onAdjustChange) return;
+                  const target = e.currentTarget as Element;
+                  (target as HTMLElement).setPointerCapture(e.pointerId);
+                  panStateRef.current.active = true;
+                  panStateRef.current.startX = e.clientX;
+                  panStateRef.current.startY = e.clientY;
+                  panStateRef.current.startOffsetX = adjustment.offsetX ?? 0;
+                  panStateRef.current.startOffsetY = adjustment.offsetY ?? 0;
+                }}
+                onPointerMove={(e) => {
+                  if (!selected || !onAdjustChange) return;
+                  if (!panStateRef.current.active) return;
+                  const dx = e.clientX - panStateRef.current.startX;
+                  const dy = e.clientY - panStateRef.current.startY;
+                  onAdjustChange({ offsetX: panStateRef.current.startOffsetX + dx, offsetY: panStateRef.current.startOffsetY + dy });
+                }}
+                onPointerUp={(e) => {
+                  if (!selected || !onAdjustChange) return;
+                  const target = e.currentTarget as Element;
+                  try { (target as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
+                  panStateRef.current.active = false;
+                }}
+                onPointerCancel={() => { panStateRef.current.active = false; }}
                 unoptimized
               />
             )}
@@ -733,8 +801,9 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const hasAssignedPhotos = assignedPhotos.some(Boolean);
   const selectedCellPhoto = assignedPhotos[selectedCellIndex];
   const selectedAdjustment = selectedCellPhoto
-    ? cellAdjustments[selectedCellPhoto.id] ?? { zoom: 1, rotate: 0 }
-    : { zoom: 1, rotate: 0 };
+    ? cellAdjustments[selectedCellPhoto.id] ?? { zoom: 1, rotate: 0, offsetX: 0, offsetY: 0 }
+    : { zoom: 1, rotate: 0, offsetX: 0, offsetY: 0 };
+
 
   useEffect(() => {
     if (!albumSlug || !selectedPhotoIds.some(Boolean)) return;
@@ -906,6 +975,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
         ...current[selectedCellPhoto.id],
         zoom: current[selectedCellPhoto.id]?.zoom ?? 1,
         rotate: current[selectedCellPhoto.id]?.rotate ?? 0,
+        offsetX: current[selectedCellPhoto.id]?.offsetX ?? 0,
+        offsetY: current[selectedCellPhoto.id]?.offsetY ?? 0,
         ...partial,
       },
     }));
@@ -1113,6 +1184,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
           const w = frame.w * output.width - scaledGap;
           const h = frame.h * output.height - scaledGap;
           const adjustment = cellAdjustments[photo.id] ?? { zoom: 1, rotate: 0 };
+          adjustment.offsetX = adjustment.offsetX ?? 0;
+          adjustment.offsetY = adjustment.offsetY ?? 0;
 
           ctx.save();
           roundedRect(ctx, x, y, w, h, scaledRadius);
@@ -1608,6 +1681,19 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                         fitMode={fitMode}
                         imagePosition={imagePosition}
                         adjustment={photo ? cellAdjustments[photo.id] ?? { zoom: 1, rotate: 0 } : { zoom: 1, rotate: 0 }}
+                        onAdjustChange={(partial) => {
+                          if (!photo) return;
+                          setCellAdjustments((current) => ({
+                            ...current,
+                            [photo.id]: {
+                              zoom: current[photo.id]?.zoom ?? 1,
+                              rotate: current[photo.id]?.rotate ?? 0,
+                              offsetX: current[photo.id]?.offsetX ?? 0,
+                              offsetY: current[photo.id]?.offsetY ?? 0,
+                              ...partial,
+                            },
+                          }));
+                        }}
                         cornerRadius={cornerRadius}
                         borderWidth={borderWidth}
                         borderColor={borderColor}
@@ -1761,7 +1847,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => updateSelectedAdjustment({ zoom: 1, rotate: 0 })}
+                onClick={() => updateSelectedAdjustment({ zoom: 1, rotate: 0, offsetX: 0, offsetY: 0 })}
                 disabled={!selectedCellPhoto}
               >
                 <RefreshCcw className="h-4 w-4" />
