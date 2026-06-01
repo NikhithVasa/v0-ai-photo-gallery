@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import useSWR from "swr";
@@ -266,6 +266,26 @@ function trimTrailingEmptyIds(photoIds: string[]) {
   return next;
 }
 
+function objectPositionForAdjustment(
+  position: ImagePosition,
+  adjustment: CellAdjustment,
+) {
+  let x = 50;
+  let y = 50;
+
+  if (position === "top") y = 0;
+  if (position === "bottom") y = 100;
+  if (position === "left") x = 0;
+  if (position === "right") x = 100;
+
+  const offsetExpression = (base: number, offset = 0) =>
+    offset >= 0
+      ? `calc(${base}% - ${offset}px)`
+      : `calc(${base}% + ${Math.abs(offset)}px)`;
+
+  return `${offsetExpression(x, adjustment.offsetX)} ${offsetExpression(y, adjustment.offsetY)}`;
+}
+
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -503,6 +523,44 @@ function CollageCell({
     startOffsetX: number;
     startOffsetY: number;
   }>({ active: false, startX: 0, startY: 0, startOffsetX: 0, startOffsetY: 0 });
+  const beginPan = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!selected || !onAdjustChange) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    panStateRef.current.active = true;
+    panStateRef.current.startX = event.clientX;
+    panStateRef.current.startY = event.clientY;
+    panStateRef.current.startOffsetX = adjustment.offsetX ?? 0;
+    panStateRef.current.startOffsetY = adjustment.offsetY ?? 0;
+  };
+  const updatePan = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!selected || !onAdjustChange || !panStateRef.current.active) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const dx = event.clientX - panStateRef.current.startX;
+    const dy = event.clientY - panStateRef.current.startY;
+    onAdjustChange({
+      offsetX: panStateRef.current.startOffsetX + dx,
+      offsetY: panStateRef.current.startOffsetY + dy,
+    });
+  };
+  const endPan = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!selected || !onAdjustChange) return;
+    event.stopPropagation();
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {}
+    panStateRef.current.active = false;
+  };
+  const imagePanStyle = {
+    objectFit: fitMode,
+    objectPosition: objectPositionForAdjustment(imagePosition, adjustment),
+    transform: `scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
+    touchAction: selected ? "none" : undefined,
+    cursor: selected ? (panStateRef.current.active ? "grabbing" : "grab") : undefined,
+    userSelect: "none",
+  } as const;
   return (
     <button
       type="button"
@@ -536,36 +594,11 @@ function CollageCell({
                 src={src}
                 alt={photo.fileName || `Photo ${index + 1}`}
                 className="absolute inset-0 h-full w-full"
-                style={{
-                  objectFit: fitMode,
-                  objectPosition: imagePosition,
-                  transform: `translate(${adjustment.offsetX ?? 0}px, ${adjustment.offsetY ?? 0}px) scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
-                  touchAction: selected ? "none" : undefined,
-                  cursor: selected ? "grab" : undefined,
-                }}
-                onPointerDown={(e) => {
-                  if (!selected || !onAdjustChange) return;
-                  const target = e.currentTarget as Element;
-                  (target as HTMLElement).setPointerCapture(e.pointerId);
-                  panStateRef.current.active = true;
-                  panStateRef.current.startX = e.clientX;
-                  panStateRef.current.startY = e.clientY;
-                  panStateRef.current.startOffsetX = adjustment.offsetX ?? 0;
-                  panStateRef.current.startOffsetY = adjustment.offsetY ?? 0;
-                }}
-                onPointerMove={(e) => {
-                  if (!selected || !onAdjustChange) return;
-                  if (!panStateRef.current.active) return;
-                  const dx = e.clientX - panStateRef.current.startX;
-                  const dy = e.clientY - panStateRef.current.startY;
-                  onAdjustChange({ offsetX: panStateRef.current.startOffsetX + dx, offsetY: panStateRef.current.startOffsetY + dy });
-                }}
-                onPointerUp={(e) => {
-                  if (!selected || !onAdjustChange) return;
-                  const target = e.currentTarget as Element;
-                  try { (target as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
-                  panStateRef.current.active = false;
-                }}
+                style={imagePanStyle}
+                draggable={false}
+                onPointerDown={beginPan}
+                onPointerMove={updatePan}
+                onPointerUp={endPan}
                 onPointerCancel={() => { panStateRef.current.active = false; }}
               />
             ) : (
@@ -575,36 +608,11 @@ function CollageCell({
                 fill
                 sizes="(min-width: 1024px) 640px, 90vw"
                 className="h-full w-full"
-                style={{
-                  objectFit: fitMode,
-                  objectPosition: imagePosition,
-                  transform: `translate(${adjustment.offsetX ?? 0}px, ${adjustment.offsetY ?? 0}px) scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
-                  touchAction: selected ? "none" : undefined,
-                  cursor: selected ? "grab" : undefined,
-                }}
-                onPointerDown={(e) => {
-                  if (!selected || !onAdjustChange) return;
-                  const target = e.currentTarget as Element;
-                  (target as HTMLElement).setPointerCapture(e.pointerId);
-                  panStateRef.current.active = true;
-                  panStateRef.current.startX = e.clientX;
-                  panStateRef.current.startY = e.clientY;
-                  panStateRef.current.startOffsetX = adjustment.offsetX ?? 0;
-                  panStateRef.current.startOffsetY = adjustment.offsetY ?? 0;
-                }}
-                onPointerMove={(e) => {
-                  if (!selected || !onAdjustChange) return;
-                  if (!panStateRef.current.active) return;
-                  const dx = e.clientX - panStateRef.current.startX;
-                  const dy = e.clientY - panStateRef.current.startY;
-                  onAdjustChange({ offsetX: panStateRef.current.startOffsetX + dx, offsetY: panStateRef.current.startOffsetY + dy });
-                }}
-                onPointerUp={(e) => {
-                  if (!selected || !onAdjustChange) return;
-                  const target = e.currentTarget as Element;
-                  try { (target as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
-                  panStateRef.current.active = false;
-                }}
+                style={imagePanStyle}
+                draggable={false}
+                onPointerDown={beginPan}
+                onPointerMove={updatePan}
+                onPointerUp={endPan}
                 onPointerCancel={() => { panStateRef.current.active = false; }}
                 unoptimized
               />
@@ -624,7 +632,7 @@ function CollageCell({
               onKeyDown={(event) => {
                 event.stopPropagation();
               }}
-              className="absolute bottom-2 left-2 flex h-7 w-7 cursor-grab items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition hover:bg-black active:cursor-grabbing"
+              className="absolute left-2 top-2 flex h-7 w-7 cursor-grab items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition hover:bg-black active:cursor-grabbing"
               aria-label={`Drag photo ${index + 1}`}
               title="Drag to swap cells"
             >
