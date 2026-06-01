@@ -349,6 +349,7 @@ export function PhotoLightbox({
   const [aiEditResult, setAiEditResult] = useState<{
     editedUrl?: string | null;
     runpodJobId?: string | null;
+    taskId?: string | null;
     status?: string;
   } | null>(null);
   const [areControlsVisible, setAreControlsVisible] = useState(false);
@@ -786,6 +787,7 @@ export function PhotoLightbox({
         edit?: {
           editedUrl?: string | null;
           runpodJobId?: string | null;
+          taskId?: string | null;
           status?: string;
         };
       };
@@ -1385,8 +1387,8 @@ export function PhotoLightbox({
                   />
                 ) : (
                   <p className="text-sm text-zinc-600">
-                    {aiEditResult.runpodJobId
-                      ? `DashScope request ${aiEditResult.runpodJobId} is processing.`
+                    {aiEditResult.taskId || aiEditResult.runpodJobId
+                      ? `Novita task ${aiEditResult.taskId || aiEditResult.runpodJobId} is processing.`
                       : "The edit job is processing."}
                   </p>
                 )}

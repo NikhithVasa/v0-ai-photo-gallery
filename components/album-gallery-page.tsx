@@ -911,12 +911,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverCreditName = album?.customer?.name || album?.name || "";
 
   const scrollToGalleryTop = (mode: "normal" | "soothing" = "normal") => {
-    if (!isCoverDismissed) {
-      setIsCoverDismissed(true);
-      requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
-      return;
-    }
-
     requestAnimationFrame(() => {
       const shell = document.getElementById("album-gallery-shell");
       const targetTop = shell ? Math.max(shell.offsetTop - 8, 0) : 0;

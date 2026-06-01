@@ -3,8 +3,11 @@ import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { ensurePhotoEditSchema } from "@/lib/customer-schema";
-import { signedObjectUrl, signedUrl, uploadS3Object } from "@/lib/s3";
-import { editImageWithDashScope } from "@/lib/dashscope";
+import { getS3ObjectBytes, signedUrl, uploadS3Object } from "@/lib/s3";
+import {
+  submitNovitaQwenImageEdit,
+  waitForNovitaImageResult,
+} from "@/lib/novita";
 
 export const runtime = "nodejs";
 
@@ -61,11 +64,9 @@ export async function POST(request: Request, { params }: Props) {
     const body = (await request.json()) as {
       prompt?: unknown;
       presetPromptKey?: unknown;
-      size?: unknown;
     };
     const presetPromptKey = stringValue(body.presetPromptKey);
     const customPrompt = stringValue(body.prompt);
-    const size = stringValue(body.size) || null;
     const presetPrompt = PRESETS.get(presetPromptKey) ?? "";
     const prompt = [presetPrompt, customPrompt].filter(Boolean).join(" ");
 
@@ -134,7 +135,7 @@ export async function POST(request: Request, { params }: Props) {
         $6,
         $7,
         'submitted',
-        'web-ai-edit-dashscope',
+        'web-ai-edit-novita',
         now(),
         now()
       )
@@ -151,28 +152,39 @@ export async function POST(request: Request, { params }: Props) {
       ]
     );
 
-    const sourceImageUrl = await signedObjectUrl(photo.original_s3_key);
-    if (!sourceImageUrl) {
-      return NextResponse.json({ error: "Could not sign source image" }, { status: 500 });
+    const sourceImage = await getS3ObjectBytes(photo.original_s3_key);
+    if (!sourceImage) {
+      return NextResponse.json(
+        { error: "Could not read source image" },
+        { status: 500 },
+      );
     }
 
-    const dashscope = await editImageWithDashScope({
-      imageUrl: sourceImageUrl,
+    const novitaTask = await submitNovitaQwenImageEdit({
+      base64Image: Buffer.from(sourceImage.bytes).toString("base64"),
       prompt,
-      size,
+      outputFormat: "png",
     });
-    const editedResponse = await fetch(dashscope.imageUrl);
+    const novitaResult = await waitForNovitaImageResult(novitaTask.taskId);
+    let editedUrl: string | null = null;
+    let completedS3Key: string | null = null;
 
-    if (!editedResponse.ok) {
-      throw new Error(`Could not download edited image (${editedResponse.status})`);
+    if (novitaResult.imageUrl) {
+      const editedResponse = await fetch(novitaResult.imageUrl);
+
+      if (!editedResponse.ok) {
+        throw new Error(`Could not download edited image (${editedResponse.status})`);
+      }
+
+      const editedBytes = new Uint8Array(await editedResponse.arrayBuffer());
+      await uploadS3Object({
+        key: outputS3Key,
+        body: editedBytes,
+        contentType: editedResponse.headers.get("content-type") || "image/png",
+      });
+      completedS3Key = outputS3Key;
+      editedUrl = await signedUrl(outputS3Key);
     }
-
-    const editedBytes = new Uint8Array(await editedResponse.arrayBuffer());
-    await uploadS3Object({
-      key: outputS3Key,
-      body: editedBytes,
-      contentType: editedResponse.headers.get("content-type") || "image/png",
-    });
 
     await queryOne<{ id: string }>(
       `
@@ -181,26 +193,26 @@ export async function POST(request: Request, { params }: Props) {
           response = $3::jsonb,
           edited_s3_key = COALESCE($4, edited_s3_key),
           thumb_s3_key = COALESCE($5, thumb_s3_key),
-          status = 'completed',
+          status = $6,
           updated_at = now()
       WHERE id = $1::uuid
       RETURNING id
       `,
       [
         editId,
-        typeof dashscope.response.request_id === "string"
-          ? dashscope.response.request_id
-          : null,
+        novitaTask.taskId,
         JSON.stringify({
-          provider: "dashscope",
+          provider: "novita",
           source_s3_key: photo.original_s3_key,
-          result_image_url: dashscope.imageUrl,
+          result_image_url: novitaResult.imageUrl,
           output_s3_key: outputS3Key,
-          final_prompt: dashscope.finalPrompt,
-          response: dashscope.response,
+          final_prompt: novitaTask.finalPrompt,
+          submit_response: novitaTask.response,
+          result_response: novitaResult.response,
         }),
-        outputS3Key,
+        completedS3Key,
         null,
+        novitaResult.imageUrl ? "completed" : "submitted",
       ]
     );
 
@@ -208,21 +220,19 @@ export async function POST(request: Request, { params }: Props) {
       ok: true,
       edit: {
         id: editId,
-        status: "completed",
+        status: novitaResult.imageUrl ? "completed" : "submitted",
         photoId,
         sourceS3Key: photo.original_s3_key,
-        editedS3Key: outputS3Key,
-        editedUrl: await signedUrl(outputS3Key),
+        editedS3Key: completedS3Key,
+        editedUrl,
         thumbS3Key: null,
         thumbUrl: null,
         prompt,
         presetPromptKey: presetPromptKey || null,
-        runpodJobId:
-          typeof dashscope.response.request_id === "string"
-            ? dashscope.response.request_id
-            : null,
+        runpodJobId: novitaTask.taskId,
+        taskId: novitaTask.taskId,
       },
-      dashscope: dashscope.response,
+      novita: novitaResult.response ?? novitaTask.response,
     });
   } catch (error) {
     console.error("Error submitting AI photo edit:", error);

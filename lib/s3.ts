@@ -178,6 +178,50 @@ export async function signedObjectUrl(key?: string | null): Promise<string | nul
   });
 }
 
+export async function getS3ObjectBytes(key?: string | null) {
+  if (!key) return null;
+
+  const response = await s3.send(
+    new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+    })
+  );
+
+  const body = response.Body;
+  if (!body) return null;
+
+  if ("transformToByteArray" in Object(body)) {
+    return {
+      bytes: await (body as { transformToByteArray: () => Promise<Uint8Array> }).transformToByteArray(),
+      contentType: response.ContentType ?? null,
+    };
+  }
+
+  if (Symbol.asyncIterator in Object(body)) {
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of body as AsyncIterable<Uint8Array | Buffer | string>) {
+      chunks.push(
+        typeof chunk === "string" ? Buffer.from(chunk) : new Uint8Array(chunk)
+      );
+    }
+    const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    return {
+      bytes,
+      contentType: response.ContentType ?? null,
+    };
+  }
+
+  return null;
+}
+
 export async function uploadS3Object({
   key,
   body,
