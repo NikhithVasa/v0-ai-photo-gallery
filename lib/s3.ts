@@ -165,6 +165,38 @@ export async function signedUploadUrl(
   return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
 }
 
+export async function signedObjectUrl(key?: string | null): Promise<string | null> {
+  if (!key) return null;
+
+  return cachedSignedUrl(`object:${key}`, () => {
+    const command = new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+    });
+
+    return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
+  });
+}
+
+export async function uploadS3Object({
+  key,
+  body,
+  contentType,
+}: {
+  key: string;
+  body: Uint8Array;
+  contentType: string;
+}) {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    })
+  );
+}
+
 export async function deleteS3Object(key?: string | null): Promise<void> {
   if (!key) return;
   if (!key.startsWith("albums/") || key.includes("..") || key.endsWith("/")) {

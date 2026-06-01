@@ -3,8 +3,10 @@ import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { ensurePhotoEditSchema } from "@/lib/customer-schema";
-import { signedUrl } from "@/lib/s3";
-import { submitRunpodJob } from "@/lib/runpod";
+import { signedObjectUrl, signedUrl, uploadS3Object } from "@/lib/s3";
+import { editImageWithDashScope } from "@/lib/dashscope";
+
+export const runtime = "nodejs";
 
 interface Props {
   params: Promise<{ albumSlug: string; photoId: string }>;
@@ -13,51 +15,40 @@ interface Props {
 const PRESETS = new Map<string, string>([
   [
     "remove_background",
-    "Remove the background and keep the subject cleanly isolated.",
+    "Remove the background cleanly and keep the main subject sharp. Use a clean transparent or simple studio-style background.",
   ],
   [
     "blur_background",
-    "Blur the background while keeping the subject sharp and natural.",
+    "Blur the background naturally while keeping the main subject sharp and realistic.",
   ],
   [
     "enhance_lighting",
-    "Improve lighting, brighten the image, and keep skin tones natural.",
+    "Improve the lighting, color balance, and sharpness while keeping the photo natural and realistic.",
   ],
   [
     "remove_object",
-    "Remove unwanted distracting objects and fill the background naturally.",
+    "Remove distracting objects from the background and fill the area naturally.",
   ],
   [
     "add_dog",
-    "Add a realistic dog next to the subject and match perspective and lighting naturally.",
-  ],
-  [
-    "retouch_portrait",
-    "Retouch the portrait subtly, smooth skin gently, and keep the face natural.",
-  ],
-  [
-    "vibrant_colors",
-    "Enhance colors to look vibrant and rich while staying natural.",
+    "Add a realistic friendly dog next to the main subject. Match the lighting, shadows, perspective, and photo style naturally.",
   ],
   [
     "studio_portrait",
-    "Convert the image into a clean professional studio portrait style.",
+    "Convert this into a clean professional studio portrait while preserving the person's identity and outfit.",
   ],
-  ["extend_background", "Extend the background naturally beyond the current frame."],
-  ["oil_painting", "Transform the image into a detailed oil painting style."],
+  [
+    "make_cinematic",
+    "Give this photo a cinematic look with rich contrast, beautiful lighting, and natural colors.",
+  ],
+  [
+    "remove_people_background",
+    "Remove extra people in the background while keeping the main subject unchanged.",
+  ],
 ]);
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function nestedString(data: Record<string, unknown>, path: string[]) {
-  let current: unknown = data;
-  for (const key of path) {
-    if (!current || typeof current !== "object") return null;
-    current = (current as Record<string, unknown>)[key];
-  }
-  return typeof current === "string" ? current : null;
 }
 
 export async function POST(request: Request, { params }: Props) {
@@ -70,9 +61,11 @@ export async function POST(request: Request, { params }: Props) {
     const body = (await request.json()) as {
       prompt?: unknown;
       presetPromptKey?: unknown;
+      size?: unknown;
     };
     const presetPromptKey = stringValue(body.presetPromptKey);
     const customPrompt = stringValue(body.prompt);
+    const size = stringValue(body.size) || null;
     const presetPrompt = PRESETS.get(presetPromptKey) ?? "";
     const prompt = [presetPrompt, customPrompt].filter(Boolean).join(" ");
 
@@ -115,6 +108,8 @@ export async function POST(request: Request, { params }: Props) {
     }
 
     const editId = randomUUID();
+    const outputS3Key = `albums/${photo.album_slug}/events/${photo.event_slug}/edited/${photoId}/${editId}.png`;
+
     await queryOne<{ id: string }>(
       `
       INSERT INTO photo_edits(
@@ -139,7 +134,7 @@ export async function POST(request: Request, { params }: Props) {
         $6,
         $7,
         'submitted',
-        'web-ai-edit',
+        'web-ai-edit-dashscope',
         now(),
         now()
       )
@@ -156,36 +151,28 @@ export async function POST(request: Request, { params }: Props) {
       ]
     );
 
-    const input = {
-      mode: "photo_edit",
-      album_slug: photo.album_slug,
-      album_name: photo.album_name,
-      event_slug: photo.event_slug,
-      photo_id: photoId,
-      edit_id: editId,
-      source_s3_key: photo.original_s3_key,
-      output_s3_key: `albums/${photo.album_slug}/events/${photo.event_slug}/edited/${photoId}/${editId}.png`,
-      edit_prompt: prompt,
-      preset_prompt_key: presetPromptKey || null,
-      return_format: "png",
-      chat_context: true,
-    };
+    const sourceImageUrl = await signedObjectUrl(photo.original_s3_key);
+    if (!sourceImageUrl) {
+      return NextResponse.json({ error: "Could not sign source image" }, { status: 500 });
+    }
 
-    const runpod = await submitRunpodJob(input);
-    const runpodJobId =
-      typeof runpod.id === "string"
-        ? runpod.id
-        : typeof runpod.job_id === "string"
-          ? runpod.job_id
-          : null;
-    const editedS3Key =
-      nestedString(runpod, ["output", "photo_edit", "edited_s3_key"]) ||
-      nestedString(runpod, ["result", "photo_edit", "edited_s3_key"]) ||
-      nestedString(runpod, ["photo_edit", "edited_s3_key"]);
-    const thumbS3Key =
-      nestedString(runpod, ["output", "photo_edit", "thumb_s3_key"]) ||
-      nestedString(runpod, ["result", "photo_edit", "thumb_s3_key"]) ||
-      nestedString(runpod, ["photo_edit", "thumb_s3_key"]);
+    const dashscope = await editImageWithDashScope({
+      imageUrl: sourceImageUrl,
+      prompt,
+      size,
+    });
+    const editedResponse = await fetch(dashscope.imageUrl);
+
+    if (!editedResponse.ok) {
+      throw new Error(`Could not download edited image (${editedResponse.status})`);
+    }
+
+    const editedBytes = new Uint8Array(await editedResponse.arrayBuffer());
+    await uploadS3Object({
+      key: outputS3Key,
+      body: editedBytes,
+      contentType: editedResponse.headers.get("content-type") || "image/png",
+    });
 
     await queryOne<{ id: string }>(
       `
@@ -194,17 +181,26 @@ export async function POST(request: Request, { params }: Props) {
           response = $3::jsonb,
           edited_s3_key = COALESCE($4, edited_s3_key),
           thumb_s3_key = COALESCE($5, thumb_s3_key),
-          status = CASE WHEN $4::text IS NULL THEN 'submitted' ELSE 'completed' END,
+          status = 'completed',
           updated_at = now()
       WHERE id = $1::uuid
       RETURNING id
       `,
       [
         editId,
-        runpodJobId,
-        JSON.stringify(runpod),
-        editedS3Key,
-        thumbS3Key,
+        typeof dashscope.response.request_id === "string"
+          ? dashscope.response.request_id
+          : null,
+        JSON.stringify({
+          provider: "dashscope",
+          source_s3_key: photo.original_s3_key,
+          result_image_url: dashscope.imageUrl,
+          output_s3_key: outputS3Key,
+          final_prompt: dashscope.finalPrompt,
+          response: dashscope.response,
+        }),
+        outputS3Key,
+        null,
       ]
     );
 
@@ -212,18 +208,21 @@ export async function POST(request: Request, { params }: Props) {
       ok: true,
       edit: {
         id: editId,
-        status: editedS3Key ? "completed" : "submitted",
+        status: "completed",
         photoId,
         sourceS3Key: photo.original_s3_key,
-        editedS3Key,
-        editedUrl: await signedUrl(editedS3Key),
-        thumbS3Key,
-        thumbUrl: await signedUrl(thumbS3Key),
+        editedS3Key: outputS3Key,
+        editedUrl: await signedUrl(outputS3Key),
+        thumbS3Key: null,
+        thumbUrl: null,
         prompt,
         presetPromptKey: presetPromptKey || null,
-        runpodJobId,
+        runpodJobId:
+          typeof dashscope.response.request_id === "string"
+            ? dashscope.response.request_id
+            : null,
       },
-      runpod,
+      dashscope: dashscope.response,
     });
   } catch (error) {
     console.error("Error submitting AI photo edit:", error);

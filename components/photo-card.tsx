@@ -88,52 +88,42 @@ const AI_EDIT_PRESETS = [
   {
     key: "remove_background",
     label: "Remove background",
-    prompt: "Remove the background and keep only the subject cleanly cut out.",
+    prompt: "Remove the background cleanly and keep the main subject sharp. Use a clean transparent or simple studio-style background.",
   },
   {
     key: "blur_background",
     label: "Blur background",
-    prompt: "Blur the background while keeping the subject sharp and natural.",
+    prompt: "Blur the background naturally while keeping the main subject sharp and realistic.",
   },
   {
     key: "enhance_lighting",
     label: "Enhance lighting",
-    prompt: "Improve lighting, brighten the image, and keep skin tones natural.",
+    prompt: "Improve the lighting, color balance, and sharpness while keeping the photo natural and realistic.",
   },
   {
     key: "remove_object",
     label: "Remove object",
-    prompt: "Remove unwanted distracting objects and fill the background naturally.",
+    prompt: "Remove distracting objects from the background and fill the area naturally.",
   },
   {
     key: "add_dog",
-    label: "Add dog",
-    prompt: "Add a realistic dog next to the subject and match perspective and lighting naturally.",
-  },
-  {
-    key: "retouch_portrait",
-    label: "Retouch portrait",
-    prompt: "Retouch the portrait subtly, smooth skin gently, and keep the face natural.",
-  },
-  {
-    key: "vibrant_colors",
-    label: "Vibrant colors",
-    prompt: "Enhance colors to look vibrant and rich while staying natural.",
+    label: "Add dog next to it",
+    prompt: "Add a realistic friendly dog next to the main subject. Match the lighting, shadows, perspective, and photo style naturally.",
   },
   {
     key: "studio_portrait",
     label: "Studio portrait",
-    prompt: "Convert the image into a clean professional studio portrait style.",
+    prompt: "Convert this into a clean professional studio portrait while preserving the person's identity and outfit.",
   },
   {
-    key: "extend_background",
-    label: "Extend background",
-    prompt: "Extend the background naturally beyond the current frame.",
+    key: "make_cinematic",
+    label: "Cinematic look",
+    prompt: "Give this photo a cinematic look with rich contrast, beautiful lighting, and natural colors.",
   },
   {
-    key: "oil_painting",
-    label: "Oil painting",
-    prompt: "Transform the image into a detailed oil painting style.",
+    key: "remove_people_background",
+    label: "Remove background people",
+    prompt: "Remove extra people in the background while keeping the main subject unchanged.",
   },
 ];
 
@@ -1396,7 +1386,7 @@ export function PhotoLightbox({
                 ) : (
                   <p className="text-sm text-zinc-600">
                     {aiEditResult.runpodJobId
-                      ? `RunPod job ${aiEditResult.runpodJobId} is processing.`
+                      ? `DashScope request ${aiEditResult.runpodJobId} is processing.`
                       : "The edit job is processing."}
                   </p>
                 )}
