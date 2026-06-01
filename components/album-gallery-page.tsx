@@ -1069,6 +1069,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const autoCoverScrollDoneRef = useRef(false);
   const autoCoverScrollTimerRef = useRef<number | null>(null);
   const coverScrollAnimationFrameRef = useRef<number | null>(null);
+  const coverCollapseTimerRef = useRef<number | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>("photos");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -1081,6 +1082,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isPasswordVerified, setIsPasswordVerified] = useState(false);
   const [isCoverDismissed, setIsCoverDismissed] = useState(false);
+  const [isCoverCollapsing, setIsCoverCollapsing] = useState(false);
   const [isPhotoSelectionMode, setIsPhotoSelectionMode] = useState(false);
   const [selectedDownloadPhotoIds, setSelectedDownloadPhotoIds] = useState<string[]>([]);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -1187,14 +1189,37 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     coverScrollAnimationFrameRef.current = null;
   };
 
+  const clearAutoCoverScroll = () => {
+    autoCoverScrollDoneRef.current = true;
+    if (autoCoverScrollTimerRef.current !== null) {
+      window.clearTimeout(autoCoverScrollTimerRef.current);
+      autoCoverScrollTimerRef.current = null;
+    }
+  };
+
+  const collapseCoverToGallery = () => {
+    clearAutoCoverScroll();
+    cancelGalleryScrollAnimation();
+    if (coverCollapseTimerRef.current !== null) {
+      window.clearTimeout(coverCollapseTimerRef.current);
+      coverCollapseTimerRef.current = null;
+    }
+    setIsCoverCollapsing(true);
+
+    coverCollapseTimerRef.current = window.setTimeout(() => {
+      coverCollapseTimerRef.current = null;
+      setIsCoverDismissed(true);
+      setIsCoverCollapsing(false);
+      window.scrollTo({ top: 0, left: 0 });
+    }, 760);
+  };
+
   const scrollToGalleryTop = (mode: "normal" | "soothing" = "normal") => {
     requestAnimationFrame(() => {
-      // Cancel any pending auto-scroll so a subsequent timer doesn't
-      // re-run after the user intentionally navigates to the gallery.
-      autoCoverScrollDoneRef.current = true;
-      if (autoCoverScrollTimerRef.current !== null) {
-        window.clearTimeout(autoCoverScrollTimerRef.current);
-        autoCoverScrollTimerRef.current = null;
+      clearAutoCoverScroll();
+      if (mode === "soothing" && !isCoverDismissed) {
+        collapseCoverToGallery();
+        return;
       }
       cancelGalleryScrollAnimation();
 
@@ -1243,6 +1268,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   useEffect(() => {
     autoCoverScrollDoneRef.current = false;
     setIsCoverDismissed(false);
+    setIsCoverCollapsing(false);
     setIsPhotoSelectionMode(false);
     setSelectedDownloadPhotoIds([]);
   }, [albumSlug]);
@@ -1261,11 +1287,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       if (!shell) return;
 
       if (window.scrollY >= Math.max(shell.offsetTop - 24, 0)) {
-        // Mark the cover as dismissed when the gallery is reached.
-        // Cancel the in-flight animation before removing the cover;
-        // otherwise the stale target can keep scrolling after layout shifts.
+        clearAutoCoverScroll();
         cancelGalleryScrollAnimation();
         setIsCoverDismissed(true);
+        setIsCoverCollapsing(false);
         requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
       }
     };
@@ -1281,11 +1306,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     if (autoCoverScrollDoneRef.current) return;
 
     const cancelAutoScroll = () => {
-      autoCoverScrollDoneRef.current = true;
-      if (autoCoverScrollTimerRef.current !== null) {
-        window.clearTimeout(autoCoverScrollTimerRef.current);
-        autoCoverScrollTimerRef.current = null;
-      }
+      clearAutoCoverScroll();
     };
 
     autoCoverScrollTimerRef.current = window.setTimeout(() => {
@@ -1306,6 +1327,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       if (autoCoverScrollTimerRef.current !== null) {
         window.clearTimeout(autoCoverScrollTimerRef.current);
         autoCoverScrollTimerRef.current = null;
+      }
+      if (coverCollapseTimerRef.current !== null) {
+        window.clearTimeout(coverCollapseTimerRef.current);
+        coverCollapseTimerRef.current = null;
       }
       cancelGalleryScrollAnimation();
       window.removeEventListener("wheel", cancelAutoScroll);
@@ -1602,7 +1627,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       {!isCoverDismissed && (
-        <section className="relative flex min-h-[100svh] flex-col items-center justify-center overflow-hidden bg-white px-5 py-8 text-center sm:py-10">
+        <section
+          className={`relative flex flex-col items-center justify-center overflow-hidden bg-white px-5 text-center transition-[height,opacity,padding] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            isCoverCollapsing ? "py-0 opacity-0" : "py-8 opacity-100 sm:py-10"
+          }`}
+          style={{ height: isCoverCollapsing ? 0 : "100svh" }}
+        >
           {album.coverPhotoUrl && (
             <Image
               src={album.coverPhotoUrl}
@@ -1616,7 +1646,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           )}
           <div className="absolute inset-0 bg-white/72 backdrop-blur-[2px]" />
 
-          <div className="relative z-10 flex w-full max-w-6xl flex-col items-center pb-16">
+          <div
+            className={`relative z-10 flex w-full max-w-6xl flex-col items-center pb-16 transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              isCoverCollapsing ? "-translate-y-8" : "translate-y-0"
+            }`}
+          >
             <div className="relative grid w-full items-center gap-5 sm:grid-cols-[1fr_minmax(250px,380px)_1fr] sm:gap-8 lg:gap-12">
               <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
                 <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[340px] sm:-rotate-90">
