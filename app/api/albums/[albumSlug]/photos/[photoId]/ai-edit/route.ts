@@ -229,7 +229,6 @@ export async function POST(request: Request, { params }: Props) {
         thumbUrl: null,
         prompt,
         presetPromptKey: presetPromptKey || null,
-        runpodJobId: novitaTask.taskId,
         taskId: novitaTask.taskId,
       },
       novita: novitaResult.response ?? novitaTask.response,

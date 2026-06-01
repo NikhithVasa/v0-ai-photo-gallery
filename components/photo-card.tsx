@@ -348,7 +348,6 @@ export function PhotoLightbox({
   const [aiEditError, setAiEditError] = useState("");
   const [aiEditResult, setAiEditResult] = useState<{
     editedUrl?: string | null;
-    runpodJobId?: string | null;
     taskId?: string | null;
     status?: string;
   } | null>(null);
@@ -786,7 +785,6 @@ export function PhotoLightbox({
         error?: string;
         edit?: {
           editedUrl?: string | null;
-          runpodJobId?: string | null;
           taskId?: string | null;
           status?: string;
         };
@@ -1387,8 +1385,8 @@ export function PhotoLightbox({
                   />
                 ) : (
                   <p className="text-sm text-zinc-600">
-                    {aiEditResult.taskId || aiEditResult.runpodJobId
-                      ? `Novita task ${aiEditResult.taskId || aiEditResult.runpodJobId} is processing.`
+                    {aiEditResult.taskId
+                      ? `Novita task ${aiEditResult.taskId} is processing.`
                       : "The edit job is processing."}
                   </p>
                 )}
