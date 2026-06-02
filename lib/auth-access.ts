@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { query, queryOne } from "@/lib/db";
 import { getCustomerSlugFromRequest } from "@/lib/customer-host";
@@ -146,7 +146,7 @@ export function ensureAuthAccessSchema() {
   return authAccessSchemaPromise;
 }
 
-async function getSupabaseEmailFromCookies() {
+async function getSupabaseEmail() {
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -155,6 +155,9 @@ async function getSupabaseEmailFromCookies() {
   }
 
   const cookieStore = await cookies();
+  const headerStore = await headers();
+  const authHeader = headerStore.get("authorization");
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
@@ -175,6 +178,14 @@ async function getSupabaseEmailFromCookies() {
       },
     },
   );
+
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (user?.email) {
+      return normalizeEmail(user.email);
+    }
+  }
 
   const {
     data: { user },
@@ -203,7 +214,7 @@ async function isAdminEmail(email: string) {
 export async function getAuthAccess(): Promise<AuthAccess | null> {
   await ensureAuthAccessSchema();
 
-  const email = await getSupabaseEmailFromCookies();
+  const email = await getSupabaseEmail();
   if (!email) return null;
 
   const isAdmin = await isAdminEmail(email);
