@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -110,6 +111,7 @@ type MoveDragState = {
   x: number;
   y: number;
   active: boolean;
+  targetIndex: number | null;
 };
 
 const defaultAdjustment: CellAdjustment = {
@@ -521,6 +523,7 @@ function CollageCell({
   borderColor,
   gap,
   moveDragState,
+  dropTargetIndex,
   onSelect,
   onDesktopDragStart,
   onDrop,
@@ -541,6 +544,7 @@ function CollageCell({
   borderColor: string;
   gap: number;
   moveDragState: MoveDragState | null;
+  dropTargetIndex: number | null;
   onSelect: () => void;
   onDesktopDragStart: () => void;
   onDrop: () => void;
@@ -556,6 +560,17 @@ function CollageCell({
     startOffsetY: 0,
     moved: false,
   });
+  const pinchStateRef = useRef({
+    pointers: new Map<number, { x: number; y: number }>(),
+    initialDistance: 0,
+    initialZoom: 1,
+  });
+
+  const distanceBetweenPointers = () => {
+    const values = Array.from(pinchStateRef.current.pointers.values());
+    if (values.length < 2) return 0;
+    return Math.hypot(values[0].x - values[1].x, values[0].y - values[1].y);
+  };
 
   const beginPan = (event: ReactPointerEvent<HTMLElement>) => {
     if (!photo) return;
@@ -563,6 +578,16 @@ function CollageCell({
     event.stopPropagation();
     onSelect();
     event.currentTarget.setPointerCapture(event.pointerId);
+
+    pinchStateRef.current.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (pinchStateRef.current.pointers.size >= 2) {
+      pinchStateRef.current.initialDistance = distanceBetweenPointers();
+      pinchStateRef.current.initialZoom = adjustment.zoom;
+      panStateRef.current.active = false;
+      return;
+    }
+
     panStateRef.current = {
       active: true,
       startX: event.clientX,
@@ -574,9 +599,25 @@ function CollageCell({
   };
 
   const updatePan = (event: ReactPointerEvent<HTMLElement>) => {
-    if (!photo || !panStateRef.current.active) return;
+    if (!photo) return;
     event.preventDefault();
     event.stopPropagation();
+
+    if (pinchStateRef.current.pointers.has(event.pointerId)) {
+      pinchStateRef.current.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+
+    if (pinchStateRef.current.pointers.size >= 2) {
+      const nextDistance = distanceBetweenPointers();
+      const startDistance = pinchStateRef.current.initialDistance || nextDistance;
+      if (startDistance > 0) {
+        const nextZoom = Math.max(0.6, Math.min(2.4, pinchStateRef.current.initialZoom * (nextDistance / startDistance)));
+        onAdjustChange({ zoom: Number(nextZoom.toFixed(3)) });
+      }
+      return;
+    }
+
+    if (!panStateRef.current.active) return;
     const dx = event.clientX - panStateRef.current.startX;
     const dy = event.clientY - panStateRef.current.startY;
 
@@ -591,15 +632,34 @@ function CollageCell({
   };
 
   const endPan = (event: ReactPointerEvent<HTMLElement>) => {
-    if (!photo || !panStateRef.current.active) return;
+    if (!photo) return;
     event.stopPropagation();
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
     } catch {}
+    pinchStateRef.current.pointers.delete(event.pointerId);
     panStateRef.current.active = false;
+
+    if (pinchStateRef.current.pointers.size < 2) {
+      pinchStateRef.current.initialDistance = 0;
+      pinchStateRef.current.initialZoom = adjustment.zoom;
+    }
+  };
+
+  const handleWheelZoom = (event: ReactWheelEvent<HTMLElement>) => {
+    if (!photo) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect();
+    const direction = event.deltaY > 0 ? -1 : 1;
+    const nextZoom = Math.max(0.6, Math.min(2.4, adjustment.zoom + direction * 0.06));
+    onAdjustChange({ zoom: Number(nextZoom.toFixed(2)) });
   };
 
   const isBeingMoved = moveDragState?.fromIndex === index;
+  const isDraggingForSwap = Boolean(moveDragState?.active);
+  const isDropCandidate = isDraggingForSwap && moveDragState?.fromIndex !== index;
+  const isDropTarget = dropTargetIndex === index && moveDragState?.fromIndex !== index;
   const imageStyle = {
     objectFit: fitMode,
     objectPosition: objectPositionForAdjustment(imagePosition),
@@ -624,9 +684,11 @@ function CollageCell({
       }}
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
-      className={`absolute overflow-hidden bg-zinc-200 transition focus:outline-none ${
+      className={`absolute overflow-hidden bg-zinc-200 transition-all duration-150 focus:outline-none ${
         selected ? "ring-2 ring-sky-500 ring-offset-2" : ""
-      } ${isBeingMoved ? "opacity-55" : ""}`}
+      } ${isDropCandidate ? "ring-2 ring-emerald-200 ring-offset-1 ring-offset-white" : ""} ${
+        isDropTarget ? "z-30 scale-[0.985] ring-4 ring-emerald-500 ring-offset-2 ring-offset-white shadow-[0_0_0_8px_rgba(16,185,129,0.28)]" : ""
+      } ${isBeingMoved ? "opacity-45" : ""}`}
       style={{
         left: `${frame.x * 100}%`,
         top: `${frame.y * 100}%`,
@@ -644,6 +706,11 @@ function CollageCell({
           border: borderWidth ? `${borderWidth}px solid ${borderColor}` : undefined,
         }}
       >
+        {isDropTarget && (
+          <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-emerald-400/15 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-950">
+            Drop here
+          </div>
+        )}
         {photo && src ? (
           <>
             {isLocalImageUrl(src) ? (
@@ -653,6 +720,7 @@ function CollageCell({
                 className="absolute inset-0 h-full w-full"
                 style={imageStyle}
                 draggable={false}
+                onWheel={handleWheelZoom}
                 onPointerDown={beginPan}
                 onPointerMove={updatePan}
                 onPointerUp={endPan}
@@ -667,6 +735,7 @@ function CollageCell({
                 className="h-full w-full"
                 style={imageStyle}
                 draggable={false}
+                onWheel={handleWheelZoom}
                 onPointerDown={beginPan}
                 onPointerMove={updatePan}
                 onPointerUp={endPan}
@@ -1039,6 +1108,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       x: event.clientX,
       y: event.clientY,
       active: false,
+      targetIndex: null,
     });
   };
 
@@ -1050,6 +1120,10 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       event.preventDefault();
       const dx = event.clientX - moveDragState.startX;
       const dy = event.clientY - moveDragState.startY;
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-collage-cell-index]");
+      const targetIndexValue = target?.getAttribute("data-collage-cell-index");
+      const nextTargetIndex = targetIndexValue !== null && targetIndexValue !== undefined ? Number(targetIndexValue) : null;
+
       setMoveDragState((current) =>
         current
           ? {
@@ -1057,6 +1131,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               x: event.clientX,
               y: event.clientY,
               active: current.active || Math.abs(dx) > 4 || Math.abs(dy) > 4,
+              targetIndex: Number.isFinite(nextTargetIndex) ? nextTargetIndex : null,
             }
           : current,
       );
@@ -1067,10 +1142,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       event.preventDefault();
       const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-collage-cell-index]");
       const targetIndex = target?.getAttribute("data-collage-cell-index");
-      if (targetIndex !== null && targetIndex !== undefined) {
-        const toIndex = Number(targetIndex);
-        if (Number.isFinite(toIndex)) swapCells(moveDragState.fromIndex, toIndex);
-      }
+      const toIndex = moveDragState.targetIndex ?? (targetIndex !== null && targetIndex !== undefined ? Number(targetIndex) : null);
+      if (Number.isFinite(toIndex)) swapCells(moveDragState.fromIndex, Number(toIndex));
       setMoveDragState(null);
     };
 
@@ -1619,6 +1692,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                       borderColor={borderColor}
                       gap={gap}
                       moveDragState={moveDragState}
+                      dropTargetIndex={moveDragState?.targetIndex ?? null}
                       onSelect={() => handleCellSelect(photoIndex)}
                       onDesktopDragStart={() => {
                         draggedCellRef.current = photoIndex;
@@ -1867,7 +1941,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
 
       {moveDragState?.active && draggingPhoto && draggingPhotoSrc && (
         <div
-          className="pointer-events-none fixed z-[100] h-24 w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border-2 border-white bg-zinc-100 shadow-2xl ring-2 ring-sky-500"
+          className="pointer-events-none fixed z-[100] h-24 w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border-2 border-white bg-zinc-100 shadow-2xl ring-4 ring-emerald-500"
           style={{ left: moveDragState.x, top: moveDragState.y }}
         >
           {isLocalImageUrl(draggingPhotoSrc) ? (
