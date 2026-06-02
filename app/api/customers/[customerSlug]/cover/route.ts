@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { signedUploadUrl } from "@/lib/s3";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
-import { requireAdminAccess } from "@/lib/auth-access";
+import { requireCustomerAccessBySlug } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ customerSlug: string }>;
@@ -39,10 +39,10 @@ function contentTypeFromInput(contentType: unknown, fileName: string) {
 export async function POST(request: Request, { params }: Props) {
   try {
     await ensureCustomerAccessSchema();
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
-
     const { customerSlug } = await params;
+    
+    const accessDenied = await requireCustomerAccessBySlug(request, customerSlug);
+    if (accessDenied) return accessDenied;
     const body = (await request.json()) as {
       fileName?: unknown;
       size?: unknown;
