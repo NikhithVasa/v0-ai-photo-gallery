@@ -8,6 +8,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
+  type TouchEvent as ReactTouchEvent,
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -656,6 +657,12 @@ function CollageCell({
     onAdjustChange({ zoom: Number(nextZoom.toFixed(2)) });
   };
 
+  const preventPagePinchZoom = (event: ReactTouchEvent<HTMLElement>) => {
+    if (event.touches.length < 2) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const isBeingMoved = moveDragState?.fromIndex === index;
   const isDraggingForSwap = Boolean(moveDragState?.active);
   const isDropCandidate = isDraggingForSwap && moveDragState?.fromIndex !== index;
@@ -666,6 +673,7 @@ function CollageCell({
     transform: `translate3d(${adjustment.offsetX}px, ${adjustment.offsetY}px, 0) scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
     transformOrigin: "center center",
     touchAction: "none",
+    overscrollBehavior: "contain",
     cursor: photo ? "grab" : "default",
     userSelect: "none",
     willChange: "transform",
@@ -696,14 +704,20 @@ function CollageCell({
         height: `${frame.h * 100}%`,
         padding: `${gap / 2}px`,
         clipPath: frame.clipPath,
+        touchAction: "none",
+        overscrollBehavior: "contain",
       }}
       aria-label={`Collage cell ${index + 1}`}
     >
       <div
         className="relative block h-full w-full overflow-hidden bg-zinc-100"
+        onTouchStart={preventPagePinchZoom}
+        onTouchMove={preventPagePinchZoom}
         style={{
           borderRadius: frame.clipPath ? 0 : cornerRadius,
           border: borderWidth ? `${borderWidth}px solid ${borderColor}` : undefined,
+          touchAction: "none",
+          overscrollBehavior: "contain",
         }}
       >
         {isDropTarget && (
