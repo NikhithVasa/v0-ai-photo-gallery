@@ -324,3 +324,55 @@ export async function requireCustomerAccessBySlug(
 
   return row ? null : NextResponse.json({ error: "Customer not found" }, { status: 404 });
 }
+
+export async function requireAlbumCustomerAccess(albumSlug: string) {
+  const access = await getAuthAccess();
+  if (!access) return unauthorizedResponse();
+  if (access.isAdmin) return null;
+
+  const row = await queryOne<{ id: string }>(
+    `
+    SELECT a.id
+    FROM albums a
+    JOIN customers c
+      ON c.id = a.customer_id
+     AND COALESCE(c.is_deleted, false) = false
+    WHERE a.slug = $1
+      AND a.customer_id = ANY($2::uuid[])
+      AND COALESCE(a.is_deleted, false) = false
+    LIMIT 1
+    `,
+    [albumSlug, access.customerIds],
+  );
+
+  return row ? null : NextResponse.json({ error: "Access denied" }, { status: 403 });
+}
+
+export async function requirePhotoIdsAccess(photoIds: string[]) {
+  const access = await getAuthAccess();
+  if (!access) return unauthorizedResponse();
+  if (access.isAdmin) return null;
+
+  const row = await queryOne<{ allowed_count: number | string | null }>(
+    `
+    SELECT COUNT(DISTINCT p.id)::int AS allowed_count
+    FROM photos p
+    JOIN albums a
+      ON a.id = p.album_id
+     AND COALESCE(a.is_deleted, false) = false
+    WHERE p.id = ANY($1::uuid[])
+      AND a.customer_id = ANY($2::uuid[])
+      AND COALESCE(p.is_deleted, false) = false
+    `,
+    [photoIds, access.customerIds],
+  );
+
+  const allowedCount =
+    typeof row?.allowed_count === "number"
+      ? row.allowed_count
+      : Number.parseInt(String(row?.allowed_count ?? "0"), 10) || 0;
+
+  return allowedCount === photoIds.length
+    ? null
+    : NextResponse.json({ error: "Access denied" }, { status: 403 });
+}

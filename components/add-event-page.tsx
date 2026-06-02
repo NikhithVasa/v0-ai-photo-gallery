@@ -670,9 +670,14 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ photoIds: completedPhotoIds, runAi }),
       });
+      const completePayload = (await completeResponse.json().catch(() => ({}))) as {
+        error?: string;
+      };
 
       if (!completeResponse.ok) {
-        throw new Error("Photos uploaded, but completion failed");
+        throw new Error(
+          completePayload.error || "Photos uploaded, but completion failed",
+        );
       }
 
       await uploadCover(prepared.event.slug);
@@ -702,6 +707,11 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       const message =
         error instanceof Error ? error.message : "Event upload failed unexpectedly";
       setErrorMessage(message);
+      toast({
+        title: "Upload failed",
+        description: message,
+        variant: "destructive",
+      });
       filesToUpload.forEach((item) => {
         if (!completedLocalIds.has(item.localId)) {
           updateFile(item.localId, { status: "failed", error: message });

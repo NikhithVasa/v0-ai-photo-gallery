@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireAdminAccess } from "@/lib/auth-access";
+import { requirePhotoIdsAccess } from "@/lib/auth-access";
 
 interface CompleteRequestBody {
   photoIds?: unknown;
@@ -15,9 +15,6 @@ function isUuid(value: string) {
 
 export async function POST(request: Request) {
   try {
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
-
     const body = (await request.json()) as CompleteRequestBody;
     const photoIds = Array.isArray(body.photoIds)
       ? body.photoIds.filter(
@@ -28,6 +25,9 @@ export async function POST(request: Request) {
     if (!photoIds.length) {
       return NextResponse.json({ error: "photoIds are required" }, { status: 400 });
     }
+
+    const accessDenied = await requirePhotoIdsAccess(photoIds);
+    if (accessDenied) return accessDenied;
 
     const runAi = body.runAi !== false;
 

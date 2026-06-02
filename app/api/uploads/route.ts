@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { signedUploadUrl } from "@/lib/s3";
-import { requireAdminAccess } from "@/lib/auth-access";
+import {
+  requireAdminAccess,
+  requireAlbumCustomerAccess,
+} from "@/lib/auth-access";
 
 interface UploadFileInput {
   fileName: string;
@@ -256,10 +259,15 @@ function validateFiles(files: unknown) {
 
 export async function POST(request: Request) {
   try {
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
-
     const body = (await request.json()) as UploadRequestBody;
+    if (body.mode === "new") {
+      const admin = await requireAdminAccess();
+      if (admin.response) return admin.response;
+    } else if (body.albumSlug) {
+      const accessDenied = await requireAlbumCustomerAccess(body.albumSlug);
+      if (accessDenied) return accessDenied;
+    }
+
     const files = validateFiles(body.files);
 
     if (!files.length) {
