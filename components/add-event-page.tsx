@@ -257,7 +257,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
     eventSlugs: string[],
     options: { maxFiles?: number } = {},
   ) => {
-    if (!eventSlugs.length || runningAiAction) return;
+    if ((!eventSlugs.length && action !== "process_all_new") || runningAiAction) return;
 
     setRunningAiAction(action);
     setAiJobMessage("");
