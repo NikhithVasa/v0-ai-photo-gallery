@@ -6,7 +6,6 @@ import { getCustomerSlugFromRequest } from "@/lib/customer-host";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
 import {
   getAuthAccess,
-  requireAdminAccess,
   unauthorizedResponse,
 } from "@/lib/auth-access";
 import type { AlbumSummary } from "@/lib/types";
@@ -276,8 +275,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     await ensureCustomerAccessSchema();
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
+    const access = await getAuthAccess();
+    if (!access) return unauthorizedResponse();
 
     const body = (await request.json()) as {
       customerName?: unknown;
@@ -339,26 +338,77 @@ export async function POST(request: Request) {
     }
 
     const customerSlug = slugify(customerName);
-    const customer = await queryOne<{ id: string; slug: string; name: string }>(
+    const existingCustomer = await queryOne<{
+      id: string;
+      slug: string;
+      name: string;
+    }>(
       `
-      INSERT INTO customers(name, company_name, slug, created_by_email, created_at, updated_at)
-      VALUES($1, $1, $2, $3, now(), now())
-      ON CONFLICT(slug) DO UPDATE SET
-        name = EXCLUDED.name,
-        company_name = EXCLUDED.name,
-        created_by_email = COALESCE(customers.created_by_email, $3),
-        is_deleted = false,
-        deleted_at = NULL,
-        updated_at = now()
-      RETURNING id, slug, name
+      SELECT id, slug, name
+      FROM customers
+      WHERE slug = $1
+        AND COALESCE(is_deleted, false) = false
+      LIMIT 1
       `,
-      [customerName, customerSlug, admin.access?.email ?? null]
+      [customerSlug],
     );
+    const customer = existingCustomer
+      ? access.isAdmin
+        ? await queryOne<{ id: string; slug: string; name: string }>(
+            `
+            UPDATE customers
+            SET name = $2,
+                company_name = $2,
+                created_by_email = COALESCE(created_by_email, $3),
+                updated_at = now()
+            WHERE id = $1::uuid
+            RETURNING id, slug, name
+            `,
+            [existingCustomer.id, customerName, access.email],
+          )
+        : existingCustomer
+      : await queryOne<{ id: string; slug: string; name: string }>(
+          `
+          INSERT INTO customers(
+            name,
+            company_name,
+            slug,
+            email,
+            created_by_email,
+            created_at,
+            updated_at
+          )
+          VALUES($1, $1, $2, $3, $4, now(), now())
+          RETURNING id, slug, name
+          `,
+          [
+            customerName,
+            customerSlug,
+            access.isAdmin ? null : access.email,
+            access.email,
+          ],
+        );
 
     if (!customer) {
       return NextResponse.json(
         { error: "Could not create customer" },
         { status: 500 }
+      );
+    }
+
+    if (!access.isAdmin && existingCustomer && !access.customerIds.includes(customer.id)) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    if (!access.isAdmin) {
+      await queryOne<{ id: string }>(
+        `
+        INSERT INTO customer_users(id, customer_id, email, role, added_by, created_at)
+        VALUES($1::uuid, $2::uuid, lower($3), 'owner', $3, now())
+        ON CONFLICT DO NOTHING
+        RETURNING id
+        `,
+        [randomUUID(), customer.id, access.email],
       );
     }
 

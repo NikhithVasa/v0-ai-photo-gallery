@@ -5,7 +5,6 @@ import { signedUrl } from "@/lib/s3";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
 import {
   getAuthAccess,
-  requireAdminAccess,
   unauthorizedResponse,
 } from "@/lib/auth-access";
 
@@ -121,8 +120,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     await ensureCustomerAccessSchema();
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
+    const access = await getAuthAccess();
+    if (!access) return unauthorizedResponse();
 
     const body = (await request.json()) as {
       name?: unknown;
@@ -175,7 +174,7 @@ export async function POST(request: Request) {
         0::int AS album_count,
         created_at
       `,
-      [name, slug, email, phone, notes, admin.access?.email ?? null]
+      [name, slug, email, phone, notes, access.email]
     );
 
     if (!customer) {
@@ -185,7 +184,8 @@ export async function POST(request: Request) {
       );
     }
 
-    if (email) {
+    const ownerEmail = access.isAdmin ? email : access.email;
+    if (ownerEmail) {
       await queryOne<{ id: string }>(
         `
         INSERT INTO customer_users(id, customer_id, email, role, added_by, created_at)
@@ -193,7 +193,7 @@ export async function POST(request: Request) {
         ON CONFLICT DO NOTHING
         RETURNING id
         `,
-        [randomUUID(), customer.id, email, admin.access?.email ?? null],
+        [randomUUID(), customer.id, ownerEmail, access.email],
       );
     }
 
