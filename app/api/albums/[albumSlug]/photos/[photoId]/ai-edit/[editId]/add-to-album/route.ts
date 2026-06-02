@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { requireAlbumAccess } from "@/lib/album-access";
 import { ensurePhotoEditSchema } from "@/lib/customer-schema";
-import { requireAdminAccess } from "@/lib/auth-access";
+import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 import { query, queryOne, withTransaction } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -23,11 +22,9 @@ function editedFileName(fileName: string | null, editId: string) {
 export async function POST(request: Request, { params }: Props) {
   try {
     await ensurePhotoEditSchema();
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
 
     const { albumSlug, photoId, editId } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
     const body = (await request.json()) as { eventId?: unknown };

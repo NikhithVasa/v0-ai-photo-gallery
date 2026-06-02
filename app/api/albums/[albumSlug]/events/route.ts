@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { fetchAlbumEvents } from "@/lib/gallery-data";
 import { requireAlbumAccess } from "@/lib/album-access";
-import { requireAdminAccess } from "@/lib/auth-access";
+import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -27,11 +27,8 @@ export async function GET(request: Request, { params }: Props) {
 
 export async function PATCH(request: Request, { params }: Props) {
   try {
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
-
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
     const body = (await request.json()) as {
@@ -86,11 +83,8 @@ export async function PATCH(request: Request, { params }: Props) {
 
 export async function DELETE(request: Request, { params }: Props) {
   try {
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
-
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
     const body = (await request.json().catch(() => ({}))) as {

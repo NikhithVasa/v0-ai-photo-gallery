@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
-import { requireAlbumAccess } from "@/lib/album-access";
 import { ensurePhotoEditSchema } from "@/lib/customer-schema";
-import { requireAdminAccess } from "@/lib/auth-access";
+import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 import { getS3ObjectBytes, signedUrl, uploadS3Object } from "@/lib/s3";
 import {
   nearestNovitaFluxAspectRatio,
@@ -59,11 +58,9 @@ function stringValue(value: unknown) {
 export async function POST(request: Request, { params }: Props) {
   try {
     await ensurePhotoEditSchema();
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
 
     const { albumSlug, photoId } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
     const body = (await request.json()) as {

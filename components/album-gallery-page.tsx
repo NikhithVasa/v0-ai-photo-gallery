@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type TouchEvent as ReactTouchEvent,
+  type WheelEvent as ReactWheelEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -1106,6 +1113,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const autoCoverScrollTimerRef = useRef<number | null>(null);
   const coverScrollAnimationFrameRef = useRef<number | null>(null);
   const coverCollapseTimerRef = useRef<number | null>(null);
+  const coverTouchStartYRef = useRef<number | null>(null);
+  const coverGestureTriggeredRef = useRef(false);
 
   const [activeTab, setActiveTab] = useState<Tab>("photos");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -1301,8 +1310,39 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     });
   };
 
+  const triggerCoverGestureScroll = () => {
+    if (isCoverDismissed || isCoverCollapsing || coverGestureTriggeredRef.current) {
+      return;
+    }
+
+    coverGestureTriggeredRef.current = true;
+    scrollToGalleryTop("soothing");
+  };
+
+  const handleCoverWheel = (event: ReactWheelEvent<HTMLElement>) => {
+    if (event.deltaY > 4) {
+      triggerCoverGestureScroll();
+    }
+  };
+
+  const handleCoverTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
+    coverTouchStartYRef.current = event.touches[0]?.clientY ?? null;
+  };
+
+  const handleCoverTouchMove = (event: ReactTouchEvent<HTMLElement>) => {
+    const startY = coverTouchStartYRef.current;
+    const currentY = event.touches[0]?.clientY;
+    if (startY === null || currentY === undefined) return;
+
+    if (Math.abs(currentY - startY) > 24) {
+      triggerCoverGestureScroll();
+    }
+  };
+
   useEffect(() => {
     autoCoverScrollDoneRef.current = false;
+    coverGestureTriggeredRef.current = false;
+    coverTouchStartYRef.current = null;
     setIsCoverDismissed(false);
     setIsCoverCollapsing(false);
     setIsPhotoSelectionMode(false);
@@ -1664,6 +1704,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       {!isCoverDismissed && (
         <section
+          onWheel={handleCoverWheel}
+          onTouchStart={handleCoverTouchStart}
+          onTouchMove={handleCoverTouchMove}
           className={`relative flex flex-col items-center justify-center overflow-hidden bg-white px-5 text-center transition-[height,opacity,padding] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
             isCoverCollapsing ? "py-0 opacity-0" : "py-8 opacity-100 sm:py-10"
           }`}

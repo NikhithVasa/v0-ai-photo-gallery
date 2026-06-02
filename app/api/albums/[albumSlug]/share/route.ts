@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { requireAlbumAccess } from "@/lib/album-access";
 import { queryOne } from "@/lib/db";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
-import { requireAdminAccess } from "@/lib/auth-access";
+import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -153,11 +152,9 @@ async function fetchShareLink(albumId: string) {
 export async function GET(request: Request, { params }: Props) {
   try {
     await ensureAlbumShareLinkSchema();
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
 
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
     const album = await fetchAlbum(albumSlug);
@@ -193,11 +190,9 @@ export async function GET(request: Request, { params }: Props) {
 export async function POST(request: Request, { params }: Props) {
   try {
     await ensureAlbumShareLinkSchema();
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
 
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
     const album = await fetchAlbum(albumSlug);

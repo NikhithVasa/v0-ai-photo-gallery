@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
-import { requireAlbumAccess } from "@/lib/album-access";
 import { generateRandomAccessCode, hashAccessCode } from "@/lib/access-code";
-import { requireAdminAccess } from "@/lib/auth-access";
+import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -20,13 +19,10 @@ interface AlbumPasswordRow {
   password_hash: string | null;
 }
 
-export async function GET(request: Request, { params }: Props) {
+export async function GET(_request: Request, { params }: Props) {
   try {
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
-
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
     const album = await queryOne<AlbumPasswordRow>(
@@ -59,11 +55,8 @@ export async function GET(request: Request, { params }: Props) {
 
 export async function POST(request: Request, { params }: Props) {
   try {
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
-
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
     const body = (await request.json()) as SetPasswordBody;
@@ -120,13 +113,10 @@ export async function POST(request: Request, { params }: Props) {
   }
 }
 
-export async function DELETE(request: Request, { params }: Props) {
+export async function DELETE(_request: Request, { params }: Props) {
   try {
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
-
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
     await queryOne<AlbumPasswordRow>(

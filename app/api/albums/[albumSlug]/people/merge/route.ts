@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { withTransaction } from "@/lib/db";
 import { fetchAlbumEvents, toPerson, type PersonRow } from "@/lib/gallery-data";
-import { requireAlbumAccess } from "@/lib/album-access";
 import { ensurePeopleMergeSchema } from "@/lib/customer-schema";
-import { requireAdminAccess } from "@/lib/auth-access";
+import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -28,11 +27,8 @@ class PeopleMergeError extends Error {
 export async function POST(request: Request, { params }: Props) {
   try {
     await ensurePeopleMergeSchema();
-    const admin = await requireAdminAccess();
-    if (admin.response) return admin.response;
-
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
     const body = (await request.json()) as {
