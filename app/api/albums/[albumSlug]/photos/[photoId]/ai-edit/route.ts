@@ -5,7 +5,8 @@ import { requireAlbumAccess } from "@/lib/album-access";
 import { ensurePhotoEditSchema } from "@/lib/customer-schema";
 import { getS3ObjectBytes, signedUrl, uploadS3Object } from "@/lib/s3";
 import {
-  submitNovitaQwenImageEdit,
+  nearestNovitaFluxAspectRatio,
+  submitNovitaFluxKontextMaxImageEdit,
   waitForNovitaImageResult,
 } from "@/lib/novita";
 
@@ -82,6 +83,8 @@ export async function POST(request: Request, { params }: Props) {
       event_slug: string;
       file_name: string | null;
       original_s3_key: string | null;
+      width: number | null;
+      height: number | null;
     }>(
       `
       SELECT
@@ -91,7 +94,9 @@ export async function POST(request: Request, { params }: Props) {
         p.album_event_id,
         e.slug AS event_slug,
         p.file_name,
-        p.original_s3_key
+        p.original_s3_key,
+        p.width,
+        p.height
       FROM photos p
       JOIN albums a ON a.id = p.album_id
       JOIN album_events e ON e.id = p.album_event_id
@@ -135,7 +140,7 @@ export async function POST(request: Request, { params }: Props) {
         $6,
         $7,
         'submitted',
-        'web-ai-edit-novita',
+        'web-ai-edit-novita-flux-kontext-max',
         now(),
         now()
       )
@@ -160,10 +165,11 @@ export async function POST(request: Request, { params }: Props) {
       );
     }
 
-    const novitaTask = await submitNovitaQwenImageEdit({
+    const aspectRatio = nearestNovitaFluxAspectRatio(photo.width, photo.height);
+    const novitaTask = await submitNovitaFluxKontextMaxImageEdit({
       base64Image: Buffer.from(sourceImage.bytes).toString("base64"),
       prompt,
-      outputFormat: "png",
+      aspectRatio,
     });
     const novitaResult = await waitForNovitaImageResult(novitaTask.taskId);
     let editedUrl: string | null = null;
@@ -203,10 +209,12 @@ export async function POST(request: Request, { params }: Props) {
         novitaTask.taskId,
         JSON.stringify({
           provider: "novita",
+          model: "flux-1-kontext-max",
           source_s3_key: photo.original_s3_key,
           result_image_url: novitaResult.imageUrl,
           output_s3_key: outputS3Key,
           final_prompt: novitaTask.finalPrompt,
+          aspect_ratio: novitaTask.aspectRatio,
           submit_response: novitaTask.response,
           result_response: novitaResult.response,
         }),

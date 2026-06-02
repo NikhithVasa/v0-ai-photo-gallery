@@ -1,5 +1,5 @@
-const DEFAULT_NOVITA_QWEN_IMAGE_EDIT_ENDPOINT =
-  "https://api.novita.ai/v3/async/qwen-image-edit";
+const DEFAULT_NOVITA_FLUX_KONTEXT_MAX_ENDPOINT =
+  "https://api.novita.ai/v3/async/flux-1-kontext-max";
 const DEFAULT_NOVITA_TASK_RESULT_ENDPOINT =
   "https://api.novita.ai/v3/async/task-result";
 
@@ -15,6 +15,34 @@ User edit request:
 interface NovitaSubmitResponse {
   task_id?: string;
 }
+
+export type NovitaFluxAspectRatio =
+  | "21:9"
+  | "16:9"
+  | "4:3"
+  | "3:2"
+  | "1:1"
+  | "2:3"
+  | "3:4"
+  | "9:16"
+  | "9:21";
+
+type NovitaFluxSafetyTolerance = "1" | "2" | "3" | "4" | "5";
+
+const FLUX_ASPECT_RATIOS: Array<{
+  value: NovitaFluxAspectRatio;
+  ratio: number;
+}> = [
+  { value: "21:9", ratio: 21 / 9 },
+  { value: "16:9", ratio: 16 / 9 },
+  { value: "4:3", ratio: 4 / 3 },
+  { value: "3:2", ratio: 3 / 2 },
+  { value: "1:1", ratio: 1 },
+  { value: "2:3", ratio: 2 / 3 },
+  { value: "3:4", ratio: 3 / 4 },
+  { value: "9:16", ratio: 9 / 16 },
+  { value: "9:21", ratio: 9 / 21 },
+];
 
 interface NovitaTaskResult {
   task_id?: string;
@@ -60,14 +88,49 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function submitNovitaQwenImageEdit({
+function fluxSafetyToleranceFromEnv(): NovitaFluxSafetyTolerance {
+  const value = process.env.NOVITA_FLUX_SAFETY_TOLERANCE;
+  return value === "1" ||
+    value === "2" ||
+    value === "3" ||
+    value === "4" ||
+    value === "5"
+    ? value
+    : "2";
+}
+
+function fluxGuidanceScaleFromEnv() {
+  const value = Number.parseFloat(process.env.NOVITA_FLUX_GUIDANCE_SCALE || "");
+  if (!Number.isFinite(value)) return 3.5;
+  return Math.min(Math.max(value, 1), 20);
+}
+
+export function nearestNovitaFluxAspectRatio(
+  width?: number | null,
+  height?: number | null,
+): NovitaFluxAspectRatio | null {
+  if (!width || !height || width <= 0 || height <= 0) return null;
+
+  const sourceRatio = width / height;
+  return FLUX_ASPECT_RATIOS.reduce((closest, option) => {
+    const closestDistance = Math.abs(Math.log(sourceRatio / closest.ratio));
+    const optionDistance = Math.abs(Math.log(sourceRatio / option.ratio));
+    return optionDistance < closestDistance ? option : closest;
+  }).value;
+}
+
+export async function submitNovitaFluxKontextMaxImageEdit({
   base64Image,
   prompt,
-  outputFormat = "png",
+  aspectRatio,
+  guidanceScale = fluxGuidanceScaleFromEnv(),
+  safetyTolerance = fluxSafetyToleranceFromEnv(),
 }: {
   base64Image: string;
   prompt: string;
-  outputFormat?: "jpeg" | "png" | "webp";
+  aspectRatio?: NovitaFluxAspectRatio | null;
+  guidanceScale?: number;
+  safetyTolerance?: NovitaFluxSafetyTolerance;
 }) {
   const apiKey = process.env.NOVITA_API_KEY;
 
@@ -77,8 +140,8 @@ export async function submitNovitaQwenImageEdit({
 
   const finalPrompt = `${BASE_PHOTO_EDIT_PROMPT}\n${prompt}`.trim();
   const response = await fetch(
-    process.env.NOVITA_QWEN_IMAGE_EDIT_ENDPOINT ||
-      DEFAULT_NOVITA_QWEN_IMAGE_EDIT_ENDPOINT,
+    process.env.NOVITA_FLUX_KONTEXT_MAX_ENDPOINT ||
+      DEFAULT_NOVITA_FLUX_KONTEXT_MAX_ENDPOINT,
     {
       method: "POST",
       headers: {
@@ -87,9 +150,11 @@ export async function submitNovitaQwenImageEdit({
       },
       body: JSON.stringify({
         prompt: finalPrompt,
-        image: base64Image,
+        images: [base64Image],
         seed: -1,
-        output_format: outputFormat,
+        guidance_scale: guidanceScale,
+        safety_tolerance: safetyTolerance,
+        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
       }),
     },
   );
@@ -107,6 +172,7 @@ export async function submitNovitaQwenImageEdit({
   return {
     taskId: data.task_id,
     finalPrompt,
+    aspectRatio: aspectRatio ?? null,
     response: data,
   };
 }
