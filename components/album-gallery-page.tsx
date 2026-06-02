@@ -33,6 +33,7 @@ import { PersonView } from "@/components/person-view";
 import { PhotosGrid, type PeopleMatchMode } from "@/components/photos-grid";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { ApsaraMomentsRoot } from "@/components/apsara-moments";
+import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -1957,6 +1958,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               >
                 <Search className="h-5 w-5" />
               </button>
+
+              {!isShareView && <AuthAvatarMenu />}
             </div>
           </div>
 

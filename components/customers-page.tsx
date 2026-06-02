@@ -7,6 +7,7 @@ import useSWR from "swr";
 import { ImageUp, Loader2, Lock, Plus, Trash2, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlbumPasscodeManager } from "@/components/album-passcode-manager";
+import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { toast } from "@/hooks/use-toast";
 
 const fetcher = async (url: string) => {
@@ -164,13 +165,16 @@ export function CustomersPage() {
             </h1>
           </div>
 
-          <Link
-            href="/customers/new"
-            className="inline-flex h-11 w-fit items-center justify-center gap-2 rounded-full bg-zinc-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-          >
-            <Plus className="h-4 w-4" />
-            Add Customer
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/customers/new"
+              className="inline-flex h-11 w-fit items-center justify-center gap-2 rounded-full bg-zinc-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            >
+              <Plus className="h-4 w-4" />
+              Add Customer
+            </Link>
+            <AuthAvatarMenu />
+          </div>
         </header>
 
         {error && (

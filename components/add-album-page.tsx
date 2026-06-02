@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 
 interface CoverUpload {
   key: string;
@@ -171,20 +172,23 @@ export function AddAlbumPage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={createAlbum}
-            disabled={!canCreate}
-            className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
-          >
-            {isCreating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Check className="h-4 w-4" />
-            )}
-            <span className="hidden sm:inline">Create Album</span>
-            <span className="sm:hidden">Create</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={createAlbum}
+              disabled={!canCreate}
+              className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
+            >
+              {isCreating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">Create Album</span>
+              <span className="sm:hidden">Create</span>
+            </button>
+            <AuthAvatarMenu />
+          </div>
         </div>
       </header>
 

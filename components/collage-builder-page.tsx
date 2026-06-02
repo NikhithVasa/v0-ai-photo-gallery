@@ -33,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1462,28 +1463,31 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
             </div>
           </div>
 
-          <div className="hidden items-center gap-2 sm:flex">
-            <Button variant="outline" onClick={autoFill} disabled={!filteredPhotos.length}>
-              <ImagePlus className="h-4 w-4" />
-              Auto Fill
-            </Button>
-            <Button variant="outline" onClick={shufflePhotos} disabled={selectedPhotoCount < 2}>
-              <Shuffle className="h-4 w-4" />
-              Shuffle
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button disabled={!hasAssignedPhotos || isExporting}>
-                  <Download className="h-4 w-4" />
-                  Download
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onSelect={() => exportImage("png")}>PNG</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => exportImage("jpeg")}>JPG</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="hidden items-center gap-2 sm:flex">
+              <Button variant="outline" onClick={autoFill} disabled={!filteredPhotos.length}>
+                <ImagePlus className="h-4 w-4" />
+                Auto Fill
+              </Button>
+              <Button variant="outline" onClick={shufflePhotos} disabled={selectedPhotoCount < 2}>
+                <Shuffle className="h-4 w-4" />
+                Shuffle
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button disabled={!hasAssignedPhotos || isExporting}>
+                    <Download className="h-4 w-4" />
+                    Download
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onSelect={() => exportImage("png")}>PNG</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => exportImage("jpeg")}>JPG</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <AuthAvatarMenu />
           </div>
         </div>
       </header>

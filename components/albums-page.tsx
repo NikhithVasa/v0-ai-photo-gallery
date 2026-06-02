@@ -7,6 +7,7 @@ import useSWR from "swr";
 import { CalendarDays, Images, Lock, Plus, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlbumPasscodeManager } from "@/components/album-passcode-manager";
+import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import type { AlbumSummary } from "@/lib/types";
 
 const fetcher = async (url: string) => {
@@ -67,21 +68,24 @@ const visibleAlbums =
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-8 flex items-start justify-between gap-4 sm:mb-10">
-          <div>
+        <header className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <p className="text-sm font-medium text-zinc-500">Albums</p>
             <h1 className="text-3xl font-semibold tracking-normal sm:text-5xl">
               Photo Galleries
             </h1>
           </div>
 
-          <Link
-            href="/albums/new"
-            className="flex h-10 shrink-0 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-          >
-            <Plus className="h-4 w-4" />
-            Add Album
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/albums/new"
+              className="flex h-10 shrink-0 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            >
+              <Plus className="h-4 w-4" />
+              Add Album
+            </Link>
+            <AuthAvatarMenu />
+          </div>
         </header>
 
         {albumsError && (

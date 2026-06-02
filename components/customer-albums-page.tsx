@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlbumPasscodeManager } from "@/components/album-passcode-manager";
+import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { toast } from "@/hooks/use-toast";
 import type { AlbumSummary } from "@/lib/types";
 
@@ -459,7 +460,7 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setIsPasscodeManagerOpen(true)}
@@ -490,6 +491,8 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
               <Plus className="h-4 w-4" />
               Add Album
             </Link>
+
+            <AuthAvatarMenu />
           </div>
         </header>
 

@@ -18,6 +18,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { toast } from "@/hooks/use-toast";
 import type { AlbumDetail, AlbumEvent, Photo } from "@/lib/types";
 
@@ -1066,19 +1067,22 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={createEvent}
-            disabled={!canCreate}
-            className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
-          >
-            {isUploading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            {uploadTarget === "new" ? "Create" : "Upload"}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={createEvent}
+              disabled={!canCreate}
+              className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
+            >
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {uploadTarget === "new" ? "Create" : "Upload"}
+            </button>
+            <AuthAvatarMenu />
+          </div>
         </div>
       </header>
 

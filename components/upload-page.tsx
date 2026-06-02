@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import type { AlbumDetail, AlbumSummary } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -301,18 +302,21 @@ export function UploadPage() {
             </div>
           </div>
 
-          <Button
-            onClick={() => uploadFiles()}
-            disabled={!canUpload}
-            className="shrink-0 rounded-full px-3 sm:px-4"
-          >
-            {isUploading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="mr-2 h-4 w-4" />
-            )}
-            Upload
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              onClick={() => uploadFiles()}
+              disabled={!canUpload}
+              className="shrink-0 rounded-full px-3 sm:px-4"
+            >
+              {isUploading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Upload
+            </Button>
+            <AuthAvatarMenu />
+          </div>
         </header>
 
         <div className="grid min-w-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
