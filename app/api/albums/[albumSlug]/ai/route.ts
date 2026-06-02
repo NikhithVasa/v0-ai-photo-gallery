@@ -10,6 +10,7 @@ interface Props {
 type AiAction =
   | "run_event"
   | "process_new"
+  | "process_all_new"
   | "sample"
   | "retry_captions"
   | "rebuild_search"
@@ -142,6 +143,7 @@ export async function POST(request: Request, { params }: Props) {
     const validActions: AiAction[] = [
       "run_event",
       "process_new",
+      "process_all_new",
       "sample",
       "retry_captions",
       "rebuild_search",
@@ -210,7 +212,7 @@ export async function POST(request: Request, { params }: Props) {
       input.full_mode = true;
     }
 
-    if (action === "process_new") {
+    if (action === "process_new" || action === "process_all_new") {
       input.full_mode = true;
       input.skip_completed = true;
       input.resume_partial = true;

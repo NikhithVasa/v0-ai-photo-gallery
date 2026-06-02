@@ -284,97 +284,111 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
-    const uploads = await Promise.all(
-      files.map(async (file) => {
-        const keys = buildPhotoKeys(
-          album.slug,
-          event.slug,
-          file.fileName,
-          event.source_prefix
-        );
-        const contentType = contentTypeFromFile(file);
-        const row = await queryOne<PhotoInsertRow>(
-          `
-          INSERT INTO photos(
-            album_id,
-            album_event_id,
-            photo_uuid,
-            source_s3_key,
-            storage_album_slug,
-            storage_event_slug,
-            file_name,
-            file_size_bytes,
-            original_s3_key,
-            ai_input_s3_key,
-            clean_preview_s3_key,
-            watermarked_preview_s3_key,
-            thumbnail_s3_key,
-            annotated_s3_key,
-            upload_status,
-            compression_status,
-            watermark_status,
-            face_index_status,
-            qwen_status,
-            search_index_status,
-            created_at,
-            updated_at
-          )
-          VALUES(
-            $1::uuid,
-            $2::uuid,
-            $3::uuid,
-            $4,
-            $5,
-            $6,
-            $7,
-            $8,
-            $9,
-            $10,
-            $11,
-            $12,
-            $13,
-            $14,
-            'pending',
-            'pending',
-            'pending',
-            'pending',
-            'pending',
-            'pending',
-            now(),
-            now()
-          )
-          RETURNING id, original_s3_key
-          `,
-          [
-            album.id,
-            event.id,
-            keys.photoUuid,
-            keys.originalS3Key,
-            album.slug,
-            event.slug,
-            file.fileName,
-            file.size,
-            keys.originalS3Key,
-            keys.aiInputS3Key,
-            keys.cleanPreviewS3Key,
-            keys.watermarkedPreviewS3Key,
-            keys.thumbnailS3Key,
-            keys.annotatedS3Key,
-          ]
-        );
+    const uploads: any[] = [];
+    for (let i = 0; i < files.length; i += 3) {
+      const chunk = files.slice(i, i + 3);
+      const chunkResults = await Promise.all(
+        chunk.map(async (file) => {
+          let attempt = 0;
+          while (true) {
+            try {
+              const keys = buildPhotoKeys(
+                album.slug,
+                event.slug,
+                file.fileName,
+                event.source_prefix
+              );
+              const contentType = contentTypeFromFile(file);
+              const row = await queryOne<PhotoInsertRow>(
+                `
+                INSERT INTO photos(
+                  album_id,
+                  album_event_id,
+                  photo_uuid,
+                  source_s3_key,
+                  storage_album_slug,
+                  storage_event_slug,
+                  file_name,
+                  file_size_bytes,
+                  original_s3_key,
+                  ai_input_s3_key,
+                  clean_preview_s3_key,
+                  watermarked_preview_s3_key,
+                  thumbnail_s3_key,
+                  annotated_s3_key,
+                  upload_status,
+                  compression_status,
+                  watermark_status,
+                  face_index_status,
+                  qwen_status,
+                  search_index_status,
+                  created_at,
+                  updated_at
+                )
+                VALUES(
+                  $1::uuid,
+                  $2::uuid,
+                  $3::uuid,
+                  $4,
+                  $5,
+                  $6,
+                  $7,
+                  $8,
+                  $9,
+                  $10,
+                  $11,
+                  $12,
+                  $13,
+                  $14,
+                  'pending',
+                  'pending',
+                  'pending',
+                  'pending',
+                  'pending',
+                  'pending',
+                  now(),
+                  now()
+                )
+                RETURNING id, original_s3_key
+                `,
+                [
+                  album.id,
+                  event.id,
+                  keys.photoUuid,
+                  keys.originalS3Key,
+                  album.slug,
+                  event.slug,
+                  file.fileName,
+                  file.size,
+                  keys.originalS3Key,
+                  keys.aiInputS3Key,
+                  keys.cleanPreviewS3Key,
+                  keys.watermarkedPreviewS3Key,
+                  keys.thumbnailS3Key,
+                  keys.annotatedS3Key,
+                ]
+              );
 
-        if (!row) throw new Error(`Could not create upload for ${file.fileName}`);
+              if (!row) throw new Error(`Could not create upload for ${file.fileName}`);
 
-        return {
-          id: row.id,
-          fileName: file.fileName,
-          size: file.size,
-          contentType,
-          originalS3Key: row.original_s3_key,
-          uploadUrl: await signedUploadUrl(row.original_s3_key, contentType),
-        };
-      })
-    );
+              return {
+                id: row.id,
+                fileName: file.fileName,
+                size: file.size,
+                contentType,
+                originalS3Key: row.original_s3_key,
+                uploadUrl: await signedUploadUrl(row.original_s3_key, contentType),
+              };
+            } catch (err: any) {
+              attempt++;
+              if (attempt > 2) throw err;
+              await new Promise((resolve) => setTimeout(resolve, 500));
+            }
+          }
+        })
+      );
+      uploads.push(...chunkResults);
+    }
 
     return NextResponse.json({
       album,

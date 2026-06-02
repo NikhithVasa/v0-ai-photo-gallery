@@ -34,6 +34,7 @@ type UploadTarget = "new" | "existing";
 type AiAction =
   | "run_event"
   | "process_new"
+  | "process_all_new"
   | "sample"
   | "retry_captions"
   | "rebuild_search"
@@ -1367,6 +1368,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                   {[
                     ["run_event", "Run AI for this event"],
                     ["process_new", "Process new photos only"],
+                    ["process_all_new", "Process new photos in all events"],
                     ["sample", "Run sample test on 20 photos"],
                     ["retry_captions", "Retry AI captions"],
                     ["retry_faces", "Retry face detection"],
@@ -1378,9 +1380,13 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                       key={action}
                       type="button"
                       onClick={() =>
-                        submitAiAction(action as AiAction, selectedAiEventSlugs, {
-                          maxFiles: action === "sample" ? 20 : undefined,
-                        })
+                        submitAiAction(
+                          action as AiAction,
+                          action === "process_all_new" ? [] : selectedAiEventSlugs,
+                          {
+                            maxFiles: action === "sample" ? 20 : undefined,
+                          }
+                        )
                       }
                       disabled={Boolean(runningAiAction) || isUploading}
                       className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-45"
