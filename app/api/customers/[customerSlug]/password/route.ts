@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { generateRandomAccessCode, hashAccessCode } from "@/lib/access-code";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ customerSlug: string }>;
@@ -17,6 +18,9 @@ interface CustomerPasswordRow {
 export async function GET(_request: Request, { params }: Props) {
   try {
     await ensureCustomerAccessSchema();
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { customerSlug } = await params;
 
     const customer = await queryOne<CustomerPasswordRow>(
@@ -50,6 +54,9 @@ export async function GET(_request: Request, { params }: Props) {
 export async function POST(request: Request, { params }: Props) {
   try {
     await ensureCustomerAccessSchema();
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { customerSlug } = await params;
     const body = (await request.json()) as {
       password?: unknown;
@@ -104,6 +111,9 @@ export async function POST(request: Request, { params }: Props) {
 export async function DELETE(_request: Request, { params }: Props) {
   try {
     await ensureCustomerAccessSchema();
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { customerSlug } = await params;
 
     const customer = await queryOne<CustomerPasswordRow>(

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { signedUploadUrl } from "@/lib/s3";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface UploadFileInput {
   fileName: string;
@@ -22,6 +23,7 @@ interface AlbumRow {
   id: string;
   slug: string;
   name: string;
+  customer_id: string | null;
 }
 
 interface EventRow {
@@ -113,7 +115,7 @@ async function createOrGetAlbum(body: UploadRequestBody) {
       ON CONFLICT(slug) DO UPDATE SET
         name = EXCLUDED.name,
         updated_at = now()
-      RETURNING id, slug, name
+      RETURNING id, slug, name, customer_id
       `,
       [albumName, slug]
     );
@@ -123,7 +125,7 @@ async function createOrGetAlbum(body: UploadRequestBody) {
 
   return queryOne<AlbumRow>(
     `
-    SELECT id, slug, name
+    SELECT id, slug, name, customer_id
     FROM albums
     WHERE slug = $1
       AND COALESCE(is_deleted, false) = false
@@ -146,10 +148,32 @@ async function createOrGetEvent(album: AlbumRow, body: UploadRequestBody) {
     return queryOne<EventRow>(
       hasSourcePrefix
         ? `
-      INSERT INTO album_events(album_id, name, slug, source_prefix, sort_order, created_at, updated_at)
+      INSERT INTO album_events(album_id, customer_id, name, slug, source_prefix, sort_order, created_at, updated_at)
       VALUES(
         $1::uuid,
-        $2,
+        $2::uuid,
+        $3,
+        $4,
+        $5,
+        COALESCE(
+          (SELECT MAX(sort_order) + 1 FROM album_events WHERE album_id = $1::uuid),
+          1
+        ),
+        now(),
+        now()
+      )
+      ON CONFLICT(album_id, slug) DO UPDATE SET
+        name = EXCLUDED.name,
+        customer_id = EXCLUDED.customer_id,
+        source_prefix = COALESCE(album_events.source_prefix, EXCLUDED.source_prefix),
+        updated_at = now()
+      RETURNING id, slug, name, ${sourcePrefixSelect}
+      `
+        : `
+      INSERT INTO album_events(album_id, customer_id, name, slug, sort_order, created_at, updated_at)
+      VALUES(
+        $1::uuid,
+        $2::uuid,
         $3,
         $4,
         COALESCE(
@@ -161,31 +185,13 @@ async function createOrGetEvent(album: AlbumRow, body: UploadRequestBody) {
       )
       ON CONFLICT(album_id, slug) DO UPDATE SET
         name = EXCLUDED.name,
-        source_prefix = COALESCE(album_events.source_prefix, EXCLUDED.source_prefix),
-        updated_at = now()
-      RETURNING id, slug, name, ${sourcePrefixSelect}
-      `
-        : `
-      INSERT INTO album_events(album_id, name, slug, sort_order, created_at, updated_at)
-      VALUES(
-        $1::uuid,
-        $2,
-        $3,
-        COALESCE(
-          (SELECT MAX(sort_order) + 1 FROM album_events WHERE album_id = $1::uuid),
-          1
-        ),
-        now(),
-        now()
-      )
-      ON CONFLICT(album_id, slug) DO UPDATE SET
-        name = EXCLUDED.name,
+        customer_id = EXCLUDED.customer_id,
         updated_at = now()
       RETURNING id, slug, name, ${sourcePrefixSelect}
       `,
       hasSourcePrefix
-        ? [album.id, eventName, slug, sourcePrefix]
-        : [album.id, eventName, slug]
+        ? [album.id, album.customer_id, eventName, slug, sourcePrefix]
+        : [album.id, album.customer_id, eventName, slug]
     );
   }
 
@@ -250,6 +256,9 @@ function validateFiles(files: unknown) {
 
 export async function POST(request: Request) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const body = (await request.json()) as UploadRequestBody;
     const files = validateFiles(body.files);
 

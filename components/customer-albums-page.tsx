@@ -42,6 +42,18 @@ interface CustomerAlbumsResponse {
   albums: AlbumSummary[];
 }
 
+interface CustomerUser {
+  id: string;
+  email: string;
+  role: "owner" | "member" | string;
+  addedBy?: string | null;
+  createdAt: string;
+}
+
+interface CustomerUsersResponse {
+  users: CustomerUser[];
+}
+
 interface CustomerAlbumsPageProps {
   customerSlug: string;
 }
@@ -61,6 +73,9 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
   const [deletingAlbumSlugs, setDeletingAlbumSlugs] = useState<string[]>([]);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"owner" | "member">("member");
+  const [isAddingCustomerUser, setIsAddingCustomerUser] = useState(false);
   const { data, error, isLoading, mutate } = useSWR<CustomerAlbumsResponse>(
     `/api/customers/${encodeURIComponent(customerSlug)}/albums`,
     fetcher,
@@ -69,8 +84,21 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
       revalidateOnFocus: false,
     }
   );
+  const {
+    data: usersData,
+    error: usersError,
+    mutate: mutateUsers,
+  } = useSWR<CustomerUsersResponse>(
+    `/api/customers/${encodeURIComponent(customerSlug)}/users`,
+    fetcher,
+    {
+      dedupingInterval: 5 * 60 * 1000,
+      revalidateOnFocus: false,
+    }
+  );
 
   const customerName = data?.customer?.name ?? "Customer";
+  const canManageCustomerUsers = Boolean(usersData && !usersError);
 
   useEffect(() => {
     setIsPasswordVerified(
@@ -250,6 +278,84 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
     }
   };
 
+  const addCustomerUser = async () => {
+    const email = newUserEmail.trim();
+    if (!email || isAddingCustomerUser) return;
+
+    setIsAddingCustomerUser(true);
+
+    try {
+      const response = await fetch(
+        `/api/customers/${encodeURIComponent(customerSlug)}/users`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, role: newUserRole }),
+        }
+      );
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not add user");
+      }
+
+      setNewUserEmail("");
+      setNewUserRole("member");
+      await mutateUsers();
+      toast({
+        title: "User added",
+        description: `${email} can now access ${customerName}.`,
+      });
+    } catch (userError) {
+      toast({
+        title: "Add user failed",
+        description:
+          userError instanceof Error
+            ? userError.message
+            : "Could not add customer user",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingCustomerUser(false);
+    }
+  };
+
+  const removeCustomerUser = async (email: string) => {
+    const ok = window.confirm(`Remove ${email} from ${customerName}?`);
+    if (!ok) return;
+
+    try {
+      const response = await fetch(
+        `/api/customers/${encodeURIComponent(customerSlug)}/users`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        }
+      );
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not remove user");
+      }
+
+      await mutateUsers();
+      toast({
+        title: "User removed",
+        description: `${email} no longer has access to ${customerName}.`,
+      });
+    } catch (userError) {
+      toast({
+        title: "Remove user failed",
+        description:
+          userError instanceof Error
+            ? userError.message
+            : "Could not remove customer user",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!isLoading && !error && data?.customer?.passwordRequired && !isPasswordVerified) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#fbfaf8] px-5 text-zinc-950">
@@ -386,6 +492,82 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
             </Link>
           </div>
         </header>
+
+        {canManageCustomerUsers && (
+          <section className="mb-8 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex flex-col gap-1">
+              <h2 className="text-sm font-semibold text-zinc-950">
+                Customer users
+              </h2>
+              <p className="text-sm text-zinc-500">
+                Emails listed here can access this customer after Supabase login.
+              </p>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+              <input
+                type="email"
+                value={newUserEmail}
+                onChange={(event) => setNewUserEmail(event.target.value)}
+                placeholder="person@email.com"
+                className="h-10 min-w-0 rounded-lg border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+              />
+              <select
+                value={newUserRole}
+                onChange={(event) =>
+                  setNewUserRole(
+                    event.target.value === "owner" ? "owner" : "member"
+                  )
+                }
+                className="h-10 rounded-lg border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+              >
+                <option value="member">Member</option>
+                <option value="owner">Owner</option>
+              </select>
+              <button
+                type="button"
+                onClick={addCustomerUser}
+                disabled={!newUserEmail.trim() || isAddingCustomerUser}
+                className="flex h-10 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
+              >
+                {isAddingCustomerUser ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Add user
+              </button>
+            </div>
+
+            {!!usersData.users.length && (
+              <div className="mt-4 divide-y divide-zinc-100 rounded-lg border border-zinc-100">
+                {usersData.users.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex flex-wrap items-center justify-between gap-3 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-zinc-950">
+                        {user.email}
+                      </p>
+                      <p className="text-xs capitalize text-zinc-500">
+                        {user.role}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeCustomerUser(user.email)}
+                      className="flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {error && (
           <div className="rounded-md border border-rose-200 bg-rose-50 px-5 py-8 text-center text-sm text-rose-700">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { deleteS3Object } from "@/lib/s3";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ albumSlug: string; photoId: string }>;
@@ -25,6 +26,9 @@ interface PhotoDeleteRow {
 
 export async function DELETE(request: Request, { params }: Props) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { albumSlug, photoId } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;

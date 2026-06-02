@@ -3,6 +3,7 @@ import { withTransaction } from "@/lib/db";
 import { fetchAlbumEvents, toPerson, type PersonRow } from "@/lib/gallery-data";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { ensurePeopleMergeSchema } from "@/lib/customer-schema";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -27,6 +28,9 @@ class PeopleMergeError extends Error {
 export async function POST(request: Request, { params }: Props) {
   try {
     await ensurePeopleMergeSchema();
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;

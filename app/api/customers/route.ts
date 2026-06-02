@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { signedUrl } from "@/lib/s3";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
+import {
+  getAuthAccess,
+  requireAdminAccess,
+  unauthorizedResponse,
+} from "@/lib/auth-access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -55,8 +60,11 @@ async function availableCustomerSlug(name: string) {
 export async function GET() {
   try {
     await ensureCustomerAccessSchema();
+    const access = await getAuthAccess();
+    if (!access) return unauthorizedResponse();
 
-    const rows = await query<CustomerRow>(`
+    const rows = await query<CustomerRow>(
+      `
       SELECT
         c.id,
         c.slug,
@@ -72,9 +80,15 @@ export async function GET() {
         ON a.customer_id = c.id
        AND COALESCE(a.is_deleted, false) = false
       WHERE COALESCE(c.is_deleted, false) = false
+        AND (
+          $1::boolean = true
+          OR c.id = ANY($2::uuid[])
+        )
       GROUP BY c.id
       ORDER BY c.created_at DESC NULLS LAST, c.name ASC
-    `);
+      `,
+      [access.isAdmin, access.customerIds],
+    );
 
     const customers = await Promise.all(
       rows.map(async (row) => ({
@@ -107,6 +121,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     await ensureCustomerAccessSchema();
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
 
     const body = (await request.json()) as {
       name?: unknown;
@@ -136,8 +152,18 @@ export async function POST(request: Request) {
     const slug = await availableCustomerSlug(name);
     const customer = await queryOne<CustomerRow>(
       `
-      INSERT INTO customers(name, slug, email, phone, notes, created_at, updated_at)
-      VALUES($1, $2, $3, $4, $5, now(), now())
+      INSERT INTO customers(
+        name,
+        company_name,
+        slug,
+        email,
+        phone,
+        notes,
+        created_by_email,
+        created_at,
+        updated_at
+      )
+      VALUES($1, $1, $2, $3, $4, $5, $6, now(), now())
       RETURNING
         id,
         slug,
@@ -149,13 +175,25 @@ export async function POST(request: Request) {
         0::int AS album_count,
         created_at
       `,
-      [name, slug, email, phone, notes]
+      [name, slug, email, phone, notes, admin.access?.email ?? null]
     );
 
     if (!customer) {
       return NextResponse.json(
         { error: "Could not create customer" },
         { status: 500 }
+      );
+    }
+
+    if (email) {
+      await queryOne<{ id: string }>(
+        `
+        INSERT INTO customer_users(id, customer_id, email, role, added_by, created_at)
+        VALUES($1::uuid, $2::uuid, lower($3), 'owner', $4, now())
+        ON CONFLICT DO NOTHING
+        RETURNING id
+        `,
+        [randomUUID(), customer.id, email, admin.access?.email ?? null],
       );
     }
 

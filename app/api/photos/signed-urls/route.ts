@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { signedDownloadUrl, signedUrl } from "@/lib/s3";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface PhotoUrlRow {
   id: string;
@@ -27,6 +28,9 @@ function fileNameFromKey(key: string) {
 
 export async function POST(request: Request) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const body = (await request.json()) as { ids?: unknown };
     const ids = Array.isArray(body.ids)
       ? body.ids.filter((id): id is string => typeof id === "string").slice(0, 8)

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { derivedThumbnailKey, listS3Keys, signedUrl } from "@/lib/s3";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface PhotoRow {
   id: string;
@@ -24,6 +25,9 @@ function fileNameFromKey(key: string) {
 
 export async function GET() {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const originalPrefix = process.env.ORIGINAL_PREFIX || "originals/pilot-100/";
     const thumbnailPrefix = process.env.THUMB_PREFIX || "thumbnails/pilot-100/";
     const [rows, originalKeys, thumbnailKeys] = await Promise.all([

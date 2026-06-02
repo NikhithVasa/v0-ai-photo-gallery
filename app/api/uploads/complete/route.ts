@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface CompleteRequestBody {
   photoIds?: unknown;
@@ -14,6 +15,9 @@ function isUuid(value: string) {
 
 export async function POST(request: Request) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const body = (await request.json()) as CompleteRequestBody;
     const photoIds = Array.isArray(body.photoIds)
       ? body.photoIds.filter(

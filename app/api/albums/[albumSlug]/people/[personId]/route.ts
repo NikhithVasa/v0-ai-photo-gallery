@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ albumSlug: string; personId: string }>;
@@ -8,6 +9,9 @@ interface Props {
 
 export async function PATCH(request: Request, { params }: Props) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { albumSlug, personId } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;

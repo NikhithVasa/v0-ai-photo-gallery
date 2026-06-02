@@ -4,6 +4,11 @@ import { query, queryOne } from "@/lib/db";
 import { signedUploadUrl, signedUrl } from "@/lib/s3";
 import { getCustomerSlugFromRequest } from "@/lib/customer-host";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
+import {
+  getAuthAccess,
+  requireAdminAccess,
+  unauthorizedResponse,
+} from "@/lib/auth-access";
 import type { AlbumSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -110,6 +115,8 @@ export async function GET(request: Request) {
     await ensureCustomerAccessSchema();
 
     const customerSlug = getCustomerSlugFromRequest(request);
+    const access = customerSlug ? null : await getAuthAccess();
+    if (!customerSlug && !access) return unauthorizedResponse();
 
     const rows = await query<AlbumSummaryRow>(
       `
@@ -128,6 +135,11 @@ export async function GET(request: Request) {
           a.customer_id
         FROM albums a
         WHERE COALESCE(a.is_deleted, false) = false
+          AND (
+            $1::text IS NOT NULL
+            OR $2::boolean = true
+            OR a.customer_id = ANY($3::uuid[])
+          )
       ),
 
       event_counts AS (
@@ -208,7 +220,7 @@ export async function GET(request: Request) {
 
       ORDER BY a.created_at DESC NULLS LAST, a.name ASC
       `,
-      [customerSlug]
+      [customerSlug, Boolean(access?.isAdmin), access?.customerIds ?? []]
     );
 
     const albums: AlbumSummary[] = await Promise.all(
@@ -264,6 +276,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     await ensureCustomerAccessSchema();
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
 
     const body = (await request.json()) as {
       customerName?: unknown;
@@ -327,16 +341,18 @@ export async function POST(request: Request) {
     const customerSlug = slugify(customerName);
     const customer = await queryOne<{ id: string; slug: string; name: string }>(
       `
-      INSERT INTO customers(name, slug, created_at, updated_at)
-      VALUES($1, $2, now(), now())
+      INSERT INTO customers(name, company_name, slug, created_by_email, created_at, updated_at)
+      VALUES($1, $1, $2, $3, now(), now())
       ON CONFLICT(slug) DO UPDATE SET
         name = EXCLUDED.name,
+        company_name = EXCLUDED.name,
+        created_by_email = COALESCE(customers.created_by_email, $3),
         is_deleted = false,
         deleted_at = NULL,
         updated_at = now()
       RETURNING id, slug, name
       `,
-      [customerName, customerSlug]
+      [customerName, customerSlug, admin.access?.email ?? null]
     );
 
     if (!customer) {
@@ -401,15 +417,16 @@ export async function POST(request: Request) {
       eventNames.map((eventName, index) =>
         queryOne<{ id: string }>(
           `
-          INSERT INTO album_events(album_id, name, slug, sort_order, created_at, updated_at)
-          VALUES($1::uuid, $2, $3, $4, now(), now())
+          INSERT INTO album_events(album_id, customer_id, name, slug, sort_order, created_at, updated_at)
+          VALUES($1::uuid, $2::uuid, $3, $4, $5, now(), now())
           ON CONFLICT(album_id, slug) DO UPDATE SET
             name = EXCLUDED.name,
+            customer_id = EXCLUDED.customer_id,
             sort_order = EXCLUDED.sort_order,
             updated_at = now()
           RETURNING id
           `,
-          [album.id, eventName, slugify(eventName), index + 1]
+          [album.id, customer.id, eventName, slugify(eventName), index + 1]
         )
       )
     );

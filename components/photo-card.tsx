@@ -588,6 +588,7 @@ export function PhotoLightbox({
 
   const photoFrameRef = useRef<HTMLDivElement>(null);
   const touchSurfaceRef = useRef<HTMLDivElement>(null);
+  const aiEditScrollRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -1009,6 +1010,29 @@ export function PhotoLightbox({
 
     await navigator.clipboard?.writeText(shareUrl);
   };
+
+  const scrollAiEditToBottom = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const scrollContainer = aiEditScrollRef.current;
+      if (!scrollContainer) return;
+
+      scrollContainer.scrollTo({
+        top: scrollContainer.scrollHeight,
+        behavior,
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!isAiEditOpen || !aiEditResult) return;
+
+    const timer = window.setTimeout(() => {
+      scrollAiEditToBottom();
+    }, 50);
+
+    return () => window.clearTimeout(timer);
+  }, [aiEditResult, isAiEditOpen, scrollAiEditToBottom]);
 
   const submitAiEdit = async () => {
     if (isSubmittingAiEdit) return;
@@ -1625,7 +1649,10 @@ export function PhotoLightbox({
             </button>
           </div>
 
-          <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+          <div
+            ref={aiEditScrollRef}
+            className="flex-1 space-y-5 overflow-y-auto px-5 py-4"
+          >
             <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-zinc-100">
               {currentImageUrl ? (
                 <img
@@ -1700,6 +1727,7 @@ export function PhotoLightbox({
                     <img
                       src={aiEditResult.editedUrl}
                       alt="AI edited result"
+                      onLoad={() => scrollAiEditToBottom()}
                       className="mt-3 w-full rounded-md"
                     />
 

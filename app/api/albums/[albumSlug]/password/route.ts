@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { query, queryOne } from "@/lib/db";
+import { queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { generateRandomAccessCode, hashAccessCode } from "@/lib/access-code";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -21,6 +22,9 @@ interface AlbumPasswordRow {
 
 export async function GET(request: Request, { params }: Props) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;
@@ -55,6 +59,9 @@ export async function GET(request: Request, { params }: Props) {
 
 export async function POST(request: Request, { params }: Props) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;
@@ -115,6 +122,9 @@ export async function POST(request: Request, { params }: Props) {
 
 export async function DELETE(request: Request, { params }: Props) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;

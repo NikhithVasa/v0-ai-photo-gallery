@@ -2,6 +2,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { s3 } from "@/lib/s3";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,9 @@ function isAllowedContentType(value: string) {
 
 export async function PUT(request: Request, { params }: Props) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { photoId } = await params;
     if (!isUuid(photoId)) {
       return NextResponse.json({ error: "Invalid photo id" }, { status: 400 });

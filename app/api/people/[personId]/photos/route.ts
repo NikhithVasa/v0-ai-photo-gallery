@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { derivedThumbnailKey, listS3Keys, signedUrl } from "@/lib/s3";
+import {
+  getAuthAccess,
+  unauthorizedResponse,
+} from "@/lib/auth-access";
 
 interface PhotoRow {
   id: string;
@@ -22,6 +26,9 @@ interface Props {
 
 export async function GET(request: Request, { params }: Props) {
   try {
+    const access = await getAuthAccess();
+    if (!access) return unauthorizedResponse();
+
     const { personId } = await params;
 
     const rows = await query<PhotoRow>(
@@ -41,10 +48,18 @@ export async function GET(request: Request, { params }: Props) {
         pp.qwen_description
       FROM photo_people pp
       JOIN photos p ON p.id = pp.photo_id
+      JOIN albums a
+        ON a.id = p.album_id
+       AND COALESCE(a.is_deleted, false) = false
       WHERE pp.person_id = $1
+        AND COALESCE(p.is_deleted, false) = false
+        AND (
+          $2::boolean = true
+          OR a.customer_id = ANY($3::uuid[])
+        )
       ORDER BY p.created_at DESC
     `,
-      [personId]
+      [personId, access.isAdmin, access.customerIds]
     );
     const thumbnailKeys = await listS3Keys(
       process.env.THUMB_PREFIX || "thumbnails/pilot-100/"

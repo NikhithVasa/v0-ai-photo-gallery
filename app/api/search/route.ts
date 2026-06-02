@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { signedUrl, signedDownloadUrl } from "@/lib/s3";
+import { requireAdminAccess } from "@/lib/auth-access";
 import type { SearchResult } from "@/lib/types";
 
 interface PersonMatch {
@@ -127,6 +128,9 @@ function extractSearchTerms(query: string): {
 
 export async function POST(request: Request) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const body = await request.json();
     const { query: searchQuery } = body;
 

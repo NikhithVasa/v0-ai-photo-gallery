@@ -1,6 +1,13 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 import { listS3Keys, s3 } from "@/lib/s3";
+import { queryOne } from "@/lib/db";
+import { requireAlbumAccess } from "@/lib/album-access";
+import {
+  requireAdminAccess,
+  requireCustomerAccessBySlug,
+} from "@/lib/auth-access";
+import { ensurePhotoEditSchema } from "@/lib/customer-schema";
 
 function isAllowedMediaKey(value: string) {
   if (!value || value.includes("..") || value.startsWith("/") || value.endsWith("/")) {
@@ -54,6 +61,83 @@ async function fallbackOriginalKey(key: string) {
   return keys[0] ?? null;
 }
 
+async function requireMediaAccess(request: Request, key: string) {
+  await ensurePhotoEditSchema();
+
+  const album = await queryOne<{ slug: string }>(
+    `
+    WITH album_matches AS (
+      SELECT a.slug
+      FROM albums a
+      WHERE a.cover_photo_s3_key = $1
+        AND COALESCE(a.is_deleted, false) = false
+
+      UNION
+
+      SELECT a.slug
+      FROM photos p
+      JOIN albums a
+        ON a.id = p.album_id
+       AND COALESCE(a.is_deleted, false) = false
+      WHERE COALESCE(p.is_deleted, false) = false
+        AND $1 = ANY(ARRAY[
+          p.original_s3_key,
+          p.ai_input_s3_key,
+          p.clean_preview_s3_key,
+          p.watermarked_preview_s3_key,
+          p.thumbnail_s3_key,
+          p.annotated_s3_key
+        ]::text[])
+
+      UNION
+
+      SELECT a.slug
+      FROM people pe
+      JOIN albums a
+        ON a.id = pe.album_id
+       AND COALESCE(a.is_deleted, false) = false
+      WHERE pe.cover_face_s3_key = $1
+
+      UNION
+
+      SELECT a.slug
+      FROM photo_edits pe
+      JOIN albums a
+        ON a.id = pe.album_id
+       AND COALESCE(a.is_deleted, false) = false
+      WHERE $1 = ANY(ARRAY[pe.source_s3_key, pe.edited_s3_key, pe.thumb_s3_key]::text[])
+    )
+    SELECT slug
+    FROM album_matches
+    LIMIT 1
+    `,
+    [key],
+  );
+
+  if (album) return requireAlbumAccess(request, album.slug);
+
+  const fallbackKey = await fallbackOriginalKey(key).catch(() => null);
+  if (fallbackKey && fallbackKey !== key) {
+    return requireMediaAccess(request, fallbackKey);
+  }
+
+  const customer = await queryOne<{ slug: string }>(
+    `
+    SELECT slug
+    FROM customers
+    WHERE cover_photo_s3_key = $1
+      AND COALESCE(is_deleted, false) = false
+    LIMIT 1
+    `,
+    [key],
+  );
+
+  if (customer) return requireCustomerAccessBySlug(request, customer.slug);
+
+  const admin = await requireAdminAccess();
+  return admin.response;
+}
+
 function mediaResponse(object: Awaited<ReturnType<typeof getMediaObject>>) {
   const stream = toWebStream(object.Body);
 
@@ -79,6 +163,9 @@ export async function GET(request: Request) {
   if (!isAllowedMediaKey(key)) {
     return NextResponse.json({ error: "Invalid media key" }, { status: 400 });
   }
+
+  const accessDenied = await requireMediaAccess(request, key);
+  if (accessDenied) return accessDenied;
 
   try {
     return mediaResponse(await getMediaObject(key));

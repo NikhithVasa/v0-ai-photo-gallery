@@ -3,6 +3,7 @@ import { query, queryOne } from "@/lib/db";
 import { signedUrl } from "@/lib/s3";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
+import { requireAdminAccess } from "@/lib/auth-access";
 import type { AlbumDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -267,6 +268,9 @@ export async function GET(request: Request, { params }: Props) {
 
 export async function DELETE(_request: Request, { params }: Props) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { albumSlug } = await params;
 
     const album = await queryOne<{ id: string; name: string }>(

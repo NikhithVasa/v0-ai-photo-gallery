@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { signedUrl } from "@/lib/s3";
 import { getCustomerSlugFromRequest } from "@/lib/customer-host";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
+import { requireCustomerAccessBySlug } from "@/lib/auth-access";
 import type { AlbumSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,9 @@ export async function GET(request: Request, { params }: Props) {
     await ensureCustomerAccessSchema();
 
     const { customerSlug } = await params;
+    const accessDenied = await requireCustomerAccessBySlug(request, customerSlug);
+    if (accessDenied) return accessDenied;
+
     const hostCustomerSlug = getCustomerSlugFromRequest(request);
     const hideExpired = Boolean(hostCustomerSlug);
 

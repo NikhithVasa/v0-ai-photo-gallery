@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { submitRunpodJob } from "@/lib/runpod";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -128,6 +129,9 @@ async function hasEventSourcePrefix() {
 
 export async function POST(request: Request, { params }: Props) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;

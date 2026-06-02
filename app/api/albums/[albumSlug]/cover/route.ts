@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { signedUploadUrl } from "@/lib/s3";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -54,6 +55,9 @@ function contentTypeFromInput(contentType: unknown, fileName: string) {
 
 export async function POST(request: Request, { params }: Props) {
   try {
+    const admin = await requireAdminAccess();
+    if (admin.response) return admin.response;
+
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;
