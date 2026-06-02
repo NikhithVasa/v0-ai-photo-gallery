@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio } from "@/lib/photo-layout";
-import type { AlbumShareSettings, Photo } from "@/lib/types";
+import type { AlbumEvent, AlbumShareSettings, Photo } from "@/lib/types";
 
 export type PeopleMatchMode = "all" | "any";
 
@@ -33,6 +33,7 @@ interface PhotosGridProps {
   isSelectionMode?: boolean;
   selectedPhotoIds?: string[];
   onTogglePhoto?: (photoId: string) => void;
+  events?: AlbumEvent[];
   shareSettings?: AlbumShareSettings | null;
 }
 
@@ -69,6 +70,7 @@ export function PhotosGrid({
   isSelectionMode = false,
   selectedPhotoIds = [],
   onTogglePhoto,
+  events,
   shareSettings,
 }: PhotosGridProps) {
   const photosRequestUrl = useMemo(
@@ -279,6 +281,7 @@ export function PhotosGrid({
           albumSlug={albumSlug}
           photos={data.photos}
           currentIndex={lightboxState.index}
+          events={events}
           originRect={lightboxState.originRect}
           onClose={() => setLightboxState(null)}
           onNavigate={handleNavigate}

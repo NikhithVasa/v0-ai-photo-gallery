@@ -96,28 +96,28 @@ const moments: Moment[] = [
   {
     eyebrow: "Faces",
     title: "Find every smile",
-    body: "Search for a person and instantly see their best moments from the day.",
+    body: "Filter by one person or a group and jump straight to the photos that matter.",
     icon: Users,
     tone: "blush",
   },
   {
-    eyebrow: "Language",
-    title: "Search the feeling",
-    body: "Try ‘bride laughing’, ‘dance floor’, or ‘family portraits’ — the gallery understands moments.",
+    eyebrow: "AI edits",
+    title: "Fix and finish photos",
+    body: "Edit a photo with AI, download the result, or add it back into any event.",
     icon: Sparkles,
     tone: "champagne",
   },
   {
-    eyebrow: "Keepers",
-    title: "Save the keepers",
-    body: "Favourite photos as you browse and build a personal shortlist.",
-    icon: Heart,
+    eyebrow: "Collage",
+    title: "Build the keepsake",
+    body: "Upload extra photos, drag them into a collage, crop the best view, and export JPG or PNG.",
+    icon: Camera,
     tone: "rose",
   },
   {
     eyebrow: "Sharing",
-    title: "Share without friction",
-    body: "Download originals or share selected memories with family.",
+    title: "Control every handoff",
+    body: "Download all, selected, event, or filtered photos and share albums with watermark and download controls.",
     icon: Download,
     tone: "sand",
   },
@@ -239,8 +239,10 @@ export function LandingPage() {
             {[
               "Face grouping",
               "Semantic search",
-              "Smart albums",
-              "Auto-favourites",
+              "AI photo editing",
+              "Collage exports",
+              "Upload retries",
+              "Watermarked sharing",
             ].map((chip) => (
               <span
                 key={chip}
@@ -320,7 +322,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
           <motion.div {...reveal}>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white/80 px-3 py-1 text-xs font-medium text-stone-700 shadow-sm backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-amber-700" strokeWidth={2} />
-              New: face recognition for every guest
+              New: AI edits, collage tools, and controlled sharing
             </span>
 
             <h1 className="mt-5 font-serif text-[2.6rem] leading-[1.05] tracking-tight text-stone-950 sm:text-6xl lg:text-[4.2rem]">
@@ -330,9 +332,9 @@ function Hero({ reveal }: { reveal: MotionProps }) {
             </h1>
 
             <p className="mt-5 max-w-xl text-base leading-relaxed text-stone-600 sm:text-lg">
-              A private gallery for your wedding day — with AI that knows every
-              face, every scene, and every favourite, so the photos you love are
-              always one tap away.
+              A private gallery for your wedding day with people filters,
+              semantic search, AI photo edits, collage exports, flexible
+              downloads, and share links you can protect with watermarks.
             </p>
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -364,9 +366,9 @@ function Hero({ reveal }: { reveal: MotionProps }) {
 
             <dl className="mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-stone-200/80 pt-6">
               {[
-                { value: "100%", label: "Original quality" },
-                { value: "1-tap", label: "Find anyone" },
-                { value: "Private", label: "Only your guests" },
+                { value: "JPG/PNG", label: "Export options" },
+                { value: "AI", label: "Edit and search" },
+                { value: "Private", label: "Watermark controls" },
               ].map((stat) => (
                 <div key={stat.label}>
                   <dt className="font-serif text-2xl text-stone-950">
@@ -888,19 +890,19 @@ function GalleryPreview({
         >
           <span className="inline-flex items-center gap-1.5">
             <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Original-quality downloads
+            Selected and event downloads
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <Heart className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Personal favourites
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
+            AI photo edits
           </span>
           <span className="inline-flex items-center gap-1.5">
             <Share2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Share with family
+            Watermarked share links
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Filter by people
+            <Camera className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Collage exports
           </span>
         </motion.div>
       </div>

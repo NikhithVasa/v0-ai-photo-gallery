@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Download,
   Heart,
+  ImagePlus,
   Loader2,
   Mail,
   Pause,
@@ -27,8 +28,15 @@ import {
   Wand2,
   X,
 } from "lucide-react";
+import { useSWRConfig } from "swr";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { photoAspectRatio } from "@/lib/photo-layout";
-import type { AlbumShareSettings, Photo } from "@/lib/types";
+import type { AlbumEvent, AlbumShareSettings, Photo } from "@/lib/types";
 
 interface SignedPhotoUrls {
   previewUrl: string | null;
@@ -530,6 +538,7 @@ interface PhotoLightboxProps {
   albumSlug: string;
   photos: Photo[];
   currentIndex: number;
+  events?: AlbumEvent[];
   originRect?: PhotoOpenRect;
   onClose: () => void;
   onNavigate: (index: number) => void;
@@ -541,6 +550,7 @@ export function PhotoLightbox({
   albumSlug,
   photos,
   currentIndex,
+  events,
   originRect,
   onClose,
   onNavigate,
@@ -556,10 +566,14 @@ export function PhotoLightbox({
   const [isSubmittingAiEdit, setIsSubmittingAiEdit] = useState(false);
   const [aiEditError, setAiEditError] = useState("");
   const [aiEditResult, setAiEditResult] = useState<{
+    id?: string | null;
     editedUrl?: string | null;
+    editedS3Key?: string | null;
     taskId?: string | null;
     status?: string;
   } | null>(null);
+  const [isAddingAiEditToAlbum, setIsAddingAiEditToAlbum] = useState(false);
+  const [aiEditAddStatus, setAiEditAddStatus] = useState("");
   const [areControlsVisible, setAreControlsVisible] = useState(false);
   const [isMobilePointer, setIsMobilePointer] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
@@ -586,6 +600,7 @@ export function PhotoLightbox({
   const isDownloadHoveringRef = useRef(isDownloadHovering);
   const isAnimatingSwipeRef = useRef(isAnimatingSwipe);
   const adjacentImagesReadyRef = useRef(false);
+  const { mutate } = useSWRConfig();
 
   const photo = photos[currentIndex];
 
@@ -602,6 +617,32 @@ export function PhotoLightbox({
   const canEditPhoto = !shareSettings;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
+  const aiEditDownloadName = `${(photo.fileName || `photo-${photo.id}`).replace(
+    /\.[^.]+$/,
+    "",
+  )}-ai-edit.png`;
+  const eventOptions = useMemo(() => {
+    const byId = new Map<string, AlbumEvent>();
+
+    for (const event of events ?? []) {
+      byId.set(event.id, event);
+    }
+
+    for (const item of photos) {
+      if (byId.has(item.eventId)) continue;
+
+      byId.set(item.eventId, {
+        id: item.eventId,
+        slug: item.eventSlug,
+        name: item.eventName,
+        sortOrder: byId.size,
+        photoCount: 0,
+        peopleCount: 0,
+      });
+    }
+
+    return Array.from(byId.values());
+  }, [events, photos]);
 
   const getPreviewUrl = useCallback((targetPhoto: Photo | undefined) => {
     if (!targetPhoto) return null;
@@ -652,6 +693,14 @@ export function PhotoLightbox({
     mediaQuery.addEventListener("change", updatePointerMode);
     return () => mediaQuery.removeEventListener("change", updatePointerMode);
   }, []);
+
+  useEffect(() => {
+    setSelectedAiPreset("");
+    setAiEditPrompt("");
+    setAiEditError("");
+    setAiEditResult(null);
+    setAiEditAddStatus("");
+  }, [photo.id]);
 
   const startControlsTimer = useCallback(() => {
     if (controlsTimerRef.current) {
@@ -995,7 +1044,9 @@ export function PhotoLightbox({
       const payload = (await response.json()) as {
         error?: string;
         edit?: {
+          id?: string | null;
           editedUrl?: string | null;
+          editedS3Key?: string | null;
           taskId?: string | null;
           status?: string;
         };
@@ -1006,12 +1057,58 @@ export function PhotoLightbox({
       }
 
       setAiEditResult(payload.edit);
+      setAiEditAddStatus("");
     } catch (error) {
       setAiEditError(
         error instanceof Error ? error.message : "Could not submit AI edit",
       );
     } finally {
       setIsSubmittingAiEdit(false);
+    }
+  };
+
+  const handleDownloadAiEdit = () => {
+    if (!aiEditResult?.editedUrl) return;
+    triggerDownload(aiEditResult.editedUrl, aiEditDownloadName);
+  };
+
+  const addAiEditToAlbum = async (event: AlbumEvent) => {
+    if (!aiEditResult?.id || !aiEditResult.editedUrl || isAddingAiEditToAlbum) {
+      return;
+    }
+
+    setIsAddingAiEditToAlbum(true);
+    setAiEditAddStatus("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/photos/${encodeURIComponent(
+          photo.id,
+        )}/ai-edit/${encodeURIComponent(aiEditResult.id)}/add-to-album`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: event.id }),
+        },
+      );
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not add edit to album");
+      }
+
+      setAiEditAddStatus(`Added to ${event.name}.`);
+      await mutate(
+        (key) =>
+          typeof key === "string" &&
+          key.startsWith(`/api/albums/${encodeURIComponent(albumSlug)}/photos`),
+      );
+    } catch (error) {
+      setAiEditAddStatus(
+        error instanceof Error ? error.message : "Could not add edit to album.",
+      );
+    } finally {
+      setIsAddingAiEditToAlbum(false);
     }
   };
 
@@ -1599,11 +1696,59 @@ export function PhotoLightbox({
                   {aiEditResult.editedUrl ? "Edit complete" : "Edit submitted"}
                 </div>
                 {aiEditResult.editedUrl ? (
-                  <img
-                    src={aiEditResult.editedUrl}
-                    alt="AI edited result"
-                    className="mt-3 w-full rounded-md"
-                  />
+                  <>
+                    <img
+                      src={aiEditResult.editedUrl}
+                      alt="AI edited result"
+                      className="mt-3 w-full rounded-md"
+                    />
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={handleDownloadAiEdit}
+                        className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-100"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download
+                      </button>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={
+                              isAddingAiEditToAlbum || !eventOptions.length
+                            }
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-3 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isAddingAiEditToAlbum ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <ImagePlus className="h-4 w-4" />
+                            )}
+                            Add to album
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          {eventOptions.map((event) => (
+                            <DropdownMenuItem
+                              key={event.id}
+                              onSelect={() => addAiEditToAlbum(event)}
+                            >
+                              {event.name}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {aiEditAddStatus && (
+                      <p className="mt-2 text-xs font-medium text-zinc-600">
+                        {aiEditAddStatus}
+                      </p>
+                    )}
+                  </>
                 ) : (
                   <p className="text-sm text-zinc-600">
                     {aiEditResult.taskId

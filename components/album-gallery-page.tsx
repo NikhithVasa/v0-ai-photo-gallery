@@ -285,6 +285,7 @@ function PasswordGate({
 
 function SearchResultsGrid({
   albumSlug,
+  events,
   query,
   photos,
   isLoading,
@@ -294,6 +295,7 @@ function SearchResultsGrid({
   shareSettings,
 }: {
   albumSlug: string;
+  events: AlbumDetail["events"];
   query: string;
   photos: Photo[];
   isLoading: boolean;
@@ -380,6 +382,7 @@ function SearchResultsGrid({
           albumSlug={albumSlug}
           photos={photos}
           currentIndex={lightboxState.index}
+          events={events}
           originRect={lightboxState.originRect}
           onClose={() => setLightboxState(null)}
           onNavigate={handleNavigate}
@@ -2009,6 +2012,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         ) : apsaraTextSearch ? (
           <SearchResultsGrid
             albumSlug={albumSlug}
+            events={album.events}
             query={apsaraTextSearch.query}
             photos={apsaraTextSearch.photos}
             isLoading={apsaraTextSearch.isLoading}
@@ -2074,6 +2078,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               isSelectionMode={downloadsEnabled && isPhotoSelectionMode}
               selectedPhotoIds={selectedDownloadPhotoIds}
               onTogglePhoto={toggleSelectedDownloadPhotoId}
+              events={album.events}
               shareSettings={shareSettings}
             />
           </section>

@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import useSWR from "swr";
@@ -11,6 +18,7 @@ import {
   Download,
   ImagePlus,
   LayoutTemplate,
+  Move,
   RefreshCcw,
   Shuffle,
   Upload,
@@ -76,13 +84,14 @@ interface CellFrame {
   w: number;
   h: number;
   photoIndex?: number;
+  clipPath?: string;
 }
 
 interface CellAdjustment {
   zoom: number;
   rotate: number;
-  offsetX?: number;
-  offsetY?: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 interface CollageBuilderPageProps {
@@ -91,6 +100,23 @@ interface CollageBuilderPageProps {
 
 type CollagePhoto = Photo & {
   isLocalUpload?: boolean;
+};
+
+type MoveDragState = {
+  fromIndex: number;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  active: boolean;
+};
+
+const defaultAdjustment: CellAdjustment = {
+  zoom: 1,
+  rotate: 0,
+  offsetX: 0,
+  offsetY: 0,
 };
 
 const fetcher = async (url: string) => {
@@ -142,7 +168,7 @@ const outputSizes: OutputSize[] = [
 
 const colors = ["#ffffff", "#111111", "#d8b35a", "#f6f1e8", "#e8eef7", "#f0d7ce"];
 
-function chunkGrid(columns: number, rows: number, count = columns * rows) {
+function chunkGrid(columns: number, rows: number, count = columns * rows): CellFrame[] {
   return Array.from({ length: count }, (_, index) => ({
     x: (index % columns) / columns,
     y: Math.floor(index / columns) / rows,
@@ -218,6 +244,18 @@ function framesForTemplate(template: CollageTemplate): CellFrame[] {
         { x: 1 / 3, y: 2 / 3, w: 1 / 3, h: 1 / 3, photoIndex: 7 },
         { x: 2 / 3, y: 2 / 3, w: 1 / 3, h: 1 / 3, photoIndex: 8 },
       ];
+    case "diagonal_2":
+      return [
+        { x: 0, y: 0, w: 1, h: 1, photoIndex: 0, clipPath: "polygon(0 0, 100% 0, 0 100%)" },
+        { x: 0, y: 0, w: 1, h: 1, photoIndex: 1, clipPath: "polygon(100% 0, 100% 100%, 0 100%)" },
+      ];
+    case "diagonal_4":
+      return [
+        { x: 0, y: 0, w: 1, h: 1, photoIndex: 0, clipPath: "polygon(0 0, 50% 50%, 0 100%)" },
+        { x: 0, y: 0, w: 1, h: 1, photoIndex: 1, clipPath: "polygon(0 0, 100% 0, 50% 50%)" },
+        { x: 0, y: 0, w: 1, h: 1, photoIndex: 2, clipPath: "polygon(100% 0, 100% 100%, 50% 50%)" },
+        { x: 0, y: 0, w: 1, h: 1, photoIndex: 3, clipPath: "polygon(100% 100%, 0 100%, 50% 50%)" },
+      ];
     case "film_strip":
       return chunkGrid(5, 1);
     case "freeform_resizable":
@@ -229,9 +267,6 @@ function framesForTemplate(template: CollageTemplate): CellFrame[] {
         { x: 0, y: 0.56, w: 0.34, h: 0.44 },
         { x: 0.34, y: 0.56, w: 0.66, h: 0.44 },
       ];
-    case "diagonal_2":
-    case "diagonal_4":
-      return [];
   }
 }
 
@@ -266,24 +301,21 @@ function trimTrailingEmptyIds(photoIds: string[]) {
   return next;
 }
 
-function objectPositionForAdjustment(
-  position: ImagePosition,
-  adjustment: CellAdjustment,
-) {
-  let x = 50;
-  let y = 50;
+function normalizeAdjustment(adjustment?: Partial<CellAdjustment>): CellAdjustment {
+  return {
+    zoom: adjustment?.zoom ?? 1,
+    rotate: adjustment?.rotate ?? 0,
+    offsetX: adjustment?.offsetX ?? 0,
+    offsetY: adjustment?.offsetY ?? 0,
+  };
+}
 
-  if (position === "top") y = 0;
-  if (position === "bottom") y = 100;
-  if (position === "left") x = 0;
-  if (position === "right") x = 100;
-
-  const offsetExpression = (base: number, offset = 0) =>
-    offset >= 0
-      ? `calc(${base}% - ${offset}px)`
-      : `calc(${base}% + ${Math.abs(offset)}px)`;
-
-  return `${offsetExpression(x, adjustment.offsetX)} ${offsetExpression(y, adjustment.offsetY)}`;
+function objectPositionForAdjustment(position: ImagePosition) {
+  if (position === "top") return "50% 0%";
+  if (position === "bottom") return "50% 100%";
+  if (position === "left") return "0% 50%";
+  if (position === "right") return "100% 50%";
+  return "50% 50%";
 }
 
 function downloadBlob(blob: Blob, fileName: string) {
@@ -300,9 +332,7 @@ function downloadBlob(blob: Blob, fileName: string) {
 function loadCanvasImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new window.Image();
-    if (!isLocalImageUrl(src)) {
-      image.crossOrigin = "anonymous";
-    }
+    if (!isLocalImageUrl(src)) image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("Image could not be loaded for export"));
     image.src = src;
@@ -341,11 +371,13 @@ function drawImageInRect(
   let drawH = h;
 
   if (fit === "cover") {
-    if (imageRatio > rectRatio) drawH = h;
-    else drawW = w;
-
-    if (imageRatio > rectRatio) drawW = h * imageRatio;
-    else drawH = w / imageRatio;
+    if (imageRatio > rectRatio) {
+      drawH = h;
+      drawW = h * imageRatio;
+    } else {
+      drawW = w;
+      drawH = w / imageRatio;
+    }
   } else if (fit === "contain") {
     if (imageRatio > rectRatio) {
       drawW = w;
@@ -367,11 +399,8 @@ function drawImageInRect(
   if (position === "left") dx = x;
   if (position === "right") dx = x + w - drawW;
 
-  // Apply pan offsets (in pixels) to the draw position.
-  const offX = adjustment.offsetX ?? 0;
-  const offY = adjustment.offsetY ?? 0;
-  dx += offX;
-  dy += offY;
+  dx += adjustment.offsetX;
+  dy += adjustment.offsetY;
 
   ctx.save();
   ctx.translate(x + w / 2, y + h / 2);
@@ -451,8 +480,8 @@ function PhotoTile({
       }`}
       aria-pressed={selected}
     >
-      {src && (
-        isLocalImageUrl(src) ? (
+      {src &&
+        (isLocalImageUrl(src) ? (
           <img
             src={src}
             alt={photo.fileName || "Photo"}
@@ -467,8 +496,7 @@ function PhotoTile({
             className="object-cover transition group-hover:scale-[1.03]"
             unoptimized
           />
-        )
-      )}
+        ))}
       <span className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 shadow-sm">
         {selected && <Check className="h-4 w-4 text-zinc-950" />}
       </span>
@@ -492,11 +520,13 @@ function CollageCell({
   borderWidth,
   borderColor,
   gap,
+  moveDragState,
   onSelect,
-  onDragStart,
+  onDesktopDragStart,
   onDrop,
   onRemove,
   onAdjustChange,
+  onMovePointerDown,
 }: {
   photo?: CollagePhoto;
   src: string;
@@ -510,80 +540,107 @@ function CollageCell({
   borderWidth: number;
   borderColor: string;
   gap: number;
+  moveDragState: MoveDragState | null;
   onSelect: () => void;
-  onDragStart: () => void;
+  onDesktopDragStart: () => void;
   onDrop: () => void;
   onRemove: () => void;
-  onAdjustChange?: (partial: Partial<CellAdjustment>) => void;
+  onAdjustChange: (partial: Partial<CellAdjustment>) => void;
+  onMovePointerDown: (event: ReactPointerEvent<HTMLButtonElement>, photoIndex: number) => void;
 }) {
-  const panStateRef = useRef<{
-    active: boolean;
-    startX: number;
-    startY: number;
-    startOffsetX: number;
-    startOffsetY: number;
-  }>({ active: false, startX: 0, startY: 0, startOffsetX: 0, startOffsetY: 0 });
+  const panStateRef = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    startOffsetX: 0,
+    startOffsetY: 0,
+    moved: false,
+  });
+
   const beginPan = (event: ReactPointerEvent<HTMLElement>) => {
-    if (!selected || !onAdjustChange) return;
+    if (!photo) return;
     event.preventDefault();
     event.stopPropagation();
+    onSelect();
     event.currentTarget.setPointerCapture(event.pointerId);
-    panStateRef.current.active = true;
-    panStateRef.current.startX = event.clientX;
-    panStateRef.current.startY = event.clientY;
-    panStateRef.current.startOffsetX = adjustment.offsetX ?? 0;
-    panStateRef.current.startOffsetY = adjustment.offsetY ?? 0;
+    panStateRef.current = {
+      active: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      startOffsetX: adjustment.offsetX,
+      startOffsetY: adjustment.offsetY,
+      moved: false,
+    };
   };
+
   const updatePan = (event: ReactPointerEvent<HTMLElement>) => {
-    if (!selected || !onAdjustChange || !panStateRef.current.active) return;
+    if (!photo || !panStateRef.current.active) return;
     event.preventDefault();
     event.stopPropagation();
     const dx = event.clientX - panStateRef.current.startX;
     const dy = event.clientY - panStateRef.current.startY;
+
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+      panStateRef.current.moved = true;
+    }
+
     onAdjustChange({
       offsetX: panStateRef.current.startOffsetX + dx,
       offsetY: panStateRef.current.startOffsetY + dy,
     });
   };
+
   const endPan = (event: ReactPointerEvent<HTMLElement>) => {
-    if (!selected || !onAdjustChange) return;
+    if (!photo || !panStateRef.current.active) return;
     event.stopPropagation();
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
     } catch {}
     panStateRef.current.active = false;
   };
-  const imagePanStyle = {
+
+  const isBeingMoved = moveDragState?.fromIndex === index;
+  const imageStyle = {
     objectFit: fitMode,
-    objectPosition: objectPositionForAdjustment(imagePosition, adjustment),
-    transform: `scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
-    touchAction: selected ? "none" : undefined,
-    cursor: selected ? (panStateRef.current.active ? "grabbing" : "grab") : undefined,
+    objectPosition: objectPositionForAdjustment(imagePosition),
+    transform: `translate3d(${adjustment.offsetX}px, ${adjustment.offsetY}px, 0) scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
+    transformOrigin: "center center",
+    touchAction: "none",
+    cursor: photo ? "grab" : "default",
     userSelect: "none",
+    willChange: "transform",
   } as const;
+
   return (
-    <button
-      type="button"
-      draggable={false}
+    <div
+      role="button"
+      tabIndex={0}
+      data-collage-cell-index={index}
       onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onSelect();
+      }}
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
       className={`absolute overflow-hidden bg-zinc-200 transition focus:outline-none ${
         selected ? "ring-2 ring-sky-500 ring-offset-2" : ""
-      }`}
+      } ${isBeingMoved ? "opacity-55" : ""}`}
       style={{
         left: `${frame.x * 100}%`,
         top: `${frame.y * 100}%`,
         width: `${frame.w * 100}%`,
         height: `${frame.h * 100}%`,
         padding: `${gap / 2}px`,
+        clipPath: frame.clipPath,
       }}
       aria-label={`Collage cell ${index + 1}`}
     >
-      <span
+      <div
         className="relative block h-full w-full overflow-hidden bg-zinc-100"
         style={{
-          borderRadius: cornerRadius,
+          borderRadius: frame.clipPath ? 0 : cornerRadius,
           border: borderWidth ? `${borderWidth}px solid ${borderColor}` : undefined,
         }}
       >
@@ -594,76 +651,73 @@ function CollageCell({
                 src={src}
                 alt={photo.fileName || `Photo ${index + 1}`}
                 className="absolute inset-0 h-full w-full"
-                style={imagePanStyle}
+                style={imageStyle}
                 draggable={false}
                 onPointerDown={beginPan}
                 onPointerMove={updatePan}
                 onPointerUp={endPan}
-                onPointerCancel={() => { panStateRef.current.active = false; }}
+                onPointerCancel={endPan}
               />
             ) : (
               <Image
                 src={src}
                 alt={photo.fileName || `Photo ${index + 1}`}
                 fill
-                sizes="(min-width: 1024px) 640px, 90vw"
+                sizes="(min-width: 1024px) 640px, 96vw"
                 className="h-full w-full"
-                style={imagePanStyle}
+                style={imageStyle}
                 draggable={false}
                 onPointerDown={beginPan}
                 onPointerMove={updatePan}
                 onPointerUp={endPan}
-                onPointerCancel={() => { panStateRef.current.active = false; }}
+                onPointerCancel={endPan}
                 unoptimized
               />
             )}
-            <span
+            <button
+              type="button"
               draggable
-              role="button"
-              tabIndex={0}
+              onPointerDown={(event) => onMovePointerDown(event, index)}
               onDragStart={(event) => {
                 event.stopPropagation();
-                event.dataTransfer.setData("text/plain", String(index));
-                onDragStart();
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("application/x-collage-cell", String(index));
+                onDesktopDragStart();
               }}
-              onClick={(event) => {
-                event.stopPropagation();
-              }}
-              onKeyDown={(event) => {
-                event.stopPropagation();
-              }}
-              className="absolute left-2 top-2 flex h-7 w-7 cursor-grab items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition hover:bg-black active:cursor-grabbing"
-              aria-label={`Drag photo ${index + 1}`}
-              title="Drag to swap cells"
+              onClick={(event) => event.stopPropagation()}
+              className="absolute left-2 top-2 z-20 flex h-9 w-9 cursor-grab touch-none items-center justify-center rounded-full bg-black/75 text-white shadow-sm transition hover:bg-black active:cursor-grabbing sm:h-8 sm:w-8"
+              aria-label={`Move photo ${index + 1}`}
+              title="Move photo"
             >
-              <Shuffle className="h-4 w-4" />
-            </span>
-            <span
-              role="button"
-              tabIndex={0}
+              <Move className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
               onClick={(event) => {
                 event.stopPropagation();
                 onRemove();
               }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                event.preventDefault();
-                event.stopPropagation();
-                onRemove();
-              }}
-              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition hover:bg-black"
+              className="absolute right-2 top-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/75 text-white shadow-sm transition hover:bg-black sm:h-8 sm:w-8"
               aria-label={`Remove photo ${index + 1}`}
+              title="Remove photo"
             >
               <X className="h-4 w-4" />
-            </span>
+            </button>
           </>
         ) : (
-          <span className="flex h-full w-full items-center justify-center text-zinc-400">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect();
+            }}
+            className="flex h-full w-full items-center justify-center text-zinc-400"
+          >
             <ImagePlus className="h-6 w-6" />
-          </span>
+          </button>
         )}
-      </span>
-    </button>
+      </div>
+    </div>
   );
 }
 
@@ -703,12 +757,9 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [moveDragState, setMoveDragState] = useState<MoveDragState | null>(null);
 
-  const { data: albumsData } = useSWR<{ albums: AlbumSummary[] }>(
-    "/api/albums",
-    fetcher,
-    swrOptions,
-  );
+  const { data: albumsData } = useSWR<{ albums: AlbumSummary[] }>("/api/albums", fetcher, swrOptions);
 
   useEffect(() => {
     if (albumSlug || !albumsData?.albums?.length) return;
@@ -717,9 +768,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
 
   useEffect(() => {
     if (!albumSlug) return;
-    setIsPasswordVerified(
-      sessionStorage.getItem(`album:${albumSlug}:verified`) === "true",
-    );
+    setIsPasswordVerified(sessionStorage.getItem(`album:${albumSlug}:verified`) === "true");
     setPassword("");
     setPasswordError("");
   }, [albumSlug]);
@@ -761,9 +810,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   useEffect(() => {
     return () => {
       for (const photo of uploadedPhotosRef.current) {
-        if (photo.previewUrl?.startsWith("blob:")) {
-          URL.revokeObjectURL(photo.previewUrl);
-        }
+        if (photo.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(photo.previewUrl);
       }
     };
   }, []);
@@ -775,50 +822,32 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
         people.set(person.id, person.displayName || person.defaultName);
       }
     }
-    return Array.from(people, ([id, name]) => ({ id, name })).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
+    return Array.from(people, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [photosData?.photos]);
 
   const filteredPhotos = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     const photos = (photosData?.photos ?? []).filter((photo) => {
-      if (personFilter !== "all" && !photo.people?.some((person) => person.id === personFilter)) {
-        return false;
-      }
+      if (personFilter !== "all" && !photo.people?.some((person) => person.id === personFilter)) return false;
       if (!normalized) return true;
       return photoSearchText(photo).includes(normalized);
     });
 
-    if (sortMode === "file") {
-      return [...photos].sort((a, b) => (a.fileName || "").localeCompare(b.fileName || ""));
-    }
-
+    if (sortMode === "file") return [...photos].sort((a, b) => (a.fileName || "").localeCompare(b.fileName || ""));
     return photos;
   }, [photosData?.photos, personFilter, query, sortMode]);
 
   const photoById = useMemo(() => {
-    return new Map(
-      [...(photosData?.photos ?? []), ...uploadedPhotos].map((photo) => [
-        photo.id,
-        photo,
-      ]),
-    );
+    return new Map([...(photosData?.photos ?? []), ...uploadedPhotos].map((photo) => [photo.id, photo]));
   }, [photosData?.photos, uploadedPhotos]);
 
-  const selectedPhotos = useMemo(() => {
-    return selectedPhotoIds.map((id) => (id ? photoById.get(id) : undefined));
-  }, [photoById, selectedPhotoIds]);
+  const selectedPhotos = useMemo(() => selectedPhotoIds.map((id) => (id ? photoById.get(id) : undefined)), [photoById, selectedPhotoIds]);
   const selectedPhotoCount = selectedPhotoIds.filter(Boolean).length;
 
   const output = useMemo(() => {
     const selected = outputSizes.find((item) => item.id === outputId) ?? outputSizes[0];
     if (selected.id !== "custom") return selected;
-    return {
-      ...selected,
-      width: Math.max(200, customWidth),
-      height: Math.max(200, customHeight),
-    };
+    return { ...selected, width: Math.max(200, customWidth), height: Math.max(200, customHeight) };
   }, [customHeight, customWidth, outputId]);
 
   const frames = useMemo(() => framesForTemplate(template), [template]);
@@ -826,14 +855,12 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const assignedPhotos = selectedPhotos.slice(0, templateCount);
   const hasAssignedPhotos = assignedPhotos.some(Boolean);
   const selectedCellPhoto = assignedPhotos[selectedCellIndex];
-  const selectedAdjustment = selectedCellPhoto
-    ? cellAdjustments[selectedCellPhoto.id] ?? { zoom: 1, rotate: 0, offsetX: 0, offsetY: 0 }
-    : { zoom: 1, rotate: 0, offsetX: 0, offsetY: 0 };
-
+  const selectedAdjustment = selectedCellPhoto ? normalizeAdjustment(cellAdjustments[selectedCellPhoto.id]) : defaultAdjustment;
+  const selectedAlbum = albumData?.album;
+  const isDiagonal = template === "diagonal_2" || template === "diagonal_4";
 
   useEffect(() => {
     if (!albumSlug || !selectedPhotoIds.some(Boolean)) return;
-
     let isCancelled = false;
 
     async function signOriginals() {
@@ -859,10 +886,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       setOriginalUrls(urls);
     }
 
-    signOriginals().catch((error) => {
-      console.error("Error signing collage originals:", error);
-    });
-
+    signOriginals().catch((error) => console.error("Error signing collage originals:", error));
     return () => {
       isCancelled = true;
     };
@@ -870,12 +894,10 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
 
   const togglePhoto = (photoId: string) => {
     setActiveSourcePhotoId(photoId);
-    setSelectedPhotoIds((current) =>
-      current.includes(photoId) ? current : [...current, photoId],
-    );
+    setSelectedPhotoIds((current) => (current.includes(photoId) ? current : [...current, photoId]));
   };
 
-  const placePhotoAtIndex = (photoId: string, photoIndex: number) => {
+  const placePhotoAtIndex = useCallback((photoId: string, photoIndex: number) => {
     setSelectedPhotoIds((current) => {
       const next = [...current];
       const existingIndex = next.indexOf(photoId);
@@ -889,14 +911,14 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     });
     setSelectedCellIndex(photoIndex);
     setActiveSourcePhotoId(null);
-  };
+  }, []);
 
   const autoFill = () => {
     setSelectedPhotoIds(filteredPhotos.slice(0, templateCount).map((photo) => photo.id));
     setSelectedCellIndex(0);
   };
 
-  const removePhotoAtIndex = (photoIndex: number) => {
+  const removePhotoAtIndex = useCallback((photoIndex: number) => {
     setSelectedPhotoIds((current) => {
       if (!current[photoIndex]) return current;
       const next = [...current];
@@ -904,12 +926,10 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       return trimTrailingEmptyIds(next);
     });
     setSelectedCellIndex((current) => Math.max(0, Math.min(current, templateCount - 1)));
-  };
+  }, [templateCount]);
 
   const handleUploadedFiles = (files: FileList | null) => {
-    const imageFiles = Array.from(files ?? []).filter((file) =>
-      file.type.startsWith("image/"),
-    );
+    const imageFiles = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"));
     if (!imageFiles.length) return;
 
     const createdPhotos: CollagePhoto[] = imageFiles.map((file) => {
@@ -941,7 +961,6 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
 
     setUploadedPhotos((current) => [...createdPhotos, ...current]);
     setActiveSourcePhotoId(createdPhotos[0]?.id ?? null);
-
     if (uploadInputRef.current) uploadInputRef.current.value = "";
   };
 
@@ -956,7 +975,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     });
   };
 
-  const swapCells = (fromIndex: number, toIndex: number) => {
+  const swapCells = useCallback((fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex) return;
     setSelectedPhotoIds((current) => {
       const next = [...current];
@@ -965,7 +984,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
       return trimTrailingEmptyIds(next);
     });
-  };
+    setSelectedCellIndex(toIndex);
+  }, []);
 
   const handleSourceDragStart = (photoId: string) => {
     draggedPhotoIdRef.current = photoId;
@@ -978,7 +998,6 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       placePhotoAtIndex(activeSourcePhotoId, photoIndex);
       return;
     }
-
     setSelectedCellIndex(photoIndex);
   };
 
@@ -988,48 +1007,99 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     } else if (draggedCellRef.current !== null) {
       swapCells(draggedCellRef.current, photoIndex);
     }
-
     draggedPhotoIdRef.current = null;
     draggedCellRef.current = null;
   };
 
-  const updateSelectedAdjustment = (partial: Partial<CellAdjustment>) => {
-    if (!selectedCellPhoto) return;
+  const updateCellAdjustment = useCallback((photoId: string, partial: Partial<CellAdjustment>) => {
     setCellAdjustments((current) => ({
       ...current,
-      [selectedCellPhoto.id]: {
-        ...current[selectedCellPhoto.id],
-        zoom: current[selectedCellPhoto.id]?.zoom ?? 1,
-        rotate: current[selectedCellPhoto.id]?.rotate ?? 0,
-        offsetX: current[selectedCellPhoto.id]?.offsetX ?? 0,
-        offsetY: current[selectedCellPhoto.id]?.offsetY ?? 0,
+      [photoId]: {
+        ...normalizeAdjustment(current[photoId]),
         ...partial,
       },
     }));
+  }, []);
+
+  const updateSelectedAdjustment = (partial: Partial<CellAdjustment>) => {
+    if (!selectedCellPhoto) return;
+    updateCellAdjustment(selectedCellPhoto.id, partial);
   };
+
+  const handleMovePointerDown = (event: ReactPointerEvent<HTMLButtonElement>, fromIndex: number) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedCellIndex(fromIndex);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setMoveDragState({
+      fromIndex,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      x: event.clientX,
+      y: event.clientY,
+      active: false,
+    });
+  };
+
+  useEffect(() => {
+    if (!moveDragState) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== moveDragState.pointerId) return;
+      event.preventDefault();
+      const dx = event.clientX - moveDragState.startX;
+      const dy = event.clientY - moveDragState.startY;
+      setMoveDragState((current) =>
+        current
+          ? {
+              ...current,
+              x: event.clientX,
+              y: event.clientY,
+              active: current.active || Math.abs(dx) > 4 || Math.abs(dy) > 4,
+            }
+          : current,
+      );
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== moveDragState.pointerId) return;
+      event.preventDefault();
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-collage-cell-index]");
+      const targetIndex = target?.getAttribute("data-collage-cell-index");
+      if (targetIndex !== null && targetIndex !== undefined) {
+        const toIndex = Number(targetIndex);
+        if (Number.isFinite(toIndex)) swapCells(moveDragState.fromIndex, toIndex);
+      }
+      setMoveDragState(null);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp, { passive: false });
+    window.addEventListener("pointercancel", handlePointerUp, { passive: false });
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [moveDragState, swapCells]);
 
   const verifyAlbumPassword = async () => {
     if (!albumSlug || !password || isVerifyingPassword) return;
-
     setIsVerifyingPassword(true);
     setPasswordError("");
 
     try {
-      const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/verify-password`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password }),
-        },
-      );
+      const response = await fetch(`/api/albums/${encodeURIComponent(albumSlug)}/verify-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
       const data = (await response.json()) as { ok?: boolean };
-
       if (!response.ok || !data.ok) {
         setPasswordError("Wrong code.");
         return;
       }
-
       sessionStorage.setItem(`album:${albumSlug}:verified`, "true");
       setIsPasswordVerified(true);
       setPassword("");
@@ -1062,17 +1132,12 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
           const image = await loadCanvasImage(firstUrl);
           ctx.save();
           ctx.filter = "blur(28px)";
-          drawImageInRect(ctx, image, -40, -40, width + 80, height + 80, "cover", "center", {
-            zoom: 1,
-            rotate: 0,
-          });
+          drawImageInRect(ctx, image, -40, -40, width + 80, height + 80, "cover", "center", defaultAdjustment);
           ctx.restore();
           ctx.fillStyle = "rgba(255,255,255,.22)";
           ctx.fillRect(0, 0, width, height);
           return;
-        } catch {
-          // Fall back to solid fill when the source cannot be exported by the browser.
-        }
+        } catch {}
       }
     }
 
@@ -1082,7 +1147,6 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
 
   const exportImage = async (format: "png" | "jpeg") => {
     if (!hasAssignedPhotos) return;
-
     setIsExporting(true);
     setExportError("");
 
@@ -1124,7 +1188,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
         polygons.forEach((polygon, index) => {
           const photo = assignedPhotos[index];
           const image = photo ? imageCache.get(photo.id) : null;
-          if (!image) return;
+          if (!photo || !image) return;
           ctx.save();
           ctx.beginPath();
           polygon.forEach(([x, y], pointIndex) => {
@@ -1133,10 +1197,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
           });
           ctx.closePath();
           ctx.clip();
-          drawImageInRect(ctx, image, 0, 0, output.width, output.height, fitMode, imagePosition, {
-            zoom: cellAdjustments[photo.id]?.zoom ?? 1,
-            rotate: cellAdjustments[photo.id]?.rotate ?? 0,
-          });
+          drawImageInRect(ctx, image, 0, 0, output.width, output.height, fitMode, imagePosition, normalizeAdjustment(cellAdjustments[photo.id]));
           ctx.restore();
         });
         if (scaledBorder) {
@@ -1173,7 +1234,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
         polygons.forEach((polygon, index) => {
           const photo = assignedPhotos[index];
           const image = photo ? imageCache.get(photo.id) : null;
-          if (!image) return;
+          if (!photo || !image) return;
           ctx.save();
           ctx.beginPath();
           polygon.forEach(([x, y], pointIndex) => {
@@ -1182,10 +1243,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
           });
           ctx.closePath();
           ctx.clip();
-          drawImageInRect(ctx, image, 0, 0, output.width, output.height, fitMode, imagePosition, {
-            zoom: cellAdjustments[photo.id]?.zoom ?? 1,
-            rotate: cellAdjustments[photo.id]?.rotate ?? 0,
-          });
+          drawImageInRect(ctx, image, 0, 0, output.width, output.height, fitMode, imagePosition, normalizeAdjustment(cellAdjustments[photo.id]));
           ctx.restore();
         });
         if (scaledBorder) {
@@ -1209,12 +1267,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
           const y = frame.y * output.height + scaledGap / 2;
           const w = frame.w * output.width - scaledGap;
           const h = frame.h * output.height - scaledGap;
-          const adjustment = {
-            zoom: cellAdjustments[photo.id]?.zoom ?? 1,
-            rotate: cellAdjustments[photo.id]?.rotate ?? 0,
-            offsetX: cellAdjustments[photo.id]?.offsetX ?? 0,
-            offsetY: cellAdjustments[photo.id]?.offsetY ?? 0,
-          };
+          const adjustment = normalizeAdjustment(cellAdjustments[photo.id]);
 
           ctx.save();
           roundedRect(ctx, x, y, w, h, scaledRadius);
@@ -1244,9 +1297,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       );
     } catch (error) {
       console.error("Collage export failed:", error);
-      setExportError(
-        "Export failed. The browser may be blocked from reading one of the signed S3 images.",
-      );
+      setExportError("Export failed. The browser may be blocked from reading one of the signed S3 images.");
     } finally {
       setIsExporting(false);
     }
@@ -1262,14 +1313,12 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
         backgroundPosition: "0 0, 0 11px, 11px -11px, -11px 0px",
       };
     }
-    if (backgroundMode === "gradient") {
-      return { backgroundImage: `linear-gradient(135deg, ${backgroundColor}, ${borderColor})` };
-    }
+    if (backgroundMode === "gradient") return { backgroundImage: `linear-gradient(135deg, ${backgroundColor}, ${borderColor})` };
     return { backgroundColor };
   }, [backgroundColor, backgroundMode, borderColor]);
 
-  const selectedAlbum = albumData?.album;
-  const isDiagonal = template === "diagonal_2" || template === "diagonal_4";
+  const draggingPhoto = moveDragState ? assignedPhotos[moveDragState.fromIndex] : undefined;
+  const draggingPhotoSrc = draggingPhoto ? resolvePhotoUrl(draggingPhoto, originalUrls) : "";
 
   if (selectedAlbum?.passwordRequired && !isPasswordVerified) {
     return (
@@ -1282,12 +1331,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
             </Link>
           </Button>
 
-          <p className="text-sm font-medium uppercase tracking-[0.08em] text-zinc-500">
-            Collage Builder
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold">
-            {selectedAlbum.customer?.name || selectedAlbum.name}
-          </h1>
+          <p className="text-sm font-medium uppercase tracking-[0.08em] text-zinc-500">Collage Builder</p>
+          <h1 className="mt-1 text-2xl font-semibold">{selectedAlbum.customer?.name || selectedAlbum.name}</h1>
           <div className="mt-6 space-y-3">
             <Input
               type="password"
@@ -1302,16 +1347,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               placeholder="Access code"
               aria-label="Access code"
             />
-            {passwordError && (
-              <p className="text-sm font-medium text-rose-600">
-                {passwordError}
-              </p>
-            )}
-            <Button
-              className="w-full"
-              onClick={verifyAlbumPassword}
-              disabled={!password || isVerifyingPassword}
-            >
+            {passwordError && <p className="text-sm font-medium text-rose-600">{passwordError}</p>}
+            <Button className="w-full" onClick={verifyAlbumPassword} disabled={!password || isVerifyingPassword}>
               Continue
             </Button>
           </div>
@@ -1323,16 +1360,16 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   return (
     <main className="min-h-screen bg-[#f7f7f4] text-zinc-950">
       <header className="sticky top-0 z-40 border-b border-zinc-200 bg-[#f7f7f4]/92 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-3 px-3 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Button asChild variant="ghost" size="icon" className="rounded-full">
               <Link href={albumSlug ? `/albums/${encodeURIComponent(albumSlug)}` : "/albums"} aria-label="Back">
                 <ArrowLeft className="h-5 w-5" />
               </Link>
             </Button>
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500">Collage Builder</p>
-              <h1 className="truncate text-lg font-semibold sm:text-2xl">
+              <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-500 sm:text-xs">Collage Builder</p>
+              <h1 className="truncate text-base font-semibold sm:text-2xl">
                 {selectedAlbum?.customer?.name || selectedAlbum?.name || "Select an album"}
               </h1>
             </div>
@@ -1356,20 +1393,16 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onSelect={() => exportImage("png")}>
-                  PNG
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => exportImage("jpeg")}>
-                  JPG
-                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportImage("png")}>PNG</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportImage("jpeg")}>JPG</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1800px] gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[340px_minmax(0,1fr)_360px]">
-        <aside className="space-y-4 lg:sticky lg:top-[76px] lg:max-h-[calc(100svh-96px)] lg:overflow-y-auto lg:pr-1">
+      <div className="mx-auto grid max-w-[1800px] gap-4 px-3 py-3 sm:px-6 sm:py-4 lg:grid-cols-[340px_minmax(0,1fr)_360px]">
+        <aside className="order-2 space-y-4 lg:order-1 lg:sticky lg:top-[76px] lg:max-h-[calc(100svh-96px)] lg:overflow-y-auto lg:pr-1">
           <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
             <div className="space-y-3">
               <div className="space-y-1.5">
@@ -1429,11 +1462,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 className="hidden"
                 onChange={(event) => handleUploadedFiles(event.target.files)}
               />
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => uploadInputRef.current?.click()}
-              >
+              <Button variant="outline" className="w-full" onClick={() => uploadInputRef.current?.click()}>
                 <Upload className="h-4 w-4" />
                 Upload Images
               </Button>
@@ -1456,12 +1485,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
             {uploadedPhotos.length > 0 && (
               <div className="mb-4 space-y-2 rounded-md border border-zinc-200 bg-zinc-50 p-2">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
-                    Uploaded images
-                  </p>
-                  <span className="text-xs text-zinc-500">
-                    {uploadedPhotos.length}
-                  </span>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">Uploaded images</p>
+                  <span className="text-xs text-zinc-500">{uploadedPhotos.length}</span>
                 </div>
                 <div className="grid max-h-44 grid-cols-3 gap-2 overflow-y-auto pr-1">
                   {uploadedPhotos.map((photo) => (
@@ -1506,11 +1531,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               </div>
             </div>
 
-            <div className="mt-4 grid max-h-[520px] grid-cols-3 gap-2 overflow-y-auto pr-1">
-              {(albumLoading || photosLoading) &&
-                Array.from({ length: 18 }).map((_, index) => (
-                  <Skeleton key={index} className="aspect-square rounded-md" />
-                ))}
+            <div className="mt-4 grid max-h-[360px] grid-cols-3 gap-2 overflow-y-auto pr-1 sm:max-h-[520px]">
+              {(albumLoading || photosLoading) && Array.from({ length: 18 }).map((_, index) => <Skeleton key={index} className="aspect-square rounded-md" />)}
               {!albumLoading &&
                 !photosLoading &&
                 filteredPhotos.map((photo) => (
@@ -1525,24 +1547,21 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 ))}
             </div>
 
-            {(albumError || photosError) && (
-              <p className="mt-3 text-sm font-medium text-rose-600">Failed to load album photos.</p>
-            )}
+            {(albumError || photosError) && <p className="mt-3 text-sm font-medium text-rose-600">Failed to load album photos.</p>}
             {!photosLoading && selectedAlbum && filteredPhotos.length === 0 && (
-              <p className="mt-4 rounded-md bg-zinc-50 px-3 py-6 text-center text-sm text-zinc-500">
-                No photos match these filters.
-              </p>
+              <p className="mt-4 rounded-md bg-zinc-50 px-3 py-6 text-center text-sm text-zinc-500">No photos match these filters.</p>
             )}
           </section>
         </aside>
 
-        <section className="min-w-0">
+        <section className="order-1 min-w-0 lg:order-2">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 shadow-sm">
             <div>
               <p className="text-sm font-medium text-zinc-500">Live preview</p>
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-lg font-semibold sm:text-xl">
                 {output.name} / {output.width} x {output.height}
               </h2>
+              <p className="mt-1 text-xs text-zinc-500 sm:hidden">Tap a photo, drag inside to reposition, use top-left handle to move.</p>
             </div>
             <div className="flex gap-2 sm:hidden">
               <Button variant="outline" onClick={autoFill} disabled={!filteredPhotos.length} size="sm">
@@ -1550,38 +1569,25 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button disabled={!hasAssignedPhotos || isExporting} size="sm">
-                    Download
-                  </Button>
+                  <Button disabled={!hasAssignedPhotos || isExporting} size="sm">Download</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-36">
-                  <DropdownMenuItem onSelect={() => exportImage("png")}>
-                    PNG
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => exportImage("jpeg")}>
-                    JPG
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => exportImage("png")}>PNG</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => exportImage("jpeg")}>JPG</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
 
-          <div className="rounded-lg border border-zinc-200 bg-zinc-950/5 p-3 shadow-inner sm:p-6">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-950/5 p-2 shadow-inner sm:p-6">
             <div
               ref={previewRef}
-              className="relative mx-auto max-h-[calc(100svh-170px)] w-full max-w-[960px] overflow-hidden shadow-2xl ring-1 ring-black/10"
-              style={{
-                aspectRatio: `${output.width} / ${output.height}`,
-                ...previewBackgroundStyle,
-              }}
+              className="relative mx-auto max-h-[68svh] w-full max-w-[960px] overflow-hidden shadow-2xl ring-1 ring-black/10 sm:max-h-[calc(100svh-170px)]"
+              style={{ aspectRatio: `${output.width} / ${output.height}`, ...previewBackgroundStyle }}
             >
-              {backgroundMode === "blur" && assignedPhotos[0] && resolvePhotoUrl(assignedPhotos[0], originalUrls) && (
-                isLocalImageUrl(resolvePhotoUrl(assignedPhotos[0], originalUrls)) ? (
-                  <img
-                    src={resolvePhotoUrl(assignedPhotos[0], originalUrls)}
-                    alt=""
-                    className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl"
-                  />
+              {backgroundMode === "blur" && assignedPhotos[0] && resolvePhotoUrl(assignedPhotos[0], originalUrls) &&
+                (isLocalImageUrl(resolvePhotoUrl(assignedPhotos[0], originalUrls)) ? (
+                  <img src={resolvePhotoUrl(assignedPhotos[0], originalUrls)} alt="" className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl" />
                 ) : (
                   <Image
                     src={resolvePhotoUrl(assignedPhotos[0], originalUrls)}
@@ -1591,159 +1597,77 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                     className="scale-110 object-cover blur-2xl"
                     unoptimized
                   />
-                )
-              )}
+                ))}
               <div className="absolute inset-0">
-                {isDiagonal ? (
-                  <>
-                    {Array.from({ length: template === "diagonal_2" ? 2 : 4 }).map((_, index) => {
-                      const photo = assignedPhotos[index];
-                      const src = photo ? resolvePhotoUrl(photo, originalUrls) : "";
-                      const clipPaths =
-                        template === "diagonal_2"
-                          ? [
-                              "polygon(0 0, 100% 0, 0 100%)",
-                              "polygon(100% 0, 100% 100%, 0 100%)",
-                            ]
-                          : [
-                              "polygon(0 0, 50% 50%, 0 100%)",
-                              "polygon(0 0, 100% 0, 50% 50%)",
-                              "polygon(100% 0, 100% 100%, 50% 50%)",
-                              "polygon(100% 100%, 0 100%, 50% 50%)",
-                            ];
-                      return (
-                        <button
-                          type="button"
-                          key={photo?.id ?? `empty-${index}`}
-                          onClick={() => handleCellSelect(index)}
-                          draggable={Boolean(photo)}
-                          onDragStart={(event) => {
-                            event.dataTransfer.setData("text/plain", String(index));
-                            draggedCellRef.current = index;
-                            draggedPhotoIdRef.current = null;
-                          }}
-                          onDragOver={(event) => event.preventDefault()}
-                          onDrop={() => handleCellDrop(index)}
-                          className={`absolute inset-0 overflow-hidden focus:outline-none ${
-                            selectedCellIndex === index ? "ring-2 ring-sky-500 ring-inset" : ""
-                          }`}
-                          style={{
-                            clipPath: clipPaths[index],
-                            padding: gap / 2,
-                            border: borderWidth ? `${borderWidth}px solid ${borderColor}` : undefined,
-                          }}
-                          aria-label={`Diagonal collage cell ${index + 1}`}
-                        >
-                          {photo && src ? (
-                            isLocalImageUrl(src) ? (
-                            <img
-                              src={src}
-                              alt={photo.fileName || `Photo ${index + 1}`}
-                              className="absolute inset-0 h-full w-full"
-                              style={{
-                                objectFit: fitMode,
-                                objectPosition: imagePosition,
-                                transform: `scale(${cellAdjustments[photo.id]?.zoom ?? 1}) rotate(${cellAdjustments[photo.id]?.rotate ?? 0}deg)`,
-                              }}
-                            />
-                          ) : (
-                            <Image
-                              src={src}
-                              alt={photo.fileName || `Photo ${index + 1}`}
-                              fill
-                              sizes="960px"
-                              className="h-full w-full"
-                              style={{
-                                objectFit: fitMode,
-                                objectPosition: imagePosition,
-                                transform: `scale(${cellAdjustments[photo.id]?.zoom ?? 1}) rotate(${cellAdjustments[photo.id]?.rotate ?? 0}deg)`,
-                              }}
-                              unoptimized
-                            />
-                            )
-                          ) : (
-                            <span className="absolute inset-0 flex items-center justify-center bg-zinc-100/80 text-zinc-400">
-                              <ImagePlus className="h-6 w-6" />
-                            </span>
-                          )}
-                          {photo && (
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                removePhotoAtIndex(index);
-                              }}
-                              onKeyDown={(event) => {
-                                if (event.key !== "Enter" && event.key !== " ") return;
-                                event.preventDefault();
-                                event.stopPropagation();
-                                removePhotoAtIndex(index);
-                              }}
-                              className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition hover:bg-black"
-                              aria-label={`Remove photo ${index + 1}`}
-                            >
-                              <X className="h-4 w-4" />
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                    {!hasAssignedPhotos && (
-                      <div className="absolute inset-0 flex items-center justify-center text-zinc-500">
-                        Select photos or use Auto Fill
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  frames.map((frame, index) => {
-                    const photoIndex = frame.photoIndex ?? index;
-                    const photo = assignedPhotos[photoIndex];
-                    return (
-                      <CollageCell
-                        key={`${template}-${index}`}
-                        photo={photo}
-                        src={photo ? resolvePhotoUrl(photo, originalUrls) : ""}
-                        frame={frame}
-                        index={photoIndex}
-                        selected={selectedCellIndex === photoIndex}
-                        fitMode={fitMode}
-                        imagePosition={imagePosition}
-                        adjustment={photo ? cellAdjustments[photo.id] ?? { zoom: 1, rotate: 0 } : { zoom: 1, rotate: 0 }}
-                        onAdjustChange={(partial) => {
-                          if (!photo) return;
-                          setCellAdjustments((current) => ({
-                            ...current,
-                            [photo.id]: {
-                              zoom: current[photo.id]?.zoom ?? 1,
-                              rotate: current[photo.id]?.rotate ?? 0,
-                              offsetX: current[photo.id]?.offsetX ?? 0,
-                              offsetY: current[photo.id]?.offsetY ?? 0,
-                              ...partial,
-                            },
-                          }));
-                        }}
-                        cornerRadius={cornerRadius}
-                        borderWidth={borderWidth}
-                        borderColor={borderColor}
-                        gap={gap}
-                        onSelect={() => handleCellSelect(photoIndex)}
-                        onDragStart={() => {
-                          draggedCellRef.current = photoIndex;
-                          draggedPhotoIdRef.current = null;
-                        }}
-                        onDrop={() => handleCellDrop(photoIndex)}
-                        onRemove={() => removePhotoAtIndex(photoIndex)}
+                {frames.map((frame, frameIndex) => {
+                  const photoIndex = frame.photoIndex ?? frameIndex;
+                  const photo = assignedPhotos[photoIndex];
+                  const adjustment = photo ? normalizeAdjustment(cellAdjustments[photo.id]) : defaultAdjustment;
+                  return (
+                    <CollageCell
+                      key={`${template}-${frameIndex}`}
+                      photo={photo}
+                      src={photo ? resolvePhotoUrl(photo, originalUrls) : ""}
+                      frame={frame}
+                      index={photoIndex}
+                      selected={selectedCellIndex === photoIndex}
+                      fitMode={fitMode}
+                      imagePosition={imagePosition}
+                      adjustment={adjustment}
+                      cornerRadius={cornerRadius}
+                      borderWidth={borderWidth}
+                      borderColor={borderColor}
+                      gap={gap}
+                      moveDragState={moveDragState}
+                      onSelect={() => handleCellSelect(photoIndex)}
+                      onDesktopDragStart={() => {
+                        draggedCellRef.current = photoIndex;
+                        draggedPhotoIdRef.current = null;
+                      }}
+                      onDrop={() => handleCellDrop(photoIndex)}
+                      onRemove={() => removePhotoAtIndex(photoIndex)}
+                      onAdjustChange={(partial) => {
+                        if (!photo) return;
+                        updateCellAdjustment(photo.id, partial);
+                      }}
+                      onMovePointerDown={handleMovePointerDown}
+                    />
+                  );
+                })}
+
+                {isDiagonal && borderWidth > 0 && (
+                  <div className="pointer-events-none absolute inset-0">
+                    {template === "diagonal_2" ? (
+                      <div
+                        className="absolute left-1/2 top-1/2 h-[150%] origin-center -translate-x-1/2 -translate-y-1/2 rotate-45"
+                        style={{ width: borderWidth, backgroundColor: borderColor }}
                       />
-                    );
-                  })
+                    ) : (
+                      <>
+                        <div
+                          className="absolute left-1/2 top-1/2 h-[150%] origin-center -translate-x-1/2 -translate-y-1/2 rotate-45"
+                          style={{ width: borderWidth, backgroundColor: borderColor }}
+                        />
+                        <div
+                          className="absolute left-1/2 top-1/2 h-[150%] origin-center -translate-x-1/2 -translate-y-1/2 -rotate-45"
+                          style={{ width: borderWidth, backgroundColor: borderColor }}
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {!hasAssignedPhotos && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-sm font-medium text-zinc-500">
+                    Select photos or use Auto Fill
+                  </div>
                 )}
               </div>
             </div>
           </div>
         </section>
 
-        <aside className="space-y-4 lg:sticky lg:top-[76px] lg:max-h-[calc(100svh-96px)] lg:overflow-y-auto lg:pl-1">
+        <aside className="order-3 space-y-4 lg:sticky lg:top-[76px] lg:max-h-[calc(100svh-96px)] lg:overflow-y-auto lg:pl-1">
           <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
               <LayoutTemplate className="h-5 w-5 text-zinc-500" />
@@ -1757,18 +1681,15 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                   onClick={() => {
                     setTemplate(item.id);
                     setSelectedCellIndex(0);
+                    setMoveDragState(null);
                   }}
                   className={`rounded-md border p-2 text-left transition focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
-                    template === item.id
-                      ? "border-zinc-950 bg-zinc-950 text-white"
-                      : "border-zinc-200 bg-white hover:border-zinc-400"
+                    template === item.id ? "border-zinc-950 bg-zinc-950 text-white" : "border-zinc-200 bg-white hover:border-zinc-400"
                   }`}
                 >
                   <TemplateGlyph template={item.id} />
                   <span className="mt-2 block truncate text-xs font-semibold">{item.name}</span>
-                  <span className={`block text-[11px] ${template === item.id ? "text-white/65" : "text-zinc-500"}`}>
-                    {item.photos} photos
-                  </span>
+                  <span className={`block text-[11px] ${template === item.id ? "text-white/65" : "text-zinc-500"}`}>{item.photos} photos</span>
                 </button>
               ))}
             </div>
@@ -1864,14 +1785,28 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                   <Label>Cell zoom</Label>
                   <span className="text-sm text-zinc-500">{selectedAdjustment.zoom.toFixed(2)}x</span>
                 </div>
-                <Slider value={[selectedAdjustment.zoom]} min={0.6} max={2.4} step={0.05} onValueChange={([value]) => updateSelectedAdjustment({ zoom: value })} disabled={!selectedCellPhoto} />
+                <Slider
+                  value={[selectedAdjustment.zoom]}
+                  min={0.6}
+                  max={2.4}
+                  step={0.05}
+                  onValueChange={([value]) => updateSelectedAdjustment({ zoom: value })}
+                  disabled={!selectedCellPhoto}
+                />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Cell rotate</Label>
                   <span className="text-sm text-zinc-500">{selectedAdjustment.rotate}deg</span>
                 </div>
-                <Slider value={[selectedAdjustment.rotate]} min={-30} max={30} step={1} onValueChange={([value]) => updateSelectedAdjustment({ rotate: value })} disabled={!selectedCellPhoto} />
+                <Slider
+                  value={[selectedAdjustment.rotate]}
+                  min={-30}
+                  max={30}
+                  step={1}
+                  onValueChange={([value]) => updateSelectedAdjustment({ rotate: value })}
+                  disabled={!selectedCellPhoto}
+                />
               </div>
               <Button
                 variant="outline"
@@ -1894,9 +1829,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 </SelectTrigger>
                 <SelectContent>
                   {outputSizes.map((size) => (
-                    <SelectItem key={size.id} value={size.id}>
-                      {size.name}
-                    </SelectItem>
+                    <SelectItem key={size.id} value={size.id}>{size.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1910,25 +1843,19 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 <Checkbox checked={backgroundMode === "transparent"} onCheckedChange={(checked) => setBackgroundMode(checked ? "transparent" : "solid")} id="transparent-background" />
                 <Label htmlFor="transparent-background" className="text-sm">Transparent background</Label>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button disabled={!hasAssignedPhotos || isExporting} className="col-span-2">
-                      <Download className="h-4 w-4" />
-                      Download
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem onSelect={() => exportImage("png")}>
-                      PNG
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => exportImage("jpeg")}>
-                      JPG
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button disabled={!hasAssignedPhotos || isExporting} className="w-full">
+                    <Download className="h-4 w-4" />
+                    Download
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onSelect={() => exportImage("png")}>PNG</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => exportImage("jpeg")}>JPG</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button variant="outline" disabled className="w-full" title="Saving collages requires the optional collages table and upload endpoint.">
                 Save to Album
               </Button>
@@ -1937,6 +1864,19 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
           </section>
         </aside>
       </div>
+
+      {moveDragState?.active && draggingPhoto && draggingPhotoSrc && (
+        <div
+          className="pointer-events-none fixed z-[100] h-24 w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border-2 border-white bg-zinc-100 shadow-2xl ring-2 ring-sky-500"
+          style={{ left: moveDragState.x, top: moveDragState.y }}
+        >
+          {isLocalImageUrl(draggingPhotoSrc) ? (
+            <img src={draggingPhotoSrc} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <Image src={draggingPhotoSrc} alt="" fill sizes="96px" className="object-cover" unoptimized />
+          )}
+        </div>
+      )}
     </main>
   );
 }

@@ -236,6 +236,7 @@ export function PersonView({
               albumSlug={albumSlug}
               photos={data.photos}
               currentIndex={lightboxState.index}
+              events={events}
               originRect={lightboxState.originRect}
               onClose={() => setLightboxState(null)}
               onNavigate={handleNavigate}
