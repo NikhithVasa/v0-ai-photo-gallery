@@ -50,13 +50,13 @@ async function getMediaObject(key: string) {
 
 async function fallbackOriginalKey(key: string) {
   const match = key.match(
-    /^(.*\/events\/[^/]+)\/(?:thumbnails|previews-clean|previews-watermarked|ai-input|annotated)\/([0-9a-f-]+)\.(?:webp|jpe?g|png)$/i
+    /^(.*?)\/(?:thumbnails|previews-clean|previews-watermarked|ai-input|annotated)\/([0-9a-f-]+)\.(?:webp|jpe?g|png)$/i
   );
 
   if (!match) return null;
 
-  const [, eventPrefix, photoUuid] = match;
-  const originalPrefix = `${eventPrefix}/originals/${photoUuid}_`;
+  const [, basePrefix, photoUuid] = match;
+  const originalPrefix = `${basePrefix}/originals/${photoUuid}_`;
   const keys = await listS3Keys(originalPrefix);
   return keys[0] ?? null;
 }
