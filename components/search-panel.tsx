@@ -125,13 +125,13 @@ export function SearchPanel({
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
       <div
-        className="fixed right-0 top-0 h-full w-full max-w-lg bg-card border-l border-border shadow-xl"
+        className="fixed right-0 top-0 h-full w-full max-w-[min(32rem,100vw)] border-l border-border bg-card shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <h2 className="text-lg font-semibold text-foreground">Apsara AI</h2>
+          <div className="flex min-w-0 items-center justify-between gap-3 border-b border-border p-4">
+            <h2 className="min-w-0 truncate text-lg font-semibold text-foreground">Apsara AI</h2>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-5 h-5" />
             </Button>
@@ -139,14 +139,14 @@ export function SearchPanel({
 
           {/* Search Input */}
           <div className="p-4 border-b border-border">
-            <div className="flex gap-2">
+            <div className="flex min-w-0 gap-2">
               <Input
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask Apsara AI: photos of Nikhith dancing with Kishore"
-                className="flex-1"
+                className="min-w-0 flex-1"
               />
               <Button onClick={handleSearch} disabled={isLoading || !query.trim()}>
                 {isLoading ? (
@@ -285,7 +285,7 @@ export function FloatingSearchButton({
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+        className="fixed bottom-4 right-4 z-40 flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-lg transition-all hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:bottom-6 sm:right-6"
       >
         <MessageCircle className="w-5 h-5" />
         <span className="font-medium">Apsara AI</span>

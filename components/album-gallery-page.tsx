@@ -47,11 +47,21 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { AlbumDetail, AlbumShareSettings, Person, Photo } from "@/lib/types";
 
 type Tab = "photos" | "people";
+type DownloadFormat = "original" | "png" | "jpeg";
+
+const DOWNLOAD_FORMATS: Array<{ format: DownloadFormat; label: string }> = [
+  { format: "original", label: "Original" },
+  { format: "png", label: "PNG" },
+  { format: "jpeg", label: "JPEG" },
+];
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -721,12 +731,16 @@ function AlbumDownloadMenu({
 
   const downloadUrl = (options?: {
     eventSlug?: string | null;
+    format?: DownloadFormat;
     people?: boolean;
     selected?: boolean;
   }) => {
     const params = new URLSearchParams();
 
     if (options?.eventSlug) params.set("event", options.eventSlug);
+    if (options?.format && options.format !== "original") {
+      params.set("format", options.format);
+    }
     if (options?.selected && selectedDownloadPhotoIds.length) {
       params.set("photos", selectedDownloadPhotoIds.join(","));
     }
@@ -749,6 +763,20 @@ function AlbumDownloadMenu({
     selectedPeople.length === 1
       ? selectedPeople[0].displayName || selectedPeople[0].defaultName
       : `${selectedPeopleIds.length} people`;
+  const formatItems = (options?: {
+    eventSlug?: string | null;
+    people?: boolean;
+    selected?: boolean;
+  }) =>
+    DOWNLOAD_FORMATS.map(({ format, label }) => (
+      <DropdownMenuItem
+        key={format}
+        onSelect={() => triggerBrowserDownload(downloadUrl({ ...options, format }))}
+      >
+        <Download className="h-4 w-4" />
+        {label}
+      </DropdownMenuItem>
+    ));
 
   return (
     <DropdownMenu>
@@ -764,46 +792,52 @@ function AlbumDownloadMenu({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel>Download originals</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={() => triggerBrowserDownload(downloadUrl())}>
-          <Download className="h-4 w-4" />
-          Download all
-        </DropdownMenuItem>
+        <DropdownMenuLabel>Download photos</DropdownMenuLabel>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Download className="h-4 w-4" />
+            Download all
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-36">
+            {formatItems()}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
 
         {selectedDownloadPhotoIds.length > 0 && (
-          <DropdownMenuItem
-            onSelect={() =>
-              triggerBrowserDownload(downloadUrl({ selected: true }))
-            }
-          >
-            <Check className="h-4 w-4" />
-            <span className="min-w-0 flex-1 truncate">
-              Download selected photos
-            </span>
-            <span className="text-xs text-zinc-500">
-              {selectedDownloadPhotoIds.length}
-            </span>
-          </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Check className="h-4 w-4" />
+              <span className="min-w-0 flex-1 truncate">
+                Download selected photos
+              </span>
+              <span className="text-xs text-zinc-500">
+                {selectedDownloadPhotoIds.length}
+              </span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-36">
+              {formatItems({ selected: true })}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         )}
 
         {events.length > 0 && (
           <>
             <DropdownMenuSeparator />
             {events.map((event) => (
-              <DropdownMenuItem
-                key={event.id}
-                onSelect={() =>
-                  triggerBrowserDownload(downloadUrl({ eventSlug: event.slug }))
-                }
-              >
-                <Download className="h-4 w-4" />
-                <span className="min-w-0 flex-1 truncate">
-                  Download {event.name}
-                </span>
-                <span className="text-xs text-zinc-500">
-                  {event.photoCount}
-                </span>
-              </DropdownMenuItem>
+              <DropdownMenuSub key={event.id}>
+                <DropdownMenuSubTrigger>
+                  <Download className="h-4 w-4" />
+                  <span className="min-w-0 flex-1 truncate">
+                    Download {event.name}
+                  </span>
+                  <span className="text-xs text-zinc-500">
+                    {event.photoCount}
+                  </span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-36">
+                  {formatItems({ eventSlug: event.slug })}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             ))}
           </>
         )}
@@ -811,21 +845,20 @@ function AlbumDownloadMenu({
         {selectedPeopleIds.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={() =>
-                triggerBrowserDownload(
-                  downloadUrl({
-                    eventSlug: selectedEventSlug,
-                    people: true,
-                  }),
-                )
-              }
-            >
-              <Download className="h-4 w-4" />
-              <span className="min-w-0 flex-1 truncate">
-                Download filtered people images
-              </span>
-            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Download className="h-4 w-4" />
+                <span className="min-w-0 flex-1 truncate">
+                  Download filtered people images
+                </span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-36">
+                {formatItems({
+                  eventSlug: selectedEventSlug,
+                  people: true,
+                })}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <p className="px-2 pb-1 text-xs text-zinc-500">
               {peopleLabel}
               {selectedEvent ? ` in ${selectedEvent.name}` : ""}
@@ -1042,7 +1075,7 @@ function AlbumShareDialog({
           </div>
 
           {shareUrl && (
-            <div className="flex gap-2">
+            <div className="flex min-w-0 gap-2">
               <Input value={shareUrl} readOnly className="font-mono text-xs" />
               <Button type="button" variant="outline" size="icon" onClick={copyLink}>
                 <Copy className="h-4 w-4" />
@@ -1683,14 +1716,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </div>
 
               <div className="order-3 flex justify-center text-center sm:justify-start sm:text-left">
-                <div className="flex items-center gap-4 text-zinc-950">
-                  <h1 className="max-w-[18rem] text-2xl font-semibold uppercase tracking-[0.08em] sm:text-4xl lg:text-5xl">
+                <div className="flex min-w-0 flex-col items-center gap-2 text-zinc-950 sm:flex-row sm:items-center sm:gap-4">
+                  <h1 className="max-w-full break-words text-center text-2xl font-semibold uppercase tracking-[0.08em] sm:max-w-[18rem] sm:text-left sm:text-4xl lg:text-5xl">
                     {coverTitle}
                   </h1>
 
                   {albumDateLabel && (
                     <>
-                      <span className="h-px w-10 shrink-0 bg-zinc-400" />
+                      <span className="hidden h-px w-10 shrink-0 bg-zinc-400 sm:block" />
                       <p className="text-base font-medium text-zinc-500 sm:text-lg">
                         {albumDateLabel}
                       </p>
@@ -1729,7 +1762,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         className="sticky top-0 z-30 border-b border-zinc-200/80 bg-[#fbfaf8]/90 backdrop-blur-xl"
       >
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500">
@@ -1760,7 +1793,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex max-w-full shrink-0 items-center gap-2 overflow-x-auto pb-1">
               <AlbumDownloadMenu
                 albumSlug={albumSlug}
                 events={album.events}
@@ -2043,20 +2076,45 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     >
                       Clear
                     </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        triggerBrowserDownload(
-                          `/api/albums/${encodeURIComponent(
-                            albumSlug
-                          )}/downloads?photos=${selectedDownloadPhotoIds.join(",")}`
-                        )
-                      }
-                      disabled={!selectedDownloadPhotoIds.length}
-                      className="h-9 cursor-pointer rounded-full bg-zinc-950 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Download Selected
-                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          disabled={!selectedDownloadPhotoIds.length}
+                          className="flex h-9 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Download Selected
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-36">
+                        {DOWNLOAD_FORMATS.map((item) => {
+                          const params = new URLSearchParams({
+                            photos: selectedDownloadPhotoIds.join(","),
+                          });
+
+                          if (item.format !== "original") {
+                            params.set("format", item.format);
+                          }
+
+                          return (
+                            <DropdownMenuItem
+                              key={item.format}
+                              onSelect={() =>
+                                triggerBrowserDownload(
+                                  `/api/albums/${encodeURIComponent(
+                                    albumSlug,
+                                  )}/downloads?${params.toString()}`,
+                                )
+                              }
+                            >
+                              <Download className="h-4 w-4" />
+                              {item.label}
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 )}
               </div>

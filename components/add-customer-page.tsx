@@ -81,7 +81,7 @@ export function AddCustomerPage() {
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-zinc-950">
       <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-[#f7f6f2]/90 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/customers"
@@ -104,22 +104,23 @@ export function AddCustomerPage() {
             type="button"
             onClick={createCustomer}
             disabled={!canCreate}
-            className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
           >
             {isCreating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Check className="h-4 w-4" />
             )}
-            Create Customer
+            <span className="hidden sm:inline">Create Customer</span>
+            <span className="sm:hidden">Create</span>
           </button>
         </div>
       </header>
 
       <section className="border-b border-zinc-200 bg-white">
         <div className="mx-auto grid min-h-[520px] max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_430px] lg:px-8">
-          <div className="flex flex-col justify-center">
-            <div className="max-w-3xl">
+          <div className="min-w-0 flex flex-col justify-center">
+            <div className="max-w-3xl min-w-0">
               <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-sm font-medium text-zinc-500 shadow-sm">
                 <Sparkles className="h-4 w-4 text-[#4457ff]" />
                 Customer workspace
@@ -129,9 +130,9 @@ export function AddCustomerPage() {
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Customer name"
                 aria-label="Customer name"
-                className="w-full border-0 bg-transparent text-6xl font-bold tracking-normal text-zinc-900 outline-none placeholder:text-zinc-300 sm:text-7xl"
+                className="w-full min-w-0 border-0 bg-transparent text-5xl font-bold tracking-normal text-zinc-900 outline-none placeholder:text-zinc-300 sm:text-7xl"
               />
-              <p className="mt-6 max-w-2xl text-2xl leading-tight text-zinc-500">
+              <p className="mt-6 max-w-2xl text-xl leading-tight text-zinc-500 sm:text-2xl">
                 Client workspace for albums, events, covers, and photo delivery.
               </p>
             </div>

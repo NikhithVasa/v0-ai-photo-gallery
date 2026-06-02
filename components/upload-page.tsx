@@ -282,7 +282,7 @@ export function UploadPage() {
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
-        <header className="mb-6 flex items-center justify-between gap-4">
+        <header className="mb-6 flex min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/albums"
@@ -304,7 +304,7 @@ export function UploadPage() {
           <Button
             onClick={() => uploadFiles()}
             disabled={!canUpload}
-            className="rounded-full px-4"
+            className="shrink-0 rounded-full px-3 sm:px-4"
           >
             {isUploading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -315,12 +315,12 @@ export function UploadPage() {
           </Button>
         </header>
 
-        <div className="grid flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
-          <section className="min-h-[60vh] rounded-lg border border-zinc-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-              <div>
+        <div className="grid min-w-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
+          <section className="min-h-[60vh] min-w-0 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
+            <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
+              <div className="min-w-0">
                 <h2 className="text-sm font-semibold">Files</h2>
-                <p className="text-xs text-zinc-500">{uploadSummary}</p>
+                <p className="truncate text-xs text-zinc-500">{uploadSummary}</p>
               </div>
               {uploadedCount > 0 && (
                 <button
@@ -335,8 +335,8 @@ export function UploadPage() {
 
             {failedFiles.length > 0 && (
               <div className="border-b border-rose-100 bg-rose-50/70 px-4 py-3">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div>
+                <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-rose-700">
                       Failed uploads
                     </p>
@@ -358,7 +358,7 @@ export function UploadPage() {
                   {failedFiles.map((item) => (
                     <div
                       key={item.localId}
-                      className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2"
+                      className="flex min-w-0 items-center justify-between gap-3 rounded-md bg-white px-3 py-2"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-zinc-800">
@@ -402,7 +402,7 @@ export function UploadPage() {
                 {queuedFiles.map((item) => (
                   <div
                     key={item.localId}
-                    className="grid grid-cols-[1fr_auto] gap-3 px-4 py-3"
+                    className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3"
                   >
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
@@ -420,7 +420,7 @@ export function UploadPage() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 self-center">
+                    <div className="flex max-w-[38vw] flex-col items-end gap-1 self-center sm:max-w-none sm:flex-row sm:items-center sm:gap-2">
                       {item.status === "failed" && (
                         <Button
                           type="button"
@@ -432,7 +432,7 @@ export function UploadPage() {
                           Retry
                         </Button>
                       )}
-                      <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
+                      <span className="max-w-full truncate rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
                         {statusLabel(item.status)}
                       </span>
                     </div>
@@ -442,7 +442,7 @@ export function UploadPage() {
             )}
           </section>
 
-          <aside className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+          <aside className="min-w-0 space-y-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
             <div>
               <p className="text-sm font-semibold">Destination</p>
               <p className="mt-1 text-xs text-zinc-500">

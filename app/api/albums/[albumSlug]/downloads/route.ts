@@ -1,5 +1,6 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { query } from "@/lib/db";
 import { s3 } from "@/lib/s3";
 import { requireAlbumAccess } from "@/lib/album-access";
@@ -24,6 +25,8 @@ interface ZipEntry {
   row: DownloadPhotoRow;
   path: string;
 }
+
+type DownloadFormat = "original" | "png" | "jpeg";
 
 interface CentralDirectoryEntry {
   fileName: Uint8Array;
@@ -60,11 +63,16 @@ function sanitizeSegment(value: string) {
   );
 }
 
+function parseDownloadFormat(value: string | null): DownloadFormat {
+  return value === "png" || value === "jpeg" ? value : "original";
+}
+
 function zipFileName(
   albumSlug: string,
   eventSlug: string | null,
   hasPeople: boolean,
   hasSelectedPhotos: boolean,
+  format: DownloadFormat,
 ) {
   const suffix = hasSelectedPhotos
     ? "selected"
@@ -73,17 +81,31 @@ function zipFileName(
       : hasPeople
         ? "filtered-people"
         : "all";
-  return `${sanitizeSegment(albumSlug)}-${sanitizeSegment(suffix)}.zip`;
+  const formatSuffix = format === "original" ? "" : `-${format}`;
+  return `${sanitizeSegment(albumSlug)}-${sanitizeSegment(suffix)}${formatSuffix}.zip`;
 }
 
-function uniqueZipEntries(rows: DownloadPhotoRow[]) {
+function withDownloadFormatExtension(fileName: string, format: DownloadFormat) {
+  if (format === "original") return fileName;
+
+  const extension = format === "jpeg" ? "jpg" : "png";
+  const dotIndex = fileName.lastIndexOf(".");
+  const baseName = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
+
+  return `${baseName}.${extension}`;
+}
+
+function uniqueZipEntries(rows: DownloadPhotoRow[], format: DownloadFormat) {
   const used = new Map<string, number>();
 
   return rows
     .filter((row) => row.original_s3_key)
     .map((row): ZipEntry => {
       const eventFolder = sanitizeSegment(row.event_slug || row.event_name || "event");
-      const fileName = sanitizeSegment(row.file_name || `${row.id}.jpg`);
+      const fileName = withDownloadFormatExtension(
+        sanitizeSegment(row.file_name || `${row.id}.jpg`),
+        format,
+      );
       const path = `${eventFolder}/${fileName}`;
       const count = used.get(path) ?? 0;
       used.set(path, count + 1);
@@ -233,6 +255,35 @@ async function* objectChunks(key: string): AsyncGenerator<Uint8Array> {
   }
 }
 
+async function convertedObjectBytes(key: string, format: Exclude<DownloadFormat, "original">) {
+  const chunks: Uint8Array[] = [];
+
+  for await (const chunk of objectChunks(key)) {
+    chunks.push(chunk);
+  }
+
+  const input = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+  const image = sharp(input, { failOn: "none" }).rotate();
+
+  if (format === "png") {
+    return image.png().toBuffer();
+  }
+
+  return image.flatten({ background: "#ffffff" }).jpeg({ quality: 92 }).toBuffer();
+}
+
+async function* downloadEntryChunks(entry: ZipEntry, format: DownloadFormat) {
+  const key = entry.row.original_s3_key;
+  if (!key) return;
+
+  if (format === "original") {
+    yield* objectChunks(key);
+    return;
+  }
+
+  yield await convertedObjectBytes(key, format);
+}
+
 async function fetchDownloadRows(
   albumSlug: string,
   eventSlug: string | null,
@@ -298,6 +349,7 @@ export async function GET(request: Request, { params }: Props) {
 
     const { searchParams } = new URL(request.url);
     const eventSlug = searchParams.get("event") || null;
+    const format = parseDownloadFormat(searchParams.get("format"));
     const peopleMode = searchParams.get("peopleMode") === "any" ? "any" : "all";
     const personIds = (searchParams.get("people") ?? "")
       .split(",")
@@ -316,7 +368,7 @@ export async function GET(request: Request, { params }: Props) {
       peopleMode,
       photoIds,
     );
-    const entries = uniqueZipEntries(rows);
+    const entries = uniqueZipEntries(rows, format);
 
     if (!entries.length) {
       return NextResponse.json({ error: "No downloadable photos found" }, { status: 404 });
@@ -338,7 +390,7 @@ export async function GET(request: Request, { params }: Props) {
             controller.enqueue(header);
             offset += header.byteLength;
 
-            for await (const chunk of objectChunks(entry.row.original_s3_key!)) {
+            for await (const chunk of downloadEntryChunks(entry, format)) {
               crc = updateCrc32(crc, chunk);
               size += chunk.byteLength;
               offset += chunk.byteLength;
@@ -387,6 +439,7 @@ export async function GET(request: Request, { params }: Props) {
           eventSlug,
           personIds.length > 0,
           photoIds.length > 0,
+          format,
         )}"`,
         "Cache-Control": "no-store",
       },

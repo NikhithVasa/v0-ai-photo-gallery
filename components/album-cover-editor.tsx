@@ -127,10 +127,10 @@ export function AlbumCoverEditor({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-lg border border-zinc-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-zinc-950">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-x-hidden bg-black/50 p-4">
+      <div className="w-full max-w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl">
+        <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-200 px-4 py-4 sm:px-6">
+          <h2 className="min-w-0 truncate text-lg font-semibold text-zinc-950">
             Edit Album Cover
           </h2>
           <button
@@ -142,7 +142,7 @@ export function AlbumCoverEditor({
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-4">
+        <div className="space-y-4 px-4 py-4 sm:px-6">
           {/* Current Cover Preview */}
           {currentCoverUrl && (
             <div>
@@ -213,11 +213,11 @@ export function AlbumCoverEditor({
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={onClose}
               disabled={isUploading}
-              className="flex-1 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-w-28 flex-1 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancel
             </button>

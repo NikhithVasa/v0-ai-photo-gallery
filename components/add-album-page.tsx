@@ -152,7 +152,7 @@ export function AddAlbumPage() {
   return (
     <main className="min-h-screen bg-[#f7f6f2] text-zinc-950">
       <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-[#f7f6f2]/90 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/albums"
@@ -175,14 +175,15 @@ export function AddAlbumPage() {
             type="button"
             onClick={createAlbum}
             disabled={!canCreate}
-            className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
           >
             {isCreating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Check className="h-4 w-4" />
             )}
-            Create Album
+            <span className="hidden sm:inline">Create Album</span>
+            <span className="sm:hidden">Create</span>
           </button>
         </div>
       </header>
@@ -190,8 +191,8 @@ export function AddAlbumPage() {
       <section className="relative overflow-hidden border-b border-zinc-200 bg-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(68,87,255,0.08),transparent_30%),radial-gradient(circle_at_85%_20%,rgba(20,184,166,0.08),transparent_28%)]" />
         <div className="relative mx-auto grid min-h-[520px] max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_440px] lg:px-8">
-          <div className="flex flex-col justify-center">
-            <div className="max-w-3xl">
+          <div className="min-w-0 flex flex-col justify-center">
+            <div className="max-w-3xl min-w-0">
               <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-sm font-medium text-zinc-500 shadow-sm">
                 <Sparkles className="h-4 w-4 text-[#4457ff]" />
                 Gallery setup
@@ -201,7 +202,7 @@ export function AddAlbumPage() {
                 onChange={(event) => setAlbumName(event.target.value)}
                 placeholder="Album name"
                 aria-label="Album name"
-                className="w-full border-0 bg-transparent text-6xl font-bold tracking-normal text-zinc-900 outline-none placeholder:text-zinc-300 sm:text-7xl"
+                className="w-full min-w-0 border-0 bg-transparent text-5xl font-bold tracking-normal text-zinc-900 outline-none placeholder:text-zinc-300 sm:text-7xl"
               />
               <textarea
                 value={description}
@@ -209,7 +210,7 @@ export function AddAlbumPage() {
                 placeholder="Add a clean description for this album"
                 aria-label="Album description"
                 rows={3}
-                className="mt-6 w-full resize-none border-0 bg-transparent text-2xl leading-tight tracking-normal text-zinc-500 outline-none placeholder:text-zinc-300"
+                className="mt-6 w-full min-w-0 resize-none border-0 bg-transparent text-xl leading-tight tracking-normal text-zinc-500 outline-none placeholder:text-zinc-300 sm:text-2xl"
               />
             </div>
           </div>
@@ -247,10 +248,10 @@ export function AddAlbumPage() {
             )}
 
             <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-white/10 opacity-80" />
-            <div className="absolute bottom-5 left-5 right-5 flex items-center justify-between gap-4">
-              <div className="text-white">
+            <div className="absolute bottom-5 left-5 right-5 flex min-w-0 items-center justify-between gap-4">
+              <div className="min-w-0 text-white">
                 <p className="text-sm font-medium text-white/75">Cover photo</p>
-                <p className="text-xl font-semibold">Drop or select cover</p>
+                <p className="truncate text-xl font-semibold">Drop or select cover</p>
               </div>
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 shadow-lg">
                 <ImageUp className="h-5 w-5" />

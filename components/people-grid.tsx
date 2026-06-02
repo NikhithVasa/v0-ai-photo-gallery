@@ -384,15 +384,15 @@ export function PeopleGrid({
       </div>
 
       {isMergeDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-x-hidden bg-black/50 p-4">
           <div
-            className="w-full max-w-lg rounded-lg border border-zinc-200 bg-white shadow-xl"
+            className="w-full max-w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl"
             role="dialog"
             aria-modal="true"
             aria-labelledby="merge-faces-title"
           >
-            <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
-              <div>
+            <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-200 px-4 py-4 sm:px-5">
+              <div className="min-w-0">
                 <h3
                   id="merge-faces-title"
                   className="text-lg font-semibold text-zinc-950"
@@ -478,7 +478,7 @@ export function PeopleGrid({
               </div>
             )}
 
-            <div className="flex justify-end gap-2 border-t border-zinc-200 px-5 py-4">
+            <div className="flex flex-wrap justify-end gap-2 border-t border-zinc-200 px-4 py-4 sm:px-5">
               <button
                 type="button"
                 onClick={() => setIsMergeDialogOpen(false)}

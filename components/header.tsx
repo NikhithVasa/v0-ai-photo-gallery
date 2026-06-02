@@ -28,14 +28,14 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-stone-200 bg-white/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 max-w-full overflow-x-clip border-b border-stone-200 bg-white/80 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between">
-          <Link href="/" className="font-serif text-xl font-bold text-stone-950">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <Link href="/" className="min-w-0 truncate font-serif text-xl font-bold text-stone-950">
             AI Gallery
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-4">
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -47,9 +47,9 @@ export function Header() {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 max-w-[calc(100vw-1rem)]">
                   <div className="px-2 py-1.5 text-sm">
-                    <p className="font-medium text-stone-900">{user.email}</p>
+                    <p className="truncate font-medium text-stone-900">{user.email}</p>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem>

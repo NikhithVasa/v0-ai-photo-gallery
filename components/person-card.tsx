@@ -161,13 +161,13 @@ export function PersonCard({
 
       <div className="flex min-w-0 max-w-[160px] flex-col items-center gap-1 text-center">
         {isEditing ? (
-          <div className="flex items-center gap-1">
+          <div className="flex max-w-full items-center gap-1">
             <Input
               ref={inputRef}
               value={name}
               onChange={(event) => setName(event.target.value)}
               onKeyDown={handleKeyDown}
-              className="h-8 w-28 px-2 text-center text-sm"
+              className="h-8 w-20 px-2 text-center text-sm sm:w-28"
             />
 
             <button

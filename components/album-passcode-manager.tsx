@@ -172,12 +172,12 @@ export function AlbumPasscodeManager({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
-          <div className="flex items-center gap-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-x-hidden bg-black/50 p-4">
+      <div className="w-full max-w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl">
+        <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-200 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2">
             <Lock className="h-5 w-5 text-zinc-700" />
-            <h2 className="text-lg font-semibold text-zinc-950">{albumName}</h2>
+            <h2 className="truncate text-lg font-semibold text-zinc-950">{albumName}</h2>
           </div>
           <button
             onClick={onClose}
@@ -188,17 +188,17 @@ export function AlbumPasscodeManager({
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-4">
+        <div className="space-y-4 px-4 py-4 sm:px-6">
           <div>
             <p className="mb-2 text-sm font-medium text-zinc-700">
               Current Passcode
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <input
                 type="text"
                 value={currentPassword}
                 readOnly
-                className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-mono text-zinc-950"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-mono text-zinc-950"
                 placeholder="No passcode set"
               />
               {hasPassword && (
@@ -214,7 +214,7 @@ export function AlbumPasscodeManager({
             <p className="mb-2 text-sm font-medium text-zinc-700">
               New Passcode
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <input
                 type={showPassword ? "text" : "password"}
                 value={newPassword}
@@ -222,7 +222,7 @@ export function AlbumPasscodeManager({
                   setNewPassword(event.target.value);
                   if (error) setError("");
                 }}
-                className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-mono text-zinc-950 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-mono text-zinc-950 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
                 placeholder="Type a new passcode"
               />
               {newPassword && (

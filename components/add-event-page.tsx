@@ -1037,7 +1037,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-[#fbfaf8]/88 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href={`/albums/${encodeURIComponent(albumSlug)}`}
@@ -1060,7 +1060,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
             type="button"
             onClick={createEvent}
             disabled={!canCreate}
-            className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
           >
             {isUploading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1102,14 +1102,14 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Add a Title"
                 aria-label="Event title"
-                className="w-full border-0 bg-transparent text-center text-6xl font-bold tracking-normal text-zinc-700 outline-none placeholder:text-zinc-500 sm:text-7xl"
+                className="w-full min-w-0 border-0 bg-transparent text-center text-5xl font-bold tracking-normal text-zinc-700 outline-none placeholder:text-zinc-500 sm:text-7xl"
               />
               <input
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Add a description"
                 aria-label="Event description"
-                className="mt-4 w-full border-0 bg-transparent text-center text-3xl font-normal tracking-normal text-zinc-500 outline-none placeholder:text-zinc-400 sm:text-4xl"
+                className="mt-4 w-full min-w-0 border-0 bg-transparent text-center text-2xl font-normal tracking-normal text-zinc-500 outline-none placeholder:text-zinc-400 sm:text-4xl"
               />
             </>
           ) : (
@@ -1126,7 +1126,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
           <button
             type="button"
             onClick={() => coverInputRef.current?.click()}
-            className="group absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-zinc-400 transition hover:bg-white/80 hover:text-zinc-950 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
+            className="group absolute bottom-6 left-1/2 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-zinc-400 transition hover:bg-white/80 hover:text-zinc-950 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
             aria-label="Drop or select cover photo"
           >
             <ImageUp className="h-4 w-4" strokeWidth={1.6} />
