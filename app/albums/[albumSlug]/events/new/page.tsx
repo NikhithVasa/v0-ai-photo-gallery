@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AddEventPage } from "@/components/add-event-page";
+import { ProtectedRoute } from "@/components/protected-route";
 import { canAccessAlbumFromHost } from "@/lib/album-access";
 
 interface Props {
@@ -21,8 +22,10 @@ export default async function NewEventPage({ params }: Props) {
   }
 
   return (
-    <Suspense>
-      <AddEventPage albumSlug={albumSlug} />
-    </Suspense>
+    <ProtectedRoute>
+      <Suspense>
+        <AddEventPage albumSlug={albumSlug} />
+      </Suspense>
+    </ProtectedRoute>
   );
 }

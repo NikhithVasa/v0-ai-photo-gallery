@@ -189,18 +189,26 @@ export async function GET(request: Request, { params }: Props) {
 
       const customer = customerRows[0];
 
-      return NextResponse.json({
-        customer: {
-          id: customer.id,
-          slug: customer.slug,
-          name: customer.name,
-          email: customer.email,
-          phone: customer.phone,
-          coverPhotoUrl: await signedUrl(customer.cover_photo_s3_key),
-          passwordRequired: Boolean(customer.password_required),
+      return NextResponse.json(
+        {
+          customer: {
+            id: customer.id,
+            slug: customer.slug,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            coverPhotoUrl: await signedUrl(customer.cover_photo_s3_key),
+            passwordRequired: Boolean(customer.password_required),
+          },
+          albums: [],
         },
-        albums: [],
-      });
+        {
+          headers: {
+            "Cache-Control":
+              "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+        },
+      );
     }
 
     const first = rows[0];
@@ -235,18 +243,26 @@ export async function GET(request: Request, { params }: Props) {
       }))
     );
 
-    return NextResponse.json({
-      customer: {
-        id: first.customer_id,
-        slug: first.customer_slug,
-        name: first.customer_name,
-        email: first.customer_email,
-        phone: first.customer_phone,
-        coverPhotoUrl: await signedUrl(first.customer_cover_photo_s3_key),
-        passwordRequired: Boolean(first.customer_password_required),
+    return NextResponse.json(
+      {
+        customer: {
+          id: first.customer_id,
+          slug: first.customer_slug,
+          name: first.customer_name,
+          email: first.customer_email,
+          phone: first.customer_phone,
+          coverPhotoUrl: await signedUrl(first.customer_cover_photo_s3_key),
+          passwordRequired: Boolean(first.customer_password_required),
+        },
+        albums,
       },
-      albums,
-    });
+      {
+        headers: {
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      },
+    );
   } catch (error) {
     console.error("Error fetching customer albums:", error);
 

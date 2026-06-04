@@ -12,6 +12,7 @@ import {
   Lock,
   Loader2,
   Plus,
+  Share2,
   Trash2,
   Users,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlbumPasscodeManager } from "@/components/album-passcode-manager";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { toast } from "@/hooks/use-toast";
+import { customerPublicUrl } from "@/lib/customer-host";
 import type { AlbumSummary } from "@/lib/types";
 
 const fetcher = async (url: string) => {
@@ -99,6 +101,9 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
   );
 
   const customerName = data?.customer?.name ?? "Customer";
+  const customerShareUrl = data?.customer?.slug
+    ? customerPublicUrl(data.customer.slug)
+    : "";
   const canManageCustomerUsers = Boolean(usersData && !usersError);
 
   useEffect(() => {
@@ -461,28 +466,44 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsPasscodeManagerOpen(true)}
-              className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-            >
-              <Lock className="h-4 w-4" />
-              Passcode
-            </button>
+            {customerShareUrl && (
+              <a
+                href={customerShareUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </a>
+            )}
 
-            <button
-              type="button"
-              onClick={deleteCustomer}
-              disabled={isDeletingCustomer}
-              className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 text-sm font-medium text-rose-700 shadow-sm transition hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-300 disabled:opacity-50"
-            >
-              {isDeletingCustomer ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              Delete
-            </button>
+            {canManageCustomerUsers && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsPasscodeManagerOpen(true)}
+                  className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                >
+                  <Lock className="h-4 w-4" />
+                  Passcode
+                </button>
+
+                <button
+                  type="button"
+                  onClick={deleteCustomer}
+                  disabled={isDeletingCustomer}
+                  className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 text-sm font-medium text-rose-700 shadow-sm transition hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-300 disabled:opacity-50"
+                >
+                  {isDeletingCustomer ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  Delete
+                </button>
+              </>
+            )}
 
             <Link
               href={`/albums/new?customerName=${encodeURIComponent(customerName)}`}

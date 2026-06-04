@@ -28,8 +28,8 @@ export function AuthAvatarMenu({ className = "" }: AuthAvatarMenuProps) {
 
   const handleSignOut = async () => {
     await signOut();
-    router.push("/login");
-    router.refresh();
+    router.replace("/login");
+    window.location.replace("/login");
   };
 
   return (

@@ -9,11 +9,19 @@ export async function GET() {
     const access = await getAuthAccess();
     if (!access) return unauthorizedResponse();
 
-    return NextResponse.json({
-      email: access.email,
-      isAdmin: access.isAdmin,
-      customerIds: access.isAdmin ? [] : access.customerIds,
-    });
+    return NextResponse.json(
+      {
+        email: access.email,
+        isAdmin: access.isAdmin,
+        customerIds: access.isAdmin ? [] : access.customerIds,
+      },
+      {
+        headers: {
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      },
+    );
   } catch (error) {
     console.error("Error resolving auth access:", error);
     return NextResponse.json(

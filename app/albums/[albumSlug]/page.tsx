@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AlbumGalleryPage } from "@/components/album-gallery-page";
+import { ProtectedRoute } from "@/components/protected-route";
 import { canAccessAlbumFromHost } from "@/lib/album-access";
 
 interface Props {
@@ -21,8 +22,10 @@ export default async function AlbumPage({ params }: Props) {
   }
 
   return (
-    <Suspense>
-      <AlbumGalleryPage albumSlug={albumSlug} />
-    </Suspense>
+    <ProtectedRoute allowPublicCustomerHost allowShareToken>
+      <Suspense>
+        <AlbumGalleryPage albumSlug={albumSlug} />
+      </Suspense>
+    </ProtectedRoute>
   );
 }

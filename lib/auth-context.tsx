@@ -1,6 +1,14 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { mutate as mutateSWR } from "swr";
 import { createClient } from "@/lib/supabase-client";
 import type { Session, User } from "@supabase/supabase-js";
 
@@ -20,7 +28,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+  const currentUserIdRef = useRef<string | null>(null);
+
+  const clearClientDataCache = () => {
+    void mutateSWR(
+      (key) => typeof key === "string" && key.startsWith("/api/"),
+      undefined,
+      { revalidate: false },
+    );
+  };
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -30,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } = await supabase.auth.getSession();
         setSession(session);
         setUser(session?.user ?? null);
+        currentUserIdRef.current = session?.user?.id ?? null;
       } catch (error) {
         console.error("Auth initialization error:", error);
       } finally {
@@ -42,6 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextUserId = session?.user?.id ?? null;
+      if (event === "SIGNED_OUT" || currentUserIdRef.current !== nextUserId) {
+        clearClientDataCache();
+      }
+      currentUserIdRef.current = nextUserId;
       setSession(session);
       setUser(session?.user ?? null);
     });
@@ -52,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   const signIn = async (email: string, password: string) => {
+    clearClientDataCache();
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -68,6 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    setSession(null);
+    setUser(null);
+    currentUserIdRef.current = null;
+    clearClientDataCache();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };

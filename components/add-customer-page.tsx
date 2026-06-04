@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { mutate as mutateSWR } from "swr";
 import {
   ArrowLeft,
   AtSign,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
+import { customerPublicUrl } from "@/lib/customer-host";
 
 interface CreatedCustomer {
   id: string;
@@ -35,6 +37,10 @@ export function AddCustomerPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const canCreate = Boolean(name.trim() && !isCreating);
+  const previewSlug = name.trim()
+    ? name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") ||
+      "customer-slug"
+    : "customer-slug";
 
   const createCustomer = async () => {
     if (!canCreate) return;
@@ -68,6 +74,7 @@ export function AddCustomerPage() {
         description: `${payload.customer.name} is ready for albums.`,
       });
 
+      await mutateSWR("/api/customers");
       router.push(`/customers/${encodeURIComponent(payload.customer.slug)}`);
       router.refresh();
     } catch (error) {
@@ -154,9 +161,7 @@ export function AddCustomerPage() {
                 {name.trim() || "New Customer"}
               </h2>
               <p className="mt-3 text-sm text-white/45">
-                {name.trim()
-                  ? name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")
-                  : "customer-slug"}
+                {customerPublicUrl(previewSlug).replace("https://", "")}
               </p>
             </div>
 

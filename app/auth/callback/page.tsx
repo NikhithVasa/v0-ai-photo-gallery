@@ -23,8 +23,8 @@ export default function AuthCallback() {
         }
       }
 
-      // Redirect to customers page
-      router.push("/customers");
+      router.replace("/customers");
+      router.refresh();
     };
 
     handleCallback();

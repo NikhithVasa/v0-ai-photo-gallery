@@ -106,7 +106,15 @@ export async function GET() {
       }))
     );
 
-    return NextResponse.json({ customers });
+    return NextResponse.json(
+      { customers },
+      {
+        headers: {
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      },
+    );
   } catch (error) {
     console.error("Error fetching customers:", error);
 

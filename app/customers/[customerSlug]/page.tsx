@@ -1,4 +1,5 @@
 import { CustomerAlbumsPage } from "@/components/customer-albums-page";
+import { ProtectedRoute } from "@/components/protected-route";
 
 interface Props {
   params: Promise<{ customerSlug: string }>;
@@ -7,5 +8,9 @@ interface Props {
 export default async function CustomerPage({ params }: Props) {
   const { customerSlug } = await params;
 
-  return <CustomerAlbumsPage customerSlug={customerSlug} />;
+  return (
+    <ProtectedRoute allowPublicCustomerHost>
+      <CustomerAlbumsPage customerSlug={customerSlug} />
+    </ProtectedRoute>
+  );
 }

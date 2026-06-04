@@ -19,9 +19,13 @@ export function getCustomerSlugFromHost(host: string) {
   if (!subdomain) return null;
   if (subdomain === "www") return null;
 
-  return subdomain;
+  return subdomain.startsWith("www.") ? subdomain.slice(4) : subdomain;
 }
 
 export function getCustomerSlugFromRequest(request: Request) {
   return getCustomerSlugFromHost(request.headers.get("host") || "");
+}
+
+export function customerPublicUrl(customerSlug: string) {
+  return `https://www.${customerSlug}.${ROOT_DOMAIN}`;
 }

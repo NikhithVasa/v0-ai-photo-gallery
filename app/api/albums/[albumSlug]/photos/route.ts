@@ -97,7 +97,15 @@ export async function GET(request: Request, { params }: Props) {
     );
 
     const photos: Photo[] = await Promise.all(rows.map(toPhoto));
-    return NextResponse.json({ photos });
+    return NextResponse.json(
+      { photos },
+      {
+        headers: {
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      },
+    );
   } catch (error) {
     console.error("Error fetching album photos:", error);
     return NextResponse.json(

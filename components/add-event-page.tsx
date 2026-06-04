@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
+import useSWR, { mutate as mutateSWR } from "swr";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -691,6 +691,22 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
           // submitAiAction already surfaces the error; upload success should remain intact.
         }
       }
+
+      const encodedAlbumSlug = encodeURIComponent(albumSlug);
+      const encodedEventSlug = encodeURIComponent(prepared.event.slug);
+      await Promise.all([
+        mutateAlbum(),
+        mutateSWR(`/api/albums/${encodedAlbumSlug}`),
+        mutateSWR(`/api/albums/${encodedAlbumSlug}/stats`),
+        mutateSWR(
+          `/api/albums/${encodedAlbumSlug}/photos?event=${encodedEventSlug}`,
+        ),
+        mutateSWR(
+          (key) =>
+            typeof key === "string" &&
+            key.startsWith(`/api/albums/${encodedAlbumSlug}/photos`),
+        ),
+      ]);
 
       toast({
         title: "Photos uploaded successfully",

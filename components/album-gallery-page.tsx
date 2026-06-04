@@ -1168,6 +1168,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   );
 
+  useEffect(() => {
+    if (!data?.album) return;
+    void mutate();
+    void mutateStats();
+  }, [data?.album?.id, mutate, mutateStats, selectedEventSlug]);
+
   const { data: peopleFilterData } = useSWR<{ people: Person[] }>(
     data?.album && (!data.album.passwordRequired || isPasswordVerified)
       ? `/api/albums/${encodeURIComponent(albumSlug)}/people`
@@ -1837,7 +1843,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               )}
             </div>
 
-            <div className="flex max-w-full shrink-0 items-center gap-2 overflow-x-auto pb-1">
+            <div className="flex max-w-full flex-wrap items-center gap-2 pb-1">
               <AlbumDownloadMenu
                 albumSlug={albumSlug}
                 events={album.events}
@@ -1964,11 +1970,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           </div>
 
           {!selectedPerson && activeTab === "photos" && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex max-w-full flex-wrap gap-2 pb-1">
               <button
                 type="button"
                 onClick={() => changeEvent(null)}
-                className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                className={`max-w-full cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
                   !selectedEventSlug
                     ? "bg-zinc-950 text-white"
                     : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:text-zinc-950"
@@ -1985,7 +1991,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   key={event.id}
                   type="button"
                   onClick={() => changeEvent(event.slug)}
-                  className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  className={`max-w-full cursor-pointer whitespace-normal break-words rounded-full px-3 py-1.5 text-sm font-medium transition ${
                     selectedEventSlug === event.slug
                       ? "bg-zinc-950 text-white"
                       : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:text-zinc-950"
@@ -2001,7 +2007,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               {!isShareView && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 ring-1 ring-zinc-200 transition hover:text-zinc-950"
+                  className="flex max-w-full items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 ring-1 ring-zinc-200 transition hover:text-zinc-950"
                 >
                   <Plus className="h-4 w-4" />
                   Manage Events

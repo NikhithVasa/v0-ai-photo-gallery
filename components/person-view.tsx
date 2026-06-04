@@ -136,11 +136,11 @@ export function PersonView({
         </div>
 
         {!!events.length && (
-          <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
+          <div className="flex max-w-full flex-wrap gap-2 pb-1">
             <button
               type="button"
               onClick={() => setActiveEventSlug(null)}
-              className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition ${
+              className={`max-w-full cursor-pointer rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition ${
                 activeEventSlug === null
                   ? "bg-zinc-950 text-white ring-zinc-950"
                   : "bg-white text-zinc-700 ring-zinc-200 hover:text-zinc-950"
@@ -156,7 +156,7 @@ export function PersonView({
                 type="button"
                 onClick={() => setActiveEventSlug(event.slug)}
                 disabled={photoCount === 0}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition ${
+                className={`max-w-full whitespace-normal break-words rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition ${
                   activeEventSlug === event.slug
                     ? "cursor-pointer bg-zinc-950 text-white ring-zinc-950"
                     : photoCount > 0

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -14,13 +14,18 @@ import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 export function LoginPage() {
   const router = useRouter();
-  const { signIn, signInWithOAuth, loading: authLoading } = useAuth();
+  const { user, signIn, signInWithOAuth, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    router.replace("/customers");
+  }, [authLoading, router, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +56,8 @@ export function LoginPage() {
       } else {
         // Sign in flow
         await signIn(email, password);
-        router.push("/customers");
+        router.replace("/customers");
+        router.refresh();
       }
     } catch (err) {
       const message =

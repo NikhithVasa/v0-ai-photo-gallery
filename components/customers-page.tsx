@@ -4,11 +4,20 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import useSWR from "swr";
-import { ImageUp, Loader2, Lock, Plus, Trash2, Users } from "lucide-react";
+import {
+  ImageUp,
+  Loader2,
+  Lock,
+  Plus,
+  Share2,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlbumPasscodeManager } from "@/components/album-passcode-manager";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { toast } from "@/hooks/use-toast";
+import { customerPublicUrl } from "@/lib/customer-host";
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -47,6 +56,15 @@ export function CustomersPage() {
     dedupingInterval: 5 * 60 * 1000,
     revalidateOnFocus: false,
   });
+  const { data: accessData } = useSWR<{ isAdmin: boolean }>(
+    "/api/auth/access",
+    fetcher,
+    {
+      dedupingInterval: 5 * 60 * 1000,
+      revalidateOnFocus: false,
+    },
+  );
+  const isAdmin = Boolean(accessData?.isAdmin);
 
   const deleteCustomer = async (customer: CustomerSummary) => {
     if (deletingCustomerSlug) return;
@@ -90,6 +108,24 @@ export function CustomersPage() {
   const chooseCustomerCover = (customer: CustomerSummary) => {
     setSelectedCustomerForCover(customer);
     coverInputRef.current?.click();
+  };
+
+  const copyCustomerShareLink = async (customer: CustomerSummary) => {
+    const url = customerPublicUrl(customer.slug);
+
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: "Customer link copied",
+        description: url,
+      });
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: url,
+        variant: "destructive",
+      });
+    }
   };
 
   const uploadCustomerCover = async (files: FileList | null) => {
@@ -238,7 +274,9 @@ export function CustomersPage() {
                       {customer.name}
                     </h2>
 
-                    <p className="mt-1 text-sm text-zinc-500">{customer.slug}</p>
+                    <p className="mt-1 truncate text-sm text-zinc-500">
+                      {customerPublicUrl(customer.slug).replace("https://", "")}
+                    </p>
 
                     <div className="mt-6 text-sm font-medium text-zinc-500">
                       {customer.albumCount}{" "}
@@ -248,6 +286,15 @@ export function CustomersPage() {
                 </Link>
 
                 <div className="absolute right-3 top-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => copyCustomerShareLink(customer)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                    aria-label={`Copy ${customer.name} share link`}
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => chooseCustomerCover(customer)}
@@ -262,29 +309,33 @@ export function CustomersPage() {
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedCustomerForPasscode({
-                        slug: customer.slug,
-                        name: customer.name,
-                      })
-                    }
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
-                    aria-label={`Manage ${customer.name} passcode`}
-                  >
-                    <Lock className="h-4 w-4" />
-                  </button>
+                  {isAdmin && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedCustomerForPasscode({
+                            slug: customer.slug,
+                            name: customer.name,
+                          })
+                        }
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-700 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                        aria-label={`Manage ${customer.name} passcode`}
+                      >
+                        <Lock className="h-4 w-4" />
+                      </button>
 
-                  <button
-                    type="button"
-                    onClick={() => deleteCustomer(customer)}
-                    disabled={deletingCustomerSlug === customer.slug}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-rose-600 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-rose-300 disabled:opacity-50"
-                    aria-label={`Delete ${customer.name}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteCustomer(customer)}
+                        disabled={deletingCustomerSlug === customer.slug}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-rose-600 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-rose-300 disabled:opacity-50"
+                        aria-label={`Delete ${customer.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
