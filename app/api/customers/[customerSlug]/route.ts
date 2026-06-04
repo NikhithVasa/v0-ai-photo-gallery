@@ -9,9 +9,10 @@ interface Props {
 
 export async function DELETE(_request: Request, { params }: Props) {
   try {
-    await ensureCustomerAccessSchema();
     const admin = await requireAdminAccess();
     if (admin.response) return admin.response;
+
+    await ensureCustomerAccessSchema();
 
     const { customerSlug } = await params;
 

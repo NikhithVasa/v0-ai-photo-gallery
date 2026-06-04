@@ -285,13 +285,13 @@ function Header() {
 
         <nav className="flex items-center gap-1 sm:gap-2">
           <Link
-            href="/customers"
+            href="/login"
             className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-stone-700 transition hover:text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 sm:inline-flex"
           >
             Galleries
           </Link>
           <Link
-            href="/customers"
+            href="/login"
             className="inline-flex h-10 items-center gap-1.5 rounded-full bg-stone-950 px-4 text-sm font-medium text-[#fbfaf8] shadow-sm transition hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
           >
             Open album
@@ -339,7 +339,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
-                href="/customers"
+                href="/login"
                 className="group inline-flex h-12 items-center gap-2 rounded-full bg-stone-950 px-6 text-sm font-medium text-[#fbfaf8] shadow-md shadow-stone-900/10 transition hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
               >
                 Open your album
@@ -350,10 +350,10 @@ function Hero({ reveal }: { reveal: MotionProps }) {
               </Link>
 
               <Link
-                href="/login"
+                href="/login?mode=signup"
                 className="inline-flex h-12 items-center rounded-full border border-stone-300 bg-white/80 px-6 text-sm font-medium text-stone-800 backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
               >
-                Sign In
+                Sign Up
               </Link>
 
               <a
@@ -822,7 +822,7 @@ function GalleryPreview({
           </div>
 
           <Link
-            href="/customers"
+            href="/login"
             className="group inline-flex h-11 w-fit items-center gap-1.5 rounded-full border border-stone-300 bg-white px-5 text-sm font-medium text-stone-900 transition hover:border-stone-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
           >
             Browse galleries
@@ -938,7 +938,7 @@ function FinalCTA({ reveal }: { reveal: MotionProps }) {
 
         <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/customers"
+            href="/login"
             className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#fbfaf8] px-6 text-sm font-medium text-stone-950 shadow-lg shadow-black/20 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 cursor-pointer"
           >
             Open your album
@@ -974,7 +974,7 @@ function Footer() {
         <p>© {new Date().getFullYear()} SaathiDesk. All photographs belong to their owners.</p>
 
         <div className="flex items-center gap-4">
-          <Link href="/customers" className="hover:text-stone-800">
+          <Link href="/login" className="hover:text-stone-800">
             Galleries
           </Link>
           <Link href="/legal/privacy-policy" className="hover:text-stone-800">

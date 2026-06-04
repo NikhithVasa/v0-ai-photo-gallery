@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { LogOut, User } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -27,9 +27,11 @@ export function AuthAvatarMenu({ className = "" }: AuthAvatarMenuProps) {
   if (!user) return null;
 
   const handleSignOut = async () => {
-    await signOut();
-    router.replace("/login");
-    window.location.replace("/login");
+    try {
+      await signOut();
+    } finally {
+      window.location.replace("/login");
+    }
   };
 
   return (
@@ -37,7 +39,7 @@ export function AuthAvatarMenu({ className = "" }: AuthAvatarMenuProps) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-zinc-800 shadow-sm ring-1 ring-zinc-200 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-400 ${className}`}
+          className={`flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-zinc-800 shadow-sm ring-1 ring-zinc-200 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-400 ${className}`}
           aria-label="Account menu"
         >
           <Avatar className="h-9 w-9">
@@ -57,14 +59,14 @@ export function AuthAvatarMenu({ className = "" }: AuthAvatarMenuProps) {
           </p>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          <User className="mr-2 h-4 w-4" />
-          Account
+        <DropdownMenuItem onSelect={() => router.push("/settings")}>
+          <Settings className="mr-2 h-4 w-4" />
+          Account settings
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={handleSignOut}>
+        <DropdownMenuItem variant="destructive" onSelect={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
-          Sign out
+          Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

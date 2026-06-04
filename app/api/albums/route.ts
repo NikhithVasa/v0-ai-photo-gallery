@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { signedUploadUrl, signedUrl } from "@/lib/s3";
-import { getCustomerSlugFromRequest } from "@/lib/customer-host";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
 import {
   getAuthAccess,
@@ -109,13 +108,12 @@ async function availableAlbumSlug(baseValue: string) {
   return `${baseSlug}-${randomUUID().slice(0, 8)}`;
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    await ensureCustomerAccessSchema();
+    const access = await getAuthAccess();
+    if (!access) return unauthorizedResponse();
 
-    const customerSlug = getCustomerSlugFromRequest(request);
-    const access = customerSlug ? null : await getAuthAccess();
-    if (!customerSlug && !access) return unauthorizedResponse();
+    await ensureCustomerAccessSchema();
 
     const rows = await query<AlbumSummaryRow>(
       `
@@ -135,9 +133,8 @@ export async function GET(request: Request) {
         FROM albums a
         WHERE COALESCE(a.is_deleted, false) = false
           AND (
-            $1::text IS NOT NULL
-            OR $2::boolean = true
-            OR a.customer_id = ANY($3::uuid[])
+            $1::boolean = true
+            OR a.customer_id = ANY($2::uuid[])
           )
       ),
 
@@ -210,16 +207,12 @@ export async function GET(request: Request) {
        AND COALESCE(c.is_deleted, false) = false
 
       WHERE (
-        $1::text IS NULL
-        OR (
-          c.slug = $1
-          AND (a.expires_at IS NULL OR a.expires_at >= CURRENT_DATE)
-        )
+        TRUE
       )
 
       ORDER BY a.created_at DESC NULLS LAST, a.name ASC
       `,
-      [customerSlug, Boolean(access?.isAdmin), access?.customerIds ?? []]
+      [access.isAdmin, access.customerIds]
     );
 
     const albums: AlbumSummary[] = await Promise.all(
@@ -282,9 +275,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await ensureCustomerAccessSchema();
     const access = await getAuthAccess();
     if (!access) return unauthorizedResponse();
+
+    await ensureCustomerAccessSchema();
 
     const body = (await request.json()) as {
       customerName?: unknown;

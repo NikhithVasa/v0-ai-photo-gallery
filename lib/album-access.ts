@@ -5,10 +5,7 @@ import {
   getAuthAccess,
   unauthorizedResponse,
 } from "@/lib/auth-access";
-import {
-  getCustomerSlugFromHost,
-  getCustomerSlugFromRequest,
-} from "@/lib/customer-host";
+import { getCustomerSlugFromHost } from "@/lib/customer-host";
 
 interface AlbumAccessRow {
   id: string;
@@ -48,13 +45,6 @@ export async function canAccessAlbumFromHost(albumSlug: string, host: string) {
 }
 
 export async function requireAlbumAccess(request: Request, albumSlug: string) {
-  const canAccessFromHost = await canAccessAlbumFromCustomerSlug(
-    albumSlug,
-    getCustomerSlugFromRequest(request)
-  );
-
-  if (canAccessFromHost) return null;
-
   if (await canAccessAlbumByShareToken(request, albumSlug)) {
     return null;
   }

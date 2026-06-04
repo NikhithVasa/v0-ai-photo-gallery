@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { query, queryOne } from "@/lib/db";
-import { getCustomerSlugFromRequest } from "@/lib/customer-host";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 
 let authAccessSchemaPromise: Promise<void> | null = null;
@@ -212,10 +211,10 @@ async function isAdminEmail(email: string) {
 }
 
 export async function getAuthAccess(): Promise<AuthAccess | null> {
-  await ensureAuthAccessSchema();
-
   const email = await getSupabaseEmail();
   if (!email) return null;
+
+  await ensureAuthAccessSchema();
 
   const isAdmin = await isAdminEmail(email);
   if (isAdmin) {
@@ -307,16 +306,9 @@ export async function canAccessAlbumByShareToken(
 }
 
 export async function requireCustomerAccessBySlug(
-  request: Request,
+  _request: Request,
   customerSlug: string,
 ) {
-  await ensureAuthAccessSchema();
-
-  const hostCustomerSlug = getCustomerSlugFromRequest(request);
-  if (hostCustomerSlug && hostCustomerSlug === customerSlug) {
-    return null;
-  }
-
   const access = await getAuthAccess();
   if (!access) return unauthorizedResponse();
   if (access.isAdmin) return null;

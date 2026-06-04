@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { getCustomerSlugFromRequest } from "@/lib/customer-host";
 import {
   getAuthAccess,
   unauthorizedResponse,
@@ -22,11 +21,10 @@ function countValue(value: number | string | null) {
   return 0;
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const customerSlug = getCustomerSlugFromRequest(request);
-    const access = customerSlug ? null : await getAuthAccess();
-    if (!customerSlug && !access) return unauthorizedResponse();
+    const access = await getAuthAccess();
+    if (!access) return unauthorizedResponse();
 
     const rows = await query<AlbumStatsRow>(
       `
@@ -68,14 +66,12 @@ export async function GET(request: Request) {
         ON c.id = a.customer_id
        AND COALESCE(c.is_deleted, false) = false
       WHERE COALESCE(a.is_deleted, false) = false
-        AND ($1::text IS NULL OR c.slug = $1)
         AND (
-          $1::text IS NOT NULL
-          OR $2::boolean = true
-          OR a.customer_id = ANY($3::uuid[])
+          $1::boolean = true
+          OR a.customer_id = ANY($2::uuid[])
         )
       `,
-      [customerSlug, Boolean(access?.isAdmin), access?.customerIds ?? []]
+      [access.isAdmin, access.customerIds]
     );
 
     const stats = rows.map((row) => ({

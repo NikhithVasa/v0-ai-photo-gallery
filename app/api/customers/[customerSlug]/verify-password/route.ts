@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { accessCodeMatches } from "@/lib/access-code";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
+import { requireCustomerAccessBySlug } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ customerSlug: string }>;
@@ -14,8 +15,12 @@ interface CustomerPasswordRow {
 
 export async function POST(request: Request, { params }: Props) {
   try {
-    await ensureCustomerAccessSchema();
     const { customerSlug } = await params;
+    const accessDenied = await requireCustomerAccessBySlug(request, customerSlug);
+    if (accessDenied) return accessDenied;
+
+    await ensureCustomerAccessSchema();
+
     const body = (await request.json()) as { password?: unknown };
     const password = typeof body.password === "string" ? body.password : "";
 

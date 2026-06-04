@@ -20,9 +20,9 @@ export function Header() {
             {user ? (
               <AuthAvatarMenu />
             ) : (
-              <Link href="/login">
+              <Link href="/login?mode=signup">
                 <Button variant="default" className="bg-stone-950 hover:bg-stone-800">
-                  Sign In
+                  Sign Up
                 </Button>
               </Link>
             )}

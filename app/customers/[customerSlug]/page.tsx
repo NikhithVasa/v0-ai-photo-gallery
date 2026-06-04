@@ -9,7 +9,7 @@ export default async function CustomerPage({ params }: Props) {
   const { customerSlug } = await params;
 
   return (
-    <ProtectedRoute allowPublicCustomerHost>
+    <ProtectedRoute>
       <CustomerAlbumsPage customerSlug={customerSlug} />
     </ProtectedRoute>
   );

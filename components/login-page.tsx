@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -14,18 +14,32 @@ import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 export function LoginPage() {
   const router = useRouter();
-  const { user, signIn, signInWithOAuth, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const {
+    user,
+    signIn,
+    signUp,
+    signInWithOAuth,
+    loading: authLoading,
+  } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(
+    () => searchParams.get("mode") === "signup",
+  );
+  const requestedNext = searchParams.get("next");
+  const next =
+    requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+      ? requestedNext
+      : "/customers";
 
   useEffect(() => {
     if (authLoading || !user) return;
-    router.replace("/customers");
-  }, [authLoading, router, user]);
+    router.replace(next);
+  }, [authLoading, next, router, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,29 +48,15 @@ export function LoginPage() {
 
     try {
       if (isSignUp) {
-        // Sign up flow
-        const { signUp } = await import("@/lib/auth-context").then((m) => ({
-          signUp: async (email: string, password: string) => {
-            const { createClient } = await import("@/lib/supabase-client");
-            const supabase = createClient();
-            const { error } = await supabase.auth.signUp({
-              email,
-              password,
-            });
-            if (error) throw error;
-          },
-        }));
         await signUp(email, password);
         setError(null);
-        // Show success message
         alert(
           "Sign up successful! Please check your email to confirm your account."
         );
         setIsSignUp(false);
       } else {
-        // Sign in flow
         await signIn(email, password);
-        router.replace("/customers");
+        router.replace(next);
         router.refresh();
       }
     } catch (err) {
@@ -69,12 +69,12 @@ export function LoginPage() {
     }
   };
 
-  const handleOAuthSignIn = async (provider: "google" | "github") => {
+  const handleOAuthSignIn = async () => {
     setError(null);
     setLoading(true);
 
     try {
-      await signInWithOAuth(provider);
+      await signInWithOAuth("google", next);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "OAuth sign in failed";
@@ -198,19 +198,10 @@ export function LoginPage() {
               type="button"
               variant="outline"
               className="w-full border-stone-200 hover:bg-stone-50"
-              onClick={() => handleOAuthSignIn("google")}
+              onClick={handleOAuthSignIn}
               disabled={loading || authLoading}
             >
               Google
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-stone-200 hover:bg-stone-50"
-              onClick={() => handleOAuthSignIn("github")}
-              disabled={loading || authLoading}
-            >
-              GitHub
             </Button>
           </div>
 

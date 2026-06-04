@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
-import { ensureAuthAccessSchema, requireAdminAccess } from "@/lib/auth-access";
+import { requireAdminAccess } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ customerSlug: string }>;
@@ -30,7 +30,6 @@ function createdAtValue(value: Date | string | null) {
 
 export async function GET(_request: Request, { params }: Props) {
   try {
-    await ensureAuthAccessSchema();
     const admin = await requireAdminAccess();
     if (admin.response) return admin.response;
 
@@ -73,7 +72,6 @@ export async function GET(_request: Request, { params }: Props) {
 
 export async function POST(request: Request, { params }: Props) {
   try {
-    await ensureAuthAccessSchema();
     const admin = await requireAdminAccess();
     if (admin.response) return admin.response;
 
@@ -155,7 +153,6 @@ export async function POST(request: Request, { params }: Props) {
 
 export async function DELETE(request: Request, { params }: Props) {
   try {
-    await ensureAuthAccessSchema();
     const admin = await requireAdminAccess();
     if (admin.response) return admin.response;
 

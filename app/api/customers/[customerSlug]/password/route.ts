@@ -17,9 +17,10 @@ interface CustomerPasswordRow {
 
 export async function GET(_request: Request, { params }: Props) {
   try {
-    await ensureCustomerAccessSchema();
     const admin = await requireAdminAccess();
     if (admin.response) return admin.response;
+
+    await ensureCustomerAccessSchema();
 
     const { customerSlug } = await params;
 
@@ -53,9 +54,10 @@ export async function GET(_request: Request, { params }: Props) {
 
 export async function POST(request: Request, { params }: Props) {
   try {
-    await ensureCustomerAccessSchema();
     const admin = await requireAdminAccess();
     if (admin.response) return admin.response;
+
+    await ensureCustomerAccessSchema();
 
     const { customerSlug } = await params;
     const body = (await request.json()) as {
@@ -110,9 +112,10 @@ export async function POST(request: Request, { params }: Props) {
 
 export async function DELETE(_request: Request, { params }: Props) {
   try {
-    await ensureCustomerAccessSchema();
     const admin = await requireAdminAccess();
     if (admin.response) return admin.response;
+
+    await ensureCustomerAccessSchema();
 
     const { customerSlug } = await params;
 

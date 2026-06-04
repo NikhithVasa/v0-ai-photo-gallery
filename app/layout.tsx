@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from '@/components/ui/toaster'
 import { AuthProvider } from '@/lib/auth-context'
+import { ScrollToTop } from '@/components/scroll-to-top'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -51,6 +52,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${playfair.variable} bg-background`}>
       <body className="font-sans antialiased">
         <AuthProvider>
+          <ScrollToTop />
           {children}
           <Toaster />
         </AuthProvider>

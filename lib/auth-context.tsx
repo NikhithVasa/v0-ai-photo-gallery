@@ -19,7 +19,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  signInWithOAuth: (provider: "google" | "github") => Promise<void>;
+  signInWithOAuth: (provider: "google", next?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,8 +69,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
     });
 
+    const refreshAfterHistoryRestore = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      setLoading(true);
+      void supabase.auth.getSession().then(({ data }) => {
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+        currentUserIdRef.current = data.session?.user?.id ?? null;
+        setLoading(false);
+      });
+    };
+    window.addEventListener("pageshow", refreshAfterHistoryRestore);
+
     return () => {
       subscription?.unsubscribe();
+      window.removeEventListener("pageshow", refreshAfterHistoryRestore);
     };
   }, [supabase]);
 
@@ -96,15 +109,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     currentUserIdRef.current = null;
     clearClientDataCache();
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({ scope: "local" });
     if (error) throw error;
   };
 
-  const signInWithOAuth = async (provider: "google" | "github") => {
+  const signInWithOAuth = async (provider: "google", next = "/customers") => {
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
+    callbackUrl.searchParams.set("next", next);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl.toString(),
       },
     });
     if (error) throw error;

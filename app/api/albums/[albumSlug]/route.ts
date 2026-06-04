@@ -59,11 +59,11 @@ function dateValue(value: Date | string | null) {
 
 export async function GET(request: Request, { params }: Props) {
   try {
-    await ensureCustomerAccessSchema();
-
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;
+
+    await ensureCustomerAccessSchema();
 
     const album = await queryOne<AlbumRow>(
       `

@@ -51,11 +51,11 @@ function dateValue(value: Date | string | null) {
 
 export async function GET(request: Request, { params }: Props) {
   try {
-    await ensureCustomerAccessSchema();
-
     const { customerSlug } = await params;
     const accessDenied = await requireCustomerAccessBySlug(request, customerSlug);
     if (accessDenied) return accessDenied;
+
+    await ensureCustomerAccessSchema();
 
     const hostCustomerSlug = getCustomerSlugFromRequest(request);
     const hideExpired = Boolean(hostCustomerSlug);

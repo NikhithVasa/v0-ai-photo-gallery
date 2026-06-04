@@ -22,7 +22,7 @@ export default async function AlbumPage({ params }: Props) {
   }
 
   return (
-    <ProtectedRoute allowPublicCustomerHost allowShareToken>
+    <ProtectedRoute allowShareToken>
       <Suspense>
         <AlbumGalleryPage albumSlug={albumSlug} />
       </Suspense>

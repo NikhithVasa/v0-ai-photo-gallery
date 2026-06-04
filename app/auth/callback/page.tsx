@@ -11,6 +11,11 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       const supabase = createClient();
+      const requestedNext = new URLSearchParams(window.location.search).get("next");
+      const next =
+        requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+          ? requestedNext
+          : "/customers";
 
       // Get the code from the URL
       const code = new URLSearchParams(window.location.search).get("code");
@@ -23,7 +28,7 @@ export default function AuthCallback() {
         }
       }
 
-      router.replace("/customers");
+      router.replace(next);
       router.refresh();
     };
 

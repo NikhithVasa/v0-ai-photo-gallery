@@ -58,9 +58,10 @@ async function availableCustomerSlug(name: string) {
 
 export async function GET() {
   try {
-    await ensureCustomerAccessSchema();
     const access = await getAuthAccess();
     if (!access) return unauthorizedResponse();
+
+    await ensureCustomerAccessSchema();
 
     const rows = await query<CustomerRow>(
       `
@@ -127,9 +128,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await ensureCustomerAccessSchema();
     const access = await getAuthAccess();
     if (!access) return unauthorizedResponse();
+
+    await ensureCustomerAccessSchema();
 
     const body = (await request.json()) as {
       name?: unknown;

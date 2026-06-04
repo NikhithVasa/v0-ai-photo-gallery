@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 import { getCustomerSlugFromHost } from "@/lib/customer-host";
 
 function isAssetOrApiPath(pathname: string) {
@@ -12,7 +13,56 @@ function isAssetOrApiPath(pathname: string) {
   );
 }
 
-export function middleware(request: NextRequest) {
+function isPublicPath(request: NextRequest, customerSlug: string | null) {
+  const { pathname, searchParams } = request.nextUrl;
+
+  if (pathname === "/" && !customerSlug) return true;
+  if (pathname === "/login" || pathname === "/auth/callback") return true;
+  if (pathname.startsWith("/legal/") || pathname.startsWith("/share/")) return true;
+
+  return /^\/albums\/[^/]+$/.test(pathname) && Boolean(searchParams.get("share"));
+}
+
+function rewriteWithCookies(url: URL, response: NextResponse) {
+  const rewriteResponse = NextResponse.rewrite(url);
+  response.cookies.getAll().forEach((cookie) => rewriteResponse.cookies.set(cookie));
+  return rewriteResponse;
+}
+
+async function hasSupabaseUser(request: NextRequest, response: NextResponse) {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  ) {
+    return false;
+  }
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
+          );
+        },
+      },
+    },
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return Boolean(user);
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isAssetOrApiPath(pathname)) {
@@ -21,24 +71,38 @@ export function middleware(request: NextRequest) {
 
   const host = request.headers.get("host") || "";
   const customerSlug = getCustomerSlugFromHost(host);
+  const response = NextResponse.next();
 
-  if (!customerSlug) {
-    return NextResponse.next();
+  if (!isPublicPath(request, customerSlug)) {
+    const isAuthenticated = await hasSupabaseUser(request, response);
+
+    if (!isAuthenticated) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.search = "";
+      loginUrl.searchParams.set(
+        "next",
+        `${request.nextUrl.pathname}${request.nextUrl.search}`,
+      );
+      return NextResponse.redirect(loginUrl);
+    }
   }
+
+  if (!customerSlug) return response;
 
   const url = request.nextUrl.clone();
 
   if (pathname === "/") {
     url.pathname = `/customers/${customerSlug}`;
-    return NextResponse.rewrite(url);
+    return rewriteWithCookies(url, response);
   }
 
   if (pathname === "/customers") {
     url.pathname = `/customers/${customerSlug}`;
-    return NextResponse.rewrite(url);
+    return rewriteWithCookies(url, response);
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

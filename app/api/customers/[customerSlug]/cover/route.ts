@@ -38,11 +38,13 @@ function contentTypeFromInput(contentType: unknown, fileName: string) {
 
 export async function POST(request: Request, { params }: Props) {
   try {
-    await ensureCustomerAccessSchema();
     const { customerSlug } = await params;
-    
+
     const accessDenied = await requireCustomerAccessBySlug(request, customerSlug);
     if (accessDenied) return accessDenied;
+
+    await ensureCustomerAccessSchema();
+
     const body = (await request.json()) as {
       fileName?: unknown;
       size?: unknown;
