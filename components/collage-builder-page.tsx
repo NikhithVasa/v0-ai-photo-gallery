@@ -17,9 +17,12 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
+  CloudDownload,
   Download,
   ImagePlus,
+  Images,
   LayoutTemplate,
+  Loader2,
   Move,
   RefreshCcw,
   Shuffle,
@@ -40,6 +43,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useGoogleImageImport } from "@/hooks/use-google-image-import";
 import type { AlbumDetail, AlbumSummary, Photo } from "@/lib/types";
 
 type CollageTemplate =
@@ -842,6 +846,21 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const [passwordError, setPasswordError] = useState("");
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
   const [moveDragState, setMoveDragState] = useState<MoveDragState | null>(null);
+  const {
+    googlePhotosButtonLabel,
+    importFromGoogleDrive,
+    importFromGooglePhotos,
+    isImporting: isGoogleImporting,
+    isImportingDrive,
+    isImportingPhotos,
+    message: googleImportMessage,
+  } = useGoogleImageImport({
+    onImages: (images) =>
+      handleUploadedFiles(
+        images.map((image) => image.file),
+        images[0]?.source,
+      ),
+  });
 
   const { data: albumsData } = useSWR<{ albums: AlbumSummary[] }>("/api/albums", fetcher, swrOptions);
 
@@ -1012,19 +1031,28 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     setSelectedCellIndex((current) => Math.max(0, Math.min(current, templateCount - 1)));
   }, [templateCount]);
 
-  const handleUploadedFiles = (files: FileList | null) => {
+  const handleUploadedFiles = (
+    files: FileList | File[] | null,
+    source?: "google-drive" | "google-photos",
+  ) => {
     const imageFiles = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"));
     if (!imageFiles.length) return;
 
     const createdPhotos: CollagePhoto[] = imageFiles.map((file) => {
       const url = URL.createObjectURL(file);
+      const sourceLabel =
+        source === "google-drive"
+          ? "Google Drive"
+          : source === "google-photos"
+            ? "Google Photos"
+            : "Uploaded";
       return {
         id: `local:${crypto.randomUUID()}`,
         albumId: "local",
         albumSlug: albumSlug || "local",
         eventId: "local",
-        eventSlug: "uploaded",
-        eventName: "Uploaded",
+        eventSlug: source || "uploaded",
+        eventName: sourceLabel,
         fileName: file.name,
         caption: null,
         searchText: file.name,
@@ -1553,10 +1581,46 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 className="hidden"
                 onChange={(event) => handleUploadedFiles(event.target.files)}
               />
-              <Button variant="outline" className="w-full" onClick={() => uploadInputRef.current?.click()}>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => uploadInputRef.current?.click()}
+                disabled={isGoogleImporting}
+              >
                 <Upload className="h-4 w-4" />
-                Upload Images
+                Upload from Device
               </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => void importFromGoogleDrive()}
+                disabled={isGoogleImporting}
+              >
+                {isImportingDrive ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CloudDownload className="h-4 w-4" />
+                )}
+                Upload from Google Drive
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => void importFromGooglePhotos()}
+                disabled={isGoogleImporting}
+              >
+                {isImportingPhotos ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Images className="h-4 w-4" />
+                )}
+                {googlePhotosButtonLabel}
+              </Button>
+              {googleImportMessage && (
+                <p className="rounded-md bg-zinc-100 px-3 py-2 text-xs text-zinc-600">
+                  {googleImportMessage}
+                </p>
+              )}
             </div>
           </section>
 
