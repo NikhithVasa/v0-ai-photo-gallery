@@ -26,7 +26,7 @@ export function LegalPage({
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8]">
               <Camera className="h-4 w-4" strokeWidth={1.75} />
             </span>
-            Apsara
+            SaathiDesk
           </Link>
 
           <Link
@@ -55,14 +55,14 @@ export function LegalPage({
 
       <footer className="border-t border-stone-200/70">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-2 px-5 py-8 text-xs text-stone-500 sm:px-8">
-          <span>© {new Date().getFullYear()} Apsara Gallery</span>
+          <span>© {new Date().getFullYear()} SaathiDesk</span>
           <Link href="/legal/privacy-policy" className="hover:text-stone-950">
             Privacy Policy
           </Link>
           <Link href="/legal/terms-of-service" className="hover:text-stone-950">
             Terms of Service
           </Link>
-          <a href="mailto:hello@apsara.gallery" className="hover:text-stone-950">
+          <a href="mailto:support@saathidesk.com" className="hover:text-stone-950">
             Contact
           </a>
         </div>

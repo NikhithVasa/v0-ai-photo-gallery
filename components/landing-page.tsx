@@ -273,13 +273,13 @@ function Header() {
         <Link
           href="/"
           className="group inline-flex items-center gap-2 text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 rounded-md"
-          aria-label="AI Photo Gallery — home"
+          aria-label="SaathiDesk home"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8] transition-transform duration-300 group-hover:scale-105">
             <Camera className="h-4 w-4" strokeWidth={1.75} />
           </span>
           <span className="font-serif text-lg leading-none tracking-tight">
-            Apsara
+            SaathiDesk
           </span>
         </Link>
 
@@ -322,7 +322,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
           <motion.div {...reveal}>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white/80 px-3 py-1 text-xs font-medium text-stone-700 shadow-sm backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-amber-700" strokeWidth={2} />
-              New: AI edits, collage tools, and controlled sharing
+              SaathiDesk · AI-powered photo gallery platform
             </span>
 
             <h1 className="mt-5 font-serif text-[2.6rem] leading-[1.05] tracking-tight text-stone-950 sm:text-6xl lg:text-[4.2rem]">
@@ -949,7 +949,7 @@ function FinalCTA({ reveal }: { reveal: MotionProps }) {
           </Link>
 
           <a
-            href="mailto:hello@apsara.gallery"
+            href="mailto:support@saathidesk.com"
             className="inline-flex h-12 items-center rounded-full border border-white/20 px-6 text-sm font-medium text-[#fbfaf8] transition hover:border-white/40 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 cursor-pointer"
           >
             Talk to us
@@ -968,10 +968,10 @@ function Footer() {
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8]">
             <Camera className="h-3 w-3" strokeWidth={1.75} />
           </span>
-          <span className="font-serif text-sm text-stone-700">Apsara</span>
+          <span className="font-serif text-sm text-stone-700">SaathiDesk</span>
         </div>
 
-        <p>© {new Date().getFullYear()} Apsara Gallery. All photographs belong to their owners.</p>
+        <p>© {new Date().getFullYear()} SaathiDesk. All photographs belong to their owners.</p>
 
         <div className="flex items-center gap-4">
           <Link href="/customers" className="hover:text-stone-800">
@@ -983,7 +983,7 @@ function Footer() {
           <Link href="/legal/terms-of-service" className="hover:text-stone-800">
             Terms
           </Link>
-          <a href="mailto:hello@apsara.gallery" className="hover:text-stone-800">
+          <a href="mailto:support@saathidesk.com" className="hover:text-stone-800">
             Contact
           </a>
         </div>

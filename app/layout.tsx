@@ -19,8 +19,9 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'Apsara Galleries',
-  description: 'Browse, search, and explore private photo galleries with AI-powered search and face recognition',
+  title: 'SaathiDesk',
+  description:
+    'SaathiDesk is an AI-powered private photo gallery platform for organizing, searching, importing, editing, and sharing photos.',
   generator: 'v0.app',
   icons: {
     icon: [

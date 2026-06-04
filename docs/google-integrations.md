@@ -138,3 +138,23 @@ The same Web application OAuth client ID can be used for Drive and Photos. For
 compatibility, both integrations fall back to the existing
 `NEXT_PUBLIC_OAUTH_CLIENT_ID`. OAuth client secrets must never use a
 `NEXT_PUBLIC_` environment variable or be shipped to the browser.
+
+## OAuth branding verification
+
+Use the exact application name **SaathiDesk** throughout the Google OAuth
+consent screen and public website.
+
+Verify ownership of `saathidesk.com` by adding it as a **Domain** property in
+Google Search Console and publishing Google's TXT verification record through
+the domain's DNS provider.
+
+Use these deployed public URLs in the OAuth consent screen:
+
+```text
+Application homepage: https://saathidesk.com
+Privacy policy:       https://saathidesk.com/legal/privacy-policy
+Terms of service:     https://saathidesk.com/legal/terms-of-service
+```
+
+Deploy the updated branding and legal pages before requesting branding
+reverification in Google Cloud Console.

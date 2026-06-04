@@ -1575,7 +1575,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         error: null,
       });
     } catch (searchError) {
-      console.error("Apsara text search failed:", searchError);
+      console.error("SaathiDesk text search failed:", searchError);
       setApsaraTextSearch({
         query: trimmedQuery,
         photos: [],

@@ -27,10 +27,10 @@ export function ApsaraFloatingTrigger({ onClick }: ApsaraFloatingTriggerProps) {
       type="button"
       onClick={onClick}
       className="fixed bottom-5 right-5 z-40 flex h-11 items-center gap-2 rounded-full border border-zinc-200 bg-white/90 px-4 text-sm font-medium text-zinc-900 shadow-sm backdrop-blur transition hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7 sm:right-7"
-      aria-label="Open Apsara AI photo search"
+      aria-label="Open SaathiDesk AI photo search"
     >
       <MessageCircle className="h-4 w-4" />
-      <span>Apsara AI</span>
+      <span>SaathiDesk AI</span>
     </button>
   );
 }
@@ -393,7 +393,7 @@ export function ApsaraMomentsOverlay({
         setPeople(data.people ?? []);
       })
       .catch((error) => {
-        console.error("Failed to load people for Apsara search:", error);
+        console.error("Failed to load people for SaathiDesk search:", error);
         if (!isCancelled) setPeople([]);
       })
       .finally(() => {
@@ -450,7 +450,7 @@ export function ApsaraMomentsOverlay({
       const data = (await response.json()) as { results?: Photo[] };
       setResults(data.results ?? []);
     } catch (error) {
-      console.error("Apsara AI search failed:", error);
+      console.error("SaathiDesk AI search failed:", error);
       setResults([]);
     } finally {
       setIsSearching(false);
@@ -497,13 +497,13 @@ export function ApsaraMomentsOverlay({
         type="button"
         className="absolute inset-0 cursor-default"
         onClick={onClose}
-        aria-label="Close Apsara AI"
+        aria-label="Close SaathiDesk AI"
       />
 
       <section
         className="relative z-10 flex h-full w-full max-w-[min(100vw,760px)] flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform"
         onClick={(event) => event.stopPropagation()}
-        aria-label="Apsara AI photo search"
+        aria-label="SaathiDesk AI photo search"
       >
         <header className="flex items-start justify-between px-6 pb-3 pt-7 sm:px-12 sm:pt-10">
           <h2 className="text-3xl font-normal tracking-normal text-zinc-900 sm:text-4xl">
@@ -513,7 +513,7 @@ export function ApsaraMomentsOverlay({
             type="button"
             onClick={onClose}
             className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-950/5 focus:outline-none focus:ring-2 focus:ring-zinc-300"
-            aria-label="Close Apsara AI"
+            aria-label="Close SaathiDesk AI"
           >
             <X className="h-7 w-7 stroke-1" />
           </button>

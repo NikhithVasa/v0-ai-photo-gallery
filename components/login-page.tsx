@@ -89,13 +89,19 @@ export function LoginPage() {
         <div className="p-8">
           {/* Header */}
           <div className="mb-8">
+            <Link
+              href="/"
+              className="mb-5 inline-block font-serif text-xl font-bold text-stone-950"
+            >
+              SaathiDesk
+            </Link>
             <h1 className="text-3xl font-serif font-bold text-stone-950 mb-2">
               {isSignUp ? "Create Account" : "Sign In"}
             </h1>
             <p className="text-stone-600">
               {isSignUp
-                ? "Join to access your photo gallery"
-                : "Welcome back to your gallery"}
+                ? "Join SaathiDesk to access your photo gallery"
+                : "Welcome back to SaathiDesk"}
             </p>
           </div>
 
