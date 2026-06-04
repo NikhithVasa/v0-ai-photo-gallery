@@ -10,6 +10,19 @@ Keeping picker grants separate means signing in does not automatically grant
 access to Drive or Photos. Import tokens stay in browser memory and are not
 stored by the app.
 
+## Where import buttons appear
+
+Google Drive and Google Photos import controls appear in every full-photo
+selection workflow:
+
+- The standalone **Upload Photos** page at `/upload`
+- **Manage Events**, below the media drop zone for new and existing events
+- **Collage**, in the source controls beside **Upload from Device**
+
+Selected images enter the same local `File` queue used by each screen.
+Single-image album, event, and customer cover editors remain device-only because
+they use separate cover-upload endpoints.
+
 ## Supabase Google login
 
 In the Supabase dashboard, open:
