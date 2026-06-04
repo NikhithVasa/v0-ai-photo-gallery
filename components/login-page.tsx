@@ -243,12 +243,25 @@ export function LoginPage() {
 
           {/* Back to home */}
           <div className="mt-6 pt-6 border-t border-stone-200">
-            <Link
-              href="/"
-              className="inline-flex text-sm text-stone-600 hover:text-stone-950"
-            >
-              ← Back to home
-            </Link>
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-stone-600">
+              <Link href="/" className="hover:text-stone-950">
+                ← Back to home
+              </Link>
+              <span className="flex items-center gap-3">
+                <Link
+                  href="/legal/privacy-policy"
+                  className="hover:text-stone-950"
+                >
+                  Privacy
+                </Link>
+                <Link
+                  href="/legal/terms-of-service"
+                  className="hover:text-stone-950"
+                >
+                  Terms
+                </Link>
+              </span>
+            </div>
           </div>
         </div>
       </Card>

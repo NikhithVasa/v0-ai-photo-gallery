@@ -977,6 +977,12 @@ function Footer() {
           <Link href="/customers" className="hover:text-stone-800">
             Galleries
           </Link>
+          <Link href="/legal/privacy-policy" className="hover:text-stone-800">
+            Privacy
+          </Link>
+          <Link href="/legal/terms-of-service" className="hover:text-stone-800">
+            Terms
+          </Link>
           <a href="mailto:hello@apsara.gallery" className="hover:text-stone-800">
             Contact
           </a>
