@@ -24,8 +24,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-To enable **Upload from Google Drive** on the upload screen, follow
-[the Google Drive Picker setup guide](docs/google-drive-picker.md).
+To enable Google login and imports from Google Drive and Google Photos, follow
+[the Google integrations setup guide](docs/google-integrations.md).
 
 ## Learn More
 

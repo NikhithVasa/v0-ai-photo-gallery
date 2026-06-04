@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   CloudDownload,
   FileImage,
+  Images,
   Loader2,
   Upload,
   XCircle,
@@ -22,6 +23,15 @@ import {
   prepareGoogleDrivePicker,
   type GoogleDriveFileMetadata,
 } from "@/lib/google-drive-picker";
+import {
+  completeGooglePhotosPickerSession,
+  createGooglePhotosPickerSession,
+  deleteGooglePhotosPickerSession,
+  downloadGooglePhotosImage,
+  prepareGooglePhotosPicker,
+  type GooglePhotosMediaItem,
+  type GooglePhotosPickerSessionHandle,
+} from "@/lib/google-photos-picker";
 import type { AlbumDetail, AlbumSummary } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -35,6 +45,7 @@ interface QueuedFile {
   file: File;
   status: UploadStatus;
   googleDriveMetadata?: GoogleDriveFileMetadata;
+  googlePhotosMetadata?: GooglePhotosMediaItem;
   s3Key?: string;
   error?: string;
 }
@@ -93,6 +104,9 @@ export function UploadPage() {
   const [message, setMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isImportingDrive, setIsImportingDrive] = useState(false);
+  const [isImportingPhotos, setIsImportingPhotos] = useState(false);
+  const [googlePhotosSession, setGooglePhotosSession] =
+    useState<GooglePhotosPickerSessionHandle | null>(null);
 
   const { data: albumsData } = useSWR<{ albums: AlbumSummary[] }>(
     "/api/albums",
@@ -122,6 +136,7 @@ export function UploadPage() {
     queuedFiles.some((file) => file.status === "ready" || file.status === "failed") &&
     !isUploading &&
     !isImportingDrive &&
+    !isImportingPhotos &&
     (mode === "new"
       ? newAlbumName.trim() && newEventName.trim()
       : selectedAlbumSlug &&
@@ -140,7 +155,10 @@ export function UploadPage() {
   }, [albums, mode, selectedAlbumSlug]);
 
   useEffect(() => {
-    void prepareGoogleDrivePicker().catch(() => {
+    void Promise.all([
+      prepareGoogleDrivePicker(),
+      prepareGooglePhotosPicker(),
+    ]).catch(() => {
       // The button surfaces configuration or loading errors when the user clicks it.
     });
   }, []);
@@ -169,7 +187,7 @@ export function UploadPage() {
   };
 
   const importFromGoogleDrive = async () => {
-    if (isImportingDrive || isUploading) return;
+    if (isImportingDrive || isImportingPhotos || isUploading) return;
 
     setIsImportingDrive(true);
     setMessage("");
@@ -229,6 +247,110 @@ export function UploadPage() {
       );
     } finally {
       setIsImportingDrive(false);
+    }
+  };
+
+  const importFromGooglePhotos = async () => {
+    if (isImportingPhotos || isImportingDrive || isUploading) return;
+
+    setIsImportingPhotos(true);
+    setMessage("");
+    let session: { id: string; accessToken: string } | null = null;
+
+    try {
+      if (!googlePhotosSession) {
+        setMessage("Preparing Google Photos Picker...");
+        const preparedSession = await createGooglePhotosPickerSession();
+        setGooglePhotosSession(preparedSession);
+        setMessage(
+          "Google Photos is ready. Click Continue in Google Photos to choose images.",
+        );
+        return;
+      }
+
+      setMessage("Waiting for your Google Photos selection...");
+      const selection = await completeGooglePhotosPickerSession(googlePhotosSession);
+      setGooglePhotosSession(null);
+      session = {
+        id: selection.sessionId,
+        accessToken: selection.accessToken,
+      };
+
+      const selectedImages = selection.mediaItems.filter((item) =>
+        item.mediaFile.mimeType.startsWith("image/"),
+      );
+      const skippedVideos = selection.mediaItems.length - selectedImages.length;
+
+      if (!selectedImages.length) {
+        setMessage(
+          skippedVideos
+            ? "No images selected. Videos are not supported by the current upload pipeline."
+            : "No Google Photos images selected.",
+        );
+        return;
+      }
+
+      const importedFiles: QueuedFile[] = [];
+      const failedFiles: string[] = [];
+
+      for (const [index, mediaItem] of selectedImages.entries()) {
+        setMessage(
+          `Reading ${index + 1} of ${selectedImages.length} from Google Photos...`,
+        );
+
+        try {
+          const downloaded = await downloadGooglePhotosImage(
+            mediaItem,
+            selection.accessToken,
+          );
+          importedFiles.push({
+            localId: crypto.randomUUID(),
+            file: downloaded.file,
+            googlePhotosMetadata: downloaded.metadata,
+            status: "ready",
+          });
+        } catch (error) {
+          failedFiles.push(
+            error instanceof Error
+              ? error.message
+              : `${mediaItem.mediaFile.filename} failed`,
+          );
+        }
+      }
+
+      if (importedFiles.length) {
+        setQueuedFiles((current) => [...importedFiles, ...current]);
+      }
+
+      const notes = [
+        `${importedFiles.length} Google Photos image${
+          importedFiles.length === 1 ? "" : "s"
+        } ready to upload.`,
+        skippedVideos
+          ? `${skippedVideos} video${skippedVideos === 1 ? " was" : "s were"} skipped.`
+          : "",
+        failedFiles.length
+          ? `${failedFiles.length} could not be read: ${failedFiles.join("; ")}`
+          : "",
+      ].filter(Boolean);
+      setMessage(notes.join(" "));
+    } catch (error) {
+      if (googlePhotosSession) {
+        setGooglePhotosSession(null);
+      }
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not import images from Google Photos",
+      );
+    } finally {
+      if (session) {
+        await deleteGooglePhotosPickerSession(
+          session.id,
+          session.accessToken,
+        ).catch(() => undefined);
+      }
+      setIsImportingPhotos(false);
     }
   };
 
@@ -498,7 +620,11 @@ export function UploadPage() {
                       <p className="mt-1 truncate pl-6 text-xs text-zinc-500">
                         {item.s3Key ||
                           `${
-                            item.googleDriveMetadata ? "Google Drive · " : ""
+                            item.googleDriveMetadata
+                              ? "Google Drive · "
+                              : item.googlePhotosMetadata
+                                ? "Google Photos · "
+                                : ""
                           }${formatBytes(item.file.size)}`}
                       </p>
                       {item.error && (
@@ -692,7 +818,7 @@ export function UploadPage() {
               variant="outline"
               className="w-full"
               onClick={importFromGoogleDrive}
-              disabled={isImportingDrive || isUploading}
+              disabled={isImportingDrive || isImportingPhotos || isUploading}
             >
               {isImportingDrive ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -700,6 +826,23 @@ export function UploadPage() {
                 <CloudDownload className="h-4 w-4" />
               )}
               Upload from Google Drive
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={importFromGooglePhotos}
+              disabled={isImportingPhotos || isImportingDrive || isUploading}
+            >
+              {isImportingPhotos ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Images className="h-4 w-4" />
+              )}
+              {googlePhotosSession
+                ? "Continue in Google Photos"
+                : "Upload from Google Photos"}
             </Button>
 
             {message && (
