@@ -8,8 +8,10 @@ import useSWR, { mutate as mutateSWR } from "swr";
 import {
   ArrowLeft,
   CheckCircle2,
+  CloudDownload,
   FileImage,
   ImageUp,
+  Images,
   Info,
   Loader2,
   ShieldCheck,
@@ -20,6 +22,7 @@ import {
 } from "lucide-react";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { toast } from "@/hooks/use-toast";
+import { useGoogleImageImport } from "@/hooks/use-google-image-import";
 import type { AlbumDetail, AlbumEvent, Photo } from "@/lib/types";
 
 const fetcher = async (url: string) => {
@@ -50,6 +53,7 @@ interface QueuedFile {
   file: File;
   previewUrl: string;
   status: UploadStatus;
+  source?: "google-drive" | "google-photos";
   error?: string;
 }
 
@@ -113,6 +117,21 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const [errorMessage, setErrorMessage] = useState("");
   const coverPreviewUrlRef = useRef<string | null>(null);
   const queuedFilesRef = useRef<QueuedFile[]>([]);
+  const {
+    googlePhotosButtonLabel,
+    importFromGoogleDrive,
+    importFromGooglePhotos,
+    isImporting: isGoogleImporting,
+    isImportingDrive,
+    isImportingPhotos,
+    message: googleImportMessage,
+  } = useGoogleImageImport({
+    onImages: (images) =>
+      addMediaFiles(
+        images.map((image) => image.file),
+        images[0]?.source,
+      ),
+  });
 
   const { data, error, isLoading, mutate: mutateAlbum } = useSWR<{
     album: AlbumDetail;
@@ -152,6 +171,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const canCreate = Boolean(
     filesReadyToUpload.length &&
       !isUploading &&
+      !isGoogleImporting &&
       (uploadTarget === "new" ? title.trim() : selectedExistingEventSlug),
   );
   const canSaveCover = Boolean(
@@ -216,8 +236,11 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
     setCoverPreviewUrl(URL.createObjectURL(file));
   };
 
-  const addMedia = (files: FileList | null) => {
-    const images = Array.from(files ?? []).filter((file) =>
+  const addMediaFiles = (
+    files: File[],
+    source?: "google-drive" | "google-photos",
+  ) => {
+    const images = files.filter((file) =>
       file.type.startsWith("image/"),
     );
     if (!images.length) return;
@@ -229,10 +252,15 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
         file,
         previewUrl: URL.createObjectURL(file),
         status: "ready" as UploadStatus,
+        source,
       })),
     ]);
     setErrorMessage("");
     if (mediaInputRef.current) mediaInputRef.current.value = "";
+  };
+
+  const addMedia = (files: FileList | null) => {
+    addMediaFiles(Array.from(files ?? []));
   };
 
   const removeMedia = (localId: string) => {
@@ -760,16 +788,17 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
     const isSide = variant === "side";
 
     return (
-      <div
-        className={`relative overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-[0_28px_80px_rgba(24,24,27,0.08)] ${
-          isSide ? "min-h-[360px]" : "min-h-[520px]"
-        }`}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => {
-          event.preventDefault();
-          addMedia(event.dataTransfer.files);
-        }}
-      >
+      <div className="space-y-2">
+        <div
+          className={`relative overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-[0_28px_80px_rgba(24,24,27,0.08)] ${
+            isSide ? "min-h-[360px]" : "min-h-[520px]"
+          }`}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            addMedia(event.dataTransfer.files);
+          }}
+        >
         <div
           className={`pointer-events-none absolute inset-0 grid gap-7 opacity-60 ${
             isSide ? "grid-cols-2 p-5" : "grid-cols-4 p-8"
@@ -807,7 +836,12 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-3 text-left text-white">
                   <p className="truncate text-xs font-medium">{item.file.name}</p>
                   <p className="text-[11px] text-white/75">
-                    {item.error || statusText(item.status)} ·{" "}
+                    {item.error ||
+                      (item.source === "google-drive"
+                        ? "Google Drive"
+                        : item.source === "google-photos"
+                          ? "Google Photos"
+                          : statusText(item.status))} ·{" "}
                     {formatBytes(item.file.size)}
                   </p>
                 </div>
@@ -855,7 +889,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
               className={`mt-3 text-zinc-400 ${isSide ? "text-lg" : "text-2xl"}`}
             >
               Drop or{" "}
-              <span className="font-semibold text-[#4457ff]">Select Source</span>
+              <span className="font-semibold text-[#4457ff]">upload from device</span>
             </span>
           </button>
         ) : (
@@ -877,6 +911,42 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
           className="hidden"
           onChange={(event) => addMedia(event.target.files)}
         />
+        </div>
+
+        <div className={`grid gap-2 ${isSide ? "grid-cols-1" : "sm:grid-cols-2"}`}>
+          <button
+            type="button"
+            onClick={() => void importFromGoogleDrive()}
+            disabled={isUploading || isGoogleImporting}
+            className="flex h-10 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isImportingDrive ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CloudDownload className="h-4 w-4" />
+            )}
+            Upload from Google Drive
+          </button>
+          <button
+            type="button"
+            onClick={() => void importFromGooglePhotos()}
+            disabled={isUploading || isGoogleImporting}
+            className="flex h-10 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isImportingPhotos ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Images className="h-4 w-4" />
+            )}
+            {googlePhotosButtonLabel}
+          </button>
+        </div>
+
+        {googleImportMessage && (
+          <p className="rounded-2xl bg-zinc-100 px-3 py-2 text-sm text-zinc-600">
+            {googleImportMessage}
+          </p>
+        )}
       </div>
     );
   };

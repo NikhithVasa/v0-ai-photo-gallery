@@ -17,21 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
-import {
-  downloadGoogleDriveImage,
-  pickGoogleDriveImages,
-  prepareGoogleDrivePicker,
-  type GoogleDriveFileMetadata,
-} from "@/lib/google-drive-picker";
-import {
-  completeGooglePhotosPickerSession,
-  createGooglePhotosPickerSession,
-  deleteGooglePhotosPickerSession,
-  downloadGooglePhotosImage,
-  prepareGooglePhotosPicker,
-  type GooglePhotosMediaItem,
-  type GooglePhotosPickerSessionHandle,
-} from "@/lib/google-photos-picker";
+import { useGoogleImageImport } from "@/hooks/use-google-image-import";
 import type { AlbumDetail, AlbumSummary } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -44,8 +30,7 @@ interface QueuedFile {
   localId: string;
   file: File;
   status: UploadStatus;
-  googleDriveMetadata?: GoogleDriveFileMetadata;
-  googlePhotosMetadata?: GooglePhotosMediaItem;
+  source?: "google-drive" | "google-photos";
   s3Key?: string;
   error?: string;
 }
@@ -103,10 +88,27 @@ export function UploadPage() {
   const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
   const [message, setMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const [isImportingDrive, setIsImportingDrive] = useState(false);
-  const [isImportingPhotos, setIsImportingPhotos] = useState(false);
-  const [googlePhotosSession, setGooglePhotosSession] =
-    useState<GooglePhotosPickerSessionHandle | null>(null);
+  const {
+    googlePhotosButtonLabel,
+    importFromGoogleDrive,
+    importFromGooglePhotos,
+    isImporting,
+    isImportingDrive,
+    isImportingPhotos,
+    message: googleImportMessage,
+  } = useGoogleImageImport({
+    onImages: (images) => {
+      setQueuedFiles((current) => [
+        ...images.map((image) => ({
+          localId: crypto.randomUUID(),
+          file: image.file,
+          source: image.source,
+          status: "ready" as UploadStatus,
+        })),
+        ...current,
+      ]);
+    },
+  });
 
   const { data: albumsData } = useSWR<{ albums: AlbumSummary[] }>(
     "/api/albums",
@@ -135,8 +137,7 @@ export function UploadPage() {
   const canUpload = Boolean(
     queuedFiles.some((file) => file.status === "ready" || file.status === "failed") &&
     !isUploading &&
-    !isImportingDrive &&
-    !isImportingPhotos &&
+    !isImporting &&
     (mode === "new"
       ? newAlbumName.trim() && newEventName.trim()
       : selectedAlbumSlug &&
@@ -153,15 +154,6 @@ export function UploadPage() {
       setSelectedAlbumSlug(albums[0].slug);
     }
   }, [albums, mode, selectedAlbumSlug]);
-
-  useEffect(() => {
-    void Promise.all([
-      prepareGoogleDrivePicker(),
-      prepareGooglePhotosPicker(),
-    ]).catch(() => {
-      // The button surfaces configuration or loading errors when the user clicks it.
-    });
-  }, []);
 
   const uploadSummary = useMemo(() => {
     if (!queuedFiles.length) return "No files selected";
@@ -184,174 +176,6 @@ export function UploadPage() {
     setQueuedFiles((current) => [...nextFiles, ...current]);
     setMessage("");
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const importFromGoogleDrive = async () => {
-    if (isImportingDrive || isImportingPhotos || isUploading) return;
-
-    setIsImportingDrive(true);
-    setMessage("");
-
-    try {
-      const selection = await pickGoogleDriveImages();
-      if (!selection.files.length) {
-        setMessage("No Google Drive images selected.");
-        return;
-      }
-
-      const importedFiles: QueuedFile[] = [];
-      const failedFiles: string[] = [];
-
-      for (const [index, selectedFile] of selection.files.entries()) {
-        setMessage(
-          `Reading ${index + 1} of ${selection.files.length} from Google Drive...`,
-        );
-
-        try {
-          const downloaded = await downloadGoogleDriveImage(
-            selectedFile,
-            selection.accessToken,
-          );
-          importedFiles.push({
-            localId: crypto.randomUUID(),
-            file: downloaded.file,
-            googleDriveMetadata: downloaded.metadata,
-            status: "ready",
-          });
-        } catch (error) {
-          failedFiles.push(
-            error instanceof Error ? error.message : `${selectedFile.name} failed`,
-          );
-        }
-      }
-
-      if (importedFiles.length) {
-        setQueuedFiles((current) => [...importedFiles, ...current]);
-      }
-
-      const importedLabel = `${importedFiles.length} Google Drive image${
-        importedFiles.length === 1 ? "" : "s"
-      } ready to upload.`;
-      setMessage(
-        failedFiles.length
-          ? `${importedLabel} ${failedFiles.length} could not be read: ${failedFiles.join(
-              "; ",
-            )}`
-          : importedLabel,
-      );
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not import images from Google Drive",
-      );
-    } finally {
-      setIsImportingDrive(false);
-    }
-  };
-
-  const importFromGooglePhotos = async () => {
-    if (isImportingPhotos || isImportingDrive || isUploading) return;
-
-    setIsImportingPhotos(true);
-    setMessage("");
-    let session: { id: string; accessToken: string } | null = null;
-
-    try {
-      if (!googlePhotosSession) {
-        setMessage("Preparing Google Photos Picker...");
-        const preparedSession = await createGooglePhotosPickerSession();
-        setGooglePhotosSession(preparedSession);
-        setMessage(
-          "Google Photos is ready. Click Continue in Google Photos to choose images.",
-        );
-        return;
-      }
-
-      setMessage("Waiting for your Google Photos selection...");
-      const selection = await completeGooglePhotosPickerSession(googlePhotosSession);
-      setGooglePhotosSession(null);
-      session = {
-        id: selection.sessionId,
-        accessToken: selection.accessToken,
-      };
-
-      const selectedImages = selection.mediaItems.filter((item) =>
-        item.mediaFile.mimeType.startsWith("image/"),
-      );
-      const skippedVideos = selection.mediaItems.length - selectedImages.length;
-
-      if (!selectedImages.length) {
-        setMessage(
-          skippedVideos
-            ? "No images selected. Videos are not supported by the current upload pipeline."
-            : "No Google Photos images selected.",
-        );
-        return;
-      }
-
-      const importedFiles: QueuedFile[] = [];
-      const failedFiles: string[] = [];
-
-      for (const [index, mediaItem] of selectedImages.entries()) {
-        setMessage(
-          `Reading ${index + 1} of ${selectedImages.length} from Google Photos...`,
-        );
-
-        try {
-          const downloaded = await downloadGooglePhotosImage(
-            mediaItem,
-            selection.accessToken,
-          );
-          importedFiles.push({
-            localId: crypto.randomUUID(),
-            file: downloaded.file,
-            googlePhotosMetadata: downloaded.metadata,
-            status: "ready",
-          });
-        } catch (error) {
-          failedFiles.push(
-            error instanceof Error
-              ? error.message
-              : `${mediaItem.mediaFile.filename} failed`,
-          );
-        }
-      }
-
-      if (importedFiles.length) {
-        setQueuedFiles((current) => [...importedFiles, ...current]);
-      }
-
-      const notes = [
-        `${importedFiles.length} Google Photos image${
-          importedFiles.length === 1 ? "" : "s"
-        } ready to upload.`,
-        skippedVideos
-          ? `${skippedVideos} video${skippedVideos === 1 ? " was" : "s were"} skipped.`
-          : "",
-        failedFiles.length
-          ? `${failedFiles.length} could not be read: ${failedFiles.join("; ")}`
-          : "",
-      ].filter(Boolean);
-      setMessage(notes.join(" "));
-    } catch (error) {
-      if (googlePhotosSession) {
-        setGooglePhotosSession(null);
-      }
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not import images from Google Photos",
-      );
-    } finally {
-      if (session) {
-        await deleteGooglePhotosPickerSession(
-          session.id,
-          session.accessToken,
-        ).catch(() => undefined);
-      }
-      setIsImportingPhotos(false);
-    }
   };
 
   const updateFile = (
@@ -620,9 +444,9 @@ export function UploadPage() {
                       <p className="mt-1 truncate pl-6 text-xs text-zinc-500">
                         {item.s3Key ||
                           `${
-                            item.googleDriveMetadata
+                            item.source === "google-drive"
                               ? "Google Drive · "
-                              : item.googlePhotosMetadata
+                              : item.source === "google-photos"
                                 ? "Google Photos · "
                                 : ""
                           }${formatBytes(item.file.size)}`}
@@ -817,7 +641,10 @@ export function UploadPage() {
               type="button"
               variant="outline"
               className="w-full"
-              onClick={importFromGoogleDrive}
+              onClick={() => {
+                setMessage("");
+                void importFromGoogleDrive();
+              }}
               disabled={isImportingDrive || isImportingPhotos || isUploading}
             >
               {isImportingDrive ? (
@@ -832,7 +659,10 @@ export function UploadPage() {
               type="button"
               variant="outline"
               className="w-full"
-              onClick={importFromGooglePhotos}
+              onClick={() => {
+                setMessage("");
+                void importFromGooglePhotos();
+              }}
               disabled={isImportingPhotos || isImportingDrive || isUploading}
             >
               {isImportingPhotos ? (
@@ -840,14 +670,12 @@ export function UploadPage() {
               ) : (
                 <Images className="h-4 w-4" />
               )}
-              {googlePhotosSession
-                ? "Continue in Google Photos"
-                : "Upload from Google Photos"}
+              {googlePhotosButtonLabel}
             </Button>
 
-            {message && (
+            {(message || googleImportMessage) && (
               <p className="rounded-md bg-zinc-100 px-3 py-2 text-sm text-zinc-600">
-                {message}
+                {message || googleImportMessage}
               </p>
             )}
 
