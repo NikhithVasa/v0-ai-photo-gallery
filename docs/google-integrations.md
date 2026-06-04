@@ -102,6 +102,10 @@ queue.
 
 Google Photos uses a separate session-based Picker API:
 
+```text
+https://photospicker.googleapis.com/v1
+```
+
 1. The app requests the `photospicker.mediaitems.readonly` scope.
 2. The app creates a Picker session.
 3. The user clicks **Continue in Google Photos** to open the session's
@@ -115,6 +119,9 @@ supports images only, so selected videos are reported and skipped.
 
 The Google account active in the Photos picker window must match the account
 that authorized the Photos Picker scope.
+
+The production build runs `pnpm verify:google-photos-picker` and fails if app
+source code introduces the old Google Photos Library API hostname or scopes.
 
 ## Environment
 
