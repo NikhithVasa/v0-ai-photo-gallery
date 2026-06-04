@@ -798,7 +798,7 @@ export function UploadPage() {
               className="flex min-h-48 w-full flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 text-center transition hover:border-zinc-400 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400"
             >
               <Upload className="mb-3 h-8 w-8 text-zinc-400" />
-              <span className="text-sm font-medium">Choose photos</span>
+              <span className="text-sm font-medium">Upload from device</span>
               <span className="mt-1 text-xs text-zinc-500">
                 Drag images here or click to browse.
               </span>

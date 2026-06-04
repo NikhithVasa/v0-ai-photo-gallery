@@ -53,6 +53,9 @@ https://www.googleapis.com/auth/photospicker.mediaitems.readonly
 The implementation does not request `drive.readonly`, `drive`, or the Google
 Photos Library API scopes.
 
+If the External OAuth app is still in testing mode, add each developer/test
+Google account under **OAuth consent screen -> Test users**.
+
 Add this OAuth client's authorized JavaScript origin for local development:
 
 ```text
@@ -96,6 +99,9 @@ Google Photos uses a separate session-based Picker API:
 
 Google Photos Picker can display photos and videos. The current app upload API
 supports images only, so selected videos are reported and skipped.
+
+The Google account active in the Photos picker window must match the account
+that authorized the Photos Picker scope.
 
 ## Environment
 

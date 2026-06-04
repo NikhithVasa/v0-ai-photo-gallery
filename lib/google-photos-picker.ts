@@ -275,6 +275,7 @@ async function waitForSelection(
   );
   const deadline = Date.now() + initialTimeout;
   let currentSession = session;
+  let closedPollCount = 0;
 
   while (Date.now() < deadline) {
     const pollInterval = durationToMilliseconds(
@@ -291,7 +292,12 @@ async function waitForSelection(
 
     if (currentSession.mediaItemsSet) return;
     if (pickerWindow.closed) {
-      throw new Error("No Google Photos items were selected.");
+      closedPollCount += 1;
+      if (closedPollCount >= 3) {
+        throw new Error("No Google Photos items were selected.");
+      }
+    } else {
+      closedPollCount = 0;
     }
   }
 
