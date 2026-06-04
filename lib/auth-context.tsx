@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { mutate as mutateSWR } from "swr";
 import { createClient } from "@/lib/supabase-client";
+import { clearAllPasscodeVerifications } from "@/lib/passcode-session";
 import type { Session, User } from "@supabase/supabase-js";
 
 interface AuthContextType {
@@ -109,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     currentUserIdRef.current = null;
     clearClientDataCache();
+    clearAllPasscodeVerifications();
     const { error } = await supabase.auth.signOut({ scope: "local" });
     if (error) throw error;
   };

@@ -19,6 +19,7 @@ import {
   ImagePlus,
   Loader2,
   Mail,
+  Palette,
   Pause,
   Play,
   Share2,
@@ -35,6 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PhotoPresetPanel } from "@/components/photo-preset-panel";
 import { photoAspectRatio } from "@/lib/photo-layout";
 import type { AlbumEvent, AlbumShareSettings, Photo } from "@/lib/types";
 
@@ -561,6 +563,7 @@ export function PhotoLightbox({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPeopleOpen, setIsPeopleOpen] = useState(false);
   const [isAiEditOpen, setIsAiEditOpen] = useState(false);
+  const [isPresetPanelOpen, setIsPresetPanelOpen] = useState(false);
   const [selectedAiPreset, setSelectedAiPreset] = useState("");
   const [aiEditPrompt, setAiEditPrompt] = useState("");
   const [isSubmittingAiEdit, setIsSubmittingAiEdit] = useState(false);
@@ -746,6 +749,7 @@ export function PhotoLightbox({
     setActiveImageIndex(0);
     setIsPeopleOpen(false);
     setIsAiEditOpen(false);
+    setIsPresetPanelOpen(false);
     setSelectedAiPreset("");
     setAiEditPrompt("");
     setAiEditError("");
@@ -959,14 +963,15 @@ export function PhotoLightbox({
       }
 
       if (event.key === "Escape") {
-        if (isAiEditOpen) setIsAiEditOpen(false);
+        if (isPresetPanelOpen) setIsPresetPanelOpen(false);
+        else if (isAiEditOpen) setIsAiEditOpen(false);
         else onClose();
       }
     };
 
     window.addEventListener("keydown", handleWindowKeyDown);
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
-  }, [handlePrev, handleNext, isAiEditOpen, onClose]);
+  }, [handlePrev, handleNext, isAiEditOpen, isPresetPanelOpen, onClose]);
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -1279,7 +1284,8 @@ export function PhotoLightbox({
     <div
       className="fixed inset-0 z-50 flex cursor-default items-center justify-center bg-white/90 text-white backdrop-blur-2xl supports-[backdrop-filter]:bg-white/85"
       onClick={() => {
-        if (isAiEditOpen) setIsAiEditOpen(false);
+        if (isPresetPanelOpen) setIsPresetPanelOpen(false);
+        else if (isAiEditOpen) setIsAiEditOpen(false);
         else if (isPeopleOpen) setIsPeopleOpen(false);
         else onClose();
       }}
@@ -1474,6 +1480,23 @@ export function PhotoLightbox({
                   onClick={() => {
                     setAreControlsVisible(true);
                     setIsPeopleOpen(false);
+                    setIsAiEditOpen(false);
+                    setIsPresetPanelOpen(true);
+                  }}
+                  className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
+                  aria-label="Apply a photo preset"
+                >
+                  <Palette className="h-4 w-4" strokeWidth={1.5} />
+                </button>
+              )}
+
+              {canEditPhoto && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAreControlsVisible(true);
+                    setIsPeopleOpen(false);
+                    setIsPresetPanelOpen(false);
                     setIsAiEditOpen(true);
                   }}
                   className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
@@ -1624,6 +1647,14 @@ export function PhotoLightbox({
           </div>
         )}
       </div>
+
+      {isPresetPanelOpen && (
+        <PhotoPresetPanel
+          albumSlug={albumSlug}
+          photo={photo}
+          onClose={() => setIsPresetPanelOpen(false)}
+        />
+      )}
 
       {isAiEditOpen && (
         <aside

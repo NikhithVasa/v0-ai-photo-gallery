@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
+import { Bookmark, LogOut, Palette, Settings, Upload } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -58,6 +58,19 @@ export function AuthAvatarMenu({ className = "" }: AuthAvatarMenuProps) {
             {user.email}
           </p>
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => router.push("/presets")}>
+          <Palette className="mr-2 h-4 w-4" />
+          Preset Marketplace
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => router.push("/presets/my")}>
+          <Bookmark className="mr-2 h-4 w-4" />
+          My Presets
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => router.push("/presets/upload")}>
+          <Upload className="mr-2 h-4 w-4" />
+          Upload Preset
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => router.push("/settings")}>
           <Settings className="mr-2 h-4 w-4" />

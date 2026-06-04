@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, Copy, Lock, Loader2, RefreshCw, Trash2, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { clearPasscodeVerification } from "@/lib/passcode-session";
 
 interface PasscodeManagerProps {
   albumSlug: string;
@@ -97,6 +98,7 @@ export function AlbumPasscodeManager({
 
       setHasPassword(true);
       setCurrentPassword("Passcode is set");
+      clearPasscodeVerification(entityType, albumSlug);
       onChanged?.();
       toast({
         title: "Passcode saved",
@@ -143,6 +145,7 @@ export function AlbumPasscodeManager({
       setHasPassword(false);
       setCurrentPassword("");
       setNewPassword("");
+      clearPasscodeVerification(entityType, albumSlug);
       onChanged?.();
       toast({
         title: "Passcode removed",

@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useGoogleImageImport } from "@/hooks/use-google-image-import";
+import { usePasscodeVerification } from "@/hooks/use-passcode-verification";
 import type { AlbumDetail, AlbumSummary, Photo } from "@/lib/types";
 
 type CollageTemplate =
@@ -841,7 +842,10 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const [uploadedPhotos, setUploadedPhotos] = useState<CollagePhoto[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
-  const [isPasswordVerified, setIsPasswordVerified] = useState(false);
+  const {
+    isVerified: isPasswordVerified,
+    markVerified: markPasswordVerified,
+  } = usePasscodeVerification("album", albumSlug);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
@@ -870,8 +874,6 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   }, [albumSlug, albumsData?.albums]);
 
   useEffect(() => {
-    if (!albumSlug) return;
-    setIsPasswordVerified(sessionStorage.getItem(`album:${albumSlug}:verified`) === "true");
     setPassword("");
     setPasswordError("");
   }, [albumSlug]);
@@ -1216,8 +1218,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
         setPasswordError("Wrong code.");
         return;
       }
-      sessionStorage.setItem(`album:${albumSlug}:verified`, "true");
-      setIsPasswordVerified(true);
+      markPasswordVerified();
       setPassword("");
     } catch {
       setPasswordError("Wrong code.");

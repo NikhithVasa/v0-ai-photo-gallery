@@ -34,6 +34,8 @@ import { PhotosGrid, type PeopleMatchMode } from "@/components/photos-grid";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { ApsaraMomentsRoot } from "@/components/apsara-moments";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
+import { ApplyPresetSelectionDialog } from "@/components/apply-preset-selection-dialog";
+import { usePasscodeVerification } from "@/hooks/use-passcode-verification";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -186,7 +188,6 @@ function PasswordGate({
         return;
       }
 
-      sessionStorage.setItem(`album:${albumSlug}:verified`, "true");
       onVerified();
     } catch {
       setError("Wrong code. Signed up already? Click ‘Login here’ below.");
@@ -1126,7 +1127,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     searchParams.get("event") || null
   );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isPasswordVerified, setIsPasswordVerified] = useState(false);
+  const {
+    isVerified: isPasswordVerified,
+    markVerified: markPasswordVerified,
+  } = usePasscodeVerification("album", albumSlug);
   const [isCoverDismissed, setIsCoverDismissed] = useState(false);
   const [isCoverCollapsing, setIsCoverCollapsing] = useState(false);
   const [isPhotoSelectionMode, setIsPhotoSelectionMode] = useState(false);
@@ -1438,12 +1442,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }, [album, albumSlug, router, selectedEventSlug]);
 
   useEffect(() => {
-    setIsPasswordVerified(
-      sessionStorage.getItem(`album:${albumSlug}:verified`) === "true"
-    );
-  }, [albumSlug]);
-
-  useEffect(() => {
     if (selectedPeopleIds.length < 2 && peopleMatchMode !== "all") {
       setPeopleMatchMode("all");
     }
@@ -1702,7 +1700,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       <PasswordGate
         albumSlug={albumSlug}
         albumName={album.name}
-        onVerified={() => setIsPasswordVerified(true)}
+        onVerified={markPasswordVerified}
       />
     );
   }
@@ -2167,6 +2165,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                         })}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    {!isShareView && (
+                      <ApplyPresetSelectionDialog
+                        albumSlug={albumSlug}
+                        photoIds={selectedDownloadPhotoIds}
+                        onComplete={async () => {
+                          await mutateStats();
+                        }}
+                      />
+                    )}
                   </div>
                 )}
               </div>

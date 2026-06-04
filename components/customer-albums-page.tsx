@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlbumPasscodeManager } from "@/components/album-passcode-manager";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { toast } from "@/hooks/use-toast";
+import { usePasscodeVerification } from "@/hooks/use-passcode-verification";
 import { customerPublicUrl } from "@/lib/customer-host";
 import type { AlbumSummary } from "@/lib/types";
 
@@ -52,7 +53,10 @@ interface CustomerAlbumsPageProps {
 export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
   const router = useRouter();
   const coverInputRef = useRef<HTMLInputElement>(null);
-  const [isPasswordVerified, setIsPasswordVerified] = useState(false);
+  const {
+    isVerified: isPasswordVerified,
+    markVerified: markPasswordVerified,
+  } = usePasscodeVerification("customer", customerSlug);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [isCheckingPassword, setIsCheckingPassword] = useState(false);
@@ -87,12 +91,6 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
     : "";
   const isAdmin = Boolean(accessData?.isAdmin);
 
-  useEffect(() => {
-    setIsPasswordVerified(
-      sessionStorage.getItem(`customer:${customerSlug}:verified`) === "true"
-    );
-  }, [customerSlug]);
-
   const verifyPassword = async () => {
     if (!password || isCheckingPassword) return;
 
@@ -115,8 +113,7 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
         return;
       }
 
-      sessionStorage.setItem(`customer:${customerSlug}:verified`, "true");
-      setIsPasswordVerified(true);
+      markPasswordVerified();
     } catch {
       setPasswordError("Could not verify the code. Please try again.");
     } finally {
