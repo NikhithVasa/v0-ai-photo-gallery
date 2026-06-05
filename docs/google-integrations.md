@@ -94,8 +94,9 @@ Restrict the key to the Google Picker API. Also find the Google Cloud project's
 numeric **project number**. Picker calls this the App ID; it is not the project
 ID string.
 
-Drive Picker displays image files. Selected Drive files are downloaded through
-the Drive API, converted to `File` objects, and added to the existing upload
+Drive Picker displays image files and folders. Selected Drive files are
+downloaded through the Drive API. Selected folders are scanned recursively for
+image files, converted to `File` objects, and added to the existing upload
 queue.
 
 ## Google Photos Picker

@@ -27,6 +27,9 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 To enable Google login and imports from Google Drive and Google Photos, follow
 [the Google integrations setup guide](docs/google-integrations.md).
 
+To create, upload, and apply `.cube` LUT presets, follow
+[the Preset Marketplace and LUT guide](docs/preset-marketplace-lut-guide.md).
+
 ## Learn More
 
 To learn more, take a look at the following resources:

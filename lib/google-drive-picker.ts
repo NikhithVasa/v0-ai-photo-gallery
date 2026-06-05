@@ -3,6 +3,19 @@
 const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const GOOGLE_API_SCRIPT = "https://apis.google.com/js/api.js";
 const GOOGLE_IDENTITY_SCRIPT = "https://accounts.google.com/gsi/client";
+const GOOGLE_DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
+const DRIVE_API_RETRY_DELAYS_MS = [500, 1_000, 2_000];
+const DRIVE_API_RETRYABLE_STATUSES = new Set([
+  404,
+  408,
+  409,
+  425,
+  429,
+  500,
+  502,
+  503,
+  504,
+]);
 
 interface GoogleTokenResponse {
   access_token?: string;
@@ -113,9 +126,15 @@ export interface GoogleDriveFileMetadata {
   webViewLink?: string;
 }
 
+export interface GoogleDriveSelectionSummary {
+  folderCount: number;
+  imageCount: number;
+}
+
 export interface GoogleDrivePickerResult {
   accessToken: string;
   files: GoogleDriveFileMetadata[];
+  summary: GoogleDriveSelectionSummary;
 }
 
 export interface DownloadedGoogleDriveFile {
@@ -135,8 +154,24 @@ interface DriveApiFileResponse {
   };
 }
 
+interface DriveApiFileListResponse {
+  nextPageToken?: string;
+  files?: DriveApiFileResponse[];
+}
+
 let librariesPromise: Promise<GoogleBrowserApi> | null = null;
 let cachedAccessToken: { value: string; expiresAt: number } | null = null;
+
+class GoogleDriveApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly retryAfterMs?: number,
+  ) {
+    super(message);
+    this.name = "GoogleDriveApiError";
+  }
+}
 
 function getGoogleDriveConfig() {
   const clientId =
@@ -285,8 +320,8 @@ function openDrivePicker(
     const imageView = new googleApi.picker.DocsView(
       googleApi.picker.ViewId.DOCS_IMAGES,
     )
-      .setIncludeFolders(false)
-      .setSelectFolderEnabled(false)
+      .setIncludeFolders(true)
+      .setSelectFolderEnabled(true)
       .setMode(googleApi.picker.DocsViewMode.LIST);
 
     try {
@@ -311,7 +346,11 @@ function openDrivePicker(
             )
             .map((document) => ({
               id: document.id,
-              name: document.name || "Google Drive image",
+              name:
+                document.name ||
+                (document.mimeType === GOOGLE_DRIVE_FOLDER_MIME_TYPE
+                  ? "Google Drive folder"
+                  : "Google Drive image"),
               mimeType: document.mimeType || "application/octet-stream",
               size: document.sizeBytes,
               webViewLink: document.url,
@@ -328,7 +367,31 @@ function openDrivePicker(
   });
 }
 
-async function driveApiFetch(url: string, accessToken: string) {
+function retryAfterMs(response: Response) {
+  const retryAfter = response.headers.get("retry-after");
+  if (!retryAfter) return undefined;
+
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds)) return Math.max(seconds, 0) * 1000;
+
+  const retryAt = new Date(retryAfter).getTime();
+  if (Number.isFinite(retryAt)) return Math.max(retryAt - Date.now(), 0);
+
+  return undefined;
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isRetryableDriveError(error: unknown) {
+  return (
+    error instanceof GoogleDriveApiError &&
+    DRIVE_API_RETRYABLE_STATUSES.has(error.status)
+  );
+}
+
+async function fetchDriveApiOnce(url: string, accessToken: string) {
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -346,24 +409,177 @@ async function driveApiFetch(url: string, accessToken: string) {
       // Drive can return an empty or non-JSON error body.
     }
 
-    throw new Error(detail || `Google Drive request failed (${response.status})`);
+    throw new GoogleDriveApiError(
+      detail || `Google Drive request failed (${response.status})`,
+      response.status,
+      retryAfterMs(response),
+    );
   }
 
   return response;
+}
+
+async function driveApiFetch(url: string, accessToken: string) {
+  let lastError: unknown;
+  const maxAttempts = DRIVE_API_RETRY_DELAYS_MS.length + 1;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      return await fetchDriveApiOnce(url, accessToken);
+    } catch (error) {
+      lastError = error;
+      const retryDelay = DRIVE_API_RETRY_DELAYS_MS[attempt];
+      const hasAnotherAttempt = retryDelay !== undefined;
+      if (!hasAnotherAttempt || !isRetryableDriveError(error)) {
+        throw error;
+      }
+
+      const delay =
+        error instanceof GoogleDriveApiError && error.retryAfterMs !== undefined
+          ? error.retryAfterMs
+          : retryDelay;
+      await wait(delay);
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Google Drive request failed");
+}
+
+function isGoogleDriveFolder(file: GoogleDriveFileMetadata) {
+  return file.mimeType === GOOGLE_DRIVE_FOLDER_MIME_TYPE;
+}
+
+function isGoogleDriveImage(file: GoogleDriveFileMetadata) {
+  return file.mimeType.startsWith("image/");
+}
+
+function driveApiMetadataFromResponse(
+  file: DriveApiFileResponse,
+  fallback?: GoogleDriveFileMetadata,
+): GoogleDriveFileMetadata {
+  return {
+    id: file.id || fallback?.id || "",
+    name: file.name || fallback?.name || "Google Drive file",
+    mimeType: file.mimeType || fallback?.mimeType || "application/octet-stream",
+    size: file.size ? Number(file.size) : fallback?.size,
+    modifiedTime: file.modifiedTime || fallback?.modifiedTime,
+    webViewLink: file.webViewLink || fallback?.webViewLink,
+  };
+}
+
+function escapeDriveQueryValue(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+async function listGoogleDriveFolderChildren(
+  folderId: string,
+  accessToken: string,
+) {
+  const files: GoogleDriveFileMetadata[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const params = new URLSearchParams({
+      fields:
+        "nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,capabilities(canDownload))",
+      pageSize: "1000",
+      q: `'${escapeDriveQueryValue(folderId)}' in parents and trashed = false`,
+      supportsAllDrives: "true",
+      includeItemsFromAllDrives: "true",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+
+    const response = await driveApiFetch(
+      `https://www.googleapis.com/drive/v3/files?${params}`,
+      accessToken,
+    );
+    const payload = (await response.json()) as DriveApiFileListResponse;
+
+    for (const file of payload.files || []) {
+      const metadata = driveApiMetadataFromResponse(file);
+      if (!metadata.id) continue;
+      if (isGoogleDriveImage(metadata) || isGoogleDriveFolder(metadata)) {
+        files.push(metadata);
+      }
+    }
+
+    pageToken = payload.nextPageToken;
+  } while (pageToken);
+
+  return files;
+}
+
+async function expandGoogleDriveSelection(
+  selectedFiles: GoogleDriveFileMetadata[],
+  accessToken: string,
+): Promise<{
+  files: GoogleDriveFileMetadata[];
+  summary: GoogleDriveSelectionSummary;
+}> {
+  const images: GoogleDriveFileMetadata[] = [];
+  const folderQueue = selectedFiles.filter(isGoogleDriveFolder);
+  const seenImages = new Set<string>();
+  const seenFolders = new Set<string>();
+  let folderCount = folderQueue.length;
+
+  for (const selectedFile of selectedFiles) {
+    if (!isGoogleDriveImage(selectedFile) || seenImages.has(selectedFile.id)) {
+      continue;
+    }
+
+    seenImages.add(selectedFile.id);
+    images.push(selectedFile);
+  }
+
+  while (folderQueue.length) {
+    const folder = folderQueue.shift();
+    if (!folder || seenFolders.has(folder.id)) continue;
+    seenFolders.add(folder.id);
+
+    const children = await listGoogleDriveFolderChildren(folder.id, accessToken);
+    for (const child of children) {
+      if (isGoogleDriveFolder(child)) {
+        if (!seenFolders.has(child.id)) {
+          folderQueue.push(child);
+          folderCount += 1;
+        }
+        continue;
+      }
+
+      if (isGoogleDriveImage(child) && !seenImages.has(child.id)) {
+        seenImages.add(child.id);
+        images.push(child);
+      }
+    }
+  }
+
+  return {
+    files: images,
+    summary: {
+      folderCount,
+      imageCount: images.length,
+    },
+  };
 }
 
 export async function pickGoogleDriveImages(): Promise<GoogleDrivePickerResult> {
   const config = getGoogleDriveConfig();
   const googleApi = await loadGoogleLibraries();
   const accessToken = await requestDriveAccessToken(googleApi, config.clientId);
-  const files = await openDrivePicker(
+  const selectedFiles = await openDrivePicker(
     googleApi,
     accessToken,
     config.apiKey,
     config.appId,
   );
+  const expandedSelection = await expandGoogleDriveSelection(
+    selectedFiles,
+    accessToken,
+  );
 
-  return { accessToken, files };
+  return { accessToken, ...expandedSelection };
 }
 
 export async function prepareGoogleDrivePicker() {

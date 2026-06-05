@@ -71,7 +71,11 @@ export function useGoogleImageImport({
     try {
       const selection = await pickGoogleDriveImages();
       if (!selection.files.length) {
-        setMessage("No Google Drive images selected.");
+        setMessage(
+          selection.summary.folderCount
+            ? "No Google Drive images found in the selected folder."
+            : "No Google Drive images selected.",
+        );
         return;
       }
 
@@ -102,16 +106,20 @@ export function useGoogleImageImport({
 
       if (importedImages.length) onImages(importedImages);
 
-      const importedLabel = `${importedImages.length} Google Drive image${
-        importedImages.length === 1 ? "" : "s"
-      } ready.`;
-      setMessage(
+      const notes = [
+        `${importedImages.length} Google Drive image${
+          importedImages.length === 1 ? "" : "s"
+        } ready.`,
+        selection.summary.folderCount
+          ? `Scanned ${selection.summary.folderCount} folder${
+              selection.summary.folderCount === 1 ? "" : "s"
+            }.`
+          : "",
         failedFiles.length
-          ? `${importedLabel} ${failedFiles.length} could not be read: ${failedFiles.join(
-              "; ",
-            )}`
-          : importedLabel,
-      );
+          ? `${failedFiles.length} could not be read: ${failedFiles.join("; ")}`
+          : "",
+      ].filter(Boolean);
+      setMessage(notes.join(" "));
     } catch (error) {
       setMessage(
         error instanceof Error
