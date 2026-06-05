@@ -12,7 +12,6 @@ import {
   Eye,
   Gem,
   ImageOff,
-  Loader2,
   Sparkles,
   Users,
   X,
