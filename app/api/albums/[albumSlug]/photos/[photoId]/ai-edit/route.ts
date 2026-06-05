@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { queryOne } from "@/lib/db";
 import { ensurePhotoEditSchema } from "@/lib/customer-schema";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
@@ -11,6 +12,8 @@ import {
 } from "@/lib/novita";
 
 export const runtime = "nodejs";
+
+const NOVITA_INPUT_MAX_DIMENSION = 2048;
 
 interface Props {
   params: Promise<{ albumSlug: string; photoId: string }>;
@@ -55,7 +58,70 @@ function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+async function normalizeNovitaInputImage(
+  bytes: Uint8Array,
+  contentType?: string | null,
+) {
+  const result = await sharp(bytes, { failOn: "none" })
+    .rotate()
+    .resize({
+      width: NOVITA_INPUT_MAX_DIMENSION,
+      height: NOVITA_INPUT_MAX_DIMENSION,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .flatten({ background: "#ffffff" })
+    .jpeg({ quality: 92, mozjpeg: true })
+    .toBuffer({ resolveWithObject: true });
+
+  return {
+    bytes: result.data,
+    contentType: "image/jpeg",
+    width: result.info.width,
+    height: result.info.height,
+    sourceContentType: contentType ?? null,
+    sourceBytes: bytes.byteLength,
+  };
+}
+
+async function markPhotoEditFailed({
+  editId,
+  error,
+  response,
+}: {
+  editId: string | null;
+  error: unknown;
+  response?: Record<string, unknown>;
+}) {
+  if (!editId) return;
+
+  const message =
+    error instanceof Error ? error.message : "Failed to submit AI photo edit";
+
+  await queryOne<{ id: string }>(
+    `
+    UPDATE photo_edits
+    SET status = 'failed',
+        error_message = $2,
+        response = COALESCE(response, '{}'::jsonb) || $3::jsonb,
+        updated_at = now()
+    WHERE id = $1::uuid
+    RETURNING id
+    `,
+    [
+      editId,
+      message,
+      JSON.stringify({
+        ...(response ?? {}),
+        failed_at: new Date().toISOString(),
+      }),
+    ],
+  ).catch(() => undefined);
+}
+
 export async function POST(request: Request, { params }: Props) {
+  let editId: string | null = null;
+
   try {
     await ensurePhotoEditSchema();
 
@@ -84,8 +150,6 @@ export async function POST(request: Request, { params }: Props) {
       event_slug: string;
       file_name: string | null;
       original_s3_key: string | null;
-      width: number | null;
-      height: number | null;
     }>(
       `
       SELECT
@@ -95,9 +159,7 @@ export async function POST(request: Request, { params }: Props) {
         p.album_event_id,
         e.slug AS event_slug,
         p.file_name,
-        p.original_s3_key,
-        p.width,
-        p.height
+        p.original_s3_key
       FROM photos p
       JOIN albums a ON a.id = p.album_id
       JOIN album_events e ON e.id = p.album_event_id
@@ -114,7 +176,7 @@ export async function POST(request: Request, { params }: Props) {
       return NextResponse.json({ error: "Photo not found" }, { status: 404 });
     }
 
-    const editId = randomUUID();
+    editId = randomUUID();
     const outputS3Key = `albums/${photo.album_slug}/events/${photo.event_slug}/edited/${photoId}/${editId}.png`;
 
     await queryOne<{ id: string }>(
@@ -160,15 +222,19 @@ export async function POST(request: Request, { params }: Props) {
 
     const sourceImage = await getS3ObjectBytes(photo.original_s3_key);
     if (!sourceImage) {
-      return NextResponse.json(
-        { error: "Could not read source image" },
-        { status: 500 },
-      );
+      throw new Error("Could not read source image");
     }
 
-    const aspectRatio = nearestNovitaFluxAspectRatio(photo.width, photo.height);
+    const novitaInput = await normalizeNovitaInputImage(
+      sourceImage.bytes,
+      sourceImage.contentType,
+    );
+    const aspectRatio = nearestNovitaFluxAspectRatio(
+      novitaInput.width,
+      novitaInput.height,
+    );
     const novitaTask = await submitNovitaFluxKontextMaxImageEdit({
-      base64Image: Buffer.from(sourceImage.bytes).toString("base64"),
+      base64Image: Buffer.from(novitaInput.bytes).toString("base64"),
       prompt,
       aspectRatio,
     });
@@ -214,6 +280,14 @@ export async function POST(request: Request, { params }: Props) {
           source_s3_key: photo.original_s3_key,
           result_image_url: novitaResult.imageUrl,
           output_s3_key: outputS3Key,
+          input_image: {
+            content_type: novitaInput.contentType,
+            width: novitaInput.width,
+            height: novitaInput.height,
+            source_content_type: novitaInput.sourceContentType,
+            source_bytes: novitaInput.sourceBytes,
+            submitted_bytes: novitaInput.bytes.byteLength,
+          },
           final_prompt: novitaTask.finalPrompt,
           aspect_ratio: novitaTask.aspectRatio,
           submit_response: novitaTask.response,
@@ -244,6 +318,15 @@ export async function POST(request: Request, { params }: Props) {
     });
   } catch (error) {
     console.error("Error submitting AI photo edit:", error);
+    await markPhotoEditFailed({
+      editId,
+      error,
+      response: {
+        provider: "novita",
+        model: "flux-1-kontext-max",
+      },
+    });
+
     return NextResponse.json(
       {
         error:
