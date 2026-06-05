@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import type { PeopleMatchMode } from "@/components/photos-grid";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import type { Person, Photo } from "@/lib/types";
 
 interface ApsaraFloatingTriggerProps {
@@ -361,6 +362,8 @@ export function ApsaraMomentsOverlay({
   const searchLabel = selectedPeopleCount
     ? `Search (${selectedPeopleCount})`
     : "Search";
+
+  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     if (!isOpen) {

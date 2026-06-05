@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   Copy,
@@ -24,6 +25,7 @@ import {
   Plus,
   Search,
   Share2,
+  Sparkles,
   User,
   Users,
   X,
@@ -1885,6 +1887,55 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   albumSlug={albumSlug}
                   defaultWatermarkText={album.customer?.name || album.name}
                 />
+              )}
+
+              {!isShareView && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+                      aria-label="AI review"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span className="hidden sm:inline">AI Review</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuLabel>AI Review</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={`/albums/${encodeURIComponent(
+                          albumSlug,
+                        )}/culling?mode=best`}
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Pick Best Photos
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={`/albums/${encodeURIComponent(
+                          albumSlug,
+                        )}/culling?mode=problems`}
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                        Needs Review
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={`/albums/${encodeURIComponent(
+                          albumSlug,
+                        )}/culling?mode=by_person`}
+                      >
+                        <Users className="h-4 w-4" />
+                        Best by Person
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
 
               {!isShareView && (

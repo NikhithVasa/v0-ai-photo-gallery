@@ -27,5 +27,5 @@ export function getCustomerSlugFromRequest(request: Request) {
 }
 
 export function customerPublicUrl(customerSlug: string) {
-  return `https://www.${customerSlug}.${ROOT_DOMAIN}`;
+  return `https://${customerSlug}.${ROOT_DOMAIN}`;
 }

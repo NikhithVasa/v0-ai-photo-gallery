@@ -5,6 +5,7 @@ const GOOGLE_API_SCRIPT = "https://apis.google.com/js/api.js";
 const GOOGLE_IDENTITY_SCRIPT = "https://accounts.google.com/gsi/client";
 const GOOGLE_DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 const DRIVE_API_RETRY_DELAYS_MS = [500, 1_000, 2_000];
+const DRIVE_FOLDER_LIST_CONCURRENCY = 4;
 const DRIVE_API_RETRYABLE_STATUSES = new Set([
   404,
   408,
@@ -520,9 +521,10 @@ async function expandGoogleDriveSelection(
 }> {
   const images: GoogleDriveFileMetadata[] = [];
   const folderQueue = selectedFiles.filter(isGoogleDriveFolder);
+  const queuedFolders = new Set(folderQueue.map((folder) => folder.id));
   const seenImages = new Set<string>();
   const seenFolders = new Set<string>();
-  let folderCount = folderQueue.length;
+  let folderCount = queuedFolders.size;
 
   for (const selectedFile of selectedFiles) {
     if (!isGoogleDriveImage(selectedFile) || seenImages.has(selectedFile.id)) {
@@ -534,23 +536,30 @@ async function expandGoogleDriveSelection(
   }
 
   while (folderQueue.length) {
-    const folder = folderQueue.shift();
-    if (!folder || seenFolders.has(folder.id)) continue;
-    seenFolders.add(folder.id);
+    const folderBatch = folderQueue.splice(0, DRIVE_FOLDER_LIST_CONCURRENCY);
+    const childBatches = await Promise.all(
+      folderBatch.map(async (folder) => {
+        if (seenFolders.has(folder.id)) return [];
+        seenFolders.add(folder.id);
+        return listGoogleDriveFolderChildren(folder.id, accessToken);
+      }),
+    );
 
-    const children = await listGoogleDriveFolderChildren(folder.id, accessToken);
-    for (const child of children) {
-      if (isGoogleDriveFolder(child)) {
-        if (!seenFolders.has(child.id)) {
-          folderQueue.push(child);
-          folderCount += 1;
+    for (const children of childBatches) {
+      for (const child of children) {
+        if (isGoogleDriveFolder(child)) {
+          if (!seenFolders.has(child.id) && !queuedFolders.has(child.id)) {
+            queuedFolders.add(child.id);
+            folderQueue.push(child);
+            folderCount += 1;
+          }
+          continue;
         }
-        continue;
-      }
 
-      if (isGoogleDriveImage(child) && !seenImages.has(child.id)) {
-        seenImages.add(child.id);
-        images.push(child);
+        if (isGoogleDriveImage(child) && !seenImages.has(child.id)) {
+          seenImages.add(child.id);
+          images.push(child);
+        }
       }
     }
   }

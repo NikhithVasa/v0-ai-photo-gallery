@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { Check, GitMerge, Images, Loader2, Users, X } from "lucide-react";
 import { PersonCard } from "./person-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import type { AlbumEvent, Person } from "@/lib/types";
 
 const fetcher = async (url: string) => {
@@ -67,6 +68,8 @@ export function PeopleGrid({
     () => new Set(selectedPersonIds),
     [selectedPersonIds]
   );
+
+  useBodyScrollLock(isMergeDialogOpen);
 
   useEffect(() => {
     if (!isMergeDialogOpen) return;

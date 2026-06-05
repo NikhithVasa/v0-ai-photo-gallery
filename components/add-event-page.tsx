@@ -47,6 +47,8 @@ type AiAction =
 
 const PHOTO_UPLOAD_MAX_RETRIES = 3;
 const PHOTO_UPLOAD_RETRY_DELAY_MS = 600;
+const AI_JOB_WAIT_MESSAGE =
+  "This can take a while. You can come back later - we will notify you by email when it is ready.";
 
 interface QueuedFile {
   localId: string;
@@ -288,7 +290,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
     if ((!eventSlugs.length && action !== "process_all_new") || runningAiAction) return;
 
     setRunningAiAction(action);
-    setAiJobMessage("");
+    setAiJobMessage(AI_JOB_WAIT_MESSAGE);
     setErrorMessage("");
 
     try {
@@ -314,8 +316,8 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       }
 
       const jobLabel = payload.runpod?.id
-        ? `Job ${payload.runpod.id} submitted.`
-        : "AI job submitted.";
+        ? `${AI_JOB_WAIT_MESSAGE} Job ${payload.runpod.id} has been submitted.`
+        : AI_JOB_WAIT_MESSAGE;
       setAiJobMessage(jobLabel);
       toast({
         title: "AI job submitted",

@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import Image from "next/image";
 import { ImageUp, Loader2, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 
 interface AlbumCoverEditorProps {
   albumSlug: string;
@@ -25,6 +26,8 @@ export function AlbumCoverEditor({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
+
+  useBodyScrollLock();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = Array.from(event.target.files ?? []).find((f) =>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, Copy, Lock, Loader2, RefreshCw, Trash2, X } from "lucide-react";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { toast } from "@/hooks/use-toast";
 import { clearPasscodeVerification } from "@/lib/passcode-session";
 
@@ -31,6 +32,8 @@ export function AlbumPasscodeManager({
     albumSlug
   )}`;
   const label = entityType === "album" ? "album" : "customer";
+
+  useBodyScrollLock();
 
   useEffect(() => {
     void loadPasscodeStatus();

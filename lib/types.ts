@@ -103,6 +103,28 @@ export interface Photo {
   people?: PhotoPerson[];
 }
 
+export interface PhotoAiAnalysis {
+  albumScore: number | null;
+  clarityScore: number | null;
+  backgroundScore: number | null;
+  cameraGaze: string | null;
+  decorationKeywords: string | null;
+  reason: string | null;
+  qwenStatus: string | null;
+  peopleCount: number | null;
+}
+
+export interface AiReviewPhoto {
+  photo: Photo;
+  ai: PhotoAiAnalysis;
+  problemReasons?: string[];
+}
+
+export interface AiReviewPersonGroup {
+  person: Person;
+  photos: AiReviewPhoto[];
+}
+
 export interface SearchResult {
   photoId: string;
   albumSlug?: string;

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { MessageCircle, X, Search, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import type { Photo } from "@/lib/types";
 
 interface SearchPanelProps {
@@ -57,6 +58,8 @@ export function SearchPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {

@@ -17,6 +17,8 @@ import {
   type GooglePhotosPickerSessionHandle,
 } from "@/lib/google-photos-picker";
 
+const GOOGLE_DRIVE_DOWNLOAD_CONCURRENCY = 4;
+
 export interface GoogleImportedImage {
   file: File;
   source: "google-drive" | "google-photos";
@@ -26,6 +28,32 @@ export interface GoogleImportedImage {
 
 interface UseGoogleImageImportOptions {
   onImages: (images: GoogleImportedImage[]) => void;
+}
+
+type GoogleDriveDownloadResult =
+  | { image: GoogleImportedImage; error?: never }
+  | { image?: never; error: string };
+
+async function mapConcurrent<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(concurrency, 1), items.length);
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        results[index] = await worker(items[index], index);
+      }
+    }),
+  );
+
+  return results;
 }
 
 export function useGoogleImageImport({
@@ -81,27 +109,63 @@ export function useGoogleImageImport({
 
       const importedImages: GoogleImportedImage[] = [];
       const failedFiles: string[] = [];
+      let completedFiles = 0;
+      const concurrentDownloads = Math.min(
+        GOOGLE_DRIVE_DOWNLOAD_CONCURRENCY,
+        selection.files.length,
+      );
 
-      for (const [index, selectedFile] of selection.files.entries()) {
-        setMessage(
-          `Reading ${index + 1} of ${selection.files.length} from Google Drive...`,
-        );
+      setMessage(
+        `Reading ${selection.files.length} Google Drive image${
+          selection.files.length === 1 ? "" : "s"
+        } with ${concurrentDownloads} concurrent download${
+          concurrentDownloads === 1 ? "" : "s"
+        }...`,
+      );
 
-        try {
-          const downloaded = await downloadGoogleDriveImage(
-            selectedFile,
-            selection.accessToken,
-          );
-          importedImages.push({
-            file: downloaded.file,
-            source: "google-drive",
-            googleDriveMetadata: downloaded.metadata,
-          });
-        } catch (error) {
-          failedFiles.push(
-            error instanceof Error ? error.message : `${selectedFile.name} failed`,
-          );
+      const downloadResults = await mapConcurrent<
+        GoogleDriveFileMetadata,
+        GoogleDriveDownloadResult
+      >(
+        selection.files,
+        GOOGLE_DRIVE_DOWNLOAD_CONCURRENCY,
+        async (selectedFile) => {
+          try {
+            const downloaded = await downloadGoogleDriveImage(
+              selectedFile,
+              selection.accessToken,
+            );
+
+            return {
+              image: {
+                file: downloaded.file,
+                source: "google-drive" as const,
+                googleDriveMetadata: downloaded.metadata,
+              },
+            };
+          } catch (error) {
+            return {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : `${selectedFile.name} failed`,
+            };
+          } finally {
+            completedFiles += 1;
+            setMessage(
+              `Read ${completedFiles} of ${selection.files.length} from Google Drive...`,
+            );
+          }
+        },
+      );
+
+      for (const result of downloadResults) {
+        if (result.image) {
+          importedImages.push(result.image);
+          continue;
         }
+
+        failedFiles.push(result.error);
       }
 
       if (importedImages.length) onImages(importedImages);

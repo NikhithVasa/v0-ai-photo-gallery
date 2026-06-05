@@ -75,7 +75,9 @@ export function AddCustomerPage() {
       });
 
       await mutateSWR("/api/customers");
-      router.push(`/customers/${encodeURIComponent(payload.customer.slug)}`);
+      router.push(
+        `/customers/${encodeURIComponent(payload.customer.slug)}?created=1`,
+      );
       router.refresh();
     } catch (error) {
       setErrorMessage(

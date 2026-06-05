@@ -15,13 +15,14 @@ import {
   Share2,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlbumPasscodeManager } from "@/components/album-passcode-manager";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { toast } from "@/hooks/use-toast";
 import { usePasscodeVerification } from "@/hooks/use-passcode-verification";
-import { customerPublicUrl } from "@/lib/customer-host";
+import { customerPublicUrl, normalizeHost } from "@/lib/customer-host";
 import type { AlbumSummary } from "@/lib/types";
 
 const fetcher = async (url: string) => {
@@ -67,6 +68,9 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
   const [isPasscodeManagerOpen, setIsPasscodeManagerOpen] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
+  const [currentHost, setCurrentHost] = useState("");
+  const [wasJustCreated, setWasJustCreated] = useState(false);
+  const [isUrlHintDismissed, setIsUrlHintDismissed] = useState(false);
   const [deletingAlbumSlugs, setDeletingAlbumSlugs] = useState<string[]>([]);
   const { data, error, isLoading, mutate } = useSWR<CustomerAlbumsResponse>(
     `/api/customers/${encodeURIComponent(customerSlug)}/albums`,
@@ -90,6 +94,23 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
     ? customerPublicUrl(data.customer.slug)
     : "";
   const isAdmin = Boolean(accessData?.isAdmin);
+  const customerShareHost = customerShareUrl
+    ? new URL(customerShareUrl).host.toLowerCase()
+    : "";
+  const isOnCustomerHost =
+    Boolean(currentHost && customerShareHost) &&
+    (currentHost === customerShareHost ||
+      currentHost === `www.${customerShareHost}`);
+  const showCustomerUrlHint =
+    wasJustCreated &&
+    Boolean(customerShareUrl) &&
+    !isOnCustomerHost &&
+    !isUrlHintDismissed;
+
+  useEffect(() => {
+    setCurrentHost(normalizeHost(window.location.host));
+    setWasJustCreated(new URLSearchParams(window.location.search).has("created"));
+  }, []);
 
   const verifyPassword = async () => {
     if (!password || isCheckingPassword) return;
@@ -416,6 +437,32 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
             <AuthAvatarMenu />
           </div>
         </header>
+
+        {showCustomerUrlHint && (
+          <div className="mb-6 flex flex-col gap-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              You can use{" "}
+              <a
+                href={customerShareUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold underline-offset-2 hover:underline"
+              >
+                {customerShareHost}
+              </a>{" "}
+              for this customer.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsUrlHintDismissed(true)}
+              className="inline-flex h-8 w-fit shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-semibold text-sky-800 transition hover:bg-sky-100"
+              aria-label="Dismiss customer URL suggestion"
+            >
+              <X className="h-3.5 w-3.5" />
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="rounded-md border border-rose-200 bg-rose-50 px-5 py-8 text-center text-sm text-rose-700">
