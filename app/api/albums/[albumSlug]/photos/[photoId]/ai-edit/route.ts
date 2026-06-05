@@ -7,13 +7,15 @@ import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 import { getS3ObjectBytes, signedUrl, uploadS3Object } from "@/lib/s3";
 import {
   nearestNovitaFluxAspectRatio,
+  NovitaTaskFailedError,
   submitNovitaFluxKontextMaxImageEdit,
   waitForNovitaImageResult,
 } from "@/lib/novita";
 
 export const runtime = "nodejs";
 
-const NOVITA_INPUT_MAX_DIMENSION = 2048;
+const NOVITA_INPUT_MAX_DIMENSION = 1280;
+const NOVITA_INPUT_RETRY_MAX_DIMENSION = 1024;
 
 interface Props {
   params: Promise<{ albumSlug: string; photoId: string }>;
@@ -61,12 +63,13 @@ function stringValue(value: unknown) {
 async function normalizeNovitaInputImage(
   bytes: Uint8Array,
   contentType?: string | null,
+  maxDimension = NOVITA_INPUT_MAX_DIMENSION,
 ) {
   const result = await sharp(bytes, { failOn: "none" })
     .rotate()
     .resize({
-      width: NOVITA_INPUT_MAX_DIMENSION,
-      height: NOVITA_INPUT_MAX_DIMENSION,
+      width: maxDimension,
+      height: maxDimension,
       fit: "inside",
       withoutEnlargement: true,
     })
@@ -79,6 +82,7 @@ async function normalizeNovitaInputImage(
     contentType: "image/jpeg",
     width: result.info.width,
     height: result.info.height,
+    maxDimension,
     sourceContentType: contentType ?? null,
     sourceBytes: bytes.byteLength,
   };
@@ -88,10 +92,12 @@ async function markPhotoEditFailed({
   editId,
   error,
   response,
+  taskId,
 }: {
   editId: string | null;
   error: unknown;
   response?: Record<string, unknown>;
+  taskId?: string | null;
 }) {
   if (!editId) return;
 
@@ -102,6 +108,7 @@ async function markPhotoEditFailed({
     `
     UPDATE photo_edits
     SET status = 'failed',
+        runpod_job_id = COALESCE($4, runpod_job_id),
         error_message = $2,
         response = COALESCE(response, '{}'::jsonb) || $3::jsonb,
         updated_at = now()
@@ -115,12 +122,25 @@ async function markPhotoEditFailed({
         ...(response ?? {}),
         failed_at: new Date().toISOString(),
       }),
+      taskId ?? null,
     ],
   ).catch(() => undefined);
 }
 
+function publicAiEditError(error: unknown) {
+  if (error instanceof NovitaTaskFailedError) {
+    return "Novita failed this edit after retrying with a smaller image. Try a simpler prompt or a different photo.";
+  }
+
+  return error instanceof Error
+    ? error.message
+    : "Failed to submit AI photo edit";
+}
+
 export async function POST(request: Request, { params }: Props) {
   let editId: string | null = null;
+  let latestNovitaTaskId: string | null = null;
+  let latestNovitaFailureResponse: Record<string, unknown> | null = null;
 
   try {
     await ensurePhotoEditSchema();
@@ -225,20 +245,87 @@ export async function POST(request: Request, { params }: Props) {
       throw new Error("Could not read source image");
     }
 
-    const novitaInput = await normalizeNovitaInputImage(
-      sourceImage.bytes,
-      sourceImage.contentType,
-    );
-    const aspectRatio = nearestNovitaFluxAspectRatio(
-      novitaInput.width,
-      novitaInput.height,
-    );
-    const novitaTask = await submitNovitaFluxKontextMaxImageEdit({
-      base64Image: Buffer.from(novitaInput.bytes).toString("base64"),
-      prompt,
-      aspectRatio,
-    });
-    const novitaResult = await waitForNovitaImageResult(novitaTask.taskId);
+    const novitaAttempts: Array<Record<string, unknown>> = [];
+
+    const runNovitaAttempt = async (maxDimension: number) => {
+      const novitaInput = await normalizeNovitaInputImage(
+        sourceImage.bytes,
+        sourceImage.contentType,
+        maxDimension,
+      );
+      const aspectRatio = nearestNovitaFluxAspectRatio(
+        novitaInput.width,
+        novitaInput.height,
+      );
+      const novitaTask = await submitNovitaFluxKontextMaxImageEdit({
+        base64Image: Buffer.from(novitaInput.bytes).toString("base64"),
+        prompt,
+        aspectRatio,
+      });
+      latestNovitaTaskId = novitaTask.taskId;
+
+      const attemptMetadata = {
+        task_id: novitaTask.taskId,
+        input_image: {
+          content_type: novitaInput.contentType,
+          width: novitaInput.width,
+          height: novitaInput.height,
+          max_dimension: novitaInput.maxDimension,
+          source_content_type: novitaInput.sourceContentType,
+          source_bytes: novitaInput.sourceBytes,
+          submitted_bytes: novitaInput.bytes.byteLength,
+        },
+        final_prompt: novitaTask.finalPrompt,
+        aspect_ratio: novitaTask.aspectRatio,
+        submit_response: novitaTask.response,
+      };
+
+      try {
+        const novitaResult = await waitForNovitaImageResult(novitaTask.taskId);
+        novitaAttempts.push({
+          ...attemptMetadata,
+          status: novitaResult.status,
+          result_response: novitaResult.response,
+        });
+
+        return {
+          input: novitaInput,
+          task: novitaTask,
+          result: novitaResult,
+        };
+      } catch (attemptError) {
+        if (attemptError instanceof NovitaTaskFailedError) {
+          latestNovitaFailureResponse = attemptError.response as Record<
+            string,
+            unknown
+          >;
+          novitaAttempts.push({
+            ...attemptMetadata,
+            status: "failed",
+            result_response: attemptError.response,
+            error_message: attemptError.message,
+          });
+        }
+
+        throw attemptError;
+      }
+    };
+
+    let novitaRun: Awaited<ReturnType<typeof runNovitaAttempt>>;
+
+    try {
+      novitaRun = await runNovitaAttempt(NOVITA_INPUT_MAX_DIMENSION);
+    } catch (attemptError) {
+      if (!(attemptError instanceof NovitaTaskFailedError)) {
+        throw attemptError;
+      }
+
+      novitaRun = await runNovitaAttempt(NOVITA_INPUT_RETRY_MAX_DIMENSION);
+    }
+
+    const novitaInput = novitaRun.input;
+    const novitaTask = novitaRun.task;
+    const novitaResult = novitaRun.result;
     let editedUrl: string | null = null;
     let completedS3Key: string | null = null;
 
@@ -290,6 +377,7 @@ export async function POST(request: Request, { params }: Props) {
           },
           final_prompt: novitaTask.finalPrompt,
           aspect_ratio: novitaTask.aspectRatio,
+          attempts: novitaAttempts,
           submit_response: novitaTask.response,
           result_response: novitaResult.response,
         }),
@@ -324,15 +412,16 @@ export async function POST(request: Request, { params }: Props) {
       response: {
         provider: "novita",
         model: "flux-1-kontext-max",
+        task_id: latestNovitaTaskId,
+        result_response: latestNovitaFailureResponse,
       },
+      taskId: latestNovitaTaskId,
     });
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to submit AI photo edit",
+        error: publicAiEditError(error),
+        taskId: latestNovitaTaskId,
       },
       { status: 500 }
     );

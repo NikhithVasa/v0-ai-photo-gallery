@@ -62,6 +62,19 @@ interface NovitaTaskResult {
   extra?: Record<string, unknown>;
 }
 
+export class NovitaTaskFailedError extends Error {
+  taskId: string;
+  response: NovitaTaskResult;
+
+  constructor(taskId: string, response: NovitaTaskResult) {
+    const reason = response.task?.reason || "Novita image edit failed";
+    super(reason);
+    this.name = "NovitaTaskFailedError";
+    this.taskId = taskId;
+    this.response = response;
+  }
+}
+
 function errorMessage(data: unknown, status: number, fallback: string) {
   const record =
     data && typeof data === "object" ? (data as Record<string, unknown>) : {};
@@ -228,7 +241,7 @@ export async function waitForNovitaImageResult(taskId: string) {
 
     const status = taskStatus(latest);
     if (status === "TASK_STATUS_FAILED" || status === "FAILED") {
-      throw new Error(latest.task?.reason || "Novita image edit failed");
+      throw new NovitaTaskFailedError(taskId, latest);
     }
 
     await sleep(intervalMs);

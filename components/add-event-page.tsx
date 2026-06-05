@@ -43,12 +43,17 @@ type AiAction =
   | "rebuild_search"
   | "retry_faces"
   | "check_status"
-  | "clean_temp";
+  | "clean_temp"
+  | "reset_album_ai";
 
 const PHOTO_UPLOAD_MAX_RETRIES = 3;
 const PHOTO_UPLOAD_RETRY_DELAY_MS = 600;
 const AI_JOB_WAIT_MESSAGE =
   "This can take a while. You can come back later - we will notify you by email when it is ready.";
+const ALBUM_WIDE_AI_ACTIONS = new Set<AiAction>([
+  "process_all_new",
+  "reset_album_ai",
+]);
 
 interface QueuedFile {
   localId: string;
@@ -287,7 +292,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
     eventSlugs: string[],
     options: { maxFiles?: number } = {},
   ) => {
-    if ((!eventSlugs.length && action !== "process_all_new") || runningAiAction) return;
+    if ((!eventSlugs.length && !ALBUM_WIDE_AI_ACTIONS.has(action)) || runningAiAction) return;
 
     setRunningAiAction(action);
     setAiJobMessage(AI_JOB_WAIT_MESSAGE);
@@ -1467,15 +1472,17 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                     <button
                       key={action}
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
                         submitAiAction(
                           action as AiAction,
-                          action === "process_all_new" ? [] : selectedAiEventSlugs,
+                          ALBUM_WIDE_AI_ACTIONS.has(action as AiAction)
+                            ? []
+                            : selectedAiEventSlugs,
                           {
                             maxFiles: action === "sample" ? 20 : undefined,
                           }
-                        )
-                      }
+                        );
+                      }}
                       disabled={Boolean(runningAiAction) || isUploading}
                       className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-45"
                     >
@@ -1493,6 +1500,30 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                   Switch Upload target to Existing and choose an event.
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      "Reset all AI data for this album and rerun AI processing? This removes current people, faces, captions, and search metadata before submitting RunPod.",
+                    )
+                  ) {
+                    return;
+                  }
+
+                  submitAiAction("reset_album_ai", []);
+                }}
+                disabled={Boolean(runningAiAction) || isUploading}
+                className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {runningAiAction === "reset_album_ai" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Reset all album AI data and rerun
+              </button>
             </div>
 
             {aiJobMessage && (
