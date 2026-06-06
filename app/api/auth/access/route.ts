@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthAccess, unauthorizedResponse } from "@/lib/auth-access";
+import { apiErrorResponse } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,9 +25,9 @@ export async function GET() {
     );
   } catch (error) {
     console.error("Error resolving auth access:", error);
-    return NextResponse.json(
-      { error: "Failed to resolve auth access" },
-      { status: 500 },
-    );
+    return apiErrorResponse(error, {
+      operation: "Could not resolve account access",
+      stage: "checking your login session and customer permissions",
+    });
   }
 }

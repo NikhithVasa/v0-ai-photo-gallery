@@ -22,7 +22,9 @@ import { customerPublicUrl } from "@/lib/customer-host";
 const fetcher = async (url: string) => {
   const response = await fetch(url);
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Request failed");
+  if (!response.ok) {
+    throw new Error(data.details || data.error || "Request failed");
+  }
   return data;
 };
 
@@ -215,7 +217,9 @@ export function CustomersPage() {
 
         {error && (
           <div className="rounded-md border border-rose-200 bg-rose-50 px-5 py-8 text-center text-sm text-rose-700">
-            Failed to load customers. Please check the database connection.
+            {error instanceof Error
+              ? error.message
+              : "Failed to load customers. Please check the database connection."}
           </div>
         )}
 

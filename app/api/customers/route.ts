@@ -7,6 +7,7 @@ import {
   getAuthAccess,
   unauthorizedResponse,
 } from "@/lib/auth-access";
+import { apiErrorResponse } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -57,12 +58,16 @@ async function availableCustomerSlug(name: string) {
 }
 
 export async function GET() {
+  let stage = "checking account access";
+
   try {
     const access = await getAuthAccess();
     if (!access) return unauthorizedResponse();
 
+    stage = "preparing customer access schema";
     await ensureCustomerAccessSchema();
 
+    stage = "loading customer records";
     const rows = await query<CustomerRow>(
       `
       SELECT
@@ -90,6 +95,7 @@ export async function GET() {
       [access.isAdmin, access.customerIds],
     );
 
+    stage = "signing customer cover photo URLs";
     const customers = await Promise.all(
       rows.map(async (row) => ({
         id: row.id,
@@ -117,12 +123,12 @@ export async function GET() {
       },
     );
   } catch (error) {
-    console.error("Error fetching customers:", error);
+    console.error(`Error fetching customers while ${stage}:`, error);
 
-    return NextResponse.json(
-      { error: "Failed to fetch customers" },
-      { status: 500 }
-    );
+    return apiErrorResponse(error, {
+      operation: "Could not load customers",
+      stage,
+    });
   }
 }
 
