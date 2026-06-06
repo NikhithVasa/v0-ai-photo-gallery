@@ -1,14 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 const RETRY_DELAYS = [0, 500, 1000];
-
-function retrySrc(src: string, attempt: number) {
-  if (attempt === 0) return src;
-  const separator = src.includes("?") ? "&" : "?";
-  return `${src}${separator}avatarRetry=${attempt}`;
-}
 
 export function RetryableAvatarImage({
   src,
@@ -29,13 +23,12 @@ export function RetryableAvatarImage({
     setHasFailed(false);
   }, [src]);
 
-  const currentSrc = useMemo(() => retrySrc(src, attempt), [attempt, src]);
-
   if (hasFailed) return null;
 
   return (
     <img
-      src={currentSrc}
+      key={attempt}
+      src={src}
       alt={alt}
       className={className}
       loading="lazy"

@@ -1429,6 +1429,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   };
 
+  const enterLockedGalleryView = () => {
+    setIsCoverDismissed(true);
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+  };
+
   const scrollToGalleryTop = (
     mode: "instant" | "normal" | "soothing" = "normal",
   ) => {
@@ -1450,7 +1457,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           left: 0,
           behavior: mode === "instant" ? "auto" : "smooth",
         });
-        setIsCoverDismissed(true);
+        enterLockedGalleryView();
         return;
       }
 
@@ -1473,7 +1480,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         }
 
         coverScrollAnimationFrameRef.current = null;
-        setIsCoverDismissed(true);
+        enterLockedGalleryView();
       };
 
       coverScrollAnimationFrameRef.current = window.requestAnimationFrame(animate);
@@ -1530,7 +1537,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       if (window.scrollY >= Math.max(shell.offsetTop - 24, 0)) {
         clearAutoCoverScroll();
         cancelGalleryScrollAnimation();
-        setIsCoverDismissed(true);
+        enterLockedGalleryView();
       }
     };
 
@@ -1881,16 +1888,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f]"
       style={{ backgroundColor: galleryBackgroundColor }}
     >
-      <section
-        onWheel={handleCoverWheel}
-        onTouchStart={handleCoverTouchStart}
-        onTouchMove={handleCoverTouchMove}
-        className="relative flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 py-8 text-center sm:py-10"
-        style={{
-          backgroundColor: galleryBackgroundColor,
-          minHeight: "100svh",
-        }}
-      >
+      {!isCoverDismissed && (
+        <section
+          onWheel={handleCoverWheel}
+          onTouchStart={handleCoverTouchStart}
+          onTouchMove={handleCoverTouchMove}
+          className="relative flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 py-8 text-center sm:py-10"
+          style={{
+            backgroundColor: galleryBackgroundColor,
+            minHeight: "100svh",
+          }}
+        >
           {album.coverPhotoUrl && (
             <Image
               src={album.coverPhotoUrl}
@@ -1979,7 +1987,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </span>
             </button>
           </div>
-      </section>
+        </section>
+      )}
 
       <header
         id="album-gallery-shell"

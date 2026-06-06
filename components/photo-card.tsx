@@ -386,12 +386,37 @@ export const PhotoCard = memo(function PhotoCard({
 }: PhotoCardProps) {
   const imageUrl = photo.previewUrl || photo.thumbnailUrl;
   const aspectRatio = photoAspectRatio(photo);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [shouldLoadImage, setShouldLoadImage] = useState(index < 18);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
   const isShareView = Boolean(shareToken);
   const canDownload = isShareView
     ? Boolean(shareSettings?.allowDownloads)
     : shareSettings?.allowDownloads ?? true;
+
+  useEffect(() => {
+    setShouldLoadImage(index < 18);
+  }, [index, photo.id]);
+
+  useEffect(() => {
+    if (shouldLoadImage) return;
+    const card = cardRef.current;
+    if (!card) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadImage(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "1800px 0px" },
+    );
+
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, [shouldLoadImage]);
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -438,6 +463,7 @@ export const PhotoCard = memo(function PhotoCard({
 
   return (
     <div
+      ref={cardRef}
       className={`group relative w-full overflow-hidden rounded-md bg-muted text-left shadow-sm ring-1 ring-border transition-shadow duration-200 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background ${
         forceFill ? "h-full" : ""
       }`}
@@ -459,17 +485,19 @@ export const PhotoCard = memo(function PhotoCard({
         className="absolute inset-0 cursor-pointer focus:outline-none"
         aria-label={photo.caption ? `Open ${photo.caption}` : "Open photo"}
       >
-        {imageUrl ? (
+        {imageUrl && shouldLoadImage ? (
           <WatermarkedImage
             src={imageUrl}
             alt={photo.caption || "Photo"}
             className="absolute inset-0 h-full w-full object-contain"
-            loading={index < 12 ? "eager" : "lazy"}
+            loading="eager"
             decoding="async"
             fetchPriority={index < 8 ? "high" : "auto"}
             settings={shareSettings}
             fit="contain"
           />
+        ) : imageUrl ? (
+          <div className="absolute inset-0 bg-secondary" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-secondary">
             <span className="text-sm text-muted-foreground">No preview</span>
@@ -594,7 +622,6 @@ export function PhotoLightbox({
   const [areControlsReady, setAreControlsReady] = useState(false);
   const [isBackdropVisible, setIsBackdropVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isMobilePointer, setIsMobilePointer] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -642,8 +669,6 @@ export function PhotoLightbox({
   const canApplyPreset = !isShareView && !shareSettings;
   const canEditPhoto = true;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
-  const photoDescription =
-    (photo.qwenDescription || photo.caption || "").trim();
   const photoPeople = photo.people ?? [];
   const aiEditDownloadName = `${(photo.fileName || `photo-${photo.id}`).replace(
     /\.[^.]+$/,
@@ -782,7 +807,6 @@ export function PhotoLightbox({
     setIsPeopleOpen(false);
     setIsAiEditOpen(false);
     setIsPresetPanelOpen(false);
-    setIsDescriptionExpanded(false);
     setSelectedAiPreset("");
     setAiEditPrompt("");
     setAiEditError("");
@@ -1156,7 +1180,6 @@ export function PhotoLightbox({
     setIsPeopleOpen(false);
     setIsAiEditOpen(false);
     setIsPresetPanelOpen(false);
-    setIsDescriptionExpanded(false);
     setEntryStyle({
       opacity: 0.78,
       transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`,
@@ -1490,30 +1513,6 @@ export function PhotoLightbox({
                 }`}
               />
 
-              {photoDescription && (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setAreControlsVisible(true);
-                    setIsDescriptionExpanded((current) => !current);
-                  }}
-                  className={`absolute inset-x-2 bottom-2 z-20 cursor-pointer rounded-2xl bg-black/45 px-3 py-2 text-left text-white shadow-[0_12px_40px_rgba(0,0,0,0.22)] backdrop-blur-md transition-all duration-200 sm:inset-x-3 sm:bottom-3 ${
-                    isDescriptionExpanded
-                      ? "max-h-[48svh] overflow-y-auto overscroll-contain bg-black/62 py-3"
-                      : "max-h-20 overflow-hidden"
-                  }`}
-                  aria-expanded={isDescriptionExpanded}
-                >
-                  <span
-                    className={`block text-sm leading-5 text-white/95 ${
-                      isDescriptionExpanded ? "" : "line-clamp-3"
-                    }`}
-                  >
-                    {photoDescription}
-                  </span>
-                </button>
-              )}
             </div>
 
             <div
