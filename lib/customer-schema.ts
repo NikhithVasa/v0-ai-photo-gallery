@@ -147,7 +147,10 @@ export function ensureAlbumShareLinkSchema() {
       `,
       []
     );
-  })();
+  })().catch((error) => {
+    albumShareLinkSchemaPromise = null;
+    throw error;
+  });
 
   return albumShareLinkSchemaPromise;
 }

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { query, queryOne } from "@/lib/db";
-import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 
 let authAccessSchemaPromise: Promise<void> | null = null;
 
@@ -286,8 +285,6 @@ export async function canAccessAlbumByShareToken(
   const token = shareTokenFromRequest(request);
   if (!token) return false;
 
-  await ensureAlbumShareLinkSchema();
-
   const row = await queryOne<{ id: string }>(
     `
     SELECT a.id
@@ -300,7 +297,10 @@ export async function canAccessAlbumByShareToken(
     LIMIT 1
     `,
     [token, albumSlug],
-  );
+  ).catch((error) => {
+    console.error("Error checking share token access:", error);
+    return null;
+  });
 
   return Boolean(row);
 }

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
-import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -37,8 +36,6 @@ function serialize(row: ShareTokenRow) {
 
 export async function GET(_request: Request, { params }: Props) {
   try {
-    await ensureAlbumShareLinkSchema();
-
     const { token } = await params;
     const share = await queryOne<ShareTokenRow>(
       `
