@@ -78,13 +78,15 @@ export async function GET(request: Request, { params }: Props) {
       return accessDenied;
     }
 
-    console.info("[share-debug] album detail API ensuring customer schema", {
-      albumSlug,
-    });
-    await ensureCustomerAccessSchema();
-    console.info("[share-debug] album detail API customer schema ready", {
-      albumSlug,
-    });
+    if (!shareToken) {
+      console.info("[share-debug] album detail API ensuring customer schema", {
+        albumSlug,
+      });
+      await ensureCustomerAccessSchema();
+      console.info("[share-debug] album detail API customer schema ready", {
+        albumSlug,
+      });
+    }
 
     console.info("[share-debug] album detail API querying album", {
       albumSlug,

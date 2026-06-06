@@ -77,8 +77,22 @@ const DOWNLOAD_FORMATS: Array<{ format: DownloadFormat; label: string }> = [
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Request failed");
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json")
+    ? await response.json()
+    : null;
+
+  if (!response.ok) {
+    const message =
+      data && typeof data.error === "string" ? data.error : "Request failed";
+    console.error("Album request failed:", {
+      url,
+      status: response.status,
+      message,
+    });
+    throw new Error(`${message} (${response.status})`);
+  }
+
   return data;
 };
 
@@ -1713,6 +1727,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     return (
       <main className="min-h-screen bg-[#fbfaf8] px-4 py-12 text-center text-zinc-600">
         Failed to load album.
+        {error instanceof Error && (
+          <span className="mt-2 block text-sm text-zinc-500">
+            {error.message}
+          </span>
+        )}
       </main>
     );
   }
