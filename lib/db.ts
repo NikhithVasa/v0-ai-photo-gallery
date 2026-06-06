@@ -63,16 +63,7 @@ async function generateAuthToken(): Promise<string> {
   });
   return signer.getAuthToken();
 }
-
 async function buildPoolConfig(): Promise<PoolConfig> {
-  if (process.env.DATABASE_URL) {
-    return {
-      connectionString: process.env.DATABASE_URL,
-      ...poolDefaults,
-      ssl: { rejectUnauthorized: false },
-    };
-  }
-
   const password = RDS_PASSWORD ?? (await generateAuthToken());
 
   return {
@@ -87,7 +78,6 @@ async function buildPoolConfig(): Promise<PoolConfig> {
     ...poolDefaults,
   };
 }
-
 function clearPoolGlobals() {
   global.pgPool = undefined;
   global.pgPoolInitPromise = undefined;

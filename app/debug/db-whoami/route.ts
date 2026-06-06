@@ -12,10 +12,19 @@ declare global {
 const pool =
   global.debugDbWhoamiPool ??
   new Pool({
-    connectionString: process.env.DATABASE_URL,
+    host:
+      process.env.RDS_HOST ||
+      "photo-gallery-postgres-dev.c7o2u4ouqyim.us-east-1.rds.amazonaws.com",
+    port: Number.parseInt(process.env.RDS_PORT || "5432", 10),
+    database: process.env.RDS_DB || "postgres",
+    user: process.env.RDS_USER || "photo_worker",
+    password: process.env.RDS_PASSWORD,
     max: 1,
+    min: 0,
     idleTimeoutMillis: 3000,
     connectionTimeoutMillis: 5000,
+    allowExitOnIdle: true,
+    ssl: { rejectUnauthorized: false },
     application_name: "debug-db-whoami",
   });
 
@@ -38,6 +47,12 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       db: result.rows[0],
+      envSeen: {
+        hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+        rdsHost: process.env.RDS_HOST || null,
+        rdsUser: process.env.RDS_USER || null,
+        rdsDb: process.env.RDS_DB || null,
+      },
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -45,8 +60,14 @@ export async function GET() {
         ok: false,
         error: error?.message ?? String(error),
         code: error?.code,
+        envSeen: {
+          hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+          rdsHost: process.env.RDS_HOST || null,
+          rdsUser: process.env.RDS_USER || null,
+          rdsDb: process.env.RDS_DB || null,
+        },
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
