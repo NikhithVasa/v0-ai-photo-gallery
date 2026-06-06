@@ -1289,7 +1289,8 @@ export function PhotoLightbox({
   const displayAspectRatio =
     photo.width && photo.height ? photo.width / photo.height : 3 / 2;
 
-  const photoFrameWidth = `min(calc(100vw - 1.5rem), 1200px, calc((100svh - 8rem) * ${displayAspectRatio}))`;
+  const photoFrameWidth = `min(calc(100vw - 1.5rem), 1200px, calc((100svh - 9.5rem) * ${displayAspectRatio}))`;
+  const photoFrameMaxHeight = "calc(100svh - 9.5rem)";
 
   const overlayInteractionClass = areOverlaysInteractive
     ? "pointer-events-auto"
@@ -1301,11 +1302,17 @@ export function PhotoLightbox({
       : "transition-transform duration-300 ease-out";
 
   const imageClassName =
-    "pointer-events-none h-full w-full cursor-default select-none object-contain shadow-2xl";
+    "pointer-events-none h-full w-full cursor-default select-none object-contain";
 
   return (
     <div
-      className="fixed inset-0 z-50 flex cursor-default items-center justify-center bg-white/90 text-white backdrop-blur-2xl supports-[backdrop-filter]:bg-white/85"
+      className="fixed inset-0 z-50 flex cursor-default items-center justify-center bg-black text-white"
+      onMouseEnter={() => {
+        if (!isMobilePointer) showControlsBriefly();
+      }}
+      onMouseMove={() => {
+        if (!isMobilePointer) showControlsBriefly();
+      }}
       onClick={() => {
         if (isPresetPanelOpen) setIsPresetPanelOpen(false);
         else if (isAiEditOpen) setIsAiEditOpen(false);
@@ -1327,38 +1334,57 @@ export function PhotoLightbox({
         onMouseEnter={showControlsBriefly}
         onClick={(event) => {
           event.stopPropagation();
-          onClose();
+          setAreControlsVisible(true);
+          setIsPlaying((current) => !current);
         }}
-        className={`absolute right-3 top-3 z-40 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white/75 text-zinc-950 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-6 sm:top-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
-        aria-label="Close photo"
+        className={`absolute left-3 top-3 z-40 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/75 text-zinc-950 shadow-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:left-6 sm:top-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
+        aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
+        aria-pressed={isPlaying}
       >
-        <X className="h-5 w-5 stroke-[2.25]" />
+        {isPlaying ? (
+          <Pause className="h-3.5 w-3.5" />
+        ) : (
+          <Play className="h-3.5 w-3.5" />
+        )}
       </button>
 
       <button
         type="button"
         onMouseEnter={showControlsBriefly}
-        className={`absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:left-8 sm:h-12 sm:w-12 ${overlayOpacityClass} ${overlayInteractionClass}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose();
+        }}
+        className={`absolute right-3 top-3 z-40 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/75 text-zinc-950 shadow-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-6 sm:top-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
+        aria-label="Close photo"
+      >
+        <X className="h-4 w-4 stroke-[2.25]" />
+      </button>
+
+      <button
+        type="button"
+        onMouseEnter={showControlsBriefly}
+        className={`absolute left-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:left-8 ${overlayOpacityClass} ${overlayInteractionClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handlePrev();
         }}
         aria-label="Previous photo"
       >
-        <ChevronLeft className="h-7 w-7 sm:h-9 sm:w-9" strokeWidth={1.5} />
+        <ChevronLeft className="h-6 w-6" strokeWidth={1.5} />
       </button>
 
       <button
         type="button"
         onMouseEnter={showControlsBriefly}
-        className={`absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-8 sm:h-12 sm:w-12 ${overlayOpacityClass} ${overlayInteractionClass}`}
+        className={`absolute right-3 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/70 text-zinc-900 shadow-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-8 ${overlayOpacityClass} ${overlayInteractionClass}`}
         onClick={(event) => {
           event.stopPropagation();
           handleNext();
         }}
         aria-label="Next photo"
       >
-        <ChevronRight className="h-7 w-7 sm:h-9 sm:w-9" strokeWidth={1.5} />
+        <ChevronRight className="h-6 w-6" strokeWidth={1.5} />
       </button>
 
       <div
@@ -1379,11 +1405,9 @@ export function PhotoLightbox({
         {currentImageUrl ? (
           <div
             ref={photoFrameRef}
-            className="relative cursor-default overflow-hidden transition-[transform,opacity] duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
+            className="flex cursor-default flex-col transition-[transform,opacity] duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
             style={{
               width: photoFrameWidth,
-              aspectRatio: displayAspectRatio,
-              maxHeight: "calc(100svh - 8rem)",
               ...entryStyle,
               touchAction: "pan-y",
             }}
@@ -1399,269 +1423,258 @@ export function PhotoLightbox({
               }
             }}
           >
-            <WatermarkedImage
-              src={currentImageUrl}
-              alt={photo.caption || "Photo"}
-              className="pointer-events-none absolute inset-0 h-full w-full cursor-default select-none object-contain opacity-0"
-              decoding="async"
-              fetchPriority="high"
-              draggable={false}
-              onError={handleImageError}
-              settings={shareSettings}
-              fit="contain"
-            />
+            <div
+              className="relative overflow-hidden"
+              style={{
+                aspectRatio: displayAspectRatio,
+                maxHeight: photoFrameMaxHeight,
+              }}
+            >
+              <WatermarkedImage
+                src={currentImageUrl}
+                alt={photo.caption || "Photo"}
+                className="pointer-events-none absolute inset-0 h-full w-full cursor-default select-none object-contain opacity-0"
+                decoding="async"
+                fetchPriority="high"
+                draggable={false}
+                onError={handleImageError}
+                settings={shareSettings}
+                fit="contain"
+              />
 
-            <div className="absolute inset-0 overflow-hidden">
-              <div
-                className={`flex h-full w-full ${swipeTrackClass}`}
-                style={{
-                  transform: `translate3d(calc(-100% + ${dragOffset}px), 0, 0)`,
-                }}
-              >
-                <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
-                  {previousImageUrl && preloadedUrls.has(previousImageUrl) ? (
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className={`flex h-full w-full ${swipeTrackClass}`}
+                  style={{
+                    transform: `translate3d(calc(-100% + ${dragOffset}px), 0, 0)`,
+                  }}
+                >
+                  <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
+                    {previousImageUrl && preloadedUrls.has(previousImageUrl) ? (
+                      <WatermarkedImage
+                        src={previousImageUrl}
+                        alt={previousPhoto?.caption || "Previous photo"}
+                        className={imageClassName}
+                        draggable={false}
+                        settings={shareSettings}
+                        fit="contain"
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="relative flex h-full w-full shrink-0 cursor-default items-center justify-center">
                     <WatermarkedImage
-                      src={previousImageUrl}
-                      alt={previousPhoto?.caption || "Previous photo"}
+                      src={currentImageUrl}
+                      alt={photo.caption || "Photo"}
                       className={imageClassName}
+                      decoding="async"
+                      fetchPriority="high"
                       draggable={false}
+                      onError={handleImageError}
                       settings={shareSettings}
                       fit="contain"
                     />
-                  ) : null}
-                </div>
+                  </div>
 
-                <div className="relative flex h-full w-full shrink-0 cursor-default items-center justify-center">
-                  <WatermarkedImage
-                    src={currentImageUrl}
-                    alt={photo.caption || "Photo"}
-                    className={imageClassName}
-                    decoding="async"
-                    fetchPriority="high"
-                    draggable={false}
-                    onError={handleImageError}
-                    settings={shareSettings}
-                    fit="contain"
-                  />
-                </div>
-
-                <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
-                  {nextImageUrl && preloadedUrls.has(nextImageUrl) ? (
-                    <WatermarkedImage
-                      src={nextImageUrl}
-                      alt={nextPhoto?.caption || "Next photo"}
-                      className={imageClassName}
-                      draggable={false}
-                      settings={shareSettings}
-                      fit="contain"
-                    />
-                  ) : null}
+                  <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
+                    {nextImageUrl && preloadedUrls.has(nextImageUrl) ? (
+                      <WatermarkedImage
+                        src={nextImageUrl}
+                        alt={nextPhoto?.caption || "Next photo"}
+                        className={imageClassName}
+                        draggable={false}
+                        settings={shareSettings}
+                        fit="contain"
+                      />
+                    ) : null}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div
-              className={`pointer-events-none absolute inset-0 z-10 bg-black/55 transition-opacity duration-200 ${
-                isDownloadHovering ? "opacity-100" : "opacity-0"
-              }`}
-            />
-
-            <div
-              onMouseEnter={showControlsBriefly}
-              className={`absolute bottom-4 left-4 z-30 flex cursor-default items-center gap-2 rounded-full bg-white/70 px-2 py-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition-opacity duration-200 sm:bottom-5 sm:left-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setAreControlsVisible(true);
-                  setIsPlaying((current) => !current);
-                }}
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
-                aria-pressed={isPlaying}
-              >
-                {isPlaying ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAreControlsVisible(true)}
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                aria-label="Favorite photo"
-              >
-                <Heart className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-
-              {canEditPhoto && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAreControlsVisible(true);
-                    setIsPeopleOpen(false);
-                    setIsAiEditOpen(false);
-                    setIsPresetPanelOpen(true);
-                  }}
-                  className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                  aria-label="Apply a photo preset"
-                >
-                  <Palette className="h-4 w-4" strokeWidth={1.5} />
-                </button>
-              )}
-
-              {canEditPhoto && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAreControlsVisible(true);
-                    setIsPeopleOpen(false);
-                    setIsPresetPanelOpen(false);
-                    setIsAiEditOpen(true);
-                  }}
-                  className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                  aria-label="Edit photo with AI"
-                >
-                  <Wand2 className="h-4 w-4" strokeWidth={1.5} />
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setAreControlsVisible(true);
-                  handleShare();
-                }}
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                aria-label="Share photo"
-              >
-                <Share2 className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-
-              {canDownload && (
-                <button
-                  type="button"
-                  onMouseEnter={() => {
-                    setAreControlsVisible(true);
-                    setIsDownloadHovering(true);
-                  }}
-                  onMouseLeave={() => {
-                    setIsDownloadHovering(false);
-                  }}
-                  onFocus={() => {
-                    setAreControlsVisible(true);
-                    setIsDownloadHovering(true);
-                  }}
-                  onBlur={() => {
-                    setIsDownloadHovering(false);
-                  }}
-                  onClick={() => {
-                    setAreControlsVisible(true);
-                    handleDownload();
-                  }}
-                  disabled={isDownloading}
-                  className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full drop-shadow-sm transition hover:bg-zinc-900/10 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 disabled:cursor-not-allowed disabled:opacity-45"
-                  aria-label="Download photo"
-                >
-                  <Download className="h-4 w-4" strokeWidth={1.5} />
-                </button>
-              )}
+              <div
+                className={`pointer-events-none absolute inset-0 z-10 bg-black/55 transition-opacity duration-200 ${
+                  isDownloadHovering ? "opacity-100" : "opacity-0"
+                }`}
+              />
             </div>
 
             <div
               onMouseEnter={showControlsBriefly}
-              className={`absolute bottom-4 right-4 z-30 cursor-default transition-opacity duration-200 sm:bottom-5 sm:right-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
+              className={`relative z-30 mt-1 flex h-10 cursor-default items-center justify-between text-white transition-opacity duration-200 ${overlayOpacityClass} ${overlayInteractionClass}`}
               onClick={(event) => event.stopPropagation()}
             >
-              <button
-                type="button"
-                onClick={() => {
-                  setAreControlsVisible(true);
-                  setIsPeopleOpen((current) => !current);
-                }}
-                className="flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-full bg-white/70 px-1 text-zinc-900 shadow-lg backdrop-blur-md ring-1 ring-zinc-900/10 transition hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-zinc-900/30"
-                aria-expanded={isPeopleOpen}
-                aria-label="Show people in this photo"
-              >
-                {photoPeople.length ? (
-                  <span className="flex -space-x-2">
-                    {photoPeople.slice(0, 4).map((person) => (
-                      <span
-                        key={person.id}
-                        className="relative h-7 w-7 overflow-hidden rounded-full bg-zinc-800 ring-1 ring-white/90"
-                      >
-                        {person.coverFaceUrl ? (
-                          <img
-                            src={person.coverFaceUrl}
-                            alt={person.displayName || person.defaultName}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center">
-                            <User className="h-3.5 w-3.5 text-white" />
-                          </span>
-                        )}
-                      </span>
-                    ))}
-                  </span>
-                ) : (
-                  <Users className="h-4 w-4" />
-                )}
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setAreControlsVisible(true)}
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40"
+                  aria-label="Favorite photo"
+                >
+                  <Heart className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </button>
 
-              {isPeopleOpen && (
-                <div className="absolute bottom-full right-0 mb-3 w-[min(78vw,280px)] cursor-default rounded-xl border border-white/20 bg-white/95 p-2 text-zinc-950 shadow-lg backdrop-blur-md">
+                {canEditPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAreControlsVisible(true);
+                      setIsPeopleOpen(false);
+                      setIsAiEditOpen(false);
+                      setIsPresetPanelOpen(true);
+                    }}
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40"
+                    aria-label="Apply a photo preset"
+                  >
+                    <Palette className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </button>
+                )}
+
+                {canEditPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAreControlsVisible(true);
+                      setIsPeopleOpen(false);
+                      setIsPresetPanelOpen(false);
+                      setIsAiEditOpen(true);
+                    }}
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40"
+                    aria-label="Edit photo with AI"
+                  >
+                    <Wand2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAreControlsVisible(true);
+                    handleShare();
+                  }}
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40"
+                  aria-label="Share photo"
+                >
+                  <Share2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </button>
+
+                {canDownload && (
+                  <button
+                    type="button"
+                    onMouseEnter={() => {
+                      setAreControlsVisible(true);
+                      setIsDownloadHovering(true);
+                    }}
+                    onMouseLeave={() => {
+                      setIsDownloadHovering(false);
+                    }}
+                    onFocus={() => {
+                      setAreControlsVisible(true);
+                      setIsDownloadHovering(true);
+                    }}
+                    onBlur={() => {
+                      setIsDownloadHovering(false);
+                    }}
+                    onClick={() => {
+                      setAreControlsVisible(true);
+                      handleDownload();
+                    }}
+                    disabled={isDownloading}
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40 disabled:cursor-not-allowed disabled:opacity-45"
+                    aria-label="Download photo"
+                  >
+                    <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </button>
+                )}
+              </div>
+
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAreControlsVisible(true);
+                    setIsPeopleOpen((current) => !current);
+                  }}
+                  className="flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-full px-1 transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40"
+                  aria-expanded={isPeopleOpen}
+                  aria-label="Show people in this photo"
+                >
                   {photoPeople.length ? (
-                    <div className="space-y-1">
-                      {photoPeople.map((person) => {
-                        const displayName =
-                          person.displayName || person.defaultName;
-
-                        return (
-                          <button
-                            key={person.id}
-                            type="button"
-                            onClick={() => handlePersonClick(person.id)}
-                            className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-zinc-950/[0.05] focus:outline-none focus:ring-2 focus:ring-zinc-300"
-                          >
-                            <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
-                              {person.coverFaceUrl ? (
-                                <img
-                                  src={person.coverFaceUrl}
-                                  alt={displayName}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <span className="flex h-full w-full items-center justify-center text-zinc-400">
-                                  <User className="h-4 w-4" />
-                                </span>
-                              )}
+                    <span className="flex -space-x-1.5">
+                      {photoPeople.slice(0, 4).map((person) => (
+                        <span
+                          key={person.id}
+                          className="relative h-5 w-5 overflow-hidden rounded-full bg-zinc-800 ring-1 ring-white/80"
+                        >
+                          {person.coverFaceUrl ? (
+                            <img
+                              src={person.coverFaceUrl}
+                              alt={person.displayName || person.defaultName}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center">
+                              <User className="h-3 w-3 text-white" />
                             </span>
-
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-medium">
-                                {displayName}
-                              </span>
-                              <span className="block truncate text-xs text-zinc-500">
-                                {person.photoCount} photos
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                          )}
+                        </span>
+                      ))}
+                    </span>
                   ) : (
-                    <p className="px-2 py-2 text-sm text-zinc-500">
-                      No people detected in this photo.
-                    </p>
+                    <Users className="h-3.5 w-3.5" />
                   )}
-                </div>
-              )}
+                </button>
+
+                {isPeopleOpen && (
+                  <div className="absolute bottom-full right-0 mb-2 w-[min(78vw,280px)] cursor-default rounded-xl border border-white/20 bg-white/95 p-2 text-zinc-950 shadow-lg">
+                    {photoPeople.length ? (
+                      <div className="space-y-1">
+                        {photoPeople.map((person) => {
+                          const displayName =
+                            person.displayName || person.defaultName;
+
+                          return (
+                            <button
+                              key={person.id}
+                              type="button"
+                              onClick={() => handlePersonClick(person.id)}
+                              className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-zinc-950/[0.05] focus:outline-none focus:ring-2 focus:ring-zinc-300"
+                            >
+                              <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
+                                {person.coverFaceUrl ? (
+                                  <img
+                                    src={person.coverFaceUrl}
+                                    alt={displayName}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <span className="flex h-full w-full items-center justify-center text-zinc-400">
+                                    <User className="h-4 w-4" />
+                                  </span>
+                                )}
+                              </span>
+
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-medium">
+                                  {displayName}
+                                </span>
+                                <span className="block truncate text-xs text-zinc-500">
+                                  {person.photoCount} photos
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="px-2 py-2 text-sm text-zinc-500">
+                        No people detected in this photo.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ) : (
