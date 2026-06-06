@@ -2000,12 +2000,100 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
       <header
         id="album-gallery-shell"
-        className={`sticky top-0 z-30 px-3 pt-3 transition-transform duration-300 ease-out will-change-transform sm:px-5 ${
-          isNavHidden ? "-translate-y-[calc(100%+0.75rem)]" : "translate-y-0"
+        className={`sticky top-0 z-30 px-0 pt-0 transition-transform duration-300 ease-out will-change-transform sm:px-5 sm:pt-3 ${
+          isNavHidden ? "sm:-translate-y-[calc(100%+0.75rem)]" : "translate-y-0"
         }`}
       >
         <div
-          className="mx-auto flex max-w-7xl flex-col gap-3 rounded-[28px] border border-white/70 bg-white/[0.82] px-3 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:px-4"
+          className="border-b border-white/70 bg-white/[0.88] px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl sm:hidden"
+          style={{ backgroundColor: galleryNavColor }}
+        >
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold tracking-normal text-[#1d1d1f]">
+              {album.name}
+            </h1>
+            <p className="truncate text-xs font-medium text-zinc-500">
+              {album.customer?.name || coverCreditName} · {album.peopleCount} People
+            </p>
+          </div>
+
+          <div
+            className="mt-2 grid h-9 grid-cols-2 gap-1 rounded-full bg-black/5 p-1"
+            role="tablist"
+          >
+            <button
+              role="tab"
+              aria-selected={activeTab === "photos" && !selectedPerson}
+              onClick={() => {
+                setSelectedPerson(null);
+                setApsaraTextSearch(null);
+                setActiveTab("photos");
+                scrollToGalleryTop();
+              }}
+              className={`flex h-7 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition ${
+                activeTab === "photos" && !selectedPerson
+                  ? "bg-[#1d1d1f] text-white shadow-sm"
+                  : "text-zinc-600"
+              }`}
+            >
+              Photos
+            </button>
+
+            <button
+              role="tab"
+              aria-selected={activeTab === "people" || Boolean(selectedPerson)}
+              onClick={() => {
+                setSelectedPerson(null);
+                setApsaraTextSearch(null);
+                setActiveTab("people");
+                scrollToGalleryTop();
+              }}
+              className={`flex h-7 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition ${
+                activeTab === "people" || selectedPerson
+                  ? "bg-[#1d1d1f] text-white shadow-sm"
+                  : "text-zinc-600"
+              }`}
+            >
+              People
+            </button>
+          </div>
+
+          {!selectedPerson && activeTab === "photos" && (
+            <div className="-mx-3 mt-2 overflow-x-auto scroll-smooth px-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex h-9 w-max items-center gap-2 whitespace-nowrap">
+                <button
+                  type="button"
+                  onClick={() => changeEvent(null)}
+                  className={`h-8 shrink-0 cursor-pointer rounded-full px-3 text-sm font-medium transition ${
+                    !selectedEventSlug
+                      ? "bg-[#1d1d1f] text-white"
+                      : "bg-white/70 text-zinc-600 ring-1 ring-black/10"
+                  }`}
+                >
+                  All
+                </button>
+
+                {album.events.map((event) => (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => changeEvent(event.slug)}
+                    className={`h-8 max-w-[170px] shrink-0 cursor-pointer truncate rounded-full px-3 text-sm font-medium transition ${
+                      selectedEventSlug === event.slug
+                        ? "bg-[#1d1d1f] text-white"
+                        : "bg-white/70 text-zinc-600 ring-1 ring-black/10"
+                    }`}
+                  >
+                    {event.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="mx-auto hidden max-w-7xl flex-col gap-3 rounded-[28px] border border-white/70 bg-white/[0.82] px-3 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:flex sm:px-4"
           style={{ backgroundColor: galleryNavColor }}
         >
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -2275,7 +2363,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-2 py-6 sm:px-4 sm:py-8 lg:px-6">
+      <div className="mx-auto max-w-7xl px-2 py-3 sm:px-4 sm:py-8 lg:px-6">
         {selectedPerson ? (
           <PersonView
             albumSlug={albumSlug}
@@ -2323,8 +2411,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             shareSettings={shareSettings}
           />
         ) : (
-          <section className="space-y-5">
-            <div className="px-2 sm:px-0">
+          <section className="space-y-3 sm:space-y-5">
+            <div className="hidden px-2 sm:block sm:px-0">
               {eventHeader}
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <h2 className="text-3xl font-semibold tracking-normal sm:text-4xl">
@@ -2332,7 +2420,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 </h2>
 
                 {isPhotoSelectionMode && (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="hidden flex-wrap items-center gap-2 sm:flex">
                     <span className="text-sm font-medium text-zinc-500">
                       {selectedDownloadPhotoIds.length} selected
                     </span>
@@ -2400,7 +2488,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   </div>
                 )}
               </div>
-              {isAiDataLoadingForEvent && (
+              {!isShareView && isAiDataLoadingForEvent && (
                 <div className="mt-4 rounded-2xl border border-[#d8ddff] bg-[#f3f5ff] px-4 py-3 text-sm text-zinc-700">
                   AI data is loading for this event. Photos are available now;
                   people and search details will appear after processing finishes.
@@ -2425,6 +2513,44 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           </section>
         )}
       </div>
+
+      {activeTab === "photos" && !selectedPerson && (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedPerson(null);
+              setApsaraTextSearch(null);
+              setActiveTab("people");
+              scrollToGalleryTop();
+            }}
+            className={`fixed bottom-4 left-4 z-40 flex h-10 cursor-pointer items-center gap-2 rounded-full bg-zinc-950/90 px-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 sm:hidden ${
+              isNavHidden
+                ? "translate-y-16 opacity-0 pointer-events-none"
+                : "translate-y-0 opacity-100"
+            }`}
+            aria-label="Open people"
+          >
+            <Users className="h-4 w-4" />
+            People
+          </button>
+
+          <Link
+            href={withShareParam(
+              `/albums/${encodeURIComponent(albumSlug)}/culling`,
+              shareToken,
+            )}
+            className={`fixed bottom-4 left-1/2 z-40 flex h-11 w-11 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-zinc-950/90 text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 sm:hidden ${
+              isNavHidden
+                ? "translate-y-16 opacity-0 pointer-events-none"
+                : "translate-y-0 opacity-100"
+            }`}
+            aria-label="AI review"
+          >
+            <Sparkles className="h-5 w-5" />
+          </Link>
+        </>
+      )}
 
       <ApsaraMomentsRoot
         albumSlug={albumSlug}

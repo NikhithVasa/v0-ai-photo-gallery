@@ -260,14 +260,14 @@ export function PeopleGrid({
               <X className="h-4 w-4" />
               Cancel
             </button>
-          ) : !readOnly ? (
+          ) : onPeopleSelectionApply ? (
             <button
               type="button"
               onClick={() => setIsSelectionMode(true)}
               className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 sm:w-auto"
             >
               <Users className="h-4 w-4" />
-              Select / merge faces
+              {readOnly ? "Select multiple people" : "Select / merge faces"}
             </button>
           ) : null}
         </div>
