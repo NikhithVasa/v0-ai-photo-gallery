@@ -111,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     currentUserIdRef.current = null;
     clearClientDataCache();
     clearAllPasscodeVerifications();
-    const { error } = await supabase.auth.signOut({ scope: "local" });
+    const { error } = await supabase.auth.signOut({ scope: "global" });
     if (error) throw error;
   };
 
@@ -122,6 +122,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider,
       options: {
         redirectTo: callbackUrl.toString(),
+        queryParams: {
+          prompt: "login",
+        },
       },
     });
     if (error) throw error;

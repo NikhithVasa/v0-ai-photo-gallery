@@ -88,13 +88,13 @@ const DOWNLOAD_FORMATS: Array<{ format: DownloadFormat; label: string }> = [
 ];
 
 const navPillButtonClass =
-  "flex h-10 cursor-pointer items-center justify-center gap-2 rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
+  "flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-transparent px-3 text-sm font-medium text-zinc-700 ring-1 ring-inset ring-black/10 transition hover:bg-white/55 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20 sm:px-4";
 
 const navPillButtonActiveClass =
   "bg-[#1d1d1f] text-white ring-[#1d1d1f] hover:bg-black hover:text-white";
 
 const navIconButtonClass =
-  "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/80 text-zinc-500 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
+  "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-zinc-500 ring-1 ring-inset ring-black/10 transition hover:bg-white/55 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -550,7 +550,7 @@ function PeopleFilterButton({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={`${navPillButtonClass} min-w-[128px] shrink-0 ${
+          className={`${navPillButtonClass} min-w-[112px] ${
             selectedPeopleIds.length ? navPillButtonActiveClass : ""
           }`}
           aria-expanded={isOpen}
@@ -844,7 +844,7 @@ function AlbumDownloadMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex h-10 min-w-[132px] cursor-pointer items-center justify-center gap-2 rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+          className={`${navPillButtonClass} min-w-[126px]`}
           aria-label="Download photos"
         >
           <Download className="h-4 w-4 shrink-0" />
@@ -1096,7 +1096,7 @@ function AlbumShareDialog({
       <DialogTrigger asChild>
         <button
           type="button"
-          className="flex h-10 min-w-[104px] cursor-pointer items-center justify-center gap-2 rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+          className={`${navPillButtonClass} min-w-[98px]`}
           aria-label="Share album link"
         >
           <Share2 className="h-4 w-4 shrink-0" />
@@ -1336,7 +1336,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }, [data?.album?.id, mutate, mutateStats, selectedEventSlug]);
 
   const { data: peopleFilterData } = useSWR<{ people: Person[] }>(
-    data?.album && (!data.album.passwordRequired || isPasswordVerified)
+    data?.album &&
+      (!data.album.passwordRequired || isPasswordVerified || isShareView)
       ? albumApiUrl(albumSlug, "/people", shareToken)
       : null,
     fetcher,
@@ -1936,8 +1937,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               isCoverCollapsing ? "-translate-y-8" : "translate-y-0"
             }`}
           >
-            <div className="relative grid w-full items-center gap-5 sm:grid-cols-[minmax(80px,180px)_minmax(250px,380px)_1fr] sm:gap-4 lg:gap-6">
-              <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center sm:justify-end">
+            <div className="relative grid w-full items-center gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(250px,380px)_minmax(0,1fr)] sm:gap-4 lg:gap-6">
+              <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
                 <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[340px] sm:-rotate-90">
                   <span>Photos by</span>
                   <span className="ml-1 text-zinc-800">{coverCreditName}</span>
@@ -2017,7 +2018,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           style={{ backgroundColor: galleryNavColor }}
         >
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
               <div className="flex min-w-0 items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
@@ -2047,7 +2048,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                       }}
                       className={`flex h-8 min-w-20 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
                         activeTab === "photos"
-                          ? "bg-white text-[#1d1d1f] shadow-sm"
+                          ? "bg-[#1d1d1f] text-white shadow-sm"
                           : "text-zinc-500"
                       }`}
                     >
@@ -2066,7 +2067,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                       }}
                       className={`flex h-8 min-w-20 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
                         activeTab === "people"
-                          ? "bg-white text-[#1d1d1f] shadow-sm"
+                          ? "bg-[#1d1d1f] text-white shadow-sm"
                           : "text-zinc-500"
                       }`}
                     >
@@ -2078,7 +2079,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </div>
 
               {!selectedPerson && activeTab === "photos" && (
-                <div className="flex min-w-0 gap-2">
+                <div className="flex max-w-full flex-wrap gap-2 sm:flex-nowrap">
                   <PeopleFilterButton
                     people={filterPeople}
                     selectedPeople={selectedFilterPeople}
@@ -2097,7 +2098,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               )}
             </div>
 
-            <div className="flex max-w-full items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden xl:justify-end">
+            <div className="flex max-w-full flex-wrap items-center gap-2 overflow-visible sm:flex-nowrap sm:overflow-x-auto sm:[scrollbar-width:none] sm:[-ms-overflow-style:none] sm:[&::-webkit-scrollbar]:hidden xl:justify-end">
               <AlbumDownloadMenu
                 albumSlug={albumSlug}
                 shareToken={shareToken}
@@ -2120,7 +2121,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     setApsaraTextSearch(null);
                     scrollToGalleryTop();
                   }}
-                  className={`${navPillButtonClass} min-w-[112px] ${
+                  className={`${navPillButtonClass} min-w-[102px] ${
                     isPhotoSelectionMode ? navPillButtonActiveClass : ""
                   }`}
                   aria-pressed={isPhotoSelectionMode}
@@ -2147,7 +2148,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className={`${navPillButtonClass} min-w-[116px]`}
+                      className={`${navPillButtonClass} min-w-[118px] px-3`}
                       aria-label="AI review"
                     >
                       <Sparkles className="h-4 w-4 shrink-0" />
@@ -2194,7 +2195,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               {!isShareView && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
-                  className={`${navPillButtonClass} min-w-[136px]`}
+                  className={`${navPillButtonClass} min-w-[118px]`}
                   aria-label="Create collage"
                 >
                   <LayoutTemplate className="h-4 w-4 shrink-0" />
@@ -2205,7 +2206,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               {!isShareView && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
-                  className="flex h-10 min-w-[132px] items-center justify-center gap-2 rounded-full bg-[#1d1d1f] px-4 text-sm font-medium text-white shadow-[0_10px_28px_rgba(0,0,0,0.16)] transition hover:bg-black focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+                  className={`${navPillButtonClass} min-w-[106px]`}
                   aria-label="Manage events"
                 >
                   <Plus className="h-4 w-4 shrink-0" />
@@ -2229,7 +2230,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     }}
                     className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                       activeTab === "photos"
-                        ? "bg-white text-[#1d1d1f] shadow-sm"
+                        ? "bg-[#1d1d1f] text-white shadow-sm"
                         : "text-zinc-500 hover:text-zinc-950"
                     }`}
                   >
@@ -2248,7 +2249,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     }}
                     className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                       activeTab === "people"
-                        ? "bg-white text-[#1d1d1f] shadow-sm"
+                        ? "bg-[#1d1d1f] text-white shadow-sm"
                         : "text-zinc-500 hover:text-zinc-950"
                     }`}
                   >
