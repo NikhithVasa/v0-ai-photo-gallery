@@ -47,6 +47,10 @@ const PRESETS = new Map<string, string>([
     "Convert this into a clean professional studio portrait while preserving the person's identity and outfit.",
   ],
   [
+    "animate_demonslayer",
+    "Animate the image in a dynamic, high-energy Demon Slayer anime style with flowing elemental effects, dynamic motion lines, and dramatic atmospheric lighting.",
+  ],
+  [
     "make_cinematic",
     "Give this photo a cinematic look with rich contrast, beautiful lighting, and natural colors.",
   ],

@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 import {
   AlertTriangle,
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   Check,
   Download,
@@ -530,137 +532,237 @@ function ClusterCard({
   );
 }
 
-function DetailPanel({
+function CullingLightbox({
   item,
+  photos,
   state,
   onKeep,
   onReject,
+  onClose,
+  onPrev,
+  onNext,
 }: {
-  item: AiReviewPhoto | null;
+  item: AiReviewPhoto;
+  photos: AiReviewPhoto[];
   state: "kept" | "rejected" | null;
   onKeep: () => void;
   onReject: () => void;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
 }) {
-  if (!item) {
-    return (
-      <aside className="hidden border-l border-zinc-200 bg-white px-5 py-5 lg:block">
-        <div className="h-full rounded-md border border-dashed border-zinc-200" />
-      </aside>
-    );
-  }
+  const imageUrl = item.photo.previewUrl || item.photo.thumbnailUrl;
+  const index = photos.findIndex((p) => p.photo.id === item.photo.id);
+  const hasPrev = index > 0;
+  const hasNext = index < photos.length - 1;
 
-  const { photo, ai, problemReasons } = item;
-  const imageUrl = photo.previewUrl || photo.thumbnailUrl;
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") {
+        return;
+      }
+
+      if (e.key === "ArrowLeft" && hasPrev) {
+        onPrev();
+      } else if (e.key === "ArrowRight" && hasNext) {
+        onNext();
+      } else if (e.key.toLowerCase() === "k") {
+        onKeep();
+      } else if (e.key.toLowerCase() === "r") {
+        onReject();
+      } else if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [hasPrev, hasNext, onPrev, onNext, onKeep, onReject, onClose]);
 
   return (
-    <aside className="hidden min-h-0 border-l border-zinc-200 bg-white lg:block">
-      <div className="sticky top-[96px] max-h-[calc(100svh-96px)] overflow-y-auto px-5 py-5">
-        <div className="relative aspect-[4/5] overflow-hidden rounded-md bg-zinc-100">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={photo.caption || photo.fileName || "Photo"}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center text-zinc-400">
-              <ImageOff className="h-10 w-10" />
-            </span>
-          )}
+    <div
+      className="fixed inset-0 z-50 flex flex-col sm:flex-row bg-zinc-950 text-white"
+      onClick={onClose}
+    >
+      {/* Photo View Area */}
+      <div
+        className="relative flex flex-1 items-center justify-center bg-black p-4 md:p-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={item.photo.fileName || "Photo"}
+            className="max-h-[85vh] max-w-full rounded-lg object-contain shadow-2xl transition-all"
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-3 text-zinc-500">
+            <ImageOff className="h-12 w-12" />
+            <p>No preview available</p>
+          </div>
+        )}
+
+        {/* Previous Button */}
+        {hasPrev && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPrev();
+            }}
+            className="absolute left-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 hover:text-white transition"
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </button>
+        )}
+
+        {/* Next Button */}
+        {hasNext && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onNext();
+            }}
+            className="absolute right-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 hover:text-white transition"
+          >
+            <ChevronRight className="h-8 w-8" />
+          </button>
+        )}
+
+        {/* Help Badge for keyboard shortcuts */}
+        <div className="absolute bottom-4 left-4 rounded bg-zinc-900/80 px-2.5 py-1 text-xs text-zinc-400 backdrop-blur-sm sm:block hidden border border-zinc-800">
+          Use <kbd className="font-mono text-white bg-zinc-850 px-1 rounded">←</kbd> / <kbd className="font-mono text-white bg-zinc-850 px-1 rounded">→</kbd> to navigate • <kbd className="font-mono text-white bg-zinc-855 px-1 rounded">K</kbd> to Keep • <kbd className="font-mono text-white bg-zinc-855 px-1 rounded">R</kbd> to Reject
+        </div>
+      </div>
+
+      {/* Sidebar Details Area */}
+      <div
+        className="flex w-full flex-col border-t border-zinc-800 bg-zinc-900 text-zinc-100 sm:w-[400px] sm:border-l sm:border-t-0"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sidebar Header */}
+        <div className="flex items-center justify-between border-b border-zinc-850 px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold text-white" title={item.photo.fileName || ""}>
+              {item.photo.fileName || "Photo details"}
+            </h2>
+            <p className="text-xs text-zinc-400">{item.photo.eventName || "Album Photo"}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-450 hover:bg-zinc-800 hover:text-white transition"
+            aria-label="Close details"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
-          <Button
-            type="button"
-            variant={state === "kept" ? "default" : "outline"}
-            onClick={onKeep}
-            className="flex-1"
-          >
-            <Check className="h-4 w-4" />
-            Keep
-          </Button>
-          <Button
-            type="button"
-            variant={state === "rejected" ? "destructive" : "outline"}
-            onClick={onReject}
-            className="flex-1"
-          >
-            <X className="h-4 w-4" />
-            Reject
-          </Button>
-        </div>
-
-        <div className="mt-5 space-y-4">
-          <div>
-            <p className="truncate text-sm font-semibold text-zinc-950">
-              {photo.fileName || photo.caption || "Photo"}
-            </p>
-            <p className="text-xs font-medium text-zinc-500">
-              {photo.eventName}
-            </p>
+        {/* Sidebar Scrollable Content */}
+        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-6">
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onKeep}
+              className={cn(
+                "flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all",
+                state === "kept"
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-950/30"
+                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-750 hover:text-white border border-zinc-700"
+              )}
+            >
+              <Check className="h-4 w-4" />
+              {state === "kept" ? "Kept" : "Keep (K)"}
+            </button>
+            <button
+              type="button"
+              onClick={onReject}
+              className={cn(
+                "flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all",
+                state === "rejected"
+                  ? "bg-rose-600 text-white shadow-lg shadow-rose-950/30"
+                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-750 hover:text-white border border-zinc-700"
+              )}
+            >
+              <X className="h-4 w-4" />
+              {state === "rejected" ? "Rejected" : "Reject (R)"}
+            </button>
           </div>
 
+          {/* AI Scores Grid */}
           <div className="grid grid-cols-3 gap-2">
             {[
-              ["Score", ai.albumScore],
-              ["Clarity", ai.clarityScore],
-              ["Background", ai.backgroundScore],
+              ["Score", item.ai.albumScore],
+              ["Clarity", item.ai.clarityScore],
+              ["Background", item.ai.backgroundScore],
             ].map(([label, value]) => (
               <div
                 key={label as string}
-                className="rounded-md border border-zinc-200 bg-zinc-50 p-3"
+                className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 text-center"
               >
-                <p className="text-xs font-medium text-zinc-500">
+                <p className="text-[11px] font-medium text-zinc-400">
                   {label as string}
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-zinc-950">
+                <p className="mt-1 text-2xl font-bold text-white">
                   {scoreLabel(value as number | null)}
                 </p>
               </div>
             ))}
           </div>
 
-          {ai.reason && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+          {/* AI Reason/Analysis */}
+          {item.ai.reason && (
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-zinc-400">
                 AI Analysis
               </p>
-              <p className="mt-2 text-sm leading-6 text-zinc-700">{ai.reason}</p>
+              <p className="rounded-xl bg-zinc-950/20 p-3 text-sm leading-relaxed text-zinc-300 border border-zinc-800">
+                {item.ai.reason}
+              </p>
             </div>
           )}
 
-          <div className="space-y-2 text-sm text-zinc-700">
-            <p>
-              <span className="font-medium text-zinc-950">Gaze:</span>{" "}
-              {ai.cameraGaze || "-"}
-            </p>
-            <p>
-              <span className="font-medium text-zinc-950">People:</span>{" "}
-              {scoreLabel(ai.peopleCount)}
-            </p>
-            {ai.decorationKeywords && (
-              <p>
-                <span className="font-medium text-zinc-950">Tags:</span>{" "}
-                {ai.decorationKeywords}
-              </p>
+          {/* Other Attributes */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/20 p-4 space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-zinc-400">Gaze direction</span>
+              <span className="font-semibold text-zinc-200">{item.ai.cameraGaze || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-400">People count</span>
+              <span className="font-semibold text-zinc-200">{scoreLabel(item.ai.peopleCount)}</span>
+            </div>
+            {item.ai.decorationKeywords && (
+              <div className="border-t border-zinc-800/80 pt-3">
+                <span className="block text-xs text-zinc-400 mb-1">Tags</span>
+                <span className="font-medium text-zinc-300">{item.ai.decorationKeywords}</span>
+              </div>
             )}
           </div>
 
-          {problemReasons?.length ? (
+          {/* Problem tags */}
+          {item.problemReasons?.length ? (
             <div className="space-y-2">
-              {problemReasons.map((reason) => (
-                <span
-                  key={reason}
-                  className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 ring-1 ring-rose-200"
-                >
-                  {reason}
-                </span>
-              ))}
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-zinc-400">
+                Issues flagged
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {item.problemReasons.map((reason) => (
+                  <span
+                    key={reason}
+                    className="inline-flex rounded-full bg-rose-950/50 px-2.5 py-1 text-xs font-medium text-rose-350 ring-1 ring-rose-900/30"
+                  >
+                    {reason}
+                  </span>
+                ))}
+              </div>
             </div>
           ) : null}
         </div>
       </div>
-    </aside>
+    </div>
   );
 }
 
@@ -847,7 +949,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1600px] lg:grid-cols-[220px_minmax(0,1fr)_360px]">
+      <div className="mx-auto grid max-w-[1600px] lg:grid-cols-[220px_1fr]">
         <nav className="border-b border-zinc-200 bg-white px-3 py-3 lg:min-h-[calc(100svh-97px)] lg:border-b-0 lg:border-r">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-1">
             {MODES.map((item) => {
@@ -935,7 +1037,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                         key={`${group.person.id}-${item.photo.id}`}
                         item={item}
                         state={photoState(item.photo.id)}
-                        isActive={selectedItem?.photo.id === item.photo.id}
+                        isActive={selectedPhotoId === item.photo.id}
                         onSelect={() => setSelectedPhotoId(item.photo.id)}
                         onKeep={() => markKept(item.photo.id)}
                         onReject={() => markRejected(item.photo.id)}
@@ -963,7 +1065,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                       <ClusterCard
                         cluster={cluster}
                         state={photoState(reviewItem.photo.id)}
-                        isActive={selectedItem?.photo.id === reviewItem.photo.id}
+                        isActive={selectedPhotoId === reviewItem.photo.id}
                         onSelect={() => setSelectedPhotoId(reviewItem.photo.id)}
                         onKeep={() => markKept(reviewItem.photo.id)}
                         onReject={() => markRejected(reviewItem.photo.id)}
@@ -990,7 +1092,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                   <PhotoTile
                     item={item}
                     state={photoState(item.photo.id)}
-                    isActive={selectedItem?.photo.id === item.photo.id}
+                    isActive={selectedPhotoId === item.photo.id}
                     onSelect={() => setSelectedPhotoId(item.photo.id)}
                     onKeep={() => markKept(item.photo.id)}
                     onReject={() => markRejected(item.photo.id)}
@@ -1004,18 +1106,30 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
             </div>
           )}
         </section>
+      </div>
 
-        <DetailPanel
+      {selectedPhotoId !== null && selectedItem && selectedItem.photo.id === selectedPhotoId && (
+        <CullingLightbox
           item={selectedItem}
-          state={selectedItem ? photoState(selectedItem.photo.id) : null}
-          onKeep={() => {
-            if (selectedItem) markKept(selectedItem.photo.id);
+          photos={photos}
+          state={photoState(selectedItem.photo.id)}
+          onKeep={() => markKept(selectedItem.photo.id)}
+          onReject={() => markRejected(selectedItem.photo.id)}
+          onClose={() => setSelectedPhotoId(null)}
+          onPrev={() => {
+            const index = photos.findIndex((item) => item.photo.id === selectedPhotoId);
+            if (index > 0) {
+              setSelectedPhotoId(photos[index - 1].photo.id);
+            }
           }}
-          onReject={() => {
-            if (selectedItem) markRejected(selectedItem.photo.id);
+          onNext={() => {
+            const index = photos.findIndex((item) => item.photo.id === selectedPhotoId);
+            if (index < photos.length - 1) {
+              setSelectedPhotoId(photos[index + 1].photo.id);
+            }
           }}
         />
-      </div>
+      )}
     </main>
   );
 }

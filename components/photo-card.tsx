@@ -134,6 +134,11 @@ const AI_EDIT_PRESETS = [
     prompt: "Convert this into a clean professional studio portrait while preserving the person's identity and outfit.",
   },
   {
+    key: "animate_demonslayer",
+    label: "Animate image demonslayer",
+    prompt: "Animate the image in a dynamic, high-energy Demon Slayer anime style with flowing elemental effects, dynamic motion lines, and dramatic atmospheric lighting.",
+  },
+  {
     key: "make_cinematic",
     label: "Cinematic look",
     prompt: "Give this photo a cinematic look with rich contrast, beautiful lighting, and natural colors.",
