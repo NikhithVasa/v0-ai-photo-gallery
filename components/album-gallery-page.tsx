@@ -1271,7 +1271,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const autoCoverScrollDoneRef = useRef(false);
   const autoCoverScrollTimerRef = useRef<number | null>(null);
   const coverScrollAnimationFrameRef = useRef<number | null>(null);
-  const coverCollapseTimerRef = useRef<number | null>(null);
   const coverTouchStartYRef = useRef<number | null>(null);
   const coverGestureTriggeredRef = useRef(false);
   const lastScrollYRef = useRef(0);
@@ -1291,7 +1290,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     markVerified: markPasswordVerified,
   } = usePasscodeVerification("album", albumSlug);
   const [isCoverDismissed, setIsCoverDismissed] = useState(false);
-  const [isCoverCollapsing, setIsCoverCollapsing] = useState(false);
   const [isPhotoSelectionMode, setIsPhotoSelectionMode] = useState(false);
   const [selectedDownloadPhotoIds, setSelectedDownloadPhotoIds] = useState<string[]>([]);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -1418,30 +1416,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   };
 
-  const collapseCoverToGallery = () => {
-    clearAutoCoverScroll();
-    cancelGalleryScrollAnimation();
-    if (coverCollapseTimerRef.current !== null) {
-      window.clearTimeout(coverCollapseTimerRef.current);
-      coverCollapseTimerRef.current = null;
-    }
-    setIsCoverCollapsing(true);
-
-    coverCollapseTimerRef.current = window.setTimeout(() => {
-      coverCollapseTimerRef.current = null;
-      setIsCoverDismissed(true);
-      setIsCoverCollapsing(false);
-      window.scrollTo({ top: 0, left: 0 });
-    }, 760);
-  };
-
   const scrollToGalleryTop = (mode: "normal" | "soothing" = "normal") => {
     requestAnimationFrame(() => {
       clearAutoCoverScroll();
-      if (mode === "soothing" && !isCoverDismissed) {
-        collapseCoverToGallery();
-        return;
-      }
       cancelGalleryScrollAnimation();
 
       const shell = document.getElementById("album-gallery-shell");
@@ -1461,7 +1438,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
       const startTop = window.scrollY;
       const distance = targetTop - startTop;
-      const duration = 1300;
+      const duration = mode === "soothing" && !isCoverDismissed ? 900 : 1300;
       const startedAt = performance.now();
       const easeInOutSine = (value: number) =>
         -(Math.cos(Math.PI * value) - 1) / 2;
@@ -1487,7 +1464,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   const triggerCoverGestureScroll = () => {
-    if (isCoverDismissed || isCoverCollapsing || coverGestureTriggeredRef.current) {
+    if (isCoverDismissed || coverGestureTriggeredRef.current) {
       return;
     }
 
@@ -1520,7 +1497,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     coverGestureTriggeredRef.current = false;
     coverTouchStartYRef.current = null;
     setIsCoverDismissed(false);
-    setIsCoverCollapsing(false);
     setIsPhotoSelectionMode(false);
     setSelectedDownloadPhotoIds([]);
   }, [albumSlug]);
@@ -1535,6 +1511,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     if (isCoverDismissed) return;
 
     const dismissWhenGalleryIsReached = () => {
+      if (coverScrollAnimationFrameRef.current !== null) return;
+
       const shell = document.getElementById("album-gallery-shell");
       if (!shell) return;
 
@@ -1542,7 +1520,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         clearAutoCoverScroll();
         cancelGalleryScrollAnimation();
         setIsCoverDismissed(true);
-        setIsCoverCollapsing(false);
         requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
       }
     };
@@ -1579,10 +1556,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       if (autoCoverScrollTimerRef.current !== null) {
         window.clearTimeout(autoCoverScrollTimerRef.current);
         autoCoverScrollTimerRef.current = null;
-      }
-      if (coverCollapseTimerRef.current !== null) {
-        window.clearTimeout(coverCollapseTimerRef.current);
-        coverCollapseTimerRef.current = null;
       }
       cancelGalleryScrollAnimation();
       window.removeEventListener("wheel", cancelAutoScroll);
@@ -1908,12 +1881,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           onWheel={handleCoverWheel}
           onTouchStart={handleCoverTouchStart}
           onTouchMove={handleCoverTouchMove}
-          className={`relative flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 text-center transition-[height,opacity,padding] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            isCoverCollapsing ? "py-0 opacity-0" : "py-8 opacity-100 sm:py-10"
-          }`}
+          className="relative flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 py-8 text-center sm:py-10"
           style={{
             backgroundColor: galleryBackgroundColor,
-            height: isCoverCollapsing ? 0 : "100svh",
+            height: "100svh",
           }}
         >
           {album.coverPhotoUrl && (
@@ -1933,9 +1904,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           />
 
           <div
-            className={`relative z-10 flex w-full max-w-6xl flex-col items-center pb-16 transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              isCoverCollapsing ? "-translate-y-8" : "translate-y-0"
-            }`}
+            className="relative z-10 flex w-full max-w-6xl flex-col items-center pb-16"
           >
             <div className="relative grid w-full items-center gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(250px,380px)_minmax(0,1fr)] sm:gap-4 lg:gap-6">
               <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
