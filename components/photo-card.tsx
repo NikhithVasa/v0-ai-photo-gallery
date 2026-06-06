@@ -155,16 +155,6 @@ function absoluteBrowserUrl(url: string) {
   return url.startsWith("/") ? `${window.location.origin}${url}` : url;
 }
 
-function preloadImage(url: string) {
-  return new Promise<void>((resolve, reject) => {
-    const image = new window.Image();
-    image.decoding = "async";
-    image.onload = () => resolve();
-    image.onerror = reject;
-    image.src = url;
-  });
-}
-
 interface PhotoCardProps {
   albumSlug: string;
   shareToken?: string;
@@ -180,6 +170,7 @@ export interface PhotoOpenRect {
   left: number;
   width: number;
   height: number;
+  imageUrl?: string;
 }
 
 function drawImageToRect(
@@ -461,6 +452,7 @@ export const PhotoCard = memo(function PhotoCard({
             left: rect.left,
             width: rect.width,
             height: rect.height,
+            imageUrl: imageUrl ?? undefined,
           });
         }}
         className="absolute inset-0 cursor-pointer focus:outline-none"
@@ -602,8 +594,6 @@ export function PhotoLightbox({
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [entryStyle, setEntryStyle] = useState<CSSProperties>();
-  const [preloadedUrls, setPreloadedUrls] = useState<Set<string>>(new Set());
-  const [canPreloadAdjacent, setCanPreloadAdjacent] = useState(false);
 
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -623,7 +613,6 @@ export function PhotoLightbox({
   const isPeopleOpenRef = useRef(isPeopleOpen);
   const isDownloadHoveringRef = useRef(isDownloadHovering);
   const isAnimatingSwipeRef = useRef(isAnimatingSwipe);
-  const adjacentImagesReadyRef = useRef(false);
   const { mutate } = useSWRConfig();
 
   const photo = photos[currentIndex];
@@ -634,7 +623,11 @@ export function PhotoLightbox({
   const previousPhoto = photos[previousIndex];
   const nextPhoto = photos[nextIndex];
 
-  const imageCandidates = uniqueUrls([photo.thumbnailUrl, photo.previewUrl]);
+  const imageCandidates = uniqueUrls([
+    originRect?.imageUrl,
+    photo.thumbnailUrl,
+    photo.previewUrl,
+  ]);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const downloadUrl = photo.downloadUrl;
   const isShareView = Boolean(shareToken);
@@ -688,20 +681,10 @@ export function PhotoLightbox({
     [getPreviewUrl, nextPhoto],
   );
 
-  const adjacentImagesReady = Boolean(
-    currentImageUrl &&
-    previousImageUrl &&
-    nextImageUrl &&
-    preloadedUrls.has(currentImageUrl) &&
-    preloadedUrls.has(previousImageUrl) &&
-    preloadedUrls.has(nextImageUrl),
-  );
-
   isMobilePointerRef.current = isMobilePointer;
   isPeopleOpenRef.current = isPeopleOpen;
   isDownloadHoveringRef.current = isDownloadHovering;
   isAnimatingSwipeRef.current = isAnimatingSwipe;
-  adjacentImagesReadyRef.current = adjacentImagesReady;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(pointer: coarse)");
@@ -781,17 +764,10 @@ export function PhotoLightbox({
     setDragOffset(0);
     setIsDragging(false);
     setIsAnimatingSwipe(false);
-    setCanPreloadAdjacent(false);
 
     if (isMobilePointer) {
       setAreControlsVisible(true);
     }
-
-    const timer = window.setTimeout(() => {
-      setCanPreloadAdjacent(true);
-    }, 700);
-
-    return () => window.clearTimeout(timer);
   }, [photo.id, isMobilePointer]);
 
   useEffect(() => {
@@ -883,11 +859,7 @@ export function PhotoLightbox({
 
     const handleNativeTouchMove = (event: globalThis.TouchEvent) => {
       const start = touchStartRef.current;
-      if (
-        !start ||
-        isAnimatingSwipeRef.current ||
-        !adjacentImagesReadyRef.current
-      ) {
+      if (!start || isAnimatingSwipeRef.current) {
         return;
       }
 
@@ -910,59 +882,6 @@ export function PhotoLightbox({
       touchSurface.removeEventListener("touchmove", handleNativeTouchMove);
     };
   }, []);
-
-  useEffect(() => {
-    if (!currentImageUrl) return;
-
-    setPreloadedUrls((current) => {
-      if (current.has(currentImageUrl)) return current;
-
-      const next = new Set(current);
-      next.add(currentImageUrl);
-      return next;
-    });
-  }, [currentImageUrl]);
-
-  useEffect(() => {
-    if (!canPreloadAdjacent) return;
-    if (!currentImageUrl) return;
-
-    const urlsToPreload = uniqueUrls([previousImageUrl, nextImageUrl]).filter(
-      (url) => !preloadedUrls.has(url),
-    );
-
-    if (!urlsToPreload.length) return;
-
-    let isCancelled = false;
-
-    urlsToPreload.forEach((url) => {
-      preloadImage(url)
-        .then(() => {
-          if (isCancelled) return;
-
-          setPreloadedUrls((current) => {
-            if (current.has(url)) return current;
-
-            const next = new Set(current);
-            next.add(url);
-            return next;
-          });
-        })
-        .catch(() => {
-          // Failed image is ignored so we do not render broken adjacent slides.
-        });
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [
-    canPreloadAdjacent,
-    currentImageUrl,
-    nextImageUrl,
-    previousImageUrl,
-    preloadedUrls,
-  ]);
 
   useEffect(() => {
     if (!isPlaying || photos.length <= 1) return;
@@ -1173,11 +1092,6 @@ export function PhotoLightbox({
   const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
     if (photos.length <= 1 || isAnimatingSwipe) return;
 
-    if (!adjacentImagesReady) {
-      setAreControlsVisible(true);
-      return;
-    }
-
     const touch = event.touches[0];
 
     touchStartRef.current = {
@@ -1199,7 +1113,7 @@ export function PhotoLightbox({
 
   const handleTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
     const start = touchStartRef.current;
-    if (!start || isAnimatingSwipe || !adjacentImagesReady) return;
+    if (!start || isAnimatingSwipe) return;
 
     const touch = event.touches[0];
     const deltaX = touch.clientX - start.x;
@@ -1225,7 +1139,7 @@ export function PhotoLightbox({
     const start = touchStartRef.current;
     touchStartRef.current = null;
 
-    if (!start || isAnimatingSwipe || !adjacentImagesReady) {
+    if (!start || isAnimatingSwipe) {
       setIsDragging(false);
       setDragOffset(0);
       return;
@@ -1450,7 +1364,7 @@ export function PhotoLightbox({
                   }}
                 >
                   <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
-                    {previousImageUrl && preloadedUrls.has(previousImageUrl) ? (
+                    {(isDragging || isAnimatingSwipe) && previousImageUrl ? (
                       <WatermarkedImage
                         src={previousImageUrl}
                         alt={previousPhoto?.caption || "Previous photo"}
@@ -1477,7 +1391,7 @@ export function PhotoLightbox({
                   </div>
 
                   <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
-                    {nextImageUrl && preloadedUrls.has(nextImageUrl) ? (
+                    {(isDragging || isAnimatingSwipe) && nextImageUrl ? (
                       <WatermarkedImage
                         src={nextImageUrl}
                         alt={nextPhoto?.caption || "Next photo"}
