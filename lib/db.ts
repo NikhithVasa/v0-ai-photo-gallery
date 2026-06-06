@@ -1,15 +1,29 @@
-import { Pool, type PoolClient } from "pg";
+import { Pool, type PoolClient, type PoolConfig } from "pg";
 import { Signer } from "@aws-sdk/rds-signer";
+
+declare global {
+  var pgPool: Pool | undefined;
+}
 
 const RDS_HOST =
   process.env.RDS_HOST ||
   "photo-gallery-postgres-dev.c7o2u4ouqyim.us-east-1.rds.amazonaws.com";
-const RDS_PORT = parseInt(process.env.RDS_PORT || "5432");
+const RDS_PORT = parseInt(process.env.RDS_PORT || "5432", 10);
 const RDS_USER = process.env.RDS_USER || "photo_worker";
 const RDS_DB = process.env.RDS_DB || "postgres";
 const AWS_REGION = process.env.AWS_REGION || "us-east-1";
 const RDS_PASSWORD = process.env.RDS_PASSWORD;
-const IAM_TOKEN_REFRESH_MS = 12 * 60 * 1000;
+const POOL_MAX = Math.max(
+  1,
+  Number.parseInt(process.env.PG_POOL_MAX || "3", 10) || 3,
+);
+
+const poolDefaults = {
+  max: POOL_MAX,
+  idleTimeoutMillis: 5000,
+  connectionTimeoutMillis: 5000,
+  application_name: "photo-gallery-web",
+} satisfies Partial<PoolConfig>;
 
 async function generateAuthToken(): Promise<string> {
   const signer = new Signer({
@@ -25,74 +39,88 @@ async function generateAuthToken(): Promise<string> {
   return signer.getAuthToken();
 }
 
-let poolPromise: Promise<Pool> | null = null;
-let poolCreatedAt = 0;
-
-async function getPool(): Promise<Pool> {
-  const shouldRefresh =
-    !poolPromise || Date.now() - poolCreatedAt > IAM_TOKEN_REFRESH_MS;
-
-  if (shouldRefresh) {
-    const previousPoolPromise = poolPromise;
-    poolCreatedAt = Date.now();
-    poolPromise = (async () => {
-      const password = RDS_PASSWORD ?? (await generateAuthToken());
-      return new Pool({
-        host: RDS_HOST,
-        port: RDS_PORT,
-        user: RDS_USER,
-        database: RDS_DB,
-        password,
-        ssl: {
-          rejectUnauthorized: false,
-        },
-      });
-    })();
-
-    previousPoolPromise
-      ?.then((pool) => pool.end())
-      .catch(() => undefined);
+async function buildPoolConfig(): Promise<PoolConfig> {
+  if (process.env.DATABASE_URL) {
+    return {
+      connectionString: process.env.DATABASE_URL,
+      ...poolDefaults,
+      ssl: { rejectUnauthorized: false },
+    };
   }
 
-  return poolPromise!;
+  const password = RDS_PASSWORD ?? (await generateAuthToken());
+
+  return {
+    host: RDS_HOST,
+    port: RDS_PORT,
+    user: RDS_USER,
+    database: RDS_DB,
+    password,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+    ...poolDefaults,
+  };
+}
+
+async function createPool() {
+  return new Pool(await buildPoolConfig());
+}
+
+async function getPool(): Promise<Pool> {
+  if (!global.pgPool) {
+    global.pgPool = await createPool();
+  }
+
+  return global.pgPool;
 }
 
 async function resetPool() {
-  const previousPoolPromise = poolPromise;
-  poolPromise = null;
-  poolCreatedAt = 0;
-  await previousPoolPromise?.then((pool) => pool.end()).catch(() => undefined);
+  const existingPool = global.pgPool;
+  global.pgPool = undefined;
+
+  if (existingPool) {
+    await existingPool.end().catch(() => undefined);
+  }
 }
 
 function isAuthTokenError(error: unknown) {
   return (
     error instanceof Error &&
     /PAM authentication failed|password authentication failed|expired/i.test(
-      error.message
+      error.message,
     )
   );
 }
 
+async function runQuery<T>(text: string, params?: unknown[]): Promise<T[]> {
+  const pool = await getPool();
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query(text, params);
+    return result.rows as T[];
+  } finally {
+    client.release();
+  }
+}
+
 export async function query<T>(text: string, params?: unknown[]): Promise<T[]> {
   try {
-    const pool = await getPool();
-    const result = await pool.query(text, params);
-    return result.rows as T[];
+    return await runQuery<T>(text, params);
   } catch (error) {
     if (!isAuthTokenError(error)) {
       throw error;
     }
 
     await resetPool();
-    const pool = await getPool();
-    const result = await pool.query(text, params);
-    return result.rows as T[];
+    return runQuery<T>(text, params);
   }
 }
 
 export async function queryOne<T>(
   text: string,
-  params?: unknown[]
+  params?: unknown[],
 ): Promise<T | null> {
   const rows = await query<T>(text, params);
   return rows[0] ?? null;
@@ -100,7 +128,7 @@ export async function queryOne<T>(
 
 async function runTransaction<T>(
   pool: Pool,
-  callback: (client: PoolClient) => Promise<T>
+  callback: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
   const client = await pool.connect();
 
@@ -118,7 +146,7 @@ async function runTransaction<T>(
 }
 
 export async function withTransaction<T>(
-  callback: (client: PoolClient) => Promise<T>
+  callback: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
   try {
     const pool = await getPool();
