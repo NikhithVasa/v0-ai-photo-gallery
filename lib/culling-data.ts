@@ -16,6 +16,7 @@ export interface CullingClusterRow {
   cluster_reason: string | null;
   similar_count: number | string | null;
   file_name: string | null;
+  original_s3_key: string | null;
   thumbnail_s3_key: string | null;
   clean_preview_s3_key: string | null;
   watermarked_preview_s3_key: string | null;
@@ -35,6 +36,7 @@ export interface CullingClusterItemRow {
   quality_score: number | string | null;
   cluster_item_reason: string | null;
   file_name: string | null;
+  original_s3_key: string | null;
   thumbnail_s3_key: string | null;
   clean_preview_s3_key: string | null;
   watermarked_preview_s3_key: string | null;
@@ -78,11 +80,13 @@ async function photoFromRow(row: {
   best_photo_id?: string | null;
   photo_id?: string | null;
   file_name: string | null;
+  original_s3_key: string | null;
   thumbnail_s3_key: string | null;
   clean_preview_s3_key: string | null;
   watermarked_preview_s3_key: string | null;
 }): Promise<CullingClusterPhoto> {
   const previewKey =
+    row.original_s3_key ??
     row.watermarked_preview_s3_key ??
     row.clean_preview_s3_key ??
     row.thumbnail_s3_key;

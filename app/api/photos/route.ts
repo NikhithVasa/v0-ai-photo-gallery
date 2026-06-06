@@ -68,7 +68,7 @@ export async function GET() {
         const gridKey =
           derivedKey && thumbnailKeySet.has(derivedKey)
             ? derivedKey
-            : row?.preview_s3_key ?? originalKey;
+            : originalKey ?? row?.preview_s3_key;
         const thumbnailUrl = await signedUrl(gridKey);
 
         return {

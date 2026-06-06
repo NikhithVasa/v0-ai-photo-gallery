@@ -79,25 +79,21 @@ function derivativeReady(status: string | null | undefined) {
 function gridKey(row: PhotoRow) {
   return (
     (derivativeReady(row.compression_status) ? row.thumbnail_s3_key : null) ??
+    row.original_s3_key ??
     (derivativeReady(row.watermark_status)
       ? row.watermarked_preview_s3_key
       : null) ??
-    (derivativeReady(row.compression_status)
-      ? row.clean_preview_s3_key
-      : null) ??
-    row.original_s3_key
+    (derivativeReady(row.compression_status) ? row.clean_preview_s3_key : null)
   );
 }
 
 function previewKey(row: PhotoRow) {
   return (
+    row.original_s3_key ??
     (derivativeReady(row.watermark_status)
       ? row.watermarked_preview_s3_key
       : null) ??
-    (derivativeReady(row.compression_status)
-      ? row.clean_preview_s3_key
-      : null) ??
-    row.original_s3_key
+    (derivativeReady(row.compression_status) ? row.clean_preview_s3_key : null)
   );
 }
 

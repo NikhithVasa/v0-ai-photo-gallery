@@ -75,7 +75,7 @@ export async function GET(request: Request, { params }: Props) {
         const gridKey =
           derivedKey && thumbnailKeySet.has(derivedKey)
             ? derivedKey
-            : row.preview_s3_key ?? row.original_s3_key;
+            : row.original_s3_key ?? row.preview_s3_key;
         const thumbnailUrl = await signedUrl(gridKey);
 
         return {

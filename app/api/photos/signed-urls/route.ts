@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const dbPhotos = await Promise.all(
       rows.map(async (row) => {
         const previewKey =
-          row.preview_s3_key ?? row.original_s3_key ?? row.thumbnail_s3_key;
+          row.original_s3_key ?? row.preview_s3_key ?? row.thumbnail_s3_key;
         const [previewUrl, downloadUrl] = await Promise.all([
           signedUrl(previewKey),
           signedDownloadUrl(row.original_s3_key, row.file_name ?? undefined),

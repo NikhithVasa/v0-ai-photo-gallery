@@ -296,9 +296,9 @@ export async function POST(request: Request) {
     const results: SearchResult[] = await Promise.all(
       rows.map(async (row, index) => ({
         photoId: row.id,
-        previewUrl: await signedUrl(row.preview_s3_key ?? row.original_s3_key),
+        previewUrl: await signedUrl(row.original_s3_key ?? row.preview_s3_key),
         thumbnailUrl: await signedUrl(
-          row.thumbnail_s3_key ?? row.preview_s3_key ?? row.original_s3_key
+          row.thumbnail_s3_key ?? row.original_s3_key ?? row.preview_s3_key
         ),
         downloadUrl: await signedDownloadUrl(row.original_s3_key),
         reason:
