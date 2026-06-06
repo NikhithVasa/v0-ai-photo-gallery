@@ -1567,7 +1567,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
       autoCoverScrollDoneRef.current = true;
       scrollToGalleryTop("soothing");
-    }, 5000);
+    }, 2500);
 
     window.addEventListener("wheel", cancelAutoScroll, { passive: true });
     window.addEventListener("touchstart", cancelAutoScroll, { passive: true });
@@ -1936,8 +1936,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               isCoverCollapsing ? "-translate-y-8" : "translate-y-0"
             }`}
           >
-            <div className="relative grid w-full items-center gap-5 sm:grid-cols-[1fr_minmax(250px,380px)_1fr] sm:gap-8 lg:gap-12">
-              <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
+            <div className="relative grid w-full items-center gap-5 sm:grid-cols-[minmax(80px,180px)_minmax(250px,380px)_1fr] sm:gap-4 lg:gap-6">
+              <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center sm:justify-end">
                 <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[340px] sm:-rotate-90">
                   <span>Photos by</span>
                   <span className="ml-1 text-zinc-800">{coverCreditName}</span>
