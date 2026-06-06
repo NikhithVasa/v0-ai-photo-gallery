@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PhotoPresetPanel } from "@/components/photo-preset-panel";
+import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { photoAspectRatio } from "@/lib/photo-layout";
 import type { AlbumEvent, AlbumShareSettings, Photo } from "@/lib/types";
 
@@ -463,9 +464,9 @@ export const PhotoCard = memo(function PhotoCard({
             src={imageUrl}
             alt={photo.caption || "Photo"}
             className="absolute inset-0 h-full w-full object-contain"
-            loading={index < 48 ? "eager" : "lazy"}
+            loading={index < 12 ? "eager" : "lazy"}
             decoding="async"
-            fetchPriority={index < 12 ? "high" : "auto"}
+            fetchPriority={index < 8 ? "high" : "auto"}
             settings={shareSettings}
             fit="contain"
           />
@@ -590,6 +591,10 @@ export function PhotoLightbox({
   const [isAddingAiEditToAlbum, setIsAddingAiEditToAlbum] = useState(false);
   const [aiEditAddStatus, setAiEditAddStatus] = useState("");
   const [areControlsVisible, setAreControlsVisible] = useState(false);
+  const [areControlsReady, setAreControlsReady] = useState(false);
+  const [isBackdropVisible, setIsBackdropVisible] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isMobilePointer, setIsMobilePointer] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -634,8 +639,11 @@ export function PhotoLightbox({
   const canDownload = isShareView
     ? Boolean(shareSettings?.allowDownloads)
     : shareSettings?.allowDownloads ?? true;
-  const canEditPhoto = !isShareView && !shareSettings;
+  const canApplyPreset = !isShareView && !shareSettings;
+  const canEditPhoto = true;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
+  const photoDescription =
+    (photo.qwenDescription || photo.caption || "").trim();
   const photoPeople = photo.people ?? [];
   const aiEditDownloadName = `${(photo.fileName || `photo-${photo.id}`).replace(
     /\.[^.]+$/,
@@ -752,10 +760,29 @@ export function PhotoLightbox({
   }, [navigateToIndex, nextIndex]);
 
   useEffect(() => {
+    setAreControlsReady(false);
+    const controlsTimer = window.setTimeout(() => {
+      setAreControlsReady(true);
+      if (isMobilePointerRef.current) setAreControlsVisible(true);
+      else showControlsBriefly();
+    }, 320);
+
+    const backdropFrame = window.requestAnimationFrame(() =>
+      setIsBackdropVisible(true),
+    );
+
+    return () => {
+      window.clearTimeout(controlsTimer);
+      window.cancelAnimationFrame(backdropFrame);
+    };
+  }, [showControlsBriefly]);
+
+  useEffect(() => {
     setActiveImageIndex(0);
     setIsPeopleOpen(false);
     setIsAiEditOpen(false);
     setIsPresetPanelOpen(false);
+    setIsDescriptionExpanded(false);
     setSelectedAiPreset("");
     setAiEditPrompt("");
     setAiEditError("");
@@ -765,10 +792,10 @@ export function PhotoLightbox({
     setIsDragging(false);
     setIsAnimatingSwipe(false);
 
-    if (isMobilePointer) {
+    if (isMobilePointer && areControlsReady) {
       setAreControlsVisible(true);
     }
-  }, [photo.id, isMobilePointer]);
+  }, [areControlsReady, photo.id, isMobilePointer]);
 
   useEffect(() => {
     return () => {
@@ -833,22 +860,21 @@ export function PhotoLightbox({
 
     const translateX = originCenterX - targetCenterX;
     const translateY = originCenterY - targetCenterY;
-    const scaleX = originRect.width / targetRect.width;
-    const scaleY = originRect.height / targetRect.height;
+    const scale = originRect.width / targetRect.width;
 
     setEntryStyle({
       opacity: 0.72,
-      transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scaleX}, ${scaleY})`,
+      transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`,
       transformOrigin: "center center",
     });
 
-    const animationFrame = window.requestAnimationFrame(() => {
-      setEntryStyle({
-        opacity: 1,
-        transform: "translate3d(0, 0, 0) scale(1, 1)",
-        transformOrigin: "center center",
-      });
-    });
+	    const animationFrame = window.requestAnimationFrame(() => {
+	      setEntryStyle({
+	        opacity: 1,
+	        transform: "translate3d(0, 0, 0) scale(1)",
+	        transformOrigin: "center center",
+	      });
+	    });
 
     return () => window.cancelAnimationFrame(animationFrame);
   }, [originRect]);
@@ -907,13 +933,13 @@ export function PhotoLightbox({
       if (event.key === "Escape") {
         if (isPresetPanelOpen) setIsPresetPanelOpen(false);
         else if (isAiEditOpen) setIsAiEditOpen(false);
-        else onClose();
+        else closeWithAnimation();
       }
     };
 
     window.addEventListener("keydown", handleWindowKeyDown);
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
-  }, [handlePrev, handleNext, isAiEditOpen, isPresetPanelOpen, onClose]);
+  }, [closeWithAnimation, handlePrev, handleNext, isAiEditOpen, isPresetPanelOpen]);
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -999,10 +1025,13 @@ export function PhotoLightbox({
     setAiEditResult(null);
 
     try {
+      const aiEditUrl = `/api/albums/${encodeURIComponent(
+        albumSlug,
+      )}/photos/${encodeURIComponent(photo.id)}/ai-edit${
+        shareToken ? `?share=${encodeURIComponent(shareToken)}` : ""
+      }`;
       const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/photos/${encodeURIComponent(
-          photo.id,
-        )}/ai-edit`,
+        aiEditUrl,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1022,6 +1051,10 @@ export function PhotoLightbox({
           status?: string;
         };
       };
+
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("Log in to use AI Image Edit for this photo.");
+      }
 
       if (!response.ok || !payload.edit) {
         throw new Error(payload.error || "Could not submit AI edit");
@@ -1088,6 +1121,50 @@ export function PhotoLightbox({
       current < imageCandidates.length - 1 ? current + 1 : current,
     );
   };
+
+  function closeWithAnimation() {
+    if (isClosing) return;
+
+    const frame = photoFrameRef.current;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (!frame || !originRect || prefersReducedMotion) {
+      onClose();
+      return;
+    }
+
+    const targetRect = frame.getBoundingClientRect();
+    if (!targetRect.width || !targetRect.height) {
+      onClose();
+      return;
+    }
+
+    const originCenterX = originRect.left + originRect.width / 2;
+    const originCenterY = originRect.top + originRect.height / 2;
+    const targetCenterX = targetRect.left + targetRect.width / 2;
+    const targetCenterY = targetRect.top + targetRect.height / 2;
+    const translateX = originCenterX - targetCenterX;
+    const translateY = originCenterY - targetCenterY;
+    const scale = originRect.width / targetRect.width;
+
+    setIsClosing(true);
+    setAreControlsVisible(false);
+    setAreControlsReady(false);
+    setIsBackdropVisible(false);
+    setIsPeopleOpen(false);
+    setIsAiEditOpen(false);
+    setIsPresetPanelOpen(false);
+    setIsDescriptionExpanded(false);
+    setEntryStyle({
+      opacity: 0.78,
+      transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`,
+      transformOrigin: "center center",
+    });
+
+    window.setTimeout(onClose, 300);
+  }
 
   const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
     if (photos.length <= 1 || isAnimatingSwipe) return;
@@ -1196,7 +1273,7 @@ export function PhotoLightbox({
   const areOverlaysInteractive =
     isMobilePointer || areControlsVisible || isPeopleOpen || isDownloadHovering;
 
-  const overlayOpacityClass = areOverlaysInteractive
+  const overlayOpacityClass = areControlsReady && areOverlaysInteractive
     ? "opacity-100"
     : "opacity-0";
 
@@ -1220,7 +1297,9 @@ export function PhotoLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex cursor-default items-center justify-center bg-black text-white"
+      className={`fixed inset-0 z-50 flex cursor-default items-center justify-center text-white transition-colors duration-300 ease-in-out ${
+        isBackdropVisible ? "bg-black" : "bg-black/0"
+      }`}
       onMouseEnter={() => {
         if (!isMobilePointer) showControlsBriefly();
       }}
@@ -1231,7 +1310,7 @@ export function PhotoLightbox({
         if (isPresetPanelOpen) setIsPresetPanelOpen(false);
         else if (isAiEditOpen) setIsAiEditOpen(false);
         else if (isPeopleOpen) setIsPeopleOpen(false);
-        else onClose();
+        else closeWithAnimation();
       }}
       tabIndex={0}
     >
@@ -1267,7 +1346,7 @@ export function PhotoLightbox({
         onMouseEnter={showControlsBriefly}
         onClick={(event) => {
           event.stopPropagation();
-          onClose();
+          closeWithAnimation();
         }}
         className={`absolute right-3 top-3 z-40 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/75 text-zinc-950 shadow-md ring-1 ring-zinc-900/10 transition-opacity duration-200 hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 sm:right-6 sm:top-5 ${overlayOpacityClass} ${overlayInteractionClass}`}
         aria-label="Close photo"
@@ -1319,7 +1398,7 @@ export function PhotoLightbox({
         {currentImageUrl ? (
           <div
             ref={photoFrameRef}
-            className="flex cursor-default flex-col transition-[transform,opacity] duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
+            className="flex cursor-default flex-col transition-[transform,opacity] duration-300 ease-in-out will-change-transform"
             style={{
               width: photoFrameWidth,
               ...entryStyle,
@@ -1410,6 +1489,31 @@ export function PhotoLightbox({
                   isDownloadHovering ? "opacity-100" : "opacity-0"
                 }`}
               />
+
+              {photoDescription && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setAreControlsVisible(true);
+                    setIsDescriptionExpanded((current) => !current);
+                  }}
+                  className={`absolute inset-x-2 bottom-2 z-20 cursor-pointer rounded-2xl bg-black/45 px-3 py-2 text-left text-white shadow-[0_12px_40px_rgba(0,0,0,0.22)] backdrop-blur-md transition-all duration-200 sm:inset-x-3 sm:bottom-3 ${
+                    isDescriptionExpanded
+                      ? "max-h-[48svh] overflow-y-auto overscroll-contain bg-black/62 py-3"
+                      : "max-h-20 overflow-hidden"
+                  }`}
+                  aria-expanded={isDescriptionExpanded}
+                >
+                  <span
+                    className={`block text-sm leading-5 text-white/95 ${
+                      isDescriptionExpanded ? "" : "line-clamp-3"
+                    }`}
+                  >
+                    {photoDescription}
+                  </span>
+                </button>
+              )}
             </div>
 
             <div
@@ -1427,7 +1531,7 @@ export function PhotoLightbox({
                   <Heart className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </button>
 
-                {canEditPhoto && (
+                {canApplyPreset && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1519,18 +1623,16 @@ export function PhotoLightbox({
                           key={person.id}
                           className="relative h-5 w-5 overflow-hidden rounded-full bg-zinc-800 ring-1 ring-white/80"
                         >
+                          <span className="flex h-full w-full items-center justify-center">
+                            <User className="h-3 w-3 text-white" />
+                          </span>
                           {person.coverFaceUrl ? (
-                            <img
+                            <RetryableAvatarImage
                               src={person.coverFaceUrl}
                               alt={person.displayName || person.defaultName}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
+                              className="absolute inset-0 h-full w-full object-cover"
                             />
-                          ) : (
-                            <span className="flex h-full w-full items-center justify-center">
-                              <User className="h-3 w-3 text-white" />
-                            </span>
-                          )}
+                          ) : null}
                         </span>
                       ))}
                     </span>
@@ -1540,7 +1642,7 @@ export function PhotoLightbox({
                 </button>
 
                 {isPeopleOpen && (
-                  <div className="absolute bottom-full right-0 mb-2 w-[min(78vw,280px)] cursor-default rounded-xl border border-white/20 bg-white/95 p-2 text-zinc-950 shadow-lg">
+                  <div className="absolute bottom-full right-0 mb-2 max-h-[min(76svh,420px)] w-[min(78vw,280px)] cursor-default overflow-y-auto overscroll-contain rounded-xl border border-white/20 bg-white/95 p-2 text-zinc-950 shadow-lg">
                     {photoPeople.length ? (
                       <div className="space-y-1">
                         {photoPeople.map((person) => {
@@ -1555,18 +1657,16 @@ export function PhotoLightbox({
                               className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-zinc-950/[0.05] focus:outline-none focus:ring-2 focus:ring-zinc-300"
                             >
                               <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
+                                <span className="flex h-full w-full items-center justify-center text-zinc-400">
+                                  <User className="h-4 w-4" />
+                                </span>
                                 {person.coverFaceUrl ? (
-                                  <img
+                                  <RetryableAvatarImage
                                     src={person.coverFaceUrl}
                                     alt={displayName}
-                                    className="h-full w-full object-cover"
-                                    loading="lazy"
+                                    className="absolute inset-0 h-full w-full object-cover"
                                   />
-                                ) : (
-                                  <span className="flex h-full w-full items-center justify-center text-zinc-400">
-                                    <User className="h-4 w-4" />
-                                  </span>
-                                )}
+                                ) : null}
                               </span>
 
                               <span className="min-w-0">

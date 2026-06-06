@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import useSWR from "swr";
 import { Check, GitMerge, Images, Loader2, Users, X } from "lucide-react";
 import { PersonCard } from "./person-card";
+import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import type { AlbumEvent, Person } from "@/lib/types";
@@ -286,21 +286,17 @@ export function PeopleGrid({
                       key={person.id}
                       className="relative h-9 w-9 overflow-hidden rounded-full bg-zinc-100 ring-2 ring-white"
                       title={displayName}
-                    >
-                      {person.coverFaceUrl ? (
-                        <Image
-                          src={person.coverFaceUrl}
-                          alt={displayName}
-                          fill
-                          sizes="36px"
-                          className="object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center text-xs font-semibold text-zinc-500">
-                          {displayName.slice(0, 1)}
-                        </span>
-                      )}
+	                    >
+	                      <span className="flex h-full w-full items-center justify-center text-xs font-semibold text-zinc-500">
+	                        {displayName.slice(0, 1)}
+	                      </span>
+	                      {person.coverFaceUrl ? (
+	                        <RetryableAvatarImage
+	                          src={person.coverFaceUrl}
+	                          alt={displayName}
+	                          className="absolute inset-0 h-full w-full object-cover"
+	                        />
+	                      ) : null}
                     </span>
                   );
                 })}
@@ -448,22 +444,18 @@ export function PeopleGrid({
                         : "border-zinc-200 hover:bg-zinc-50"
                     }`}
                   >
-                    <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-zinc-100">
-                      {person.coverFaceUrl ? (
-                        <Image
-                          src={person.coverFaceUrl}
-                          alt={displayName}
-                          fill
-                          sizes="56px"
-                          className="object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-zinc-500">
-                          {displayName.slice(0, 1)}
-                        </span>
-                      )}
-                    </span>
+	                    <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-zinc-100">
+	                      <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-zinc-500">
+	                        {displayName.slice(0, 1)}
+	                      </span>
+	                      {person.coverFaceUrl ? (
+	                        <RetryableAvatarImage
+	                          src={person.coverFaceUrl}
+	                          alt={displayName}
+	                          className="absolute inset-0 h-full w-full object-cover"
+	                        />
+	                      ) : null}
+	                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-zinc-950">
                         {displayName}

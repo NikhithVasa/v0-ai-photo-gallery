@@ -247,7 +247,7 @@ export function PhotosGrid({
                     src={photo.previewUrl || photo.thumbnailUrl || ""}
                     alt={photo.caption || photo.fileName || "Photo"}
                     className="absolute inset-0 h-full w-full object-contain"
-                    loading={index < 48 ? "eager" : "lazy"}
+	                    loading={index < 12 ? "eager" : "lazy"}
                     decoding="async"
                   />
                 ) : (

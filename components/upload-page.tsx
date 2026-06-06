@@ -6,13 +6,11 @@ import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
   ArrowLeft,
-  CheckCircle2,
   CloudDownload,
   FileImage,
   Images,
   Loader2,
   Upload,
-  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,18 +59,18 @@ function statusLabel(status: UploadStatus) {
 
 function StatusIcon({ status }: { status: UploadStatus }) {
   if (status === "uploaded") {
-    return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
+    return <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />;
   }
 
   if (status === "failed") {
-    return <XCircle className="h-4 w-4 text-rose-600" />;
+    return <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />;
   }
 
   if (status === "preparing" || status === "uploading") {
     return <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />;
   }
 
-  return <FileImage className="h-4 w-4 text-zinc-400" />;
+  return <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />;
 }
 
 export function UploadPage() {
@@ -307,9 +305,9 @@ export function UploadPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
-        <header className="mb-6 flex min-w-0 items-center justify-between gap-3">
+    <main className="h-[100svh] overflow-hidden bg-[#fbfaf8] text-zinc-950">
+      <div className="mx-auto flex h-full max-w-7xl flex-col px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <header className="mb-4 flex min-w-0 shrink-0 items-center justify-between gap-3 sm:mb-6">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/albums"
@@ -345,9 +343,9 @@ export function UploadPage() {
           </div>
         </header>
 
-        <div className="grid min-w-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
-          <section className="min-h-[60vh] min-w-0 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-            <div className="flex min-w-0 items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
+        <div className="grid min-h-0 min-w-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_390px] lg:gap-5">
+          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
+            <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold">Files</h2>
                 <p className="truncate text-xs text-zinc-500">{uploadSummary}</p>
@@ -364,7 +362,7 @@ export function UploadPage() {
             </div>
 
             {failedFiles.length > 0 && (
-              <div className="border-b border-rose-100 bg-rose-50/70 px-4 py-3">
+              <div className="shrink-0 border-b border-rose-100 bg-rose-50/70 px-4 py-3">
                 <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-rose-700">
@@ -416,7 +414,7 @@ export function UploadPage() {
             )}
 
             {queuedFiles.length === 0 ? (
-              <div className="flex h-[50vh] items-center justify-center px-6 text-center">
+              <div className="flex min-h-0 flex-1 items-center justify-center px-6 text-center">
                 <div>
                   <FileImage className="mx-auto mb-3 h-9 w-9 text-zinc-300" />
                   <p className="text-sm font-medium text-zinc-700">
@@ -428,58 +426,60 @@ export function UploadPage() {
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-zinc-100">
-                {queuedFiles.map((item) => (
-                  <div
-                    key={item.localId}
-                    className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <StatusIcon status={item.status} />
-                        <p className="truncate text-sm font-medium">
-                          {item.file.name}
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {queuedFiles.map((item) => (
+                    <div
+                      key={item.localId}
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border border-zinc-100 bg-zinc-50/60 px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <StatusIcon status={item.status} />
+                          <p className="truncate text-sm font-medium leading-5">
+                            {item.file.name}
+                          </p>
+                        </div>
+                        <p className="mt-1 truncate pl-5 text-xs text-zinc-500">
+                          {item.s3Key ||
+                            `${
+                              item.source === "google-drive"
+                                ? "Google Drive · "
+                                : item.source === "google-photos"
+                                  ? "Google Photos · "
+                                  : ""
+                            }${formatBytes(item.file.size)}`}
                         </p>
+                        {item.error && (
+                          <p className="mt-1 truncate pl-5 text-xs text-rose-600">
+                            {item.error}
+                          </p>
+                        )}
                       </div>
-                      <p className="mt-1 truncate pl-6 text-xs text-zinc-500">
-                        {item.s3Key ||
-                          `${
-                            item.source === "google-drive"
-                              ? "Google Drive · "
-                              : item.source === "google-photos"
-                                ? "Google Photos · "
-                                : ""
-                          }${formatBytes(item.file.size)}`}
-                      </p>
-                      {item.error && (
-                        <p className="mt-1 pl-6 text-xs text-rose-600">
-                          {item.error}
-                        </p>
-                      )}
+                      <div className="flex max-w-[38vw] flex-col items-end gap-1 self-center sm:max-w-none">
+                        {item.status === "failed" && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => uploadFiles([item.localId])}
+                            disabled={isUploading}
+                          >
+                            Retry
+                          </Button>
+                        )}
+                        <span className="max-w-full truncate rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
+                          {statusLabel(item.status)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex max-w-[38vw] flex-col items-end gap-1 self-center sm:max-w-none sm:flex-row sm:items-center sm:gap-2">
-                      {item.status === "failed" && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => uploadFiles([item.localId])}
-                          disabled={isUploading}
-                        >
-                          Retry
-                        </Button>
-                      )}
-                      <span className="max-w-full truncate rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
-                        {statusLabel(item.status)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </section>
 
-          <aside className="min-w-0 space-y-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+          <aside className="min-h-0 min-w-0 space-y-4 overflow-y-auto overscroll-contain rounded-lg border border-zinc-200 bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-sm">
             <div>
               <p className="text-sm font-semibold">Destination</p>
               <p className="mt-1 text-xs text-zinc-500">

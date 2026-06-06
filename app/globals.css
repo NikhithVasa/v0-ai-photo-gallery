@@ -163,3 +163,22 @@
     display: none;
   }
 }
+
+@keyframes gallery-calm-bounce {
+  0%,
+  8%,
+  20%,
+  100% {
+    transform: translateY(0);
+  }
+  11% {
+    transform: translateY(5px);
+  }
+  16% {
+    transform: translateY(-2px);
+  }
+}
+
+.gallery-calm-bounce {
+  animation: gallery-calm-bounce 4.8s ease-in-out infinite;
+}

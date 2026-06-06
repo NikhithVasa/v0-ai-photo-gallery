@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import Image from "next/image";
 import { Check, Pencil, User, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import type { AlbumEvent, Person } from "@/lib/types";
 
 interface PersonCardProps {
@@ -111,21 +111,17 @@ export function PersonCard({
               : `Open ${displayName}`
           }
           aria-pressed={isSelectionMode ? isSelected : undefined}
-        >
-          {person.coverFaceUrl ? (
-            <Image
-              src={person.coverFaceUrl}
-              alt={displayName}
-              fill
-              sizes="(min-width: 640px) 144px, 128px"
-              className="object-cover"
-              unoptimized
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-secondary">
-              <User className="h-12 w-12 text-muted-foreground" />
-            </div>
-          )}
+	        >
+	          <div className="flex h-full w-full items-center justify-center bg-secondary">
+	            <User className="h-12 w-12 text-muted-foreground" />
+	          </div>
+	          {person.coverFaceUrl ? (
+	            <RetryableAvatarImage
+	              src={person.coverFaceUrl}
+	              alt={displayName}
+	              className="absolute inset-0 h-full w-full object-cover"
+	            />
+	          ) : null}
 
           {isSelectionMode && (
             <span

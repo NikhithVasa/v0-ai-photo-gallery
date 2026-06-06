@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import Image from "next/image";
 import useSWR from "swr";
 import { ArrowLeft, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
+import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
 import type { AlbumEvent, AlbumShareSettings, Person, Photo } from "@/lib/types";
@@ -114,19 +114,16 @@ export function PersonView({
 
           <div className="flex items-center gap-4">
             <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-border bg-muted">
+              <div className="flex h-full w-full items-center justify-center bg-secondary">
+                <User className="h-8 w-8 text-muted-foreground" />
+              </div>
               {person.coverFaceUrl ? (
-                <Image
+                <RetryableAvatarImage
                   src={person.coverFaceUrl}
                   alt={person.displayName || person.defaultName}
-                  fill
-                  className="object-cover"
-                  unoptimized
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-secondary">
-                  <User className="h-8 w-8 text-muted-foreground" />
-                </div>
-              )}
+              ) : null}
             </div>
 
             <div>

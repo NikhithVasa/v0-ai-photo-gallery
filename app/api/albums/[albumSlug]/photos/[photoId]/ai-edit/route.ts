@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { queryOne } from "@/lib/db";
 import { ensurePhotoEditSchema } from "@/lib/customer-schema";
-import { requireAlbumCustomerAccess } from "@/lib/auth-access";
+import { requireAlbumAccess } from "@/lib/album-access";
 import { getS3ObjectBytes, signedUrl, uploadS3Object } from "@/lib/s3";
 import {
   nearestNovitaFluxAspectRatio,
@@ -150,7 +150,7 @@ export async function POST(request: Request, { params }: Props) {
     await ensurePhotoEditSchema();
 
     const { albumSlug, photoId } = await params;
-    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;
 
     const body = (await request.json()) as {

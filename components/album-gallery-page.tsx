@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
   Check,
+  ArrowLeft,
   ChevronDown,
   Copy,
   Download,
@@ -37,6 +38,7 @@ import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { ApsaraMomentsRoot } from "@/components/apsara-moments";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { ApplyPresetSelectionDialog } from "@/components/apply-preset-selection-dialog";
+import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { usePasscodeVerification } from "@/hooks/use-passcode-verification";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -488,20 +490,16 @@ function PersonAvatar({
     <span
       className={`relative inline-flex ${dimension} shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-white`}
     >
+      <span className="flex h-full w-full items-center justify-center text-zinc-400">
+        <User className={size === "sm" ? "h-3.5 w-3.5" : "h-5 w-5"} />
+      </span>
       {person.coverFaceUrl ? (
-        <Image
+        <RetryableAvatarImage
           src={person.coverFaceUrl}
           alt={displayName}
-          fill
-          sizes={size === "sm" ? "24px" : "36px"}
-          className="object-cover"
-          unoptimized
+          className="absolute inset-0 h-full w-full object-cover"
         />
-      ) : (
-        <span className="flex h-full w-full items-center justify-center text-zinc-400">
-          <User className={size === "sm" ? "h-3.5 w-3.5" : "h-5 w-5"} />
-        </span>
-      )}
+      ) : null}
     </span>
   );
 }
@@ -577,7 +575,7 @@ function PeopleFilterButton({
       <PopoverContent
         align="start"
         sideOffset={12}
-        className="w-[min(88vw,380px)] rounded-[24px] border border-white/80 bg-white/95 p-4 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl"
+        className="flex max-h-[min(80svh,560px)] w-[min(88vw,380px)] flex-col rounded-[24px] border border-white/80 bg-white/95 p-4 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl"
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
@@ -618,7 +616,7 @@ function PeopleFilterButton({
           className="mb-3 h-9"
         />
 
-        <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1">
           {filteredPeople.length === 0 ? (
             <div className="py-8 text-center text-sm text-zinc-500">
               No people found.
@@ -1431,7 +1429,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   };
 
-  const scrollToGalleryTop = (mode: "normal" | "soothing" = "normal") => {
+  const scrollToGalleryTop = (
+    mode: "instant" | "normal" | "soothing" = "normal",
+  ) => {
     requestAnimationFrame(() => {
       clearAutoCoverScroll();
       cancelGalleryScrollAnimation();
@@ -1441,14 +1441,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       const targetTop = shell ? Math.max(shell.offsetTop - 8, 0) : 0;
 
       if (
+        mode === "instant" ||
         mode === "normal" ||
         window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ) {
         window.scrollTo({
           top: targetTop,
           left: 0,
-          behavior: "smooth",
+          behavior: mode === "instant" ? "auto" : "smooth",
         });
+        setIsCoverDismissed(true);
         return;
       }
 
@@ -1472,7 +1474,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
         coverScrollAnimationFrameRef.current = null;
         setIsCoverDismissed(true);
-        requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
       };
 
       coverScrollAnimationFrameRef.current = window.requestAnimationFrame(animate);
@@ -1530,7 +1531,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         clearAutoCoverScroll();
         cancelGalleryScrollAnimation();
         setIsCoverDismissed(true);
-        requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }));
       }
     };
 
@@ -1541,27 +1541,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }, [isCoverDismissed]);
 
   useEffect(() => {
-    if (!album || (album.passwordRequired && !isPasswordVerified)) return;
-    if (autoCoverScrollDoneRef.current) return;
-
-    const cancelAutoScroll = () => {
-      clearAutoCoverScroll();
-    };
-
-    autoCoverScrollTimerRef.current = window.setTimeout(() => {
-      autoCoverScrollTimerRef.current = null;
-
-      if (autoCoverScrollDoneRef.current || window.scrollY > 24) return;
-
-      autoCoverScrollDoneRef.current = true;
-      scrollToGalleryTop("soothing");
-    }, 2500);
-
-    window.addEventListener("wheel", cancelAutoScroll, { passive: true });
-    window.addEventListener("touchstart", cancelAutoScroll, { passive: true });
-    window.addEventListener("pointerdown", cancelAutoScroll);
-    window.addEventListener("keydown", cancelAutoScroll);
-
     return () => {
       if (autoCoverScrollTimerRef.current !== null) {
         window.clearTimeout(autoCoverScrollTimerRef.current);
@@ -1573,12 +1552,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       }
       programmaticNavScrollRef.current = false;
       cancelGalleryScrollAnimation();
-      window.removeEventListener("wheel", cancelAutoScroll);
-      window.removeEventListener("touchstart", cancelAutoScroll);
-      window.removeEventListener("pointerdown", cancelAutoScroll);
-      window.removeEventListener("keydown", cancelAutoScroll);
     };
-  }, [album, isPasswordVerified]);
+  }, []);
 
   useEffect(() => {
     if (isCoverDismissed) return;
@@ -1634,12 +1609,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setSelectedEventSlug(eventSlug);
     setEditingEventId(null);
     setApsaraTextSearch(null);
+    setSelectedPerson(null);
+    setActiveTab("photos");
 
     router.replace(`/albums/${albumSlug}${eventQuery(eventSlug, shareToken)}`, {
       scroll: false,
     });
 
-    scrollToGalleryTop();
+    scrollToGalleryTop("instant");
   };
 
   const goToNextEvent = () => {
@@ -1665,7 +1642,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setApsaraTextSearch(null);
     setSelectedPerson(person);
     setActiveTab("people");
-    scrollToGalleryTop();
+    scrollToGalleryTop("instant");
   };
 
   const filterByPerson = (personId: string) => {
@@ -1674,7 +1651,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setPeopleMatchMode("all");
     setSelectedPerson(null);
     setActiveTab("photos");
-    scrollToGalleryTop();
+    scrollToGalleryTop("instant");
   };
 
   const filterByPeopleSelection = (people: Person[], mode: PeopleMatchMode) => {
@@ -1685,7 +1662,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setPeopleMatchMode(ids.length > 1 ? mode : "all");
     setSelectedPerson(null);
     setActiveTab("photos");
-    scrollToGalleryTop();
+    scrollToGalleryTop("instant");
   };
 
   const toggleSelectedPersonId = (personId: string) => {
@@ -1697,7 +1674,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     );
     setSelectedPerson(null);
     setActiveTab("photos");
-    scrollToGalleryTop();
+    scrollToGalleryTop("instant");
   };
 
   const toggleSelectedDownloadPhotoId = (photoId: string) => {
@@ -1828,6 +1805,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   const eventLabel = selectedEvent?.name ?? "All events";
+  const selectedPeopleLabel =
+    selectedFilterPeople.length === 1
+      ? selectedFilterPeople[0].displayName || selectedFilterPeople[0].defaultName
+      : selectedFilterPeople.length > 1
+        ? `${selectedFilterPeople.length} people`
+        : "";
   const selectedEventStats = statsData?.stats.events.find(
     (event) => event.eventId === selectedEvent?.id
   );
@@ -1898,24 +1881,23 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f]"
       style={{ backgroundColor: galleryBackgroundColor }}
     >
-      {!isCoverDismissed && (
-        <section
-          onWheel={handleCoverWheel}
-          onTouchStart={handleCoverTouchStart}
-          onTouchMove={handleCoverTouchMove}
-          className="relative flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 py-8 text-center sm:py-10"
-          style={{
-            backgroundColor: galleryBackgroundColor,
-            height: "100svh",
-          }}
-        >
+      <section
+        onWheel={handleCoverWheel}
+        onTouchStart={handleCoverTouchStart}
+        onTouchMove={handleCoverTouchMove}
+        className="relative flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 py-8 text-center sm:py-10"
+        style={{
+          backgroundColor: galleryBackgroundColor,
+          minHeight: "100svh",
+        }}
+      >
           {album.coverPhotoUrl && (
             <Image
               src={album.coverPhotoUrl}
               alt={album.name}
               fill
               sizes="100vw"
-              className="object-cover opacity-35 saturate-[1.08] contrast-[1.03]"
+              className="object-cover object-[center_35%] opacity-35 saturate-[1.08] contrast-[1.03]"
               priority
               unoptimized
             />
@@ -1928,7 +1910,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           <div
             className="relative z-10 flex w-full max-w-6xl flex-col items-center pb-16"
           >
-            <div className="relative grid w-full items-center gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(250px,380px)_minmax(0,1fr)] sm:gap-4 lg:gap-6">
+            <div className="relative grid w-full items-center gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(300px,460px)_minmax(0,1fr)] sm:gap-4 lg:gap-6">
               <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
                 <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[340px] sm:-rotate-90">
                   <span>Photos by</span>
@@ -1937,14 +1919,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </div>
 
               <div className="order-1 flex justify-center sm:order-2">
-                <div className="relative aspect-[4/5] w-[min(62vw,320px)] overflow-hidden rounded-[30px] bg-white shadow-[0_30px_90px_rgba(0,0,0,0.22)] ring-1 ring-white/70 sm:w-[min(32vw,380px)] sm:rounded-[36px]">
+                <div className="relative aspect-[4/5] w-[min(76vw,380px)] overflow-hidden rounded-[30px] bg-white shadow-[0_30px_90px_rgba(0,0,0,0.22)] ring-1 ring-white/70 sm:w-[min(38vw,460px)] sm:rounded-[36px]">
                   {album.coverPhotoUrl ? (
                     <Image
                       src={album.coverPhotoUrl}
                       alt={album.name}
                       fill
-                      sizes="(min-width: 768px) 380px, 62vw"
-                      className="object-cover"
+                      sizes="(min-width: 768px) 460px, 76vw"
+                      className="object-cover object-[center_35%]"
                       priority
                       unoptimized
                     />
@@ -1989,14 +1971,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             <button
               type="button"
               onClick={() => scrollToGalleryTop("soothing")}
-              className="absolute bottom-5 left-1/2 flex h-12 w-12 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:-translate-y-0.5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7"
+              className="absolute bottom-5 left-1/2 flex h-12 w-12 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7"
               aria-label="Scroll to gallery"
             >
-              <ChevronDown className="h-6 w-6" />
+              <span className="gallery-calm-bounce flex h-6 w-6 items-center justify-center">
+                <ChevronDown className="h-6 w-6" />
+              </span>
             </button>
           </div>
-        </section>
-      )}
+      </section>
 
       <header
         id="album-gallery-shell"
@@ -2164,7 +2147,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     selectedPeople={selectedFilterPeople}
                     selectedPeopleIds={selectedPeopleIds}
                     onToggle={toggleSelectedPersonId}
-                    onClear={() => setSelectedPeopleIds([])}
+                    onClear={() => {
+                      setSelectedPeopleIds([]);
+                      setPeopleMatchMode("all");
+                      scrollToGalleryTop("instant");
+                    }}
                   />
 
                   {selectedPeopleIds.length > 1 && (
@@ -2412,6 +2399,32 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           />
         ) : (
           <section className="space-y-3 sm:space-y-5">
+            {selectedPeopleIds.length > 0 && (
+              <div className="flex items-center justify-between gap-3 px-2 sm:px-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPeopleIds([]);
+                    setPeopleMatchMode("all");
+                    scrollToGalleryTop("instant");
+                  }}
+                  className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-white/85 px-3 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </button>
+
+                <div className="min-w-0 flex-1 text-right">
+                  <p className="truncate text-sm font-medium text-zinc-500">
+                    Photos of
+                  </p>
+                  <h2 className="truncate text-xl font-semibold tracking-normal text-zinc-950 sm:text-2xl">
+                    {selectedPeopleLabel}
+                  </h2>
+                </div>
+              </div>
+            )}
+
             <div className="hidden px-2 sm:block sm:px-0">
               {eventHeader}
               <div className="flex flex-wrap items-end justify-between gap-3">
@@ -2514,7 +2527,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         )}
       </div>
 
-      {activeTab === "photos" && !selectedPerson && (
+      {isCoverDismissed && activeTab === "photos" && !selectedPerson && (
         <>
           <button
             type="button"

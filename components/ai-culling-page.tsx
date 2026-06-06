@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { cn } from "@/lib/utils";
 import type {
   AiReviewPersonGroup,
@@ -588,6 +589,8 @@ function CullingLightbox({
   onPrev: () => void;
   onNext: () => void;
 }) {
+  useBodyScrollLock(true);
+
   const imageUrl = item.photo.previewUrl || item.photo.thumbnailUrl;
   const index = photos.findIndex((p) => p.photo.id === item.photo.id);
   const hasPrev = index > 0;
@@ -618,19 +621,19 @@ function CullingLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col sm:flex-row bg-zinc-950 text-white"
+      className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-zinc-950 text-white sm:flex-row"
       onClick={onClose}
     >
       {/* Photo View Area */}
       <div
-        className="relative flex flex-1 items-center justify-center bg-black p-4 md:p-8"
+        className="relative flex min-h-0 flex-1 items-center justify-center bg-black p-3 sm:p-4 md:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         {imageUrl ? (
           <img
             src={imageUrl}
             alt={item.photo.fileName || "Photo"}
-            className="max-h-[85vh] max-w-full rounded-lg object-contain shadow-2xl transition-all"
+            className="max-h-full max-w-full rounded-lg object-contain shadow-2xl transition-all sm:max-h-[85vh]"
           />
         ) : (
           <div className="flex flex-col items-center gap-3 text-zinc-500">
@@ -675,7 +678,7 @@ function CullingLightbox({
 
       {/* Sidebar Details Area */}
       <div
-        className="flex w-full flex-col border-t border-zinc-800 bg-zinc-900 text-zinc-100 sm:w-[400px] sm:border-l sm:border-t-0"
+        className="flex max-h-[48svh] w-full shrink-0 flex-col border-t border-zinc-800 bg-zinc-900 text-zinc-100 sm:max-h-none sm:w-[400px] sm:border-l sm:border-t-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sidebar Header */}
@@ -697,7 +700,7 @@ function CullingLightbox({
         </div>
 
         {/* Sidebar Scrollable Content */}
-        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-6">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-5 py-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
           {/* Action Buttons */}
           <div className="flex gap-3">
             <button
