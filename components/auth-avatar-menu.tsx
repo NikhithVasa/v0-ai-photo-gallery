@@ -39,11 +39,11 @@ export function AuthAvatarMenu({ className = "" }: AuthAvatarMenuProps) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className={`flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-zinc-800 shadow-sm ring-1 ring-zinc-200 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-400 ${className}`}
+          className={`flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/80 text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${className}`}
           aria-label="Account menu"
         >
-          <Avatar className="h-9 w-9">
-            <AvatarFallback className="bg-zinc-100 text-sm font-semibold text-zinc-800">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-transparent text-sm font-semibold text-zinc-700">
               {fallbackLabel(user.email)}
             </AvatarFallback>
           </Avatar>

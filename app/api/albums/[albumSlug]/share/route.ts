@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
+import { customerPublicUrl } from "@/lib/customer-host";
 import {
   DEFAULT_SHARE_BACKGROUND_COLOR,
   isShareBackgroundColor,
@@ -29,6 +30,7 @@ interface AlbumRow {
   slug: string;
   customer_id: string | null;
   customer_name: string | null;
+  customer_slug: string | null;
 }
 
 interface ShareLinkRow {
@@ -56,7 +58,15 @@ const watermarkPositions = new Set<WatermarkPosition>([
   "bottom_right",
 ]);
 
-function shareUrl(request: Request, token: string) {
+function shareUrl(
+  request: Request,
+  token: string,
+  customerSlug: string | null,
+) {
+  if (customerSlug) {
+    return `${customerPublicUrl(customerSlug)}/share/${encodeURIComponent(token)}`;
+  }
+
   const origin = new URL(request.url).origin;
   return `${origin}/share/${encodeURIComponent(token)}`;
 }
@@ -127,11 +137,11 @@ function sanitizeSettings(body: unknown, fallbackText: string) {
   };
 }
 
-function serialize(row: ShareLinkRow, request: Request) {
+function serialize(row: ShareLinkRow, request: Request, customerSlug: string | null) {
   return {
     id: row.id,
     token: row.token,
-    url: shareUrl(request, row.token),
+    url: shareUrl(request, row.token, customerSlug),
     albumId: row.album_id,
     customerId: row.customer_id,
     albumName: row.album_name,
@@ -158,7 +168,8 @@ async function fetchAlbum(albumSlug: string) {
       a.name,
       a.slug,
       a.customer_id,
-      c.name AS customer_name
+      c.name AS customer_name,
+      c.slug AS customer_slug
     FROM albums a
     LEFT JOIN customers c
       ON c.id = a.customer_id
@@ -215,7 +226,7 @@ export async function GET(request: Request, { params }: Props) {
 
     return NextResponse.json({
       share: share
-        ? serialize(share, request)
+        ? serialize(share, request, album.customer_slug)
         : null,
       defaults: {
         albumName: album.name,
@@ -345,7 +356,7 @@ export async function POST(request: Request, { params }: Props) {
       );
     }
 
-    return NextResponse.json({ share: serialize(share, request) });
+    return NextResponse.json({ share: serialize(share, request, album.customer_slug) });
   } catch (error) {
     if (
       error instanceof Error &&

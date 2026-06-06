@@ -284,8 +284,12 @@ export async function GET(request: Request, { params }: Props) {
             id: album.customer_id,
             slug: album.customer_slug,
             name: album.customer_name ?? "",
-            email: album.customer_email,
-            phone: album.customer_phone,
+            ...(shareToken
+              ? {}
+              : {
+                  email: album.customer_email,
+                  phone: album.customer_phone,
+                }),
             coverPhotoUrl: await signedUrl(album.customer_cover_photo_s3_key),
             passwordRequired: Boolean(album.customer_password_required),
           }

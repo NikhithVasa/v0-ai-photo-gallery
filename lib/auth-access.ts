@@ -268,7 +268,7 @@ function shortToken(value: string) {
   return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : "";
 }
 
-function shareTokenFromRequest(request: Request) {
+export function shareTokenFromRequest(request: Request) {
   const url = new URL(request.url);
   const directToken = url.searchParams.get("share");
   if (directToken) {

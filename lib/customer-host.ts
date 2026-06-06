@@ -4,11 +4,14 @@ export function normalizeHost(host: string) {
   return host.split(":")[0].toLowerCase();
 }
 
+function stripLeadingWww(value: string) {
+  return value.startsWith("www.") ? value.slice(4) : value;
+}
+
 export function getCustomerSlugFromHost(host: string) {
-  const normalizedHost = normalizeHost(host);
+  const normalizedHost = stripLeadingWww(normalizeHost(host));
 
   if (normalizedHost === ROOT_DOMAIN) return null;
-  if (normalizedHost === `www.${ROOT_DOMAIN}`) return null;
 
   const suffix = `.${ROOT_DOMAIN}`;
 
@@ -17,9 +20,8 @@ export function getCustomerSlugFromHost(host: string) {
   const subdomain = normalizedHost.slice(0, -suffix.length);
 
   if (!subdomain) return null;
-  if (subdomain === "www") return null;
 
-  return subdomain.startsWith("www.") ? subdomain.slice(4) : subdomain;
+  return stripLeadingWww(subdomain);
 }
 
 export function getCustomerSlugFromRequest(request: Request) {

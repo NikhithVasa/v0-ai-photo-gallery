@@ -65,6 +65,17 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  DEFAULT_SHARE_BACKGROUND_COLOR,
+  SHARE_BACKGROUND_COLORS,
+  normalizeShareBackgroundColor,
+  shareBackgroundRgba,
+} from "@/lib/share-theme";
 import type { AlbumDetail, AlbumShareSettings, Person, Photo } from "@/lib/types";
 
 type Tab = "photos" | "people";
@@ -75,6 +86,15 @@ const DOWNLOAD_FORMATS: Array<{ format: DownloadFormat; label: string }> = [
   { format: "png", label: "PNG" },
   { format: "jpeg", label: "JPEG" },
 ];
+
+const navPillButtonClass =
+  "flex h-10 cursor-pointer items-center justify-center gap-2 rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
+
+const navPillButtonActiveClass =
+  "bg-[#1d1d1f] text-white ring-[#1d1d1f] hover:bg-black hover:text-white";
+
+const navIconButtonClass =
+  "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/80 text-zinc-500 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -502,7 +522,6 @@ function PeopleFilterButton({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const rootRef = useRef<HTMLDivElement>(null);
 
   const selectedIdSet = useMemo(
     () => new Set(selectedPeopleIds),
@@ -526,137 +545,125 @@ function PeopleFilterButton({
     });
   }, [people, query]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    window.addEventListener("pointerdown", handlePointerDown);
-    return () => window.removeEventListener("pointerdown", handlePointerDown);
-  }, [isOpen]);
-
   return (
-    <div ref={rootRef} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setIsOpen((current) => !current)}
-        className={`flex h-10 min-w-[128px] cursor-pointer items-center justify-center gap-2 rounded-full px-4 text-sm font-medium shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
-          selectedPeopleIds.length
-            ? "bg-[#1d1d1f] text-white ring-[#1d1d1f]"
-            : "bg-white/80 text-zinc-700 ring-black/10 hover:bg-white hover:text-zinc-950"
-        }`}
-        aria-expanded={isOpen}
-        aria-label="Filter by people"
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`${navPillButtonClass} min-w-[128px] shrink-0 ${
+            selectedPeopleIds.length ? navPillButtonActiveClass : ""
+          }`}
+          aria-expanded={isOpen}
+          aria-label="Filter by people"
+        >
+          <Users className="h-4 w-4 shrink-0" />
+          <span>People</span>
+
+          {previewPeople.length > 0 && (
+            <span className="hidden -space-x-2 md:flex">
+              {previewPeople.map((person) => (
+                <PersonAvatar key={person.id} person={person} size="sm" />
+              ))}
+            </span>
+          )}
+
+          {selectedPeopleIds.length > 0 && (
+            <span className="rounded-full bg-white/20 px-1.5 text-xs">
+              {selectedPeopleIds.length}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent
+        align="start"
+        sideOffset={12}
+        className="w-[min(88vw,380px)] rounded-[24px] border border-white/80 bg-white/95 p-3 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl"
       >
-        <Users className="h-4 w-4 shrink-0" />
-        <span>People</span>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold">Filter people</p>
+            <p className="text-xs text-zinc-500">
+              {selectedPeopleIds.length
+                ? `${selectedPeopleIds.length} selected`
+                : "Select one or more"}
+            </p>
+          </div>
 
-        {previewPeople.length > 0 && (
-          <span className="hidden -space-x-2 md:flex">
-            {previewPeople.map((person) => (
-              <PersonAvatar key={person.id} person={person} size="sm" />
-            ))}
-          </span>
-        )}
-
-        {selectedPeopleIds.length > 0 && (
-          <span className="rounded-full bg-white/20 px-1.5 text-xs">
-            {selectedPeopleIds.length}
-          </span>
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 top-full z-50 mt-3 w-[min(88vw,380px)] rounded-[24px] border border-white/80 bg-white/95 p-3 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold">Filter people</p>
-              <p className="text-xs text-zinc-500">
-                {selectedPeopleIds.length
-                  ? `${selectedPeopleIds.length} selected`
-                  : "Select one or more"}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1">
-              {selectedPeopleIds.length > 0 && (
-                <button
-                  type="button"
-                  onClick={onClear}
-                  className="cursor-pointer rounded-full px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
-                >
-                  Clear
-                </button>
-              )}
-
+          <div className="flex items-center gap-1">
+            {selectedPeopleIds.length > 0 && (
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
-                aria-label="Close people filter"
+                onClick={onClear}
+                className="cursor-pointer rounded-full px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
               >
-                <X className="h-4 w-4" />
+                Clear
               </button>
-            </div>
-          </div>
-
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search people"
-            className="mb-3 h-9"
-          />
-
-          <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
-            {filteredPeople.length === 0 ? (
-              <div className="py-8 text-center text-sm text-zinc-500">
-                No people found.
-              </div>
-            ) : (
-              filteredPeople.map((person) => {
-                const isSelected = selectedIdSet.has(person.id);
-                const displayName = person.displayName || person.defaultName;
-
-                return (
-                  <button
-                    key={person.id}
-                    type="button"
-                    onClick={() => onToggle(person.id)}
-                    aria-pressed={isSelected}
-                    className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl px-2 py-2 text-left transition ${
-                      isSelected
-                        ? "bg-[#1d1d1f] text-white"
-                        : "hover:bg-zinc-100"
-                    }`}
-                  >
-                    <PersonAvatar person={person} />
-
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
-                        {displayName}
-                      </span>
-                      <span
-                        className={`block text-xs ${
-                          isSelected ? "text-white/65" : "text-zinc-500"
-                        }`}
-                      >
-                        {person.photoCount} photos
-                      </span>
-                    </span>
-
-                    {isSelected && <Check className="h-4 w-4 shrink-0" />}
-                  </button>
-                );
-              })
             )}
+
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
+              aria-label="Close people filter"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </div>
-      )}
-    </div>
+
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search people"
+          className="mb-3 h-9"
+        />
+
+        <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+          {filteredPeople.length === 0 ? (
+            <div className="py-8 text-center text-sm text-zinc-500">
+              No people found.
+            </div>
+          ) : (
+            filteredPeople.map((person) => {
+              const isSelected = selectedIdSet.has(person.id);
+              const displayName = person.displayName || person.defaultName;
+
+              return (
+                <button
+                  key={person.id}
+                  type="button"
+                  onClick={() => onToggle(person.id)}
+                  aria-pressed={isSelected}
+                  className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl px-2 py-2 text-left transition ${
+                    isSelected
+                      ? "bg-[#1d1d1f] text-white"
+                      : "hover:bg-zinc-100"
+                  }`}
+                >
+                  <PersonAvatar person={person} />
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {displayName}
+                    </span>
+                    <span
+                      className={`block text-xs ${
+                        isSelected ? "text-white/65" : "text-zinc-500"
+                      }`}
+                    >
+                      {person.photoCount} photos
+                    </span>
+                  </span>
+
+                  {isSelected && <Check className="h-4 w-4 shrink-0" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -955,6 +962,9 @@ function AlbumShareDialog({
   const [watermarkPositions, setWatermarkPositions] =
     useState<string[]>(["bottom_right"]);
   const [expiresAt, setExpiresAt] = useState("");
+  const [backgroundColor, setBackgroundColor] = useState(
+    DEFAULT_SHARE_BACKGROUND_COLOR,
+  );
   const [shareUrl, setShareUrl] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -985,6 +995,7 @@ function AlbumShareDialog({
         : ["bottom_right"],
     );
     setExpiresAt(source.expiresAt ?? "");
+    setBackgroundColor(normalizeShareBackgroundColor(source.backgroundColor));
 
     setShareUrl(data.share?.url ?? "");
   }, [data, defaultWatermarkText, isOpen]);
@@ -1015,6 +1026,7 @@ function AlbumShareDialog({
             watermarkMode,
             watermarkPositions,
             expiresAt: expiresAt || null,
+            backgroundColor,
           }),
         },
       );
@@ -1118,6 +1130,35 @@ function AlbumShareDialog({
               value={expiresAt}
               onChange={(event) => setExpiresAt(event.target.value)}
             />
+          </div>
+
+          <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+            <Label className="text-sm font-medium">Background</Label>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-9">
+              {SHARE_BACKGROUND_COLORS.map((color) => {
+                const isSelected = backgroundColor === color.value;
+
+                return (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => setBackgroundColor(color.value)}
+                    aria-label={`${color.label} background`}
+                    aria-pressed={isSelected}
+                    className={`flex aspect-square min-h-8 cursor-pointer items-center justify-center rounded-full shadow-sm ring-offset-2 transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
+                      isSelected
+                        ? "ring-2 ring-zinc-950"
+                        : "ring-1 ring-black/10 hover:ring-zinc-400"
+                    }`}
+                    style={{ backgroundColor: color.value }}
+                  >
+                    {isSelected && (
+                      <span className="h-2 w-2 rounded-full bg-zinc-950" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
@@ -1233,8 +1274,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverCollapseTimerRef = useRef<number | null>(null);
   const coverTouchStartYRef = useRef<number | null>(null);
   const coverGestureTriggeredRef = useRef(false);
+  const lastScrollYRef = useRef(0);
 
   const [activeTab, setActiveTab] = useState<Tab>("photos");
+  const [isNavHidden, setIsNavHidden] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [selectedPeopleIds, setSelectedPeopleIds] = useState<string[]>([]);
   const [peopleMatchMode, setPeopleMatchMode] =
@@ -1352,6 +1395,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const downloadsEnabled = isShareView
     ? Boolean(shareSettings?.allowDownloads)
     : shareSettings?.allowDownloads ?? true;
+  const galleryBackgroundColor = isShareView
+    ? normalizeShareBackgroundColor(shareSettings?.backgroundColor)
+    : DEFAULT_SHARE_BACKGROUND_COLOR;
+  const galleryOverlayColor = shareBackgroundRgba(galleryBackgroundColor, 0.68);
+  const galleryNavColor = isShareView
+    ? shareBackgroundRgba(galleryBackgroundColor, 0.86)
+    : "rgba(255, 255, 255, 0.82)";
 
   const cancelGalleryScrollAnimation = () => {
     if (coverScrollAnimationFrameRef.current === null) return;
@@ -1540,6 +1590,29 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       window.removeEventListener("keydown", cancelAutoScroll);
     };
   }, [album, isPasswordVerified]);
+
+  useEffect(() => {
+    lastScrollYRef.current = window.scrollY;
+
+    const handleNavScroll = () => {
+      const currentY = window.scrollY;
+      const previousY = lastScrollYRef.current;
+      const delta = currentY - previousY;
+
+      if (currentY <= 16) {
+        setIsNavHidden(false);
+      } else if (delta > 8) {
+        setIsNavHidden(true);
+      } else if (delta < -8) {
+        setIsNavHidden(false);
+      }
+
+      lastScrollYRef.current = currentY;
+    };
+
+    window.addEventListener("scroll", handleNavScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleNavScroll);
+  }, []);
 
   useEffect(() => {
     const eventFromUrl = searchParams.get("event") || null;
@@ -1814,7 +1887,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     );
   }
 
-  if (album.passwordRequired && !isPasswordVerified) {
+  if (album.passwordRequired && !isPasswordVerified && !isShareView) {
     return (
       <PasswordGate
         albumSlug={albumSlug}
@@ -1825,7 +1898,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f]">
+    <main
+      className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f]"
+      style={{ backgroundColor: galleryBackgroundColor }}
+    >
       {!isCoverDismissed && (
         <section
           onWheel={handleCoverWheel}
@@ -1834,7 +1910,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           className={`relative flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 text-center transition-[height,opacity,padding] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
             isCoverCollapsing ? "py-0 opacity-0" : "py-8 opacity-100 sm:py-10"
           }`}
-          style={{ height: isCoverCollapsing ? 0 : "100svh" }}
+          style={{
+            backgroundColor: galleryBackgroundColor,
+            height: isCoverCollapsing ? 0 : "100svh",
+          }}
         >
           {album.coverPhotoUrl && (
             <Image
@@ -1847,7 +1926,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               unoptimized
             />
           )}
-          <div className="absolute inset-0 bg-[#f5f5f7]/68 backdrop-blur-[2px]" />
+          <div
+            className="absolute inset-0 bg-[#f5f5f7]/68 backdrop-blur-[2px]"
+            style={{ backgroundColor: galleryOverlayColor }}
+          />
 
           <div
             className={`relative z-10 flex w-full max-w-6xl flex-col items-center pb-16 transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
@@ -1924,8 +2006,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         </section>
       )}
 
-      <header id="album-gallery-shell" className="sticky top-0 z-30 px-3 pt-3 sm:px-5">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 rounded-[28px] border border-white/70 bg-white/[0.82] px-3 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:px-4">
+      <header
+        id="album-gallery-shell"
+        className={`sticky top-0 z-30 px-3 pt-3 transition-transform duration-300 ease-out will-change-transform sm:px-5 ${
+          isNavHidden ? "-translate-y-[calc(100%+0.75rem)]" : "translate-y-0"
+        }`}
+      >
+        <div
+          className="mx-auto flex max-w-7xl flex-col gap-3 rounded-[28px] border border-white/70 bg-white/[0.82] px-3 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:px-4"
+          style={{ backgroundColor: galleryNavColor }}
+        >
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex min-w-0 items-center justify-between gap-3">
               <div className="min-w-0">
@@ -1987,7 +2077,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             </div>
 
               {!selectedPerson && activeTab === "photos" && (
-                <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 sm:pb-0 xl:ml-2">
+                <div className="flex min-w-0 gap-2 xl:ml-2">
                   <PeopleFilterButton
                     people={filterPeople}
                     selectedPeople={selectedFilterPeople}
@@ -2005,7 +2095,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 </div>
               )}
 
-            <div className="flex max-w-full items-center gap-2 overflow-x-auto pb-1 xl:justify-end xl:pb-0">
+            <div className="flex max-w-full items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden xl:justify-end">
               <AlbumDownloadMenu
                 albumSlug={albumSlug}
                 shareToken={shareToken}
@@ -2028,10 +2118,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     setApsaraTextSearch(null);
                     scrollToGalleryTop();
                   }}
-                  className={`flex h-10 min-w-[112px] cursor-pointer items-center justify-center gap-2 rounded-full px-4 text-sm font-medium shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
-                    isPhotoSelectionMode
-                      ? "bg-[#1d1d1f] text-white ring-[#1d1d1f]"
-                      : "bg-white/80 text-zinc-700 ring-black/10 hover:bg-white hover:text-zinc-950"
+                  className={`${navPillButtonClass} min-w-[112px] ${
+                    isPhotoSelectionMode ? navPillButtonActiveClass : ""
                   }`}
                   aria-pressed={isPhotoSelectionMode}
                   aria-label="Select photos"
@@ -2057,7 +2145,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="flex h-10 min-w-[116px] cursor-pointer items-center justify-center gap-2 rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+                      className={`${navPillButtonClass} min-w-[116px]`}
                       aria-label="AI review"
                     >
                       <Sparkles className="h-4 w-4 shrink-0" />
@@ -2104,7 +2192,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               {!isShareView && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
-                  className="flex h-10 min-w-[136px] items-center justify-center gap-2 rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+                  className={`${navPillButtonClass} min-w-[136px]`}
                   aria-label="Create collage"
                 >
                   <LayoutTemplate className="h-4 w-4 shrink-0" />
@@ -2171,7 +2259,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               <button
                 type="button"
                 onClick={() => setIsSearchOpen(true)}
-                className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/80 text-zinc-500 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+                className={navIconButtonClass}
                 aria-label="Search"
               >
                 <Search className="h-5 w-5" />
@@ -2182,7 +2270,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           </div>
 
           {!selectedPerson && activeTab === "photos" && (
-            <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
+            <div className="flex max-w-full gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <button
                 type="button"
                 onClick={() => changeEvent(null)}

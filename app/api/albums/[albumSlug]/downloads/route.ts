@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { query } from "@/lib/db";
 import { s3 } from "@/lib/s3";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { getShareLinkAccess } from "@/lib/share-access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -385,6 +386,14 @@ export async function GET(request: Request, { params }: Props) {
         hasShareToken: Boolean(shareToken),
       });
       return accessDenied;
+    }
+
+    const shareAccess = await getShareLinkAccess(request, albumSlug);
+    if (shareAccess && !shareAccess.allowDownloads) {
+      return NextResponse.json(
+        { error: "Downloads are disabled for this share link" },
+        { status: 403 },
+      );
     }
 
     const rows = await fetchDownloadRows(

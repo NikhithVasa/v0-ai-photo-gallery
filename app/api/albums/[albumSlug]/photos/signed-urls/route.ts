@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { signedPhotoUrlBundle, type PhotoRow } from "@/lib/gallery-data";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { getShareLinkAccess } from "@/lib/share-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -99,12 +100,28 @@ export async function POST(request: Request, { params }: Props) {
       [albumSlug, photoIds]
     );
 
-    const photos = await Promise.all(rows.map(signedPhotoUrlBundle));
+    const shareAccess = await getShareLinkAccess(request, albumSlug);
+    const allowOriginalAccess = shareAccess ? shareAccess.allowDownloads : true;
+
+    const photos = await Promise.all(
+      rows.map(async (row) => {
+        const bundle = await signedPhotoUrlBundle(row);
+        if (!allowOriginalAccess) {
+          return {
+            ...bundle,
+            downloadUrl: bundle.previewUrl,
+            originalUrl: bundle.previewUrl,
+          };
+        }
+        return bundle;
+      }),
+    );
     console.log("[share-debug] signed photo urls API rows loaded", {
       albumSlug,
       requested: photoIds.length,
       rows: rows.length,
       signed: photos.length,
+      shareRestricted: Boolean(shareAccess && !shareAccess.allowDownloads),
     });
 
     const urls = Object.fromEntries(
@@ -116,7 +133,7 @@ export async function POST(request: Request, { params }: Props) {
           thumbnailUrl: photo.thumbnailUrl,
           originalUrl: photo.originalUrl,
         },
-      ])
+      ]),
     );
 
     return NextResponse.json({ urls, photos });
