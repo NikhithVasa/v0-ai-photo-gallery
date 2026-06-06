@@ -1502,12 +1502,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }, [albumSlug]);
 
   useEffect(() => {
-    if (downloadsEnabled) return;
-    setIsPhotoSelectionMode(false);
-    setSelectedDownloadPhotoIds([]);
-  }, [downloadsEnabled]);
-
-  useEffect(() => {
     if (isCoverDismissed) return;
 
     const dismissWhenGalleryIsReached = () => {
@@ -2080,30 +2074,28 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 downloadsEnabled={downloadsEnabled}
               />
 
-              {downloadsEnabled && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsPhotoSelectionMode((current) => !current);
-                    setActiveTab("photos");
-                    setSelectedPerson(null);
-                    setApsaraTextSearch(null);
-                    scrollToGalleryTop();
-                  }}
-                  className={`${navPillButtonClass} min-w-[102px] ${
-                    isPhotoSelectionMode ? navPillButtonActiveClass : ""
-                  }`}
-                  aria-pressed={isPhotoSelectionMode}
-                  aria-label="Select photos"
-                >
-                  <Check className="h-4 w-4 shrink-0" />
-                  <span>
-                    {isPhotoSelectionMode
-                      ? `${selectedDownloadPhotoIds.length} Selected`
-                      : "Select"}
-                  </span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPhotoSelectionMode((current) => !current);
+                  setActiveTab("photos");
+                  setSelectedPerson(null);
+                  setApsaraTextSearch(null);
+                  scrollToGalleryTop();
+                }}
+                className={`${navPillButtonClass} min-w-[102px] ${
+                  isPhotoSelectionMode ? navPillButtonActiveClass : ""
+                }`}
+                aria-pressed={isPhotoSelectionMode}
+                aria-label="Select photos"
+              >
+                <Check className="h-4 w-4 shrink-0" />
+                <span>
+                  {isPhotoSelectionMode
+                    ? `${selectedDownloadPhotoIds.length} Selected`
+                    : "Select"}
+                </span>
+              </button>
 
               {!isShareView && (
                 <AlbumShareDialog
@@ -2112,65 +2104,73 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 />
               )}
 
-              {!isShareView && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className={`${navPillButtonClass} min-w-[118px] px-3`}
-                      aria-label="AI review"
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={`${navPillButtonClass} min-w-[118px] px-3`}
+                    aria-label="AI review"
+                  >
+                    <Sparkles className="h-4 w-4 shrink-0" />
+                    <span>AI Review</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuLabel>AI Review</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={withShareParam(
+                        `/albums/${encodeURIComponent(
+                          albumSlug,
+                        )}/culling?mode=best`,
+                        shareToken,
+                      )}
                     >
-                      <Sparkles className="h-4 w-4 shrink-0" />
-                      <span>AI Review</span>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuLabel>AI Review</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href={`/albums/${encodeURIComponent(
+                      <Sparkles className="h-4 w-4" />
+                      Pick Best Photos
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={withShareParam(
+                        `/albums/${encodeURIComponent(
                           albumSlug,
-                        )}/culling?mode=best`}
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        Pick Best Photos
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href={`/albums/${encodeURIComponent(
+                        )}/culling?mode=problems`,
+                        shareToken,
+                      )}
+                    >
+                      <AlertTriangle className="h-4 w-4" />
+                      Needs Review
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={withShareParam(
+                        `/albums/${encodeURIComponent(
                           albumSlug,
-                        )}/culling?mode=problems`}
-                      >
-                        <AlertTriangle className="h-4 w-4" />
-                        Needs Review
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href={`/albums/${encodeURIComponent(
-                          albumSlug,
-                        )}/culling?mode=by_person`}
-                      >
-                        <Users className="h-4 w-4" />
-                        Best by Person
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+                        )}/culling?mode=by_person`,
+                        shareToken,
+                      )}
+                    >
+                      <Users className="h-4 w-4" />
+                      Best by Person
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              {!isShareView && (
-                <Link
-                  href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
-                  className={`${navPillButtonClass} min-w-[118px]`}
-                  aria-label="Create collage"
-                >
-                  <LayoutTemplate className="h-4 w-4 shrink-0" />
-                  <span>Collage</span>
-                </Link>
-              )}
+              <Link
+                href={withShareParam(
+                  `/albums/${encodeURIComponent(albumSlug)}/collage`,
+                  shareToken,
+                )}
+                className={`${navPillButtonClass} min-w-[118px]`}
+                aria-label="Create collage"
+              >
+                <LayoutTemplate className="h-4 w-4 shrink-0" />
+                <span>Collage</span>
+              </Link>
 
               {!isShareView && (
                 <Link
@@ -2347,7 +2347,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   Photos
                 </h2>
 
-                {downloadsEnabled && isPhotoSelectionMode && (
+                {isPhotoSelectionMode && (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-zinc-500">
                       {selectedDownloadPhotoIds.length} selected
@@ -2360,48 +2360,50 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     >
                       Clear
                     </button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          disabled={!selectedDownloadPhotoIds.length}
-                          className="flex h-9 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Download Selected
-                          <ChevronDown className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-36">
-                        {DOWNLOAD_FORMATS.map((item) => {
-                          const params = new URLSearchParams({
-                            photos: selectedDownloadPhotoIds.join(","),
-                          });
+                    {downloadsEnabled && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={!selectedDownloadPhotoIds.length}
+                            className="flex h-9 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Download Selected
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-36">
+                          {DOWNLOAD_FORMATS.map((item) => {
+                            const params = new URLSearchParams({
+                              photos: selectedDownloadPhotoIds.join(","),
+                            });
 
-                          if (item.format !== "original") {
-                            params.set("format", item.format);
-                          }
-                          if (shareToken) {
-                            params.set("share", shareToken);
-                          }
+                            if (item.format !== "original") {
+                              params.set("format", item.format);
+                            }
+                            if (shareToken) {
+                              params.set("share", shareToken);
+                            }
 
-                          return (
-                            <DropdownMenuItem
-                              key={item.format}
-                              onSelect={() =>
-                                triggerBrowserDownload(
-                                  `/api/albums/${encodeURIComponent(
-                                    albumSlug,
-                                  )}/downloads?${params.toString()}`,
-                                )
-                              }
-                            >
-                              <Download className="h-4 w-4" />
-                              {item.label}
-                            </DropdownMenuItem>
-                          );
-                        })}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                            return (
+                              <DropdownMenuItem
+                                key={item.format}
+                                onSelect={() =>
+                                  triggerBrowserDownload(
+                                    `/api/albums/${encodeURIComponent(
+                                      albumSlug,
+                                    )}/downloads?${params.toString()}`,
+                                  )
+                                }
+                              >
+                                <Download className="h-4 w-4" />
+                                {item.label}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                     {!isShareView && (
                       <ApplyPresetSelectionDialog
                         albumSlug={albumSlug}
@@ -2430,7 +2432,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               peopleMatchMode={peopleMatchMode}
               onPersonClick={filterByPerson}
               onReachedEnd={goToNextEvent}
-              isSelectionMode={downloadsEnabled && isPhotoSelectionMode}
+              isSelectionMode={isPhotoSelectionMode}
               selectedPhotoIds={selectedDownloadPhotoIds}
               onTogglePhoto={toggleSelectedDownloadPhotoId}
               events={album.events}

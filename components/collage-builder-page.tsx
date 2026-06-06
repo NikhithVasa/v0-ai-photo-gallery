@@ -12,6 +12,7 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
   ArrowLeft,
@@ -134,6 +135,12 @@ const fetcher = async (url: string) => {
   if (!response.ok) throw new Error(data.error || "Request failed");
   return data;
 };
+
+function withShareParam(url: string, shareToken = "") {
+  if (!shareToken) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}share=${encodeURIComponent(shareToken)}`;
+}
 
 const swrOptions = {
   dedupingInterval: 5 * 60 * 1000,
@@ -811,6 +818,9 @@ function CollageCell({
 }
 
 export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps) {
+  const searchParams = useSearchParams();
+  const shareToken = searchParams.get("share") || "";
+  const isShareView = Boolean(shareToken);
   const previewRef = useRef<HTMLDivElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const uploadedPhotosRef = useRef<CollagePhoto[]>([]);
@@ -866,7 +876,11 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       ),
   });
 
-  const { data: albumsData } = useSWR<{ albums: AlbumSummary[] }>("/api/albums", fetcher, swrOptions);
+  const { data: albumsData } = useSWR<{ albums: AlbumSummary[] }>(
+    isShareView ? null : "/api/albums",
+    fetcher,
+    swrOptions,
+  );
 
   useEffect(() => {
     if (albumSlug || !albumsData?.albums?.length) return;
@@ -879,19 +893,24 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   }, [albumSlug]);
 
   const { data: albumData, error: albumError, isLoading: albumLoading } = useSWR<{ album: AlbumDetail }>(
-    albumSlug ? `/api/albums/${encodeURIComponent(albumSlug)}` : null,
+    albumSlug
+      ? withShareParam(`/api/albums/${encodeURIComponent(albumSlug)}`, shareToken)
+      : null,
     fetcher,
     swrOptions,
   );
 
   const photosUrl = useMemo(() => {
     if (!albumSlug || !albumData?.album) return null;
-    if (albumData.album.passwordRequired && !isPasswordVerified) return null;
+    if (albumData.album.passwordRequired && !isPasswordVerified && !isShareView) {
+      return null;
+    }
     const params = new URLSearchParams();
     if (eventSlug !== "all") params.set("event", eventSlug);
+    if (shareToken) params.set("share", shareToken);
     const queryString = params.toString();
     return `/api/albums/${encodeURIComponent(albumSlug)}/photos${queryString ? `?${queryString}` : ""}`;
-  }, [albumData?.album, albumSlug, eventSlug, isPasswordVerified]);
+  }, [albumData?.album, albumSlug, eventSlug, isPasswordVerified, isShareView, shareToken]);
 
   const { data: photosData, error: photosError, isLoading: photosLoading } = useSWR<{ photos: Photo[] }>(
     photosUrl,
@@ -975,11 +994,17 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
         return;
       }
 
-      const response = await fetch(`/api/albums/${encodeURIComponent(albumSlug)}/photos/signed-urls`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: remotePhotoIds }),
-      });
+      const response = await fetch(
+        withShareParam(
+          `/api/albums/${encodeURIComponent(albumSlug)}/photos/signed-urls`,
+          shareToken,
+        ),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: remotePhotoIds }),
+        },
+      );
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to sign originals");
       if (isCancelled) return;
@@ -995,7 +1020,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     return () => {
       isCancelled = true;
     };
-  }, [albumSlug, selectedPhotoIds]);
+  }, [albumSlug, selectedPhotoIds, shareToken]);
 
   const togglePhoto = (photoId: string) => {
     setActiveSourcePhotoId(photoId);
@@ -1437,12 +1462,17 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const draggingPhoto = moveDragState ? assignedPhotos[moveDragState.fromIndex] : undefined;
   const draggingPhotoSrc = draggingPhoto ? resolvePhotoUrl(draggingPhoto, originalUrls) : "";
 
-  if (selectedAlbum?.passwordRequired && !isPasswordVerified) {
+  if (selectedAlbum?.passwordRequired && !isPasswordVerified && !isShareView) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f7f4] px-4 text-zinc-950">
         <section className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
           <Button asChild variant="ghost" className="mb-5 px-0">
-            <Link href={`/albums/${encodeURIComponent(albumSlug)}`}>
+            <Link
+              href={withShareParam(
+                `/albums/${encodeURIComponent(albumSlug)}`,
+                shareToken,
+              )}
+            >
               <ArrowLeft className="h-4 w-4" />
               Back to album
             </Link>
@@ -1480,7 +1510,17 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
         <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-3 px-3 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Button asChild variant="ghost" size="icon" className="rounded-full">
-              <Link href={albumSlug ? `/albums/${encodeURIComponent(albumSlug)}` : "/albums"} aria-label="Back">
+              <Link
+                href={
+                  albumSlug
+                    ? withShareParam(
+                        `/albums/${encodeURIComponent(albumSlug)}`,
+                        shareToken,
+                      )
+                    : "/albums"
+                }
+                aria-label="Back"
+              >
                 <ArrowLeft className="h-5 w-5" />
               </Link>
             </Button>
@@ -1516,7 +1556,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <AuthAvatarMenu />
+            {!isShareView && <AuthAvatarMenu />}
           </div>
         </div>
       </header>
@@ -1527,24 +1567,32 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Album</Label>
-                <Select
-                  value={albumSlug}
-                  onValueChange={(value) => {
-                    setAlbumSlug(value);
-                    setEventSlug("all");
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select album" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(albumsData?.albums ?? []).map((album) => (
-                      <SelectItem key={album.id} value={album.slug}>
-                        {album.customer?.name || album.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isShareView ? (
+                  <div className="flex min-h-10 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-700">
+                    {selectedAlbum?.customer?.name ||
+                      selectedAlbum?.name ||
+                      albumSlug}
+                  </div>
+                ) : (
+                  <Select
+                    value={albumSlug}
+                    onValueChange={(value) => {
+                      setAlbumSlug(value);
+                      setEventSlug("all");
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select album" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(albumsData?.albums ?? []).map((album) => (
+                        <SelectItem key={album.id} value={album.slug}>
+                          {album.customer?.name || album.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="space-y-1.5">

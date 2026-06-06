@@ -114,7 +114,18 @@ function clusterModeParam(mode: ReviewMode) {
   return mode;
 }
 
-function reviewUrl(albumSlug: string, mode: ReviewMode, eventSlug: string) {
+function withShareParam(url: string, shareToken = "") {
+  if (!shareToken) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}share=${encodeURIComponent(shareToken)}`;
+}
+
+function reviewUrl(
+  albumSlug: string,
+  mode: ReviewMode,
+  eventSlug: string,
+  shareToken = "",
+) {
   if (mode === "by_person" || isClusterMode(mode)) return null;
 
   const selectedMode = MODES.find((item) => item.key === mode);
@@ -125,10 +136,18 @@ function reviewUrl(albumSlug: string, mode: ReviewMode, eventSlug: string) {
 
   if (eventSlug) params.set("event", eventSlug);
 
-  return `/api/albums/${encodeURIComponent(albumSlug)}/ai/review?${params.toString()}`;
+  return withShareParam(
+    `/api/albums/${encodeURIComponent(albumSlug)}/ai/review?${params.toString()}`,
+    shareToken,
+  );
 }
 
-function clustersUrl(albumSlug: string, mode: ReviewMode, eventSlug: string) {
+function clustersUrl(
+  albumSlug: string,
+  mode: ReviewMode,
+  eventSlug: string,
+  shareToken = "",
+) {
   if (!isClusterMode(mode)) return null;
 
   const selectedMode = MODES.find((item) => item.key === mode);
@@ -138,17 +157,28 @@ function clustersUrl(albumSlug: string, mode: ReviewMode, eventSlug: string) {
   });
 
   if (eventSlug) {
-    return `/api/albums/${encodeURIComponent(
-      albumSlug,
-    )}/events/${encodeURIComponent(eventSlug)}/culling/clusters?${params.toString()}`;
+    return withShareParam(
+      `/api/albums/${encodeURIComponent(
+        albumSlug,
+      )}/events/${encodeURIComponent(eventSlug)}/culling/clusters?${params.toString()}`,
+      shareToken,
+    );
   }
 
-  return `/api/albums/${encodeURIComponent(
-    albumSlug,
-  )}/culling/clusters?${params.toString()}`;
+  return withShareParam(
+    `/api/albums/${encodeURIComponent(
+      albumSlug,
+    )}/culling/clusters?${params.toString()}`,
+    shareToken,
+  );
 }
 
-function bestByPersonUrl(albumSlug: string, mode: ReviewMode, eventSlug: string) {
+function bestByPersonUrl(
+  albumSlug: string,
+  mode: ReviewMode,
+  eventSlug: string,
+  shareToken = "",
+) {
   if (mode !== "by_person") return null;
 
   const params = new URLSearchParams({
@@ -158,7 +188,10 @@ function bestByPersonUrl(albumSlug: string, mode: ReviewMode, eventSlug: string)
 
   if (eventSlug) params.set("event", eventSlug);
 
-  return `/api/albums/${encodeURIComponent(albumSlug)}/ai/best-by-person?${params.toString()}`;
+  return withShareParam(
+    `/api/albums/${encodeURIComponent(albumSlug)}/ai/best-by-person?${params.toString()}`,
+    shareToken,
+  );
 }
 
 function clusterToReviewPhoto(cluster: CullingCluster): AiReviewPhoto | null {
@@ -199,10 +232,11 @@ function clusterToReviewPhoto(cluster: CullingCluster): AiReviewPhoto | null {
   };
 }
 
-function downloadSelected(albumSlug: string, photoIds: string[]) {
+function downloadSelected(albumSlug: string, photoIds: string[], shareToken = "") {
   if (!photoIds.length) return;
 
   const params = new URLSearchParams({ photos: photoIds.join(",") });
+  if (shareToken) params.set("share", shareToken);
   window.location.href = `/api/albums/${encodeURIComponent(
     albumSlug,
   )}/downloads?${params.toString()}`;
@@ -325,6 +359,7 @@ function ClusterCard({
   onKeep,
   onReject,
   onBestChanged,
+  shareToken = "",
 }: {
   cluster: CullingCluster;
   state: "kept" | "rejected" | null;
@@ -333,11 +368,15 @@ function ClusterCard({
   onKeep: () => void;
   onReject: () => void;
   onBestChanged: () => void;
+  shareToken?: string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isUpdatingBest, setIsUpdatingBest] = useState(false);
   const itemsUrl = isExpanded
-    ? `/api/culling/clusters/${encodeURIComponent(cluster.clusterId)}/items`
+    ? withShareParam(
+        `/api/culling/clusters/${encodeURIComponent(cluster.clusterId)}/items`,
+        shareToken,
+      )
     : null;
   const { data, isLoading, mutate } = useSWR<CullingClusterItemsResponse>(
     itemsUrl,
@@ -509,7 +548,7 @@ function ClusterCard({
                         <p className="text-[11px] font-medium text-zinc-500">
                           Score {scoreLabel(item.qualityScore)}
                         </p>
-                        {!item.isBest && (
+                        {!shareToken && !item.isBest && (
                           <button
                             type="button"
                             disabled={isUpdatingBest}
@@ -768,6 +807,7 @@ function CullingLightbox({
 
 export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
   const searchParams = useSearchParams();
+  const shareToken = searchParams.get("share") || "";
   const { mutate } = useSWRConfig();
   const [mode, setMode] = useState<ReviewMode>(() =>
     initialMode(searchParams.get("mode")),
@@ -779,11 +819,11 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
 
   const { data: albumData, isLoading: isAlbumLoading } = useSWR<{
     album: AlbumDetail;
-  }>(`/api/albums/${encodeURIComponent(albumSlug)}`, fetcher);
+  }>(withShareParam(`/api/albums/${encodeURIComponent(albumSlug)}`, shareToken), fetcher);
 
-  const reviewRequestUrl = reviewUrl(albumSlug, mode, eventSlug);
-  const clustersRequestUrl = clustersUrl(albumSlug, mode, eventSlug);
-  const personRequestUrl = bestByPersonUrl(albumSlug, mode, eventSlug);
+  const reviewRequestUrl = reviewUrl(albumSlug, mode, eventSlug, shareToken);
+  const clustersRequestUrl = clustersUrl(albumSlug, mode, eventSlug, shareToken);
+  const personRequestUrl = bestByPersonUrl(albumSlug, mode, eventSlug, shareToken);
 
   const {
     data: clustersData,
@@ -878,7 +918,10 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Link
-                href={`/albums/${encodeURIComponent(albumSlug)}`}
+                href={withShareParam(
+                  `/albums/${encodeURIComponent(albumSlug)}`,
+                  shareToken,
+                )}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
                 aria-label="Back to album"
               >
@@ -907,7 +950,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
               </Button>
               <Button
                 type="button"
-                onClick={() => downloadSelected(albumSlug, keptPhotoIds)}
+                onClick={() => downloadSelected(albumSlug, keptPhotoIds, shareToken)}
                 disabled={!keptPhotoIds.length}
               >
                 <Download className="h-4 w-4" />
@@ -1075,6 +1118,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                           }
                           setSelectedPhotoId(null);
                         }}
+                        shareToken={shareToken}
                       />
                     </div>
                   );

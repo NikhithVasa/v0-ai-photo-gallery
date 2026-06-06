@@ -20,7 +20,10 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
   if (pathname === "/login" || pathname === "/auth/callback") return true;
   if (pathname.startsWith("/legal/") || pathname.startsWith("/share/")) return true;
 
-  return /^\/albums\/[^/]+$/.test(pathname) && Boolean(searchParams.get("share"));
+  return (
+    /^\/albums\/[^/]+(?:\/(?:culling|collage))?$/.test(pathname) &&
+    Boolean(searchParams.get("share"))
+  );
 }
 
 function rewriteWithCookies(url: URL, response: NextResponse) {

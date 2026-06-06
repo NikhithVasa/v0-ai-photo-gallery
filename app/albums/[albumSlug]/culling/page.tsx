@@ -7,22 +7,28 @@ import { canAccessAlbumFromHost } from "@/lib/album-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
+  searchParams: Promise<{ share?: string }>;
 }
 
-export default async function AlbumCullingPage({ params }: Props) {
+export default async function AlbumCullingPage({ params, searchParams }: Props) {
   const { albumSlug } = await params;
-  const headersList = await headers();
-  const canAccess = await canAccessAlbumFromHost(
-    albumSlug,
-    headersList.get("host") || "",
-  );
+  const { share } = await searchParams;
+  const hasShareToken = typeof share === "string" && share.length > 0;
 
-  if (!canAccess) {
-    redirect("/albums");
+  if (!hasShareToken) {
+    const headersList = await headers();
+    const canAccess = await canAccessAlbumFromHost(
+      albumSlug,
+      headersList.get("host") || "",
+    );
+
+    if (!canAccess) {
+      redirect("/albums");
+    }
   }
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowShareToken>
       <Suspense>
         <AiCullingPage albumSlug={albumSlug} />
       </Suspense>
