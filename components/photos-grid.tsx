@@ -242,11 +242,11 @@ export function PhotosGrid({
                 }`}
                 style={{ aspectRatio: photoAspectRatio(photo) }}
               >
-                {photo.thumbnailUrl || photo.previewUrl ? (
+                {photo.previewUrl || photo.thumbnailUrl ? (
                   <img
-                    src={photo.thumbnailUrl || photo.previewUrl || ""}
+                    src={photo.previewUrl || photo.thumbnailUrl || ""}
                     alt={photo.caption || photo.fileName || "Photo"}
-                    className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]"
+                    className="absolute inset-0 h-full w-full object-contain"
                     loading={index < 48 ? "eager" : "lazy"}
                     decoding="async"
                   />

@@ -383,7 +383,7 @@ export const PhotoCard = memo(function PhotoCard({
   forceFill = false,
   shareSettings,
 }: PhotoCardProps) {
-  const imageUrl = photo.thumbnailUrl || photo.previewUrl;
+  const imageUrl = photo.previewUrl || photo.thumbnailUrl;
   const aspectRatio = photoAspectRatio(photo);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
@@ -462,12 +462,12 @@ export const PhotoCard = memo(function PhotoCard({
           <WatermarkedImage
             src={imageUrl}
             alt={photo.caption || "Photo"}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-contain"
             loading={index < 48 ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={index < 12 ? "high" : "auto"}
             settings={shareSettings}
-            fit="cover"
+            fit="contain"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-secondary">
@@ -625,8 +625,8 @@ export function PhotoLightbox({
 
   const imageCandidates = uniqueUrls([
     originRect?.imageUrl,
-    photo.thumbnailUrl,
     photo.previewUrl,
+    photo.thumbnailUrl,
   ]);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const downloadUrl = photo.downloadUrl;
@@ -666,7 +666,7 @@ export function PhotoLightbox({
 
   const getPreviewUrl = useCallback((targetPhoto: Photo | undefined) => {
     if (!targetPhoto) return null;
-    return targetPhoto.thumbnailUrl || targetPhoto.previewUrl || null;
+    return targetPhoto.previewUrl || targetPhoto.thumbnailUrl || null;
   }, []);
 
   const previousImageUrl = useMemo(
