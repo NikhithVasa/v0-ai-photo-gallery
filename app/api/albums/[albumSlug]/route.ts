@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
+import { handleDbRouteError } from "@/lib/db-response";
 import { signedUrl } from "@/lib/s3";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
@@ -306,14 +307,7 @@ export async function GET(request: Request, { params }: Props) {
       }
     );
   } catch (error) {
-    console.error("[share-debug] album detail API failed", {
-      error,
-    });
-
-    return NextResponse.json(
-      { error: "Failed to fetch album" },
-      { status: 500 }
-    );
+    return handleDbRouteError(error, "Failed to fetch album");
   }
 }
 

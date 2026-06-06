@@ -3,27 +3,52 @@ import { Signer } from "@aws-sdk/rds-signer";
 
 declare global {
   var pgPool: Pool | undefined;
+  var pgPoolInitPromise: Promise<Pool> | undefined;
 }
 
 const RDS_HOST =
   process.env.RDS_HOST ||
   "photo-gallery-postgres-dev.c7o2u4ouqyim.us-east-1.rds.amazonaws.com";
-const RDS_PORT = parseInt(process.env.RDS_PORT || "5432", 10);
+const RDS_PORT = Number.parseInt(process.env.RDS_PORT || "5432", 10);
 const RDS_USER = process.env.RDS_USER || "photo_worker";
 const RDS_DB = process.env.RDS_DB || "postgres";
 const AWS_REGION = process.env.AWS_REGION || "us-east-1";
 const RDS_PASSWORD = process.env.RDS_PASSWORD;
+
+// Serverless: one connection per warm instance. Override with PG_POOL_MAX if needed.
 const POOL_MAX = Math.max(
   1,
-  Number.parseInt(process.env.PG_POOL_MAX || "3", 10) || 3,
+  Number.parseInt(process.env.PG_POOL_MAX || "1", 10) || 1,
 );
 
 const poolDefaults = {
   max: POOL_MAX,
-  idleTimeoutMillis: 5000,
+  min: 0,
+  idleTimeoutMillis: 1000,
   connectionTimeoutMillis: 5000,
+  allowExitOnIdle: true,
   application_name: "photo-gallery-web",
 } satisfies Partial<PoolConfig>;
+
+export class DbConnectionLimitError extends Error {
+  code = "53300";
+
+  constructor(message = "Database connection limit reached") {
+    super(message);
+    this.name = "DbConnectionLimitError";
+  }
+}
+
+export function isConnectionLimitError(error: unknown) {
+  if (error instanceof DbConnectionLimitError) return true;
+
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "53300"
+  );
+}
 
 async function generateAuthToken(): Promise<string> {
   const signer = new Signer({
@@ -63,21 +88,48 @@ async function buildPoolConfig(): Promise<PoolConfig> {
   };
 }
 
+function clearPoolGlobals() {
+  global.pgPool = undefined;
+  global.pgPoolInitPromise = undefined;
+}
+
 async function createPool() {
-  return new Pool(await buildPoolConfig());
+  const pool = new Pool(await buildPoolConfig());
+
+  pool.on("error", (error) => {
+    console.error("[db] idle client error", error);
+  });
+
+  pool.on("end", () => {
+    if (global.pgPool === pool) {
+      clearPoolGlobals();
+    }
+  });
+
+  return pool;
 }
 
 async function getPool(): Promise<Pool> {
-  if (!global.pgPool) {
-    global.pgPool = await createPool();
+  if (global.pgPool) {
+    return global.pgPool;
   }
 
-  return global.pgPool;
+  global.pgPoolInitPromise ??= createPool()
+    .then((pool) => {
+      global.pgPool = pool;
+      return pool;
+    })
+    .catch((error) => {
+      clearPoolGlobals();
+      throw error;
+    });
+
+  return global.pgPoolInitPromise;
 }
 
 async function resetPool() {
   const existingPool = global.pgPool;
-  global.pgPool = undefined;
+  clearPoolGlobals();
 
   if (existingPool) {
     await existingPool.end().catch(() => undefined);
@@ -91,6 +143,14 @@ function isAuthTokenError(error: unknown) {
       error.message,
     )
   );
+}
+
+function normalizeQueryError(error: unknown) {
+  if (isConnectionLimitError(error)) {
+    return new DbConnectionLimitError();
+  }
+
+  return error;
 }
 
 async function runQuery<T>(text: string, params?: unknown[]): Promise<T[]> {
@@ -109,8 +169,12 @@ export async function query<T>(text: string, params?: unknown[]): Promise<T[]> {
   try {
     return await runQuery<T>(text, params);
   } catch (error) {
+    if (isConnectionLimitError(error)) {
+      throw new DbConnectionLimitError();
+    }
+
     if (!isAuthTokenError(error)) {
-      throw error;
+      throw normalizeQueryError(error);
     }
 
     await resetPool();
@@ -152,12 +216,33 @@ export async function withTransaction<T>(
     const pool = await getPool();
     return await runTransaction(pool, callback);
   } catch (error) {
+    if (isConnectionLimitError(error)) {
+      throw new DbConnectionLimitError();
+    }
+
     if (!isAuthTokenError(error)) {
-      throw error;
+      throw normalizeQueryError(error);
     }
 
     await resetPool();
     const pool = await getPool();
     return runTransaction(pool, callback);
   }
+}
+
+export function dbErrorResponse(error: unknown) {
+  if (isConnectionLimitError(error)) {
+    return Response.json(
+      { error: "Database is busy. Please retry in a moment." },
+      {
+        status: 503,
+        headers: {
+          "Retry-After": "2",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
+  return null;
 }

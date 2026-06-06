@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
+import { handleDbRouteError } from "@/lib/db-response";
 import { requireAlbumAccess } from "@/lib/album-access";
 
 export const dynamic = "force-dynamic";
@@ -77,28 +78,27 @@ export async function GET(request: Request, { params }: Props) {
       albumId: album.id,
     });
 
-    const [albumStats, eventStats] = await Promise.all([
-      queryOne<AlbumStatsRow>(
-        `
-        SELECT
-          (
-            SELECT COUNT(*)::int
-            FROM photos p
-            WHERE p.album_id = $1::uuid
-              AND COALESCE(p.is_deleted, false) = false
-              AND p.upload_status = 'completed'
-          ) AS photo_count,
-          (
-            SELECT COUNT(*)::int
-            FROM people pe
-            WHERE pe.album_id = $1::uuid
-              AND COALESCE(pe.is_hidden, false) = false
-          ) AS people_count
-        `,
-        [album.id]
-      ),
+    const albumStats = await queryOne<AlbumStatsRow>(
+      `
+      SELECT
+        (
+          SELECT COUNT(*)::int
+          FROM photos p
+          WHERE p.album_id = $1::uuid
+            AND COALESCE(p.is_deleted, false) = false
+            AND p.upload_status = 'completed'
+        ) AS photo_count,
+        (
+          SELECT COUNT(*)::int
+          FROM people pe
+          WHERE pe.album_id = $1::uuid
+            AND COALESCE(pe.is_hidden, false) = false
+        ) AS people_count
+      `,
+      [album.id],
+    );
 
-      query<EventStatsRow>(
+    const eventStats = await query<EventStatsRow>(
         `
         WITH event_photo_counts AS (
           SELECT
@@ -161,9 +161,8 @@ export async function GET(request: Request, { params }: Props) {
           AND COALESCE(e.is_deleted, false) = false
         ORDER BY e.sort_order ASC NULLS LAST, e.name ASC
         `,
-        [album.id]
-      ),
-    ]);
+        [album.id],
+      );
 
     return NextResponse.json(
       {
@@ -186,13 +185,6 @@ export async function GET(request: Request, { params }: Props) {
       }
     );
   } catch (error) {
-    console.error("[share-debug] album stats API failed", {
-      error,
-    });
-
-    return NextResponse.json(
-      { error: "Failed to fetch album stats" },
-      { status: 500 }
-    );
+    return handleDbRouteError(error, "Failed to fetch album stats");
   }
 }
