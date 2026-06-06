@@ -125,6 +125,51 @@ export interface AiReviewPersonGroup {
   photos: AiReviewPhoto[];
 }
 
+export interface CullingScore {
+  overallScore: number | null;
+  technicalScore: number | null;
+  faceScore: number | null;
+  gazeScore: number | null;
+  reason: string | null;
+}
+
+export interface CullingClusterPhoto {
+  id: string;
+  fileName: string | null;
+  thumbnailUrl: string | null;
+  previewUrl: string | null;
+  thumbnailS3Key: string | null;
+  cleanPreviewS3Key: string | null;
+  watermarkedPreviewS3Key: string | null;
+}
+
+export interface CullingCluster {
+  clusterId: string;
+  albumSlug: string;
+  eventSlug: string;
+  clusterType: string | null;
+  bestPhotoId: string | null;
+  similarCount: number;
+  score: number | null;
+  reason: string | null;
+  scoreReason: string | null;
+  scoreDetails: CullingScore;
+  photo: CullingClusterPhoto | null;
+}
+
+export interface CullingClusterItem {
+  clusterId: string;
+  photoId: string;
+  rankInCluster: number;
+  isBest: boolean;
+  similarityScore: number | null;
+  qualityScore: number | null;
+  reason: string | null;
+  scoreReason: string | null;
+  scoreDetails: CullingScore;
+  photo: CullingClusterPhoto;
+}
+
 export interface SearchResult {
   photoId: string;
   albumSlug?: string;

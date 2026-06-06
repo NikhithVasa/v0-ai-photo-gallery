@@ -9,6 +9,7 @@ interface Props {
 }
 
 type ReviewMode =
+  | "all"
   | "best"
   | "problems"
   | "looking"
@@ -30,6 +31,7 @@ interface AiReviewPhotoRow extends PhotoRow {
 }
 
 const MODES = new Set<ReviewMode>([
+  "all",
   "best",
   "problems",
   "looking",
@@ -207,6 +209,7 @@ export async function GET(request: Request, { params }: Props) {
             OR COALESCE(search_text, '') ILIKE '%jewelry%'
           WHEN $3::text = 'groups' THEN COALESCE(detected_people_count, 0) >= 3
           WHEN $3::text = 'no_people' THEN COALESCE(detected_people_count, 0) = 0
+          WHEN $3::text = 'all' THEN true
           ELSE lower(COALESCE(qwen_status, '')) = 'completed'
         END
       ORDER BY
