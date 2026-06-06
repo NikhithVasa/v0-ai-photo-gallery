@@ -30,7 +30,6 @@ import type {
 } from "@/lib/types";
 
 type ReviewMode =
-  | "best"
   | "all"
   | "problems"
   | "low_score"
@@ -71,7 +70,6 @@ const MODES: Array<{
   icon: typeof Sparkles;
   limit?: number;
 }> = [
-  { key: "best", label: "Best only", icon: Sparkles, limit: 200 },
   { key: "all", label: "All photos", icon: ImageOff, limit: 250 },
   { key: "problems", label: "Needs review", icon: AlertTriangle, limit: 200 },
   { key: "low_score", label: "Low score", icon: AlertTriangle, limit: 200 },
@@ -83,9 +81,10 @@ const MODES: Array<{
 const MODE_KEYS = new Set<ReviewMode>(MODES.map((item) => item.key));
 
 function initialMode(value: string | null): ReviewMode {
+  if (value === "best") return "all";
   return value && MODE_KEYS.has(value as ReviewMode)
     ? (value as ReviewMode)
-    : "best";
+    : "all";
 }
 
 function scoreLabel(value: number | null) {
@@ -102,7 +101,6 @@ function scoreClass(value: number | null) {
 
 function isClusterMode(mode: ReviewMode) {
   return (
-    mode === "best" ||
     mode === "problems" ||
     mode === "low_score" ||
     mode === "duplicates"

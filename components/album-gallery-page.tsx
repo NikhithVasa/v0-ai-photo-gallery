@@ -13,7 +13,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
-  AlertTriangle,
   Check,
   ChevronDown,
   Copy,
@@ -1274,6 +1273,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverTouchStartYRef = useRef<number | null>(null);
   const coverGestureTriggeredRef = useRef(false);
   const lastScrollYRef = useRef(0);
+  const programmaticNavScrollRef = useRef(false);
+  const programmaticNavScrollTimerRef = useRef<number | null>(null);
 
   const [activeTab, setActiveTab] = useState<Tab>("photos");
   const [isNavHidden, setIsNavHidden] = useState(false);
@@ -1408,6 +1409,20 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     coverScrollAnimationFrameRef.current = null;
   };
 
+  const suppressNavHideDuringProgrammaticScroll = (duration = 1400) => {
+    programmaticNavScrollRef.current = true;
+    setIsNavHidden(false);
+
+    if (programmaticNavScrollTimerRef.current !== null) {
+      window.clearTimeout(programmaticNavScrollTimerRef.current);
+    }
+
+    programmaticNavScrollTimerRef.current = window.setTimeout(() => {
+      programmaticNavScrollRef.current = false;
+      programmaticNavScrollTimerRef.current = null;
+    }, duration);
+  };
+
   const clearAutoCoverScroll = () => {
     autoCoverScrollDoneRef.current = true;
     if (autoCoverScrollTimerRef.current !== null) {
@@ -1420,6 +1435,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     requestAnimationFrame(() => {
       clearAutoCoverScroll();
       cancelGalleryScrollAnimation();
+      suppressNavHideDuringProgrammaticScroll(mode === "soothing" ? 1600 : 900);
 
       const shell = document.getElementById("album-gallery-shell");
       const targetTop = shell ? Math.max(shell.offsetTop - 8, 0) : 0;
@@ -1551,6 +1567,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         window.clearTimeout(autoCoverScrollTimerRef.current);
         autoCoverScrollTimerRef.current = null;
       }
+      if (programmaticNavScrollTimerRef.current !== null) {
+        window.clearTimeout(programmaticNavScrollTimerRef.current);
+        programmaticNavScrollTimerRef.current = null;
+      }
+      programmaticNavScrollRef.current = false;
       cancelGalleryScrollAnimation();
       window.removeEventListener("wheel", cancelAutoScroll);
       window.removeEventListener("touchstart", cancelAutoScroll);
@@ -1558,6 +1579,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       window.removeEventListener("keydown", cancelAutoScroll);
     };
   }, [album, isPasswordVerified]);
+
+  useEffect(() => {
+    if (isCoverDismissed) return;
+    setIsNavHidden(false);
+  }, [isCoverDismissed]);
 
   useEffect(() => {
     lastScrollYRef.current = window.scrollY;
@@ -1568,6 +1594,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       const delta = currentY - previousY;
 
       if (currentY <= 16) {
+        setIsNavHidden(false);
+      } else if (programmaticNavScrollRef.current) {
         setIsNavHidden(false);
       } else if (delta > 8) {
         setIsNavHidden(true);
@@ -2104,61 +2132,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 />
               )}
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className={`${navPillButtonClass} min-w-[118px] px-3`}
-                    aria-label="AI review"
-                  >
-                    <Sparkles className="h-4 w-4 shrink-0" />
-                    <span>AI Review</span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuLabel>AI Review</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href={withShareParam(
-                        `/albums/${encodeURIComponent(
-                          albumSlug,
-                        )}/culling?mode=best`,
-                        shareToken,
-                      )}
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      Pick Best Photos
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href={withShareParam(
-                        `/albums/${encodeURIComponent(
-                          albumSlug,
-                        )}/culling?mode=problems`,
-                        shareToken,
-                      )}
-                    >
-                      <AlertTriangle className="h-4 w-4" />
-                      Needs Review
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href={withShareParam(
-                        `/albums/${encodeURIComponent(
-                          albumSlug,
-                        )}/culling?mode=by_person`,
-                        shareToken,
-                      )}
-                    >
-                      <Users className="h-4 w-4" />
-                      Best by Person
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Link
+                href={withShareParam(
+                  `/albums/${encodeURIComponent(albumSlug)}/culling`,
+                  shareToken,
+                )}
+                className={`${navPillButtonClass} min-w-[118px] px-3`}
+                aria-label="AI review"
+              >
+                <Sparkles className="h-4 w-4 shrink-0" />
+                <span>AI Review</span>
+              </Link>
 
               <Link
                 href={withShareParam(
