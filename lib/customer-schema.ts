@@ -2,18 +2,8 @@ import { query } from "@/lib/db";
 
 let customerAccessSchemaPromise: Promise<void> | null = null;
 
-export function ensureCustomerAccessSchema() {
-  customerAccessSchemaPromise ??= query(
-    `
-    ALTER TABLE customers
-      ADD COLUMN IF NOT EXISTS cover_photo_s3_key text,
-      ADD COLUMN IF NOT EXISTS password_hash text,
-      ADD COLUMN IF NOT EXISTS password_required boolean NOT NULL DEFAULT false
-    `,
-    []
-  ).then(() => undefined);
-
-  return customerAccessSchemaPromise;
+export async function ensureCustomerAccessSchema() {
+  return;
 }
 
 let peopleMergeSchemaPromise: Promise<void> | null = null;
