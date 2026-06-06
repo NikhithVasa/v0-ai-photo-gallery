@@ -111,7 +111,7 @@ export async function GET(request: Request, { params }: Props) {
           pe.occurrence_count
         FROM people pe
         JOIN albums a ON a.id = pe.album_id
-        WHERE a.slug = $1
+        WHERE lower(a.slug) = lower($1)
           AND COALESCE(pe.is_hidden, false) = false
           AND COALESCE(pe.photo_count, 0) > 0
         ORDER BY pe.occurrence_count DESC NULLS LAST, pe.photo_count DESC NULLS LAST
@@ -215,7 +215,7 @@ export async function GET(request: Request, { params }: Props) {
           WHERE related_pp.photo_id = p.id
             AND COALESCE(related_pe.is_hidden, false) = false
         ) photo_people_summary ON true
-        WHERE a.slug = $1
+        WHERE lower(a.slug) = lower($1)
           AND ($2::text IS NULL OR e.slug = $2)
           AND COALESCE(p.is_deleted, false) = false
           AND p.upload_status = 'completed'

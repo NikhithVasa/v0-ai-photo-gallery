@@ -81,7 +81,7 @@ export async function GET(request: Request, { params }: Props) {
           a.cover_photo_s3_key,
           a.customer_id
         FROM albums a
-        WHERE a.slug = $1
+        WHERE lower(a.slug) = lower($1)
           AND COALESCE(a.is_deleted, false) = false
         LIMIT 1
       ),
@@ -154,7 +154,7 @@ export async function GET(request: Request, { params }: Props) {
       WITH selected_album AS (
         SELECT id
         FROM albums
-        WHERE slug = $1
+        WHERE lower(slug) = lower($1)
           AND COALESCE(is_deleted, false) = false
         LIMIT 1
       ),

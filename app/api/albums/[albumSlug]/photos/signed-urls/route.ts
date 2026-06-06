@@ -60,7 +60,7 @@ export async function POST(request: Request, { params }: Props) {
       FROM photos p
       JOIN albums a ON a.id = p.album_id
       JOIN album_events e ON e.id = p.album_event_id
-      WHERE a.slug = $1
+      WHERE lower(a.slug) = lower($1)
         AND p.id = ANY($2::uuid[])
         AND COALESCE(p.is_deleted, false) = false
         AND p.upload_status = 'completed'

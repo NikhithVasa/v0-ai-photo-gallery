@@ -55,7 +55,7 @@ export async function GET(request: Request, { params }: Props) {
           JOIN photo_people pp
             ON pp.person_id = pe.id
            AND pp.album_event_id = e.id
-          WHERE a.slug = $1
+          WHERE lower(a.slug) = lower($1)
             AND COALESCE(a.is_deleted, false) = false
             AND COALESCE(pe.is_hidden, false) = false
           GROUP BY
@@ -84,7 +84,7 @@ export async function GET(request: Request, { params }: Props) {
           FROM people pe
           JOIN albums a
             ON a.id = pe.album_id
-          WHERE a.slug = $1
+          WHERE lower(a.slug) = lower($1)
             AND COALESCE(a.is_deleted, false) = false
             AND COALESCE(pe.is_hidden, false) = false
           ORDER BY pe.photo_count DESC NULLS LAST, pe.person_number ASC
@@ -115,7 +115,7 @@ export async function GET(request: Request, { params }: Props) {
        AND COALESCE(e.is_deleted, false) = false
       JOIN albums a
         ON a.id = e.album_id
-      WHERE a.slug = $1
+      WHERE lower(a.slug) = lower($1)
         AND COALESCE(a.is_deleted, false) = false
         AND pp.person_id = ANY($2::uuid[])
       GROUP BY

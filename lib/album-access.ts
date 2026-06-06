@@ -25,7 +25,7 @@ export async function canAccessAlbumFromCustomerSlug(
     JOIN customers c
       ON c.id = a.customer_id
      AND COALESCE(c.is_deleted, false) = false
-    WHERE a.slug = $1
+    WHERE lower(a.slug) = lower($1)
       AND c.slug = $2
       AND COALESCE(a.is_deleted, false) = false
       AND (a.expires_at IS NULL OR a.expires_at >= CURRENT_DATE)
@@ -60,7 +60,7 @@ export async function requireAlbumAccess(request: Request, albumSlug: string) {
     JOIN customers c
       ON c.id = a.customer_id
      AND COALESCE(c.is_deleted, false) = false
-    WHERE a.slug = $1
+    WHERE lower(a.slug) = lower($1)
       AND a.customer_id = ANY($2::uuid[])
       AND COALESCE(a.is_deleted, false) = false
     LIMIT 1

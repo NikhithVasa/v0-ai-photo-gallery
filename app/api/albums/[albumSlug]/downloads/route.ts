@@ -305,7 +305,7 @@ async function fetchDownloadRows(
     JOIN album_events e
       ON e.id = p.album_event_id
      AND COALESCE(e.is_deleted, false) = false
-    WHERE a.slug = $1
+    WHERE lower(a.slug) = lower($1)
       AND COALESCE(a.is_deleted, false) = false
       AND ($2::text IS NULL OR e.slug = $2)
       AND (

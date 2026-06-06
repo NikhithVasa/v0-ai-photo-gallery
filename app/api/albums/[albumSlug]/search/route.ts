@@ -94,7 +94,7 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
       SELECT pe.id
       FROM people pe
       JOIN albums a ON a.id = pe.album_id
-      WHERE a.slug = $1
+      WHERE lower(a.slug) = lower($1)
         AND pe.id = $2
       LIMIT 1
       `,
@@ -110,7 +110,7 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
       SELECT pe.id
       FROM people pe
       JOIN albums a ON a.id = pe.album_id
-      WHERE a.slug = $1
+      WHERE lower(a.slug) = lower($1)
         AND pe.person_number = $2
       LIMIT 1
       `,
@@ -124,7 +124,7 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
     SELECT pe.id
     FROM people pe
     JOIN albums a ON a.id = pe.album_id
-    WHERE a.slug = $1
+    WHERE lower(a.slug) = lower($1)
       AND (
         LOWER(pe.display_name) = LOWER($2)
         OR LOWER(pe.default_name) = LOWER($2)
@@ -142,7 +142,7 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
       FROM person_aliases pa
       JOIN people pe ON pe.id = pa.person_id
       JOIN albums a ON a.id = pe.album_id
-      WHERE a.slug = $1
+      WHERE lower(a.slug) = lower($1)
         AND LOWER(pa.alias) = LOWER($2)
       LIMIT 1
       `,
@@ -158,7 +158,7 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
     SELECT pe.id
     FROM people pe
     JOIN albums a ON a.id = pe.album_id
-    WHERE a.slug = $1
+    WHERE lower(a.slug) = lower($1)
       AND (
         LOWER(pe.display_name) LIKE '%' || LOWER($2) || '%'
         OR LOWER(pe.default_name) LIKE '%' || LOWER($2) || '%'
@@ -189,7 +189,7 @@ async function fetchResolvedPeople(albumSlug: string, personIds: string[]) {
       pe.occurrence_count
     FROM people pe
     JOIN albums a ON a.id = pe.album_id
-    WHERE a.slug = $1
+    WHERE lower(a.slug) = lower($1)
       AND pe.id = ANY($2::uuid[])
     ORDER BY pe.photo_count DESC NULLS LAST, pe.person_number ASC
     `,
@@ -304,7 +304,7 @@ const keywordTerms =
         WHERE pp.photo_id = p.id
           AND COALESCE(pe.is_hidden, false) = false
       ) photo_people_summary ON true
-      WHERE a.slug = $1
+      WHERE lower(a.slug) = lower($1)
         AND ($2::text IS NULL OR e.slug = $2)
         AND COALESCE(p.is_deleted, false) = false
         AND p.upload_status = 'completed'

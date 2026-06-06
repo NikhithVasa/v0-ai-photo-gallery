@@ -116,7 +116,7 @@ async function fetchAlbum(albumSlug: string) {
     LEFT JOIN customers c
       ON c.id = a.customer_id
      AND COALESCE(c.is_deleted, false) = false
-    WHERE a.slug = $1
+    WHERE lower(a.slug) = lower($1)
       AND COALESCE(a.is_deleted, false) = false
     LIMIT 1
     `,

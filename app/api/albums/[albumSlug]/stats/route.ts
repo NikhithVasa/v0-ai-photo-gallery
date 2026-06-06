@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: Props) {
       `
       SELECT id
       FROM albums
-      WHERE slug = $1
+      WHERE lower(slug) = lower($1)
         AND COALESCE(is_deleted, false) = false
       LIMIT 1
       `,

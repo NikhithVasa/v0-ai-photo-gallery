@@ -225,7 +225,7 @@ export async function fetchAlbumEvents(albumSlug: string) {
      AND COALESCE(p.is_deleted, false) = false
      AND p.upload_status = 'completed'
     LEFT JOIN person_event_stats pes ON pes.album_event_id = e.id
-    WHERE a.slug = $1
+    WHERE lower(a.slug) = lower($1)
       AND COALESCE(e.is_deleted, false) = false
     GROUP BY e.id, e.slug, e.name, e.sort_order
     ORDER BY e.sort_order ASC NULLS LAST, e.name ASC

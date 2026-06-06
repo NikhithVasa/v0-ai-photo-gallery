@@ -24,15 +24,16 @@ export function ProtectedRoute({
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading } = useAuth();
-  const [publicAccessAllowed, setPublicAccessAllowed] = useState(() =>
-    publicAccessIsAllowed(allowShareToken)
-  );
+  const [publicAccessAllowed, setPublicAccessAllowed] = useState(false);
+  const [publicAccessChecked, setPublicAccessChecked] = useState(false);
 
   useEffect(() => {
     setPublicAccessAllowed(publicAccessIsAllowed(allowShareToken));
+    setPublicAccessChecked(true);
   }, [allowShareToken]);
 
   useEffect(() => {
+    if (allowShareToken && !publicAccessChecked) return;
     if (loading || user || publicAccessAllowed) return;
 
     const next =
@@ -40,9 +41,25 @@ export function ProtectedRoute({
         ? `?next=${encodeURIComponent(pathname)}`
         : "";
     router.replace(`/login${next}`);
-  }, [loading, pathname, publicAccessAllowed, router, user]);
+  }, [
+    allowShareToken,
+    loading,
+    pathname,
+    publicAccessAllowed,
+    publicAccessChecked,
+    router,
+    user,
+  ]);
 
   if (publicAccessAllowed) return <>{children}</>;
+
+  if (allowShareToken && !publicAccessChecked) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#fbfaf8] text-zinc-500">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </main>
+    );
+  }
 
   if (!user && !loading) return null;
 

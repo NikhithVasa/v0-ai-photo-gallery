@@ -160,7 +160,7 @@ export async function GET(request: Request, { params }: Props) {
           WHERE pp.photo_id = p.id
             AND COALESCE(pe.is_hidden, false) = false
         ) photo_people_summary ON true
-        WHERE a.slug = $1
+        WHERE lower(a.slug) = lower($1)
           AND ($2::text IS NULL OR e.slug = $2)
           AND COALESCE(p.is_deleted, false) = false
           AND p.upload_status = 'completed'

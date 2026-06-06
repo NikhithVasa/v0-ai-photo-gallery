@@ -7,6 +7,76 @@ import {
 } from "@/lib/culling-data";
 import type { CullingCluster, CullingClusterItem } from "@/lib/types";
 
+async function tableColumns(tableName: string) {
+  const rows = await query<{ column_name: string }>(
+    `
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = $1
+    `,
+    [tableName],
+  );
+
+  return new Set(rows.map((row) => row.column_name));
+}
+
+function numericColumn(
+  columns: Set<string>,
+  tableAlias: string,
+  candidates: string[],
+) {
+  const column = candidates.find((candidate) => columns.has(candidate));
+  return column ? `${tableAlias}.${column}` : "NULL::numeric";
+}
+
+function textColumn(
+  columns: Set<string>,
+  tableAlias: string,
+  candidates: string[],
+) {
+  const column = candidates.find((candidate) => columns.has(candidate));
+  return column ? `${tableAlias}.${column}` : "NULL::text";
+}
+
+async function cullingScoreSql() {
+  const columns = await tableColumns("photo_culling_scores");
+
+  return {
+    overall: numericColumn(columns, "cs", [
+      "overall_score",
+      "score",
+      "quality_score",
+      "culling_score",
+      "final_score",
+      "album_score",
+      "album_worthy_score",
+    ]),
+    technical: numericColumn(columns, "cs", [
+      "technical_score",
+      "sharpness_score",
+      "clarity_score",
+      "frame_clarity",
+    ]),
+    face: numericColumn(columns, "cs", [
+      "face_score",
+      "face_quality_score",
+      "people_score",
+    ]),
+    gaze: numericColumn(columns, "cs", [
+      "gaze_score",
+      "camera_gaze_score",
+      "eye_contact_score",
+    ]),
+    reason: textColumn(columns, "cs", [
+      "reason",
+      "score_reason",
+      "summary",
+      "explanation",
+    ]),
+  };
+}
+
 export async function fetchCullingClusters({
   albumSlug,
   eventSlug,
@@ -18,6 +88,7 @@ export async function fetchCullingClusters({
   mode?: string | null;
   limit?: number;
 }): Promise<CullingCluster[]> {
+  const scoreSql = await cullingScoreSql();
   const rows = await query<CullingClusterRow>(
     `
     SELECT
@@ -33,11 +104,11 @@ export async function fetchCullingClusters({
       p.thumbnail_s3_key,
       p.clean_preview_s3_key,
       p.watermarked_preview_s3_key,
-      cs.overall_score,
-      cs.technical_score,
-      cs.face_score,
-      cs.gaze_score,
-      cs.reason AS score_reason
+      MAX(${scoreSql.overall}) AS overall_score,
+      MAX(${scoreSql.technical}) AS technical_score,
+      MAX(${scoreSql.face}) AS face_score,
+      MAX(${scoreSql.gaze}) AS gaze_score,
+      MAX(${scoreSql.reason}) AS score_reason
     FROM photo_similarity_clusters c
     JOIN photo_similarity_cluster_items ci
       ON ci.cluster_id = c.id
@@ -50,7 +121,7 @@ export async function fetchCullingClusters({
      AND COALESCE(p.is_deleted, false) = false
     LEFT JOIN photo_culling_scores cs
       ON cs.photo_id = c.best_photo_id
-    WHERE a.slug = $1
+    WHERE lower(a.slug) = lower($1)
       AND ($2::text IS NULL OR e.slug = $2)
       AND COALESCE(a.is_deleted, false) = false
       AND c.best_photo_id IS NOT NULL
@@ -59,15 +130,15 @@ export async function fetchCullingClusters({
         $3::text IS NULL
         OR $3::text IN ('best', 'duplicates')
         OR ($3::text = 'needs_review' AND (
-          cs.overall_score IS NULL
-          OR cs.overall_score < 70
+          ${scoreSql.overall} IS NULL
+          OR ${scoreSql.overall} < 70
           OR c.best_photo_id IS NULL
         ))
-        OR ($3::text = 'low_score' AND COALESCE(cs.overall_score, c.cluster_score, 0) < 70)
+        OR ($3::text = 'low_score' AND COALESCE(${scoreSql.overall}, c.cluster_score, 0) < 70)
       )
-    GROUP BY c.id, a.slug, e.slug, p.id, cs.id
+    GROUP BY c.id, a.slug, e.slug, p.id
     ORDER BY
-      COALESCE(cs.overall_score, c.cluster_score, 0) DESC,
+      COALESCE(MAX(${scoreSql.overall}), c.cluster_score, 0) DESC,
       COUNT(ci.photo_id) DESC,
       p.file_name ASC NULLS LAST
     LIMIT $4
@@ -81,6 +152,7 @@ export async function fetchCullingClusters({
 export async function fetchCullingClusterItems(
   clusterId: string,
 ): Promise<CullingClusterItem[]> {
+  const scoreSql = await cullingScoreSql();
   const rows = await query<CullingClusterItemRow>(
     `
     SELECT
@@ -95,11 +167,11 @@ export async function fetchCullingClusterItems(
       p.thumbnail_s3_key,
       p.clean_preview_s3_key,
       p.watermarked_preview_s3_key,
-      cs.overall_score,
-      cs.technical_score,
-      cs.face_score,
-      cs.gaze_score,
-      cs.reason AS score_reason
+      ${scoreSql.overall} AS overall_score,
+      ${scoreSql.technical} AS technical_score,
+      ${scoreSql.face} AS face_score,
+      ${scoreSql.gaze} AS gaze_score,
+      ${scoreSql.reason} AS score_reason
     FROM photo_similarity_cluster_items ci
     JOIN photos p
       ON p.id = ci.photo_id
