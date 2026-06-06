@@ -60,11 +60,35 @@ function dateValue(value: Date | string | null) {
 export async function GET(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
+    const url = new URL(request.url);
+    const shareToken = url.searchParams.get("share") || "";
+
+    console.info("[share-debug] album detail API start", {
+      albumSlug,
+      hasShareToken: Boolean(shareToken),
+      shareToken: shareToken ? `${shareToken.slice(0, 6)}...${shareToken.slice(-4)}` : "",
+    });
+
     const accessDenied = await requireAlbumAccess(request, albumSlug);
-    if (accessDenied) return accessDenied;
+    if (accessDenied) {
+      console.warn("[share-debug] album detail API access denied", {
+        albumSlug,
+        status: accessDenied.status,
+      });
+      return accessDenied;
+    }
 
+    console.info("[share-debug] album detail API ensuring customer schema", {
+      albumSlug,
+    });
     await ensureCustomerAccessSchema();
+    console.info("[share-debug] album detail API customer schema ready", {
+      albumSlug,
+    });
 
+    console.info("[share-debug] album detail API querying album", {
+      albumSlug,
+    });
     const album = await queryOne<AlbumRow>(
       `
       WITH selected_album AS (
@@ -146,9 +170,23 @@ export async function GET(request: Request, { params }: Props) {
     );
 
     if (!album) {
+      console.warn("[share-debug] album detail API album not found", {
+        albumSlug,
+      });
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
 
+    console.info("[share-debug] album detail API album found", {
+      requestedSlug: albumSlug,
+      albumSlug: album.slug,
+      albumId: album.id,
+      customerId: album.customer_id,
+    });
+
+    console.info("[share-debug] album detail API querying events", {
+      albumSlug: album.slug,
+      albumId: album.id,
+    });
     const events = await query<EventRow>(
       `
       WITH selected_album AS (
@@ -209,6 +247,11 @@ export async function GET(request: Request, { params }: Props) {
       [albumSlug]
     );
 
+    console.info("[share-debug] album detail API events loaded", {
+      albumSlug: album.slug,
+      eventCount: events.length,
+    });
+
     const detail: AlbumDetail = {
       id: album.id,
       slug: album.slug,
@@ -257,7 +300,9 @@ export async function GET(request: Request, { params }: Props) {
       }
     );
   } catch (error) {
-    console.error("Error fetching album:", error);
+    console.error("[share-debug] album detail API failed", {
+      error,
+    });
 
     return NextResponse.json(
       { error: "Failed to fetch album" },

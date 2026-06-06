@@ -46,11 +46,17 @@ function triggerDownload(url: string, fileName: string) {
   document.body.removeChild(a);
 }
 
-async function getDownloadUrl(albumSlug: string, photo: Photo) {
+function albumApiUrl(albumSlug: string, path: string, shareToken = "") {
+  return `/api/albums/${encodeURIComponent(albumSlug)}${path}${
+    shareToken ? `?share=${encodeURIComponent(shareToken)}` : ""
+  }`;
+}
+
+async function getDownloadUrl(albumSlug: string, photo: Photo, shareToken = "") {
   if (photo.downloadUrl) return photo.downloadUrl;
 
   const response = await fetch(
-    `/api/albums/${encodeURIComponent(albumSlug)}/photos/signed-urls`,
+    albumApiUrl(albumSlug, "/photos/signed-urls", shareToken),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -170,12 +176,16 @@ function ApsaraPhotoCard({
 
 function ApsaraPhotoViewer({
   albumSlug,
+  shareToken = "",
+  downloadsEnabled = true,
   photos,
   currentIndex,
   onClose,
   onNavigate,
 }: {
   albumSlug: string;
+  shareToken?: string;
+  downloadsEnabled?: boolean;
   photos: Photo[];
   currentIndex: number;
   onClose: () => void;
@@ -205,7 +215,7 @@ function ApsaraPhotoViewer({
     if (isDownloading) return;
     setIsDownloading(true);
     try {
-      const url = await getDownloadUrl(albumSlug, photo);
+      const url = await getDownloadUrl(albumSlug, photo, shareToken);
       if (url) triggerDownload(url, photo.fileName || `photo-${photo.id}.jpg`);
     } finally {
       setIsDownloading(false);
@@ -273,19 +283,21 @@ function ApsaraPhotoViewer({
         )}
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={isDownloading}
-            className="flex h-9 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 transition hover:border-zinc-300 hover:text-zinc-950 disabled:opacity-40"
-          >
-            {isDownloading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
+          {downloadsEnabled && (
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="flex h-9 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 transition hover:border-zinc-300 hover:text-zinc-950 disabled:opacity-40"
+            >
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Download
+            </button>
             )}
-            Download
-          </button>
           <button
             type="button"
             onClick={handleShare}
@@ -318,6 +330,8 @@ interface ApsaraMomentsOverlayProps {
   isOpen: boolean;
   onClose: () => void;
   albumSlug: string;
+  shareToken?: string;
+  downloadsEnabled?: boolean;
   selectedEventSlug: string | null;
   selectedPeopleIds?: string[];
   peopleMatchMode?: PeopleMatchMode;
@@ -330,6 +344,8 @@ export function ApsaraMomentsOverlay({
   isOpen,
   onClose,
   albumSlug,
+  shareToken = "",
+  downloadsEnabled = true,
   selectedEventSlug,
   selectedPeopleIds = [],
   peopleMatchMode = "all",
@@ -386,7 +402,7 @@ export function ApsaraMomentsOverlay({
 
     setIsLoadingPeople(true);
 
-    fetch(`/api/albums/${encodeURIComponent(albumSlug)}/people`)
+    fetch(albumApiUrl(albumSlug, "/people", shareToken))
       .then(async (response) => {
         if (!response.ok) throw new Error("People request failed");
         return (await response.json()) as { people?: Person[] };
@@ -406,7 +422,7 @@ export function ApsaraMomentsOverlay({
     return () => {
       isCancelled = true;
     };
-  }, [albumSlug, isOpen]);
+  }, [albumSlug, shareToken, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -433,7 +449,7 @@ export function ApsaraMomentsOverlay({
 
     try {
       const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/search`,
+        albumApiUrl(albumSlug, "/search", shareToken),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -674,6 +690,8 @@ export function ApsaraMomentsOverlay({
       {selectedPhotoIndex !== null && (
         <ApsaraPhotoViewer
           albumSlug={albumSlug}
+          shareToken={shareToken}
+          downloadsEnabled={downloadsEnabled}
           photos={results}
           currentIndex={selectedPhotoIndex}
           onClose={() => setSelectedPhotoIndex(null)}
@@ -686,6 +704,8 @@ export function ApsaraMomentsOverlay({
 
 interface ApsaraMomentsRootProps {
   albumSlug: string;
+  shareToken?: string;
+  downloadsEnabled?: boolean;
   selectedEventSlug: string | null;
   selectedPeopleIds?: string[];
   peopleMatchMode?: PeopleMatchMode;
@@ -698,6 +718,8 @@ interface ApsaraMomentsRootProps {
 
 export function ApsaraMomentsRoot({
   albumSlug,
+  shareToken = "",
+  downloadsEnabled = true,
   selectedEventSlug,
   selectedPeopleIds = [],
   peopleMatchMode = "all",
@@ -718,6 +740,8 @@ export function ApsaraMomentsRoot({
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
         albumSlug={albumSlug}
+        shareToken={shareToken}
+        downloadsEnabled={downloadsEnabled}
         selectedEventSlug={selectedEventSlug}
         selectedPeopleIds={selectedPeopleIds}
         peopleMatchMode={peopleMatchMode}

@@ -15,6 +15,7 @@ interface PersonCardProps {
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onSelectToggle?: () => void;
+  readOnly?: boolean;
 }
 
 export function PersonCard({
@@ -26,6 +27,7 @@ export function PersonCard({
   isSelectionMode = false,
   isSelected = false,
   onSelectToggle,
+  readOnly = false,
 }: PersonCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(person.displayName || person.defaultName);
@@ -55,7 +57,7 @@ export function PersonCard({
   const handleSave = () => {
     const trimmedName = name.trim();
 
-    if (trimmedName && trimmedName !== displayName) {
+    if (!readOnly && trimmedName && trimmedName !== displayName) {
       onRename(trimmedName);
     }
 
@@ -144,7 +146,7 @@ export function PersonCard({
           )}
         </button>
 
-        {!isEditing && !isSelectionMode && (
+        {!isEditing && !isSelectionMode && !readOnly && (
           <button
             type="button"
             onClick={(event) => {

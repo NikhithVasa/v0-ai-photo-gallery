@@ -117,6 +117,19 @@ function eventQuery(selectedEventSlug: string | null, shareToken = "") {
   return query ? `?${query}` : "";
 }
 
+function withShareParam(url: string, shareToken = "") {
+  if (!shareToken) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}share=${encodeURIComponent(shareToken)}`;
+}
+
+function albumApiUrl(albumSlug: string, path = "", shareToken = "") {
+  return withShareParam(
+    `/api/albums/${encodeURIComponent(albumSlug)}${path}`,
+    shareToken,
+  );
+}
+
 function triggerBrowserDownload(url: string) {
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -306,6 +319,7 @@ function PasswordGate({
 
 function SearchResultsGrid({
   albumSlug,
+  shareToken = "",
   events,
   query,
   photos,
@@ -316,6 +330,7 @@ function SearchResultsGrid({
   shareSettings,
 }: {
   albumSlug: string;
+  shareToken?: string;
   events: AlbumDetail["events"];
   query: string;
   photos: Photo[];
@@ -388,6 +403,7 @@ function SearchResultsGrid({
             >
               <PhotoCard
                 albumSlug={albumSlug}
+                shareToken={shareToken}
                 photo={photo}
                 index={index}
                 onOpen={handleOpen}
@@ -401,6 +417,7 @@ function SearchResultsGrid({
       {lightboxState !== null && (
         <PhotoLightbox
           albumSlug={albumSlug}
+          shareToken={shareToken}
           photos={photos}
           currentIndex={lightboxState.index}
           events={events}
@@ -721,6 +738,7 @@ function EventNameControl({
 
 function AlbumDownloadMenu({
   albumSlug,
+  shareToken = "",
   events,
   selectedEventSlug,
   selectedPeopleIds,
@@ -730,6 +748,7 @@ function AlbumDownloadMenu({
   downloadsEnabled = true,
 }: {
   albumSlug: string;
+  shareToken?: string;
   events: AlbumDetail["events"];
   selectedEventSlug: string | null;
   selectedPeopleIds: string[];
@@ -764,9 +783,10 @@ function AlbumDownloadMenu({
     }
 
     const query = params.toString();
-    return `/api/albums/${encodeURIComponent(albumSlug)}/downloads${
+    const url = `/api/albums/${encodeURIComponent(albumSlug)}/downloads${
       query ? `?${query}` : ""
     }`;
+    return withShareParam(url, shareToken);
   };
 
   const selectedEvent = events.find((event) => event.slug === selectedEventSlug);
@@ -1113,6 +1133,8 @@ function AlbumShareDialog({
 export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const shareToken = searchParams.get("share") || "";
+  const isShareView = Boolean(shareToken);
   const autoCoverScrollDoneRef = useRef(false);
   const autoCoverScrollTimerRef = useRef<number | null>(null);
   const coverScrollAnimationFrameRef = useRef<number | null>(null);
@@ -1148,7 +1170,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   } | null>(null);
 
   const { data, error, isLoading, mutate } = useSWR<{ album: AlbumDetail }>(
-    `/api/albums/${encodeURIComponent(albumSlug)}`,
+    albumApiUrl(albumSlug, "", shareToken),
     fetcher,
     {
       dedupingInterval: 5 * 60 * 1000,
@@ -1164,9 +1186,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }, [data?.album?.events]);
 
   const { data: statsData, mutate: mutateStats } = useSWR<AlbumStatsResponse>(
-    data?.album
-      ? `/api/albums/${encodeURIComponent(albumSlug)}/stats`
-      : null,
+    data?.album ? albumApiUrl(albumSlug, "/stats", shareToken) : null,
     fetcher,
     {
       dedupingInterval: hasEventsLoadingAi ? 10 * 1000 : 5 * 60 * 1000, // Refresh every 10s if AI is loading, else 5 minutes
@@ -1182,7 +1202,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   const { data: peopleFilterData } = useSWR<{ people: Person[] }>(
     data?.album && (!data.album.passwordRequired || isPasswordVerified)
-      ? `/api/albums/${encodeURIComponent(albumSlug)}/people`
+      ? albumApiUrl(albumSlug, "/people", shareToken)
       : null,
     fetcher,
     {
@@ -1228,8 +1248,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const albumDateLabel = formatAlbumDate(album?.albumDate);
   const coverTitle = album?.name || "";
   const coverCreditName = album?.customer?.name || album?.name || "";
-  const shareToken = searchParams.get("share") || "";
-  const isShareView = Boolean(shareToken);
   const { data: publicShareData } = useSWR<PublicShareResponse>(
     shareToken ? `/api/share/${encodeURIComponent(shareToken)}` : null,
     fetcher,
@@ -1239,7 +1257,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     },
   );
   const shareSettings = publicShareData?.share ?? null;
-  const downloadsEnabled = shareSettings?.allowDownloads ?? true;
+  const downloadsEnabled = isShareView
+    ? Boolean(shareSettings?.allowDownloads)
+    : shareSettings?.allowDownloads ?? true;
 
   const cancelGalleryScrollAnimation = () => {
     if (coverScrollAnimationFrameRef.current === null) return;
@@ -1550,7 +1570,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
     try {
       const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/search`,
+        albumApiUrl(albumSlug, "/search", shareToken),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1846,6 +1866,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             <div className="flex max-w-full flex-wrap items-center gap-2 pb-1">
               <AlbumDownloadMenu
                 albumSlug={albumSlug}
+                shareToken={shareToken}
                 events={album.events}
                 selectedEventSlug={selectedEventSlug}
                 selectedPeopleIds={selectedPeopleIds}
@@ -2116,6 +2137,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         {selectedPerson ? (
           <PersonView
             albumSlug={albumSlug}
+            shareToken={shareToken}
             selectedEventSlug={null}
             events={album.events}
             person={selectedPerson}
@@ -2137,15 +2159,18 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
             <PeopleGrid
               albumSlug={albumSlug}
+              shareToken={shareToken}
               selectedEventSlug={null}
               events={album.events}
               onPersonClick={openPerson}
               onPeopleSelectionApply={filterByPeopleSelection}
+              readOnly={isShareView}
             />
           </section>
         ) : apsaraTextSearch ? (
           <SearchResultsGrid
             albumSlug={albumSlug}
+            shareToken={shareToken}
             events={album.events}
             query={apsaraTextSearch.query}
             photos={apsaraTextSearch.photos}
@@ -2197,6 +2222,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                           if (item.format !== "original") {
                             params.set("format", item.format);
                           }
+                          if (shareToken) {
+                            params.set("share", shareToken);
+                          }
 
                           return (
                             <DropdownMenuItem
@@ -2238,6 +2266,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
             <PhotosGrid
               albumSlug={albumSlug}
+              shareToken={shareToken}
               selectedEventSlug={selectedEventSlug}
               selectedPeopleIds={selectedPeopleIds}
               peopleMatchMode={peopleMatchMode}
@@ -2255,6 +2284,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
       <ApsaraMomentsRoot
         albumSlug={albumSlug}
+        shareToken={shareToken}
+        downloadsEnabled={downloadsEnabled}
         selectedEventSlug={selectedEventSlug}
         selectedPeopleIds={selectedPeopleIds}
         peopleMatchMode={peopleMatchMode}

@@ -28,6 +28,12 @@ function normalizeQuery(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
+function shortToken(value: string | null) {
+  if (!value) return "";
+  if (value.length <= 12) return `${value.slice(0, 4)}...`;
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
 function extractSearchTerms(query: string) {
   const personNames = new Set<string>();
   const keywords: string[] = [];
@@ -205,8 +211,23 @@ async function fetchResolvedPeople(albumSlug: string, personIds: string[]) {
 export async function POST(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
+    const url = new URL(request.url);
+    const shareToken = url.searchParams.get("share");
+    console.log("[share-debug] album search API start", {
+      albumSlug,
+      hasShareToken: Boolean(shareToken),
+      shareToken: shortToken(shareToken),
+    });
+
     const accessDenied = await requireAlbumAccess(request, albumSlug);
-    if (accessDenied) return accessDenied;
+    if (accessDenied) {
+      console.log("[share-debug] album search API access denied", {
+        albumSlug,
+        status: accessDenied.status,
+        hasShareToken: Boolean(shareToken),
+      });
+      return accessDenied;
+    }
 
     const body = (await request.json()) as {
       query?: unknown;
@@ -230,7 +251,18 @@ export async function POST(request: Request, { params }: Props) {
         : 100;
     const together = body.together !== false;
 
+    console.log("[share-debug] album search API request body parsed", {
+      albumSlug,
+      hasQuery: Boolean(searchQuery),
+      queryLength: searchQuery.length,
+      eventSlug,
+      requestedPeople: requestedPeople.length,
+      limit,
+      together,
+    });
+
     if (!searchQuery && requestedPeople.length === 0) {
+      console.log("[share-debug] album search API empty query", { albumSlug });
       return NextResponse.json({ error: "query is required" }, { status: 400 });
     }
 
@@ -258,6 +290,19 @@ const keywordTerms =
         : personIds.length > 0
           ? null
           : searchQuery;
+
+    console.log("[share-debug] album search API resolved filters", {
+      albumSlug,
+      personNames: personNames.length,
+      keywords: keywords.length,
+      requestedPeople: requestedPeople.length,
+      resolvedPeople: personIds.length,
+      unresolvedTerms: unresolvedTerms.size,
+      hasKeyword: Boolean(keyword),
+      eventSlug,
+      together,
+      limit,
+    });
 
     const rows = await query<PhotoRow>(
       `
@@ -371,13 +416,20 @@ const keywordTerms =
       Promise.all(rows.map(toPhoto)),
     ]);
 
+    console.log("[share-debug] album search API results loaded", {
+      albumSlug,
+      dbRows: rows.length,
+      results: results.length,
+      resolvedPeople: resolvedPeople.length,
+    });
+
     return NextResponse.json({
       query: searchQuery,
       resolvedPeople,
       results,
     });
   } catch (error) {
-    console.error("Error searching album photos:", error);
+    console.error("[share-debug] album search API failed", error);
     return NextResponse.json(
       { error: "Failed to search photos" },
       { status: 500 }

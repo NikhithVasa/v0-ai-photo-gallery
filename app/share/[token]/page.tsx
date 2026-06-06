@@ -12,9 +12,17 @@ interface ShareLinkRow {
   album_slug: string;
 }
 
+function shortToken(value: string) {
+  return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : "";
+}
+
 export default async function SharedAlbumPage({ params }: PageProps) {
   const { token } = await params;
   let share: ShareLinkRow | null = null;
+
+  console.info("[share-debug] /share page resolving token", {
+    token: shortToken(token),
+  });
 
   try {
     share = await queryOne<ShareLinkRow>(
@@ -30,10 +38,23 @@ export default async function SharedAlbumPage({ params }: PageProps) {
       [token],
     );
   } catch (error) {
-    console.error("Error resolving share link:", error);
+    console.error("[share-debug] /share page query failed", {
+      token: shortToken(token),
+      error,
+    });
   }
 
-  if (!share) redirect("/albums");
+  if (!share) {
+    console.warn("[share-debug] /share page token not found", {
+      token: shortToken(token),
+    });
+    redirect("/albums");
+  }
+
+  console.info("[share-debug] /share page redirecting to album", {
+    token: shortToken(token),
+    albumSlug: share.album_slug,
+  });
 
   redirect(
     `/albums/${encodeURIComponent(share.album_slug)}?share=${encodeURIComponent(token)}`,

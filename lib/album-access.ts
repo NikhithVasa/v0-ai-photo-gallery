@@ -16,7 +16,17 @@ export async function canAccessAlbumFromCustomerSlug(
   albumSlug: string,
   customerSlug: string | null
 ) {
-  if (!customerSlug) return true;
+  if (!customerSlug) {
+    console.info("[share-debug] host album access allowed on root host", {
+      albumSlug,
+    });
+    return true;
+  }
+
+  console.info("[share-debug] checking host album access", {
+    albumSlug,
+    customerSlug,
+  });
 
   const album = await queryOne<AlbumAccessRow>(
     `
@@ -34,10 +44,22 @@ export async function canAccessAlbumFromCustomerSlug(
     [albumSlug, customerSlug]
   );
 
+  console.info("[share-debug] host album access result", {
+    albumSlug,
+    customerSlug,
+    allowed: Boolean(album),
+  });
+
   return Boolean(album);
 }
 
 export async function canAccessAlbumFromHost(albumSlug: string, host: string) {
+  console.info("[share-debug] resolving album access from host", {
+    albumSlug,
+    host,
+    customerSlug: getCustomerSlugFromHost(host),
+  });
+
   return canAccessAlbumFromCustomerSlug(
     albumSlug,
     getCustomerSlugFromHost(host)
@@ -46,12 +68,32 @@ export async function canAccessAlbumFromHost(albumSlug: string, host: string) {
 
 export async function requireAlbumAccess(request: Request, albumSlug: string) {
   if (await canAccessAlbumByShareToken(request, albumSlug)) {
+    console.info("[share-debug] requireAlbumAccess allowed by share token", {
+      albumSlug,
+    });
     return null;
   }
 
   const access = await getAuthAccess();
-  if (!access) return unauthorizedResponse();
-  if (access.isAdmin) return null;
+  if (!access) {
+    console.warn("[share-debug] requireAlbumAccess denied: no auth", {
+      albumSlug,
+    });
+    return unauthorizedResponse();
+  }
+  if (access.isAdmin) {
+    console.info("[share-debug] requireAlbumAccess allowed: admin", {
+      albumSlug,
+      email: access.email,
+    });
+    return null;
+  }
+
+  console.info("[share-debug] checking authenticated album access", {
+    albumSlug,
+    email: access.email,
+    customerIds: access.customerIds.length,
+  });
 
   const album = await queryOne<AlbumAccessRow>(
     `
@@ -68,7 +110,18 @@ export async function requireAlbumAccess(request: Request, albumSlug: string) {
     [albumSlug, access.customerIds]
   );
 
-  if (album) return null;
+  if (album) {
+    console.info("[share-debug] requireAlbumAccess allowed: customer match", {
+      albumSlug,
+      email: access.email,
+    });
+    return null;
+  }
 
+  console.warn("[share-debug] requireAlbumAccess denied: album/customer miss", {
+    albumSlug,
+    email: access.email,
+    customerIds: access.customerIds.length,
+  });
   return NextResponse.json({ error: "Album not found" }, { status: 404 });
 }

@@ -53,6 +53,12 @@ function isUuid(value: string) {
   );
 }
 
+function shortToken(value: string | null) {
+  if (!value) return "";
+  if (value.length <= 12) return `${value.slice(0, 4)}...`;
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
 function sanitizeSegment(value: string) {
   return (
     value
@@ -344,10 +350,8 @@ async function fetchDownloadRows(
 export async function GET(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
-    if (accessDenied) return accessDenied;
-
     const { searchParams } = new URL(request.url);
+    const shareToken = searchParams.get("share");
     const eventSlug = searchParams.get("event") || null;
     const format = parseDownloadFormat(searchParams.get("format"));
     const peopleMode = searchParams.get("peopleMode") === "any" ? "any" : "all";
@@ -361,6 +365,28 @@ export async function GET(request: Request, { params }: Props) {
       .filter((id) => id && isUuid(id))
       .slice(0, 500);
 
+    console.log("[share-debug] album download API start", {
+      albumSlug,
+      eventSlug,
+      format,
+      peopleMode,
+      peopleCount: personIds.length,
+      selectedPhotoCount: photoIds.length,
+      hasShareToken: Boolean(shareToken),
+      shareToken: shortToken(shareToken),
+    });
+
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) {
+      console.log("[share-debug] album download API access denied", {
+        albumSlug,
+        eventSlug,
+        status: accessDenied.status,
+        hasShareToken: Boolean(shareToken),
+      });
+      return accessDenied;
+    }
+
     const rows = await fetchDownloadRows(
       albumSlug,
       eventSlug,
@@ -369,8 +395,21 @@ export async function GET(request: Request, { params }: Props) {
       photoIds,
     );
     const entries = uniqueZipEntries(rows, format);
+    console.log("[share-debug] album download API rows loaded", {
+      albumSlug,
+      eventSlug,
+      rows: rows.length,
+      entries: entries.length,
+      format,
+    });
 
     if (!entries.length) {
+      console.log("[share-debug] album download API no downloadable photos", {
+        albumSlug,
+        eventSlug,
+        rows: rows.length,
+        format,
+      });
       return NextResponse.json({ error: "No downloadable photos found" }, { status: 404 });
     }
 
@@ -426,6 +465,13 @@ export async function GET(request: Request, { params }: Props) {
           );
           controller.close();
         } catch (error) {
+          console.error("[share-debug] album download API stream failed", {
+            albumSlug,
+            eventSlug,
+            format,
+            entries: entries.length,
+            error,
+          });
           controller.error(error);
         }
       },
@@ -445,7 +491,7 @@ export async function GET(request: Request, { params }: Props) {
       },
     });
   } catch (error) {
-    console.error("Error creating album download:", error);
+    console.error("[share-debug] album download API failed", error);
     return NextResponse.json(
       { error: "Failed to create download" },
       { status: 500 },

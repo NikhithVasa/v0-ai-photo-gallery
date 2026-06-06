@@ -8,14 +8,43 @@ interface Props {
   params: Promise<{ albumSlug: string; personId: string }>;
 }
 
+function shortToken(value: string | null) {
+  if (!value) return "";
+  if (value.length <= 12) return `${value.slice(0, 4)}...`;
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
 export async function GET(request: Request, { params }: Props) {
   try {
     const { albumSlug, personId } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
-    if (accessDenied) return accessDenied;
-
     const { searchParams } = new URL(request.url);
+    const shareToken = searchParams.get("share");
     const eventSlug = searchParams.get("event") || null;
+    console.log("[share-debug] person photos API start", {
+      albumSlug,
+      personId,
+      eventSlug,
+      hasShareToken: Boolean(shareToken),
+      shareToken: shortToken(shareToken),
+    });
+
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) {
+      console.log("[share-debug] person photos API access denied", {
+        albumSlug,
+        personId,
+        eventSlug,
+        status: accessDenied.status,
+        hasShareToken: Boolean(shareToken),
+      });
+      return accessDenied;
+    }
+
+    console.log("[share-debug] person photos API querying", {
+      albumSlug,
+      personId,
+      eventSlug,
+    });
 
     const rows = await query<PhotoRow>(
       `
@@ -73,9 +102,17 @@ export async function GET(request: Request, { params }: Props) {
     );
 
     const photos: Photo[] = await Promise.all(rows.map(toPhoto));
+    console.log("[share-debug] person photos API rows loaded", {
+      albumSlug,
+      personId,
+      eventSlug,
+      rows: rows.length,
+      photos: photos.length,
+    });
+
     return NextResponse.json({ photos });
   } catch (error) {
-    console.error("Error fetching album person photos:", error);
+    console.error("[share-debug] person photos API failed", error);
     return NextResponse.json(
       { error: "Failed to fetch person photos" },
       { status: 500 }

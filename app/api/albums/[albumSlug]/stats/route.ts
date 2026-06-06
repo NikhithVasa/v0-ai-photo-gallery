@@ -34,9 +34,26 @@ function countValue(value: number | string | null) {
 export async function GET(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
-    if (accessDenied) return accessDenied;
+    const url = new URL(request.url);
+    const shareToken = url.searchParams.get("share") || "";
+    console.info("[share-debug] album stats API start", {
+      albumSlug,
+      hasShareToken: Boolean(shareToken),
+      shareToken: shareToken ? `${shareToken.slice(0, 6)}...${shareToken.slice(-4)}` : "",
+    });
 
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) {
+      console.warn("[share-debug] album stats API access denied", {
+        albumSlug,
+        status: accessDenied.status,
+      });
+      return accessDenied;
+    }
+
+    console.info("[share-debug] album stats API querying album", {
+      albumSlug,
+    });
     const album = await queryOne<AlbumRow>(
       `
       SELECT id
@@ -49,8 +66,16 @@ export async function GET(request: Request, { params }: Props) {
     );
 
     if (!album) {
+      console.warn("[share-debug] album stats API album not found", {
+        albumSlug,
+      });
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
+
+    console.info("[share-debug] album stats API album found", {
+      albumSlug,
+      albumId: album.id,
+    });
 
     const [albumStats, eventStats] = await Promise.all([
       queryOne<AlbumStatsRow>(
@@ -161,7 +186,9 @@ export async function GET(request: Request, { params }: Props) {
       }
     );
   } catch (error) {
-    console.error("Error fetching album stats:", error);
+    console.error("[share-debug] album stats API failed", {
+      error,
+    });
 
     return NextResponse.json(
       { error: "Failed to fetch album stats" },

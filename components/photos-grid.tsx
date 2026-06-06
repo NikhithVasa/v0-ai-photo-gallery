@@ -25,6 +25,7 @@ const swrOptions = {
 
 interface PhotosGridProps {
   albumSlug: string;
+  shareToken?: string;
   selectedEventSlug: string | null;
   selectedPeopleIds: string[];
   peopleMatchMode: PeopleMatchMode;
@@ -39,6 +40,7 @@ interface PhotosGridProps {
 
 function photosUrl(
   albumSlug: string,
+  shareToken: string,
   selectedEventSlug: string | null,
   selectedPeopleIds: string[],
   peopleMatchMode: PeopleMatchMode,
@@ -47,6 +49,7 @@ function photosUrl(
   const params = new URLSearchParams();
 
   if (selectedEventSlug) params.set("event", selectedEventSlug);
+  if (shareToken) params.set("share", shareToken);
 
   if (selectedPeopleIds.length) {
     params.set("people", selectedPeopleIds.join(","));
@@ -62,6 +65,7 @@ function photosUrl(
 
 export function PhotosGrid({
   albumSlug,
+  shareToken = "",
   selectedEventSlug,
   selectedPeopleIds,
   peopleMatchMode,
@@ -77,11 +81,12 @@ export function PhotosGrid({
     () =>
       photosUrl(
         albumSlug,
+        shareToken,
         selectedEventSlug,
         selectedPeopleIds,
         peopleMatchMode,
       ),
-    [albumSlug, selectedEventSlug, selectedPeopleIds, peopleMatchMode],
+    [albumSlug, shareToken, selectedEventSlug, selectedPeopleIds, peopleMatchMode],
   );
 
   const { data, error, isLoading } = useSWR<{ photos: Photo[] }>(
@@ -264,6 +269,7 @@ export function PhotosGrid({
             ) : (
               <PhotoCard
                 albumSlug={albumSlug}
+                shareToken={shareToken}
                 photo={photo}
                 index={index}
                 onOpen={handleOpen}
@@ -279,6 +285,7 @@ export function PhotosGrid({
       {lightboxState !== null && !isSelectionMode && (
         <PhotoLightbox
           albumSlug={albumSlug}
+          shareToken={shareToken}
           photos={data.photos}
           currentIndex={lightboxState.index}
           events={events}

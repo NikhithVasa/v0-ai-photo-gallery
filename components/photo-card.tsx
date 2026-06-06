@@ -46,12 +46,20 @@ interface SignedPhotoUrls {
   thumbnailUrl?: string | null;
 }
 
-async function fetchSignedPhotoUrls(albumSlug: string, ids: string[]) {
+async function fetchSignedPhotoUrls(
+  albumSlug: string,
+  ids: string[],
+  shareToken = "",
+) {
   const uniqueIds = Array.from(new Set(ids));
   if (!uniqueIds.length) return {};
 
+  const url = `/api/albums/${encodeURIComponent(
+    albumSlug,
+  )}/photos/signed-urls${shareToken ? `?share=${encodeURIComponent(shareToken)}` : ""}`;
+
   const response = await fetch(
-    `/api/albums/${encodeURIComponent(albumSlug)}/photos/signed-urls`,
+    url,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -154,6 +162,7 @@ function preloadImage(url: string) {
 
 interface PhotoCardProps {
   albumSlug: string;
+  shareToken?: string;
   photo: Photo;
   index: number;
   onOpen: (index: number, originRect: PhotoOpenRect) => void;
@@ -371,6 +380,7 @@ function WatermarkedImage({
 
 export const PhotoCard = memo(function PhotoCard({
   albumSlug,
+  shareToken = "",
   photo,
   index,
   onOpen,
@@ -381,7 +391,10 @@ export const PhotoCard = memo(function PhotoCard({
   const aspectRatio = photoAspectRatio(photo);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
-  const canDownload = shareSettings?.allowDownloads ?? true;
+  const isShareView = Boolean(shareToken);
+  const canDownload = isShareView
+    ? Boolean(shareSettings?.allowDownloads)
+    : shareSettings?.allowDownloads ?? true;
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -390,7 +403,7 @@ export const PhotoCard = memo(function PhotoCard({
       let downloadUrl = photo.downloadUrl;
 
       if (!downloadUrl) {
-        const signedUrls = await fetchSignedPhotoUrls(albumSlug, [photo.id]);
+        const signedUrls = await fetchSignedPhotoUrls(albumSlug, [photo.id], shareToken);
         downloadUrl = signedUrls?.[photo.id]?.downloadUrl;
       }
 
@@ -538,6 +551,7 @@ export const PhotoCard = memo(function PhotoCard({
 
 interface PhotoLightboxProps {
   albumSlug: string;
+  shareToken?: string;
   photos: Photo[];
   currentIndex: number;
   events?: AlbumEvent[];
@@ -550,6 +564,7 @@ interface PhotoLightboxProps {
 
 export function PhotoLightbox({
   albumSlug,
+  shareToken = "",
   photos,
   currentIndex,
   events,
@@ -617,8 +632,11 @@ export function PhotoLightbox({
   const imageCandidates = uniqueUrls([photo.thumbnailUrl, photo.previewUrl]);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const downloadUrl = photo.downloadUrl;
-  const canDownload = shareSettings?.allowDownloads ?? true;
-  const canEditPhoto = !shareSettings;
+  const isShareView = Boolean(shareToken);
+  const canDownload = isShareView
+    ? Boolean(shareSettings?.allowDownloads)
+    : shareSettings?.allowDownloads ?? true;
+  const canEditPhoto = !isShareView && !shareSettings;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
   const aiEditDownloadName = `${(photo.fileName || `photo-${photo.id}`).replace(
@@ -980,7 +998,7 @@ export function PhotoLightbox({
       let url = downloadUrl;
 
       if (!url) {
-        const urlsById = await fetchSignedPhotoUrls(albumSlug, [photo.id]);
+        const urlsById = await fetchSignedPhotoUrls(albumSlug, [photo.id], shareToken);
         url = urlsById[photo.id]?.downloadUrl;
       }
 

@@ -15,16 +15,37 @@ export default async function AlbumPage({ params, searchParams }: Props) {
   const { share } = await searchParams;
   const hasShareToken = typeof share === "string" && share.length > 0;
 
+  console.info("[share-debug] album page render start", {
+    albumSlug,
+    hasShareToken,
+    shareToken: hasShareToken ? `${share.slice(0, 6)}...${share.slice(-4)}` : "",
+  });
+
   if (!hasShareToken) {
     const headersList = await headers();
+    const host = headersList.get("host") || "";
     const canAccess = await canAccessAlbumFromHost(
       albumSlug,
-      headersList.get("host") || ""
+      host
     );
 
+    console.info("[share-debug] album page host gate result", {
+      albumSlug,
+      host,
+      canAccess,
+    });
+
     if (!canAccess) {
+      console.warn("[share-debug] album page redirecting after host gate denial", {
+        albumSlug,
+        host,
+      });
       redirect("/albums");
     }
+  } else {
+    console.info("[share-debug] album page skipping host gate for share token", {
+      albumSlug,
+    });
   }
 
   return (

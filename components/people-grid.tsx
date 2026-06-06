@@ -20,6 +20,7 @@ type PeopleSelectionMode = "any" | "all";
 
 interface PeopleGridProps {
   albumSlug: string;
+  shareToken?: string;
   selectedEventSlug: string | null;
   events: AlbumEvent[];
   onPersonClick: (person: Person) => void;
@@ -27,24 +28,35 @@ interface PeopleGridProps {
     people: Person[],
     mode: PeopleSelectionMode
   ) => void;
+  readOnly?: boolean;
 }
 
-function peopleUrl(albumSlug: string, selectedEventSlug: string | null) {
+function peopleUrl(
+  albumSlug: string,
+  selectedEventSlug: string | null,
+  shareToken: string,
+) {
   const base = `/api/albums/${encodeURIComponent(albumSlug)}/people`;
-  return selectedEventSlug
-    ? `${base}?event=${encodeURIComponent(selectedEventSlug)}`
-    : base;
+  const params = new URLSearchParams();
+
+  if (selectedEventSlug) params.set("event", selectedEventSlug);
+  if (shareToken) params.set("share", shareToken);
+
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
 }
 
 export function PeopleGrid({
   albumSlug,
+  shareToken = "",
   selectedEventSlug,
   events,
   onPersonClick,
   onPeopleSelectionApply,
+  readOnly = false,
 }: PeopleGridProps) {
   const { data, error, isLoading, mutate } = useSWR<{ people: Person[] }>(
-    peopleUrl(albumSlug, selectedEventSlug),
+    peopleUrl(albumSlug, selectedEventSlug, shareToken),
     fetcher
   );
 
@@ -248,7 +260,7 @@ export function PeopleGrid({
               <X className="h-4 w-4" />
               Cancel
             </button>
-          ) : (
+          ) : !readOnly ? (
             <button
               type="button"
               onClick={() => setIsSelectionMode(true)}
@@ -257,7 +269,7 @@ export function PeopleGrid({
               <Users className="h-4 w-4" />
               Select / merge faces
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -349,15 +361,17 @@ export function PeopleGrid({
                 Show photos
               </button>
 
-              <button
-                type="button"
-                onClick={openMergeDialog}
-                disabled={selectedPeople.length < 2}
-                className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
-              >
-                <GitMerge className="h-4 w-4" />
-                Merge faces
-              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={openMergeDialog}
+                  disabled={selectedPeople.length < 2}
+                  className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+                >
+                  <GitMerge className="h-4 w-4" />
+                  Merge faces
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -372,6 +386,7 @@ export function PeopleGrid({
             selectedEventSlug={selectedEventSlug}
             isSelectionMode={isSelectionMode}
             isSelected={selectedIdSet.has(person.id)}
+            readOnly={readOnly}
             onClick={() => {
               if (isSelectionMode) {
                 togglePerson(person.id);

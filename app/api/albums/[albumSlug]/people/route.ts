@@ -23,14 +23,40 @@ function countValue(value: number | string | null) {
   return 0;
 }
 
+function shortToken(value: string | null) {
+  if (!value) return "";
+  if (value.length <= 12) return `${value.slice(0, 4)}...`;
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
 export async function GET(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
-    if (accessDenied) return accessDenied;
-
     const { searchParams } = new URL(request.url);
+    const shareToken = searchParams.get("share");
     const eventSlug = searchParams.get("event") || null;
+    console.log("[share-debug] album people API start", {
+      albumSlug,
+      eventSlug,
+      hasShareToken: Boolean(shareToken),
+      shareToken: shortToken(shareToken),
+    });
+
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) {
+      console.log("[share-debug] album people API access denied", {
+        albumSlug,
+        eventSlug,
+        status: accessDenied.status,
+        hasShareToken: Boolean(shareToken),
+      });
+      return accessDenied;
+    }
+
+    console.log("[share-debug] album people API querying people", {
+      albumSlug,
+      eventSlug,
+    });
 
     const rows = eventSlug
       ? await query<PersonRow>(
@@ -93,6 +119,12 @@ export async function GET(request: Request, { params }: Props) {
         );
 
     const peopleBase = (await Promise.all(rows.map(toPerson))) satisfies Person[];
+    console.log("[share-debug] album people API people loaded", {
+      albumSlug,
+      eventSlug,
+      rows: rows.length,
+      people: peopleBase.length,
+    });
 
     if (!peopleBase.length) {
       return NextResponse.json({ people: [] });
@@ -129,6 +161,12 @@ export async function GET(request: Request, { params }: Props) {
       `,
       [albumSlug, personIds]
     );
+    console.log("[share-debug] album people API stats loaded", {
+      albumSlug,
+      eventSlug,
+      personIds: personIds.length,
+      statsRows: statsRows.length,
+    });
 
     const statsByPersonId = new Map<string, PersonEventStatsRow[]>();
 
@@ -151,7 +189,7 @@ export async function GET(request: Request, { params }: Props) {
 
     return NextResponse.json({ people });
   } catch (error) {
-    console.error("Error fetching album people:", error);
+    console.error("[share-debug] album people API failed", error);
 
     return NextResponse.json(
       { error: "Failed to fetch album people" },

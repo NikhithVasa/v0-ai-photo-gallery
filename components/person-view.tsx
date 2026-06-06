@@ -25,6 +25,7 @@ const swrOptions = {
 
 interface PersonViewProps {
   albumSlug: string;
+  shareToken?: string;
   selectedEventSlug: string | null;
   events: AlbumEvent[];
   person: Person;
@@ -34,20 +35,25 @@ interface PersonViewProps {
 
 function personPhotosUrl(
   albumSlug: string,
+  shareToken: string,
   personId: string,
   selectedEventSlug: string | null
 ) {
   const base = `/api/albums/${encodeURIComponent(
     albumSlug
   )}/people/${encodeURIComponent(personId)}/photos`;
+  const params = new URLSearchParams();
 
-  return selectedEventSlug
-    ? `${base}?event=${encodeURIComponent(selectedEventSlug)}`
-    : base;
+  if (selectedEventSlug) params.set("event", selectedEventSlug);
+  if (shareToken) params.set("share", shareToken);
+
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
 }
 
 export function PersonView({
   albumSlug,
+  shareToken = "",
   selectedEventSlug,
   events,
   person,
@@ -59,7 +65,7 @@ export function PersonView({
   );
 
   const { data, error, isLoading } = useSWR<{ photos: Photo[] }>(
-    personPhotosUrl(albumSlug, person.id, activeEventSlug),
+    personPhotosUrl(albumSlug, shareToken, person.id, activeEventSlug),
     fetcher,
     swrOptions
   );
@@ -219,6 +225,7 @@ export function PersonView({
                 >
                   <PhotoCard
                     albumSlug={albumSlug}
+                    shareToken={shareToken}
                     photo={photo}
                     index={index}
                     onOpen={handleOpen}
@@ -234,6 +241,7 @@ export function PersonView({
           {lightboxState !== null && (
             <PhotoLightbox
               albumSlug={albumSlug}
+              shareToken={shareToken}
               photos={data.photos}
               currentIndex={lightboxState.index}
               events={events}

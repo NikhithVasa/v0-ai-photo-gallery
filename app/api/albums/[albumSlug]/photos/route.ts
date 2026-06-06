@@ -17,16 +17,37 @@ function isUuid(value: string) {
 export async function GET(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
-    const accessDenied = await requireAlbumAccess(request, albumSlug);
-    if (accessDenied) return accessDenied;
+    const requestUrl = new URL(request.url);
+    const shareToken = requestUrl.searchParams.get("share") || "";
+    console.info("[share-debug] album photos API start", {
+      albumSlug,
+      hasShareToken: Boolean(shareToken),
+      shareToken: shareToken ? `${shareToken.slice(0, 6)}...${shareToken.slice(-4)}` : "",
+    });
 
-    const { searchParams } = new URL(request.url);
+    const accessDenied = await requireAlbumAccess(request, albumSlug);
+    if (accessDenied) {
+      console.warn("[share-debug] album photos API access denied", {
+        albumSlug,
+        status: accessDenied.status,
+      });
+      return accessDenied;
+    }
+
+    const { searchParams } = requestUrl;
     const eventSlug = searchParams.get("event") || null;
     const personIds = (searchParams.get("people") ?? "")
       .split(",")
       .map((id) => id.trim())
       .filter((id) => id && isUuid(id));
     const peopleMode = searchParams.get("peopleMode") === "any" ? "any" : "all";
+
+    console.info("[share-debug] album photos API querying photos", {
+      albumSlug,
+      eventSlug,
+      peopleCount: personIds.length,
+      peopleMode,
+    });
 
     const rows = await query<PhotoRow>(
       `
@@ -96,6 +117,11 @@ export async function GET(request: Request, { params }: Props) {
       [albumSlug, eventSlug, personIds.length ? personIds : null, peopleMode === "all"]
     );
 
+    console.info("[share-debug] album photos API rows loaded", {
+      albumSlug,
+      count: rows.length,
+    });
+
     const photos: Photo[] = await Promise.all(rows.map(toPhoto));
     return NextResponse.json(
       { photos },
@@ -107,7 +133,9 @@ export async function GET(request: Request, { params }: Props) {
       },
     );
   } catch (error) {
-    console.error("Error fetching album photos:", error);
+    console.error("[share-debug] album photos API failed", {
+      error,
+    });
     return NextResponse.json(
       { error: "Failed to fetch album photos" },
       { status: 500 }

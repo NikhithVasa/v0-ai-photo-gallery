@@ -263,17 +263,42 @@ export function customerScopeParams(access: AuthAccess) {
   return access.isAdmin ? [] : [access.customerIds];
 }
 
+function shortToken(value: string) {
+  return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : "";
+}
+
 function shareTokenFromRequest(request: Request) {
   const url = new URL(request.url);
   const directToken = url.searchParams.get("share");
-  if (directToken) return directToken;
+  if (directToken) {
+    console.info("[share-debug] token from query", {
+      path: url.pathname,
+      token: shortToken(directToken),
+    });
+    return directToken;
+  }
 
   const referrer = request.headers.get("referer");
-  if (!referrer) return "";
+  if (!referrer) {
+    console.info("[share-debug] no share token", {
+      path: url.pathname,
+    });
+    return "";
+  }
 
   try {
-    return new URL(referrer).searchParams.get("share") || "";
+    const referrerToken = new URL(referrer).searchParams.get("share") || "";
+    console.info("[share-debug] token from referrer", {
+      path: url.pathname,
+      token: shortToken(referrerToken),
+      hasToken: Boolean(referrerToken),
+    });
+    return referrerToken;
   } catch {
+    console.warn("[share-debug] invalid referrer while reading share token", {
+      path: url.pathname,
+      referrer,
+    });
     return "";
   }
 }
@@ -284,6 +309,11 @@ export async function canAccessAlbumByShareToken(
 ) {
   const token = shareTokenFromRequest(request);
   if (!token) return false;
+
+  console.info("[share-debug] checking album share access", {
+    albumSlug,
+    token: shortToken(token),
+  });
 
   const row = await queryOne<{ id: string }>(
     `
@@ -298,8 +328,18 @@ export async function canAccessAlbumByShareToken(
     `,
     [token, albumSlug],
   ).catch((error) => {
-    console.error("Error checking share token access:", error);
+    console.error("[share-debug] share token access query failed", {
+      albumSlug,
+      token: shortToken(token),
+      error,
+    });
     return null;
+  });
+
+  console.info("[share-debug] album share access result", {
+    albumSlug,
+    token: shortToken(token),
+    allowed: Boolean(row),
   });
 
   return Boolean(row);

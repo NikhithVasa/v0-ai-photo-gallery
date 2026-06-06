@@ -34,9 +34,17 @@ function serialize(row: ShareTokenRow) {
   };
 }
 
+function shortToken(value: string) {
+  return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : "";
+}
+
 export async function GET(_request: Request, { params }: Props) {
   try {
     const { token } = await params;
+    console.info("[share-debug] public share API start", {
+      token: shortToken(token),
+    });
+
     const share = await queryOne<ShareTokenRow>(
       `
       SELECT
@@ -60,12 +68,24 @@ export async function GET(_request: Request, { params }: Props) {
     );
 
     if (!share) {
+      console.warn("[share-debug] public share API token not found", {
+        token: shortToken(token),
+      });
       return NextResponse.json({ error: "Share link not found" }, { status: 404 });
     }
 
+    console.info("[share-debug] public share API token found", {
+      token: shortToken(token),
+      albumSlug: share.album_slug,
+      allowDownloads: share.allow_downloads,
+      watermarkEnabled: share.watermark_enabled,
+    });
+
     return NextResponse.json({ share: serialize(share) });
   } catch (error) {
-    console.error("Error fetching public share link:", error);
+    console.error("[share-debug] public share API failed", {
+      error,
+    });
     return NextResponse.json(
       { error: "Failed to fetch share link" },
       { status: 500 },
