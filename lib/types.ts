@@ -186,6 +186,8 @@ export interface AlbumShareSettings {
   albumSlug?: string;
   albumName?: string;
   customerName?: string | null;
+  expiresAt?: string | null;
+  backgroundColor?: string;
   allowDownloads: boolean;
   watermarkEnabled: boolean;
   watermarkText: string | null;

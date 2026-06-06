@@ -125,9 +125,20 @@ export function ensureAlbumShareLinkSchema() {
         watermark_text text,
         watermark_mode text NOT NULL DEFAULT 'corners',
         watermark_positions text[] NOT NULL DEFAULT ARRAY['bottom_right']::text[],
+        expires_at date,
+        background_color text NOT NULL DEFAULT '#f5f5f7',
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
+      `,
+      []
+    );
+
+    await query(
+      `
+      ALTER TABLE album_share_links
+        ADD COLUMN IF NOT EXISTS expires_at date,
+        ADD COLUMN IF NOT EXISTS background_color text NOT NULL DEFAULT '#f5f5f7'
       `,
       []
     );

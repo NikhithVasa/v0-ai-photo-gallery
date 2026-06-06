@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { queryOne } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
+import {
+  DEFAULT_SHARE_BACKGROUND_COLOR,
+  isShareBackgroundColor,
+  normalizeShareBackgroundColor,
+} from "@/lib/share-theme";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -38,6 +43,8 @@ interface ShareLinkRow {
   watermark_text: string | null;
   watermark_mode: WatermarkMode;
   watermark_positions: WatermarkPosition[] | null;
+  expires_at: Date | string | null;
+  background_color: string | null;
   updated_at: Date | string;
 }
 
@@ -52,6 +59,42 @@ const watermarkPositions = new Set<WatermarkPosition>([
 function shareUrl(request: Request, token: string) {
   const origin = new URL(request.url).origin;
   return `${origin}/share/${encodeURIComponent(token)}`;
+}
+
+function dateValue(value: Date | string | null) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return value;
+}
+
+function parseExpirationDate(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error("Expiration date must be a YYYY-MM-DD date");
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    throw new Error("Expiration date is invalid");
+  }
+
+  return value;
+}
+
+function parseBackgroundColor(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return DEFAULT_SHARE_BACKGROUND_COLOR;
+  }
+  if (!isShareBackgroundColor(value)) {
+    throw new Error("Background color must be one of the allowed share colors");
+  }
+
+  return normalizeShareBackgroundColor(value);
 }
 
 function sanitizeSettings(body: unknown, fallbackText: string) {
@@ -79,6 +122,8 @@ function sanitizeSettings(body: unknown, fallbackText: string) {
         : positions.length
           ? positions
           : ["bottom_right"] as WatermarkPosition[],
+    expiresAt: parseExpirationDate(source.expiresAt),
+    backgroundColor: parseBackgroundColor(source.backgroundColor),
   };
 }
 
@@ -91,6 +136,8 @@ function serialize(row: ShareLinkRow, request: Request) {
     customerId: row.customer_id,
     albumName: row.album_name,
     customerName: row.customer_name,
+    expiresAt: dateValue(row.expires_at),
+    backgroundColor: normalizeShareBackgroundColor(row.background_color),
     allowDownloads: row.allow_downloads,
     watermarkEnabled: row.watermark_enabled,
     watermarkText: row.watermark_text,
@@ -139,6 +186,8 @@ async function fetchShareLink(albumId: string) {
       watermark_text,
       watermark_mode,
       watermark_positions,
+      expires_at,
+      background_color,
       updated_at
     FROM album_share_links
     WHERE album_id = $1
@@ -172,6 +221,8 @@ export async function GET(request: Request, { params }: Props) {
         albumName: album.name,
         customerName: album.customer_name,
         watermarkText: album.customer_name || album.name,
+        expiresAt: null,
+        backgroundColor: DEFAULT_SHARE_BACKGROUND_COLOR,
         allowDownloads: false,
         watermarkEnabled: false,
         watermarkMode: "corners",
@@ -220,6 +271,8 @@ export async function POST(request: Request, { params }: Props) {
         watermark_text,
         watermark_mode,
         watermark_positions,
+        expires_at,
+        background_color,
         created_at,
         updated_at
       )
@@ -235,6 +288,8 @@ export async function POST(request: Request, { params }: Props) {
         $9,
         $10,
         $11::text[],
+        $12::date,
+        $13,
         now(),
         now()
       )
@@ -247,6 +302,8 @@ export async function POST(request: Request, { params }: Props) {
         watermark_text = EXCLUDED.watermark_text,
         watermark_mode = EXCLUDED.watermark_mode,
         watermark_positions = EXCLUDED.watermark_positions,
+        expires_at = EXCLUDED.expires_at,
+        background_color = EXCLUDED.background_color,
         updated_at = now()
       RETURNING
         id,
@@ -260,6 +317,8 @@ export async function POST(request: Request, { params }: Props) {
         watermark_text,
         watermark_mode,
         watermark_positions,
+        expires_at,
+        background_color,
         updated_at
       `,
       [
@@ -274,6 +333,8 @@ export async function POST(request: Request, { params }: Props) {
         settings.watermarkText,
         settings.watermarkMode,
         settings.watermarkPositions,
+        settings.expiresAt,
+        settings.backgroundColor,
       ],
     );
 
@@ -286,9 +347,48 @@ export async function POST(request: Request, { params }: Props) {
 
     return NextResponse.json({ share: serialize(share, request) });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith("Expiration date") ||
+        error.message.startsWith("Background color"))
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
     console.error("Error saving album share link:", error);
     return NextResponse.json(
       { error: "Failed to save share link" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(_request: Request, { params }: Props) {
+  try {
+    await ensureAlbumShareLinkSchema();
+
+    const { albumSlug } = await params;
+    const accessDenied = await requireAlbumCustomerAccess(albumSlug);
+    if (accessDenied) return accessDenied;
+
+    const album = await fetchAlbum(albumSlug);
+    if (!album) {
+      return NextResponse.json({ error: "Album not found" }, { status: 404 });
+    }
+
+    await query(
+      `
+      DELETE FROM album_share_links
+      WHERE album_id = $1
+      `,
+      [album.id],
+    );
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Error deleting album share link:", error);
+    return NextResponse.json(
+      { error: "Failed to delete share link" },
       { status: 500 },
     );
   }

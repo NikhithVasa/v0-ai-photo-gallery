@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { query, queryOne } from "@/lib/db";
+import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 
 let authAccessSchemaPromise: Promise<void> | null = null;
 
@@ -315,6 +316,14 @@ export async function canAccessAlbumByShareToken(
     token: shortToken(token),
   });
 
+  await ensureAlbumShareLinkSchema().catch((error) => {
+    console.error("[share-debug] share token schema check failed", {
+      albumSlug,
+      token: shortToken(token),
+      error,
+    });
+  });
+
   const row = await queryOne<{ id: string }>(
     `
     SELECT a.id
@@ -324,6 +333,7 @@ export async function canAccessAlbumByShareToken(
      AND COALESCE(a.is_deleted, false) = false
     WHERE s.token = $1
       AND lower(a.slug) = lower($2)
+      AND (s.expires_at IS NULL OR s.expires_at >= CURRENT_DATE)
     LIMIT 1
     `,
     [token, albumSlug],

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
+import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
+import { normalizeShareBackgroundColor } from "@/lib/share-theme";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,6 +20,14 @@ interface ShareTokenRow {
   watermark_text: string | null;
   watermark_mode: "full" | "corners";
   watermark_positions: string[] | null;
+  expires_at: Date | string | null;
+  background_color: string | null;
+}
+
+function dateValue(value: Date | string | null) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return value;
 }
 
 function serialize(row: ShareTokenRow) {
@@ -26,6 +36,8 @@ function serialize(row: ShareTokenRow) {
     albumSlug: row.album_slug,
     albumName: row.album_name,
     customerName: row.customer_name,
+    expiresAt: dateValue(row.expires_at),
+    backgroundColor: normalizeShareBackgroundColor(row.background_color),
     allowDownloads: row.allow_downloads,
     watermarkEnabled: row.watermark_enabled,
     watermarkText: row.watermark_text,
@@ -45,6 +57,8 @@ export async function GET(_request: Request, { params }: Props) {
       token: shortToken(token),
     });
 
+    await ensureAlbumShareLinkSchema();
+
     const share = await queryOne<ShareTokenRow>(
       `
       SELECT
@@ -56,12 +70,15 @@ export async function GET(_request: Request, { params }: Props) {
         s.watermark_enabled,
         s.watermark_text,
         s.watermark_mode,
-        s.watermark_positions
+        s.watermark_positions,
+        s.expires_at,
+        s.background_color
       FROM album_share_links s
       JOIN albums a
         ON a.id = s.album_id
        AND COALESCE(a.is_deleted, false) = false
       WHERE s.token = $1
+        AND (s.expires_at IS NULL OR s.expires_at >= CURRENT_DATE)
       LIMIT 1
       `,
       [token],

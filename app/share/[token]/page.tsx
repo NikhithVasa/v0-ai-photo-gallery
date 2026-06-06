@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { queryOne } from "@/lib/db";
+import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -25,6 +26,8 @@ export default async function SharedAlbumPage({ params }: PageProps) {
   });
 
   try {
+    await ensureAlbumShareLinkSchema();
+
     share = await queryOne<ShareLinkRow>(
       `
       SELECT a.slug AS album_slug
@@ -33,6 +36,7 @@ export default async function SharedAlbumPage({ params }: PageProps) {
         ON a.id = s.album_id
        AND COALESCE(a.is_deleted, false) = false
       WHERE s.token = $1
+        AND (s.expires_at IS NULL OR s.expires_at >= CURRENT_DATE)
       LIMIT 1
       `,
       [token],

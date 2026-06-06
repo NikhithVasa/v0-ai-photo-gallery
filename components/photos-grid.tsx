@@ -166,7 +166,7 @@ export function PhotosGrid({
   if (error) {
     console.error("Photos loading error:", error);
     return (
-      <div className="rounded-md border border-rose-200 bg-rose-50 px-6 py-12 text-center">
+      <div className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl">
         <p className="text-sm font-medium text-rose-700">
           Failed to load photos
         </p>
@@ -178,7 +178,7 @@ export function PhotosGrid({
             // Trigger manual refresh by changing a dummy dependency
             window.location.reload();
           }}
-          className="mt-4 inline-flex h-8 items-center gap-2 rounded-full border border-rose-300 bg-white px-3 text-xs font-medium text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-400"
+          className="mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-white px-4 text-xs font-medium text-rose-700 shadow-sm ring-1 ring-inset ring-rose-200 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-400"
         >
           Retry
         </button>
@@ -188,11 +188,11 @@ export function PhotosGrid({
 
   if (isLoading) {
     return (
-      <div className="columns-2 gap-[3px] sm:columns-2 sm:gap-2 lg:columns-3">
+      <div className="columns-2 gap-2 sm:columns-2 sm:gap-3 lg:columns-3">
         {Array.from({ length: 14 }).map((_, index) => (
-          <div key={index} className="mb-[3px] break-inside-avoid sm:mb-2">
+          <div key={index} className="mb-2 break-inside-avoid sm:mb-3">
             <Skeleton
-              className={`w-full rounded-md ${
+              className={`w-full rounded-[22px] bg-white/70 shadow-[0_16px_45px_rgba(0,0,0,0.08)] ${
                 index % 6 === 0
                   ? "h-56 sm:h-80"
                   : index % 4 === 0
@@ -210,7 +210,7 @@ export function PhotosGrid({
 
   if (!data?.photos?.length) {
     return (
-      <div className="rounded-md border border-zinc-200 bg-white px-6 py-12 text-center text-zinc-500">
+      <div className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center text-zinc-500 shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl">
         {selectedPeopleIds.length
           ? peopleMatchMode === "any" && selectedPeopleIds.length > 1
             ? "No photos found for any of the selected people."
@@ -224,18 +224,18 @@ export function PhotosGrid({
 
   return (
     <>
-      <div className="columns-2 gap-[3px] sm:columns-2 sm:gap-2 lg:columns-3">
+      <div className="columns-2 gap-2 sm:columns-2 sm:gap-3 lg:columns-3">
         {data.photos.map((photo, index) => (
           <div
             key={photo.id}
-            className="mb-[3px] break-inside-avoid overflow-hidden rounded-md sm:mb-2"
+            className="mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 sm:mb-3"
           >
             {isSelectionMode ? (
               <button
                 type="button"
                 onClick={() => onTogglePhoto?.(photo.id)}
                 aria-pressed={selectedPhotoIdSet.has(photo.id)}
-                className={`group relative w-full cursor-pointer overflow-hidden rounded-md bg-muted text-left shadow-sm ring-1 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
+                className={`group relative w-full cursor-pointer overflow-hidden rounded-[22px] bg-white text-left ring-1 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
                   selectedPhotoIdSet.has(photo.id)
                     ? "ring-2 ring-zinc-950"
                     : "ring-border hover:ring-zinc-400"

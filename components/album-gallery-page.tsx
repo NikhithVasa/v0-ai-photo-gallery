@@ -26,6 +26,7 @@ import {
   Search,
   Share2,
   Sparkles,
+  Trash2,
   User,
   Users,
   X,
@@ -163,6 +164,14 @@ function formatAlbumDate(value?: string | null) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(year, month - 1, day));
+}
+
+function todayIsoDate() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function PasswordGate({
@@ -380,7 +389,7 @@ function SearchResultsGrid({
         <button
           type="button"
           onClick={onClear}
-          className="inline-flex h-9 w-fit cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-600 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+          className="inline-flex h-10 w-fit cursor-pointer items-center justify-center rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-600 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
         >
           Back to photos
         </button>
@@ -397,13 +406,13 @@ function SearchResultsGrid({
       )}
 
       {!isLoading && error && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-5 py-8 text-center text-sm text-rose-700">
+        <div className="rounded-[24px] border border-rose-100 bg-white/85 px-5 py-8 text-center text-sm text-rose-700 shadow-[0_16px_45px_rgba(0,0,0,0.08)]">
           {error}
         </div>
       )}
 
       {!isLoading && !error && !photos.length && (
-        <div className="rounded-md border border-zinc-200 bg-white px-6 py-12 text-center text-zinc-500">
+        <div className="rounded-[24px] border border-white/70 bg-white/85 px-6 py-12 text-center text-zinc-500 shadow-[0_16px_45px_rgba(0,0,0,0.08)]">
           No photos found for this search.
         </div>
       )}
@@ -413,7 +422,7 @@ function SearchResultsGrid({
           {photos.map((photo, index) => (
             <div
               key={photo.id}
-              className="mb-[3px] break-inside-avoid overflow-hidden rounded-md sm:mb-2"
+              className="mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 sm:mb-3"
             >
               <PhotoCard
                 albumSlug={albumSlug}
@@ -535,19 +544,19 @@ function PeopleFilterButton({
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className={`flex h-9 cursor-pointer items-center gap-2 rounded-full border px-2.5 text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-zinc-400 ${
+        className={`flex h-10 min-w-[128px] cursor-pointer items-center justify-center gap-2 rounded-full px-4 text-sm font-medium shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
           selectedPeopleIds.length
-            ? "border-zinc-950 bg-zinc-950 text-white"
-            : "border-zinc-200 bg-white text-zinc-600 hover:text-zinc-950"
+            ? "bg-[#1d1d1f] text-white ring-[#1d1d1f]"
+            : "bg-white/80 text-zinc-700 ring-black/10 hover:bg-white hover:text-zinc-950"
         }`}
         aria-expanded={isOpen}
         aria-label="Filter by people"
       >
-        <Users className="h-4 w-4" />
+        <Users className="h-4 w-4 shrink-0" />
         <span>People</span>
 
         {previewPeople.length > 0 && (
-          <span className="flex -space-x-2">
+          <span className="hidden -space-x-2 md:flex">
             {previewPeople.map((person) => (
               <PersonAvatar key={person.id} person={person} size="sm" />
             ))}
@@ -562,7 +571,7 @@ function PeopleFilterButton({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-[min(88vw,360px)] rounded-lg border border-zinc-200 bg-white p-3 text-zinc-950 shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-3 w-[min(88vw,380px)] rounded-[24px] border border-white/80 bg-white/95 p-3 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">Filter people</p>
@@ -618,9 +627,9 @@ function PeopleFilterButton({
                     type="button"
                     onClick={() => onToggle(person.id)}
                     aria-pressed={isSelected}
-                    className={`flex w-full cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-left transition ${
+                    className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl px-2 py-2 text-left transition ${
                       isSelected
-                        ? "bg-zinc-950 text-white"
+                        ? "bg-[#1d1d1f] text-white"
                         : "hover:bg-zinc-100"
                     }`}
                   >
@@ -665,7 +674,7 @@ function PeopleMatchModeSelect({
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as PeopleMatchMode)}
-        className="h-9 cursor-pointer appearance-none rounded-full border border-zinc-200 bg-white py-0 pl-3 pr-8 text-sm font-medium text-zinc-600 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+        className="h-10 min-w-[196px] cursor-pointer appearance-none rounded-full bg-white/80 py-0 pl-4 pr-9 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
       >
         <option value="any">Show single person photos</option>
         <option value="all">Show multiple person photos</option>
@@ -828,15 +837,18 @@ function AlbumDownloadMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex h-9 w-9 cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+          className="flex h-10 min-w-[132px] cursor-pointer items-center justify-center gap-2 rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
           aria-label="Download photos"
         >
-          <Download className="h-4 w-4" />
-          <span className="hidden sm:inline">Download</span>
+          <Download className="h-4 w-4 shrink-0" />
+          <span>Download</span>
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-72">
+      <DropdownMenuContent
+        align="end"
+        className="w-72 rounded-[20px] border-white/80 bg-white/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl"
+      >
         <DropdownMenuLabel>Download photos</DropdownMenuLabel>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
@@ -942,8 +954,10 @@ function AlbumShareDialog({
     useState<AlbumShareSettings["watermarkMode"]>("corners");
   const [watermarkPositions, setWatermarkPositions] =
     useState<string[]>(["bottom_right"]);
+  const [expiresAt, setExpiresAt] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [status, setStatus] = useState("");
 
   const { data, mutate } = useSWR<AlbumShareResponse>(
@@ -970,8 +984,9 @@ function AlbumShareDialog({
         ? source.watermarkPositions
         : ["bottom_right"],
     );
+    setExpiresAt(source.expiresAt ?? "");
 
-    if (data.share?.url) setShareUrl(data.share.url);
+    setShareUrl(data.share?.url ?? "");
   }, [data, defaultWatermarkText, isOpen]);
 
   const toggleCorner = (position: string) => {
@@ -999,6 +1014,7 @@ function AlbumShareDialog({
             watermarkText,
             watermarkMode,
             watermarkPositions,
+            expiresAt: expiresAt || null,
           }),
         },
       );
@@ -1025,16 +1041,54 @@ function AlbumShareDialog({
     setStatus("Copied");
   };
 
+  const deleteLink = async () => {
+    if (!shareUrl || isDeleting) return;
+    const confirmed = window.confirm("Delete this share link?");
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    setStatus("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/share`,
+        { method: "DELETE" },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to delete");
+      }
+
+      setShareUrl("");
+      setStatus("Deleted");
+      await mutate(
+        {
+          share: null,
+          defaults: data?.defaults,
+        },
+        { revalidate: false },
+      );
+    } catch (error) {
+      console.error("Failed to delete share link:", error);
+      setStatus("Failed to delete");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <button
           type="button"
-          className="flex h-9 w-9 cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+          className="flex h-10 min-w-[104px] cursor-pointer items-center justify-center gap-2 rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
           aria-label="Share album link"
         >
-          <Share2 className="h-4 w-4" />
-          <span className="hidden sm:inline">Share</span>
+          <Share2 className="h-4 w-4 shrink-0" />
+          <span>Share</span>
         </button>
       </DialogTrigger>
 
@@ -1044,7 +1098,7 @@ function AlbumShareDialog({
         </DialogHeader>
 
         <div className="space-y-5">
-          <div className="flex items-center justify-between gap-4 rounded-md border border-zinc-200 p-3">
+          <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
             <Label htmlFor="share-allow-downloads" className="text-sm font-medium">
               Allow downloads
             </Label>
@@ -1055,7 +1109,18 @@ function AlbumShareDialog({
             />
           </div>
 
-          <div className="space-y-3 rounded-md border border-zinc-200 p-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="share-expires-at">Expires on</Label>
+            <Input
+              id="share-expires-at"
+              type="date"
+              min={todayIsoDate()}
+              value={expiresAt}
+              onChange={(event) => setExpiresAt(event.target.value)}
+            />
+          </div>
+
+          <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
             <div className="flex items-center justify-between gap-4">
               <Label htmlFor="share-watermark" className="text-sm font-medium">
                 Watermark
@@ -1089,11 +1154,11 @@ function AlbumShareDialog({
                   }}
                   className="gap-2"
                 >
-                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-zinc-200 px-3 py-2">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white/80 px-3 py-2">
                     <RadioGroupItem value="full" />
                     <span className="text-sm font-medium">Full photo</span>
                   </label>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-zinc-200 px-3 py-2">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white/80 px-3 py-2">
                     <RadioGroupItem value="corners" />
                     <span className="text-sm font-medium">Corners</span>
                   </label>
@@ -1104,7 +1169,7 @@ function AlbumShareDialog({
                     {cornerOptions.map((option) => (
                       <label
                         key={option.id}
-                        className="flex cursor-pointer items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm"
+                        className="flex cursor-pointer items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white/80 px-3 py-2 text-sm"
                       >
                         <Checkbox
                           checked={watermarkPositions.includes(option.id)}
@@ -1133,8 +1198,21 @@ function AlbumShareDialog({
           )}
         </div>
 
-        <DialogFooter>
-          <Button type="button" onClick={save} disabled={isSaving}>
+        <DialogFooter className="sm:justify-between">
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={deleteLink}
+            disabled={!shareUrl || isSaving || isDeleting}
+          >
+            {isDeleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Delete link
+          </Button>
+          <Button type="button" onClick={save} disabled={isSaving || isDeleting}>
             {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
             Save link
           </Button>
@@ -1705,7 +1783,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-[#fbfaf8]">
+      <main className="min-h-screen bg-[#f5f5f7]">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <Skeleton className="mb-6 h-10 w-56" />
           <Skeleton className="mb-4 h-12 w-full rounded-full" />
@@ -1714,7 +1792,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             {Array.from({ length: 10 }).map((_, index) => (
               <Skeleton
                 key={index}
-                className="h-72 min-w-[min(42vw,180px)] flex-1 rounded-md"
+                className="h-72 min-w-[min(42vw,180px)] flex-1 rounded-[22px] bg-white/70 shadow-[0_16px_45px_rgba(0,0,0,0.08)]"
               />
             ))}
           </div>
@@ -1725,7 +1803,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   if (error || !album) {
     return (
-      <main className="min-h-screen bg-[#fbfaf8] px-4 py-12 text-center text-zinc-600">
+      <main className="min-h-screen bg-[#f5f5f7] px-4 py-12 text-center text-zinc-600">
         Failed to load album.
         {error instanceof Error && (
           <span className="mt-2 block text-sm text-zinc-500">
@@ -1747,13 +1825,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
+    <main className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f]">
       {!isCoverDismissed && (
         <section
           onWheel={handleCoverWheel}
           onTouchStart={handleCoverTouchStart}
           onTouchMove={handleCoverTouchMove}
-          className={`relative flex flex-col items-center justify-center overflow-hidden bg-white px-5 text-center transition-[height,opacity,padding] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          className={`relative flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 text-center transition-[height,opacity,padding] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
             isCoverCollapsing ? "py-0 opacity-0" : "py-8 opacity-100 sm:py-10"
           }`}
           style={{ height: isCoverCollapsing ? 0 : "100svh" }}
@@ -1764,12 +1842,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               alt={album.name}
               fill
               sizes="100vw"
-              className="object-cover opacity-[0.18]"
+              className="object-cover opacity-35 saturate-[1.08] contrast-[1.03]"
               priority
               unoptimized
             />
           )}
-          <div className="absolute inset-0 bg-white/72 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-[#f5f5f7]/68 backdrop-blur-[2px]" />
 
           <div
             className={`relative z-10 flex w-full max-w-6xl flex-col items-center pb-16 transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
@@ -1785,7 +1863,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </div>
 
               <div className="order-1 flex justify-center sm:order-2">
-                <div className="relative aspect-[4/5] w-[min(62vw,320px)] overflow-hidden rounded-[24px] bg-zinc-100 shadow-[0_30px_74px_rgba(24,24,27,0.16)] ring-1 ring-zinc-200 sm:w-[min(32vw,380px)] sm:rounded-[30px]">
+                <div className="relative aspect-[4/5] w-[min(62vw,320px)] overflow-hidden rounded-[30px] bg-white shadow-[0_30px_90px_rgba(0,0,0,0.22)] ring-1 ring-white/70 sm:w-[min(32vw,380px)] sm:rounded-[36px]">
                   {album.coverPhotoUrl ? (
                     <Image
                       src={album.coverPhotoUrl}
@@ -1846,24 +1924,70 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         </section>
       )}
 
-      <header
-        id="album-gallery-shell"
-        className="sticky top-0 z-30 border-b border-zinc-200/80 bg-[#fbfaf8]/90 backdrop-blur-xl"
-      >
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
+      <header id="album-gallery-shell" className="sticky top-0 z-30 px-3 pt-3 sm:px-5">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 rounded-[28px] border border-white/70 bg-white/[0.82] px-3 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:px-4">
+          <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500">
-                  {album.peopleCount} people
+                <p className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
+                  Photographer
                 </p>
-                <h1 className="truncate text-xl font-semibold sm:text-2xl">
-                  {album.customer?.name || album.name}
+                <h1 className="truncate text-[17px] font-semibold tracking-normal text-[#1d1d1f] sm:text-xl">
+                  {album.customer?.name || coverCreditName}
                 </h1>
+                <p className="truncate text-xs font-medium text-zinc-500">
+                  {album.name} · {album.peopleCount} people
+                </p>
               </div>
 
+              {!selectedPerson && (
+                <div
+                  className="grid shrink-0 grid-cols-2 gap-1 rounded-full bg-zinc-950/[0.04] p-1 ring-1 ring-black/5 sm:hidden"
+                  role="tablist"
+                >
+                  <button
+                    role="tab"
+                    aria-selected={activeTab === "photos"}
+                    onClick={() => {
+                      setSelectedPerson(null);
+                      setApsaraTextSearch(null);
+                      setActiveTab("photos");
+                      scrollToGalleryTop();
+                    }}
+                    className={`flex h-8 min-w-20 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
+                      activeTab === "photos"
+                        ? "bg-white text-[#1d1d1f] shadow-sm"
+                        : "text-zinc-500"
+                    }`}
+                  >
+                    <Images className="h-4 w-4" />
+                    Photos
+                  </button>
+
+                  <button
+                    role="tab"
+                    aria-selected={activeTab === "people"}
+                    onClick={() => {
+                      setSelectedPerson(null);
+                      setApsaraTextSearch(null);
+                      setActiveTab("people");
+                      scrollToGalleryTop();
+                    }}
+                    className={`flex h-8 min-w-20 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
+                      activeTab === "people"
+                        ? "bg-white text-[#1d1d1f] shadow-sm"
+                        : "text-zinc-500"
+                    }`}
+                  >
+                    <Users className="h-4 w-4" />
+                    People
+                  </button>
+                </div>
+              )}
+            </div>
+
               {!selectedPerson && activeTab === "photos" && (
-                <div className="hidden items-center gap-2 sm:flex">
+                <div className="flex min-w-0 gap-2 overflow-x-auto pb-1 sm:pb-0 xl:ml-2">
                   <PeopleFilterButton
                     people={filterPeople}
                     selectedPeople={selectedFilterPeople}
@@ -1880,9 +2004,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   )}
                 </div>
               )}
-            </div>
 
-            <div className="flex max-w-full flex-wrap items-center gap-2 pb-1">
+            <div className="flex max-w-full items-center gap-2 overflow-x-auto pb-1 xl:justify-end xl:pb-0">
               <AlbumDownloadMenu
                 albumSlug={albumSlug}
                 shareToken={shareToken}
@@ -1905,16 +2028,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     setApsaraTextSearch(null);
                     scrollToGalleryTop();
                   }}
-                  className={`flex h-9 w-9 cursor-pointer items-center justify-center gap-2 rounded-full border text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3 ${
+                  className={`flex h-10 min-w-[112px] cursor-pointer items-center justify-center gap-2 rounded-full px-4 text-sm font-medium shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
                     isPhotoSelectionMode
-                      ? "border-zinc-950 bg-zinc-950 text-white"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:text-zinc-950"
+                      ? "bg-[#1d1d1f] text-white ring-[#1d1d1f]"
+                      : "bg-white/80 text-zinc-700 ring-black/10 hover:bg-white hover:text-zinc-950"
                   }`}
                   aria-pressed={isPhotoSelectionMode}
                   aria-label="Select photos"
                 >
-                  <Check className="h-4 w-4" />
-                  <span className="hidden sm:inline">
+                  <Check className="h-4 w-4 shrink-0" />
+                  <span>
                     {isPhotoSelectionMode
                       ? `${selectedDownloadPhotoIds.length} Selected`
                       : "Select"}
@@ -1934,11 +2057,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+                      className="flex h-10 min-w-[116px] cursor-pointer items-center justify-center gap-2 rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
                       aria-label="AI review"
                     >
-                      <Sparkles className="h-4 w-4" />
-                      <span className="hidden sm:inline">AI Review</span>
+                      <Sparkles className="h-4 w-4 shrink-0" />
+                      <span>AI Review</span>
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
@@ -1981,28 +2104,28 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               {!isShareView && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
-                  className="flex h-9 w-9 items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white text-sm font-medium text-zinc-700 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+                  className="flex h-10 min-w-[136px] items-center justify-center gap-2 rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
                   aria-label="Create collage"
                 >
-                  <LayoutTemplate className="h-4 w-4" />
-                  <span className="hidden sm:inline">Create Collage</span>
+                  <LayoutTemplate className="h-4 w-4 shrink-0" />
+                  <span>Collage</span>
                 </Link>
               )}
 
               {!isShareView && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
-                  className="flex h-9 w-9 items-center justify-center gap-2 rounded-full bg-zinc-950 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:w-auto sm:px-3"
+                  className="flex h-10 min-w-[132px] items-center justify-center gap-2 rounded-full bg-[#1d1d1f] px-4 text-sm font-medium text-white shadow-[0_10px_28px_rgba(0,0,0,0.16)] transition hover:bg-black focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
                   aria-label="Manage events"
                 >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Manage Events</span>
+                  <Plus className="h-4 w-4 shrink-0" />
+                  <span>Events</span>
                 </Link>
               )}
 
               {!selectedPerson && (
                 <div
-                  className="hidden items-center gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-zinc-200 sm:flex"
+                  className="hidden shrink-0 items-center gap-1 rounded-full bg-zinc-950/[0.04] p-1 ring-1 ring-black/5 sm:flex"
                   role="tablist"
                 >
                   <button
@@ -2016,8 +2139,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     }}
                     className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                       activeTab === "photos"
-                        ? "bg-zinc-950 text-white"
-                        : "text-zinc-600 hover:text-zinc-950"
+                        ? "bg-white text-[#1d1d1f] shadow-sm"
+                        : "text-zinc-500 hover:text-zinc-950"
                     }`}
                   >
                     <Images className="h-4 w-4" />
@@ -2035,8 +2158,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     }}
                     className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
                       activeTab === "people"
-                        ? "bg-zinc-950 text-white"
-                        : "text-zinc-600 hover:text-zinc-950"
+                        ? "bg-white text-[#1d1d1f] shadow-sm"
+                        : "text-zinc-500 hover:text-zinc-950"
                     }`}
                   >
                     <Users className="h-4 w-4" />
@@ -2048,7 +2171,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               <button
                 type="button"
                 onClick={() => setIsSearchOpen(true)}
-                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-950/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/80 text-zinc-500 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
                 aria-label="Search"
               >
                 <Search className="h-5 w-5" />
@@ -2059,14 +2182,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           </div>
 
           {!selectedPerson && activeTab === "photos" && (
-            <div className="flex max-w-full flex-wrap gap-2 pb-1">
+            <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
               <button
                 type="button"
                 onClick={() => changeEvent(null)}
-                className={`max-w-full cursor-pointer rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                className={`max-w-full shrink-0 cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
                   !selectedEventSlug
-                    ? "bg-zinc-950 text-white"
-                    : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:text-zinc-950"
+                    ? "bg-[#1d1d1f] text-white"
+                    : "bg-white/70 text-zinc-600 ring-1 ring-black/10 hover:bg-white hover:text-zinc-950"
                 }`}
               >
                 All
@@ -2080,10 +2203,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   key={event.id}
                   type="button"
                   onClick={() => changeEvent(event.slug)}
-                  className={`max-w-full cursor-pointer whitespace-normal break-words rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  className={`max-w-[240px] shrink-0 cursor-pointer truncate rounded-full px-4 py-2 text-sm font-medium transition ${
                     selectedEventSlug === event.slug
-                      ? "bg-zinc-950 text-white"
-                      : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:text-zinc-950"
+                      ? "bg-[#1d1d1f] text-white"
+                      : "bg-white/70 text-zinc-600 ring-1 ring-black/10 hover:bg-white hover:text-zinc-950"
                   }`}
                 >
                   {event.name}
@@ -2096,7 +2219,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               {!isShareView && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
-                  className="flex max-w-full items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 ring-1 ring-zinc-200 transition hover:text-zinc-950"
+                  className="flex max-w-full shrink-0 items-center gap-1.5 rounded-full bg-white/70 px-4 py-2 text-sm font-medium text-zinc-600 ring-1 ring-black/10 transition hover:bg-white hover:text-zinc-950"
                 >
                   <Plus className="h-4 w-4" />
                   Manage Events
@@ -2105,54 +2228,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             </div>
           )}
 
-          {!selectedPerson && (
-            <div
-              className="grid grid-cols-2 gap-2 rounded-full bg-white p-1 shadow-sm ring-1 ring-zinc-200 sm:hidden"
-              role="tablist"
-            >
-              <button
-                role="tab"
-                aria-selected={activeTab === "photos"}
-                onClick={() => {
-                  setSelectedPerson(null);
-                  setApsaraTextSearch(null);
-                  setActiveTab("photos");
-                  scrollToGalleryTop();
-                }}
-                className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
-                  activeTab === "photos"
-                    ? "bg-zinc-950 text-white"
-                    : "text-zinc-600"
-                }`}
-              >
-                <Images className="h-4 w-4" />
-                Photos
-              </button>
-
-              <button
-                role="tab"
-                aria-selected={activeTab === "people"}
-                onClick={() => {
-                  setSelectedPerson(null);
-                  setApsaraTextSearch(null);
-                  setActiveTab("people");
-                  scrollToGalleryTop();
-                }}
-                className={`flex h-8 cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-medium transition ${
-                  activeTab === "people"
-                    ? "bg-zinc-950 text-white"
-                    : "text-zinc-600"
-                }`}
-              >
-                <Users className="h-4 w-4" />
-                People
-              </button>
-            </div>
-          )}
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-2 py-4 sm:px-4 sm:py-6 lg:px-6">
+      <div className="mx-auto max-w-7xl px-2 py-6 sm:px-4 sm:py-8 lg:px-6">
         {selectedPerson ? (
           <PersonView
             albumSlug={albumSlug}
@@ -2217,7 +2296,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                       type="button"
                       onClick={() => setSelectedDownloadPhotoIds([])}
                       disabled={!selectedDownloadPhotoIds.length}
-                      className="h-9 cursor-pointer rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-600 shadow-sm transition hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-10 cursor-pointer rounded-full bg-white/80 px-4 text-sm font-medium text-zinc-600 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Clear
                     </button>
