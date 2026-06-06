@@ -442,7 +442,7 @@ function SearchResultsGrid({
           {photos.map((photo, index) => (
             <div
               key={photo.id}
-              className="mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 sm:mb-3"
+              className="mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:mb-3"
             >
               <PhotoCard
                 albumSlug={albumSlug}
@@ -578,7 +578,7 @@ function PeopleFilterButton({
       <PopoverContent
         align="start"
         sideOffset={12}
-        className="w-[min(88vw,380px)] rounded-[24px] border border-white/80 bg-white/95 p-3 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl"
+        className="w-[min(88vw,380px)] rounded-[24px] border border-white/80 bg-white/95 p-4 text-zinc-950 shadow-[0_24px_70px_rgba(0,0,0,0.18)] backdrop-blur-xl"
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
@@ -635,7 +635,7 @@ function PeopleFilterButton({
                   type="button"
                   onClick={() => onToggle(person.id)}
                   aria-pressed={isSelected}
-                  className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl px-2 py-2 text-left transition ${
+                  className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 text-left transition ${
                     isSelected
                       ? "bg-[#1d1d1f] text-white"
                       : "hover:bg-zinc-100"
@@ -2017,67 +2017,68 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           style={{ backgroundColor: galleryNavColor }}
         >
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex min-w-0 items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
-                  Photographer
-                </p>
-                <h1 className="truncate text-[17px] font-semibold tracking-normal text-[#1d1d1f] sm:text-xl">
-                  {album.customer?.name || coverCreditName}
-                </h1>
-                <p className="truncate text-xs font-medium text-zinc-500">
-                  {album.name} · {album.peopleCount} people
-                </p>
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
+                    Photographer
+                  </p>
+                  <h1 className="truncate text-[17px] font-semibold tracking-normal text-[#1d1d1f] sm:text-xl">
+                    {album.customer?.name || coverCreditName}
+                  </h1>
+                  <p className="truncate text-xs font-medium text-zinc-500">
+                    {album.name} · {album.peopleCount} people
+                  </p>
+                </div>
+
+                {!selectedPerson && (
+                  <div
+                    className="grid shrink-0 grid-cols-2 gap-1 rounded-full bg-transparent p-1 ring-1 ring-black/5 sm:hidden"
+                    role="tablist"
+                  >
+                    <button
+                      role="tab"
+                      aria-selected={activeTab === "photos"}
+                      onClick={() => {
+                        setSelectedPerson(null);
+                        setApsaraTextSearch(null);
+                        setActiveTab("photos");
+                        scrollToGalleryTop();
+                      }}
+                      className={`flex h-8 min-w-20 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
+                        activeTab === "photos"
+                          ? "bg-white text-[#1d1d1f] shadow-sm"
+                          : "text-zinc-500"
+                      }`}
+                    >
+                      <Images className="h-4 w-4" />
+                      Photos
+                    </button>
+
+                    <button
+                      role="tab"
+                      aria-selected={activeTab === "people"}
+                      onClick={() => {
+                        setSelectedPerson(null);
+                        setApsaraTextSearch(null);
+                        setActiveTab("people");
+                        scrollToGalleryTop();
+                      }}
+                      className={`flex h-8 min-w-20 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
+                        activeTab === "people"
+                          ? "bg-white text-[#1d1d1f] shadow-sm"
+                          : "text-zinc-500"
+                      }`}
+                    >
+                      <Users className="h-4 w-4" />
+                      People
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {!selectedPerson && (
-                <div
-                  className="grid shrink-0 grid-cols-2 gap-1 rounded-full bg-zinc-950/[0.04] p-1 ring-1 ring-black/5 sm:hidden"
-                  role="tablist"
-                >
-                  <button
-                    role="tab"
-                    aria-selected={activeTab === "photos"}
-                    onClick={() => {
-                      setSelectedPerson(null);
-                      setApsaraTextSearch(null);
-                      setActiveTab("photos");
-                      scrollToGalleryTop();
-                    }}
-                    className={`flex h-8 min-w-20 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
-                      activeTab === "photos"
-                        ? "bg-white text-[#1d1d1f] shadow-sm"
-                        : "text-zinc-500"
-                    }`}
-                  >
-                    <Images className="h-4 w-4" />
-                    Photos
-                  </button>
-
-                  <button
-                    role="tab"
-                    aria-selected={activeTab === "people"}
-                    onClick={() => {
-                      setSelectedPerson(null);
-                      setApsaraTextSearch(null);
-                      setActiveTab("people");
-                      scrollToGalleryTop();
-                    }}
-                    className={`flex h-8 min-w-20 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
-                      activeTab === "people"
-                        ? "bg-white text-[#1d1d1f] shadow-sm"
-                        : "text-zinc-500"
-                    }`}
-                  >
-                    <Users className="h-4 w-4" />
-                    People
-                  </button>
-                </div>
-              )}
-            </div>
-
               {!selectedPerson && activeTab === "photos" && (
-                <div className="flex min-w-0 gap-2 xl:ml-2">
+                <div className="flex min-w-0 gap-2">
                   <PeopleFilterButton
                     people={filterPeople}
                     selectedPeople={selectedFilterPeople}
@@ -2094,6 +2095,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   )}
                 </div>
               )}
+            </div>
 
             <div className="flex max-w-full items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden xl:justify-end">
               <AlbumDownloadMenu
@@ -2213,7 +2215,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
               {!selectedPerson && (
                 <div
-                  className="hidden shrink-0 items-center gap-1 rounded-full bg-zinc-950/[0.04] p-1 ring-1 ring-black/5 sm:flex"
+                  className="hidden shrink-0 items-center gap-1 rounded-full bg-transparent p-1 ring-1 ring-black/5 sm:flex"
                   role="tablist"
                 >
                   <button

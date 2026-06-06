@@ -228,7 +228,7 @@ export function PhotosGrid({
         {data.photos.map((photo, index) => (
           <div
             key={photo.id}
-            className="mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 sm:mb-3"
+            className="mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:mb-3"
           >
             {isSelectionMode ? (
               <button
