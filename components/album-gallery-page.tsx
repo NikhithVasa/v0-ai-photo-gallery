@@ -2079,6 +2079,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     {event.name}
                   </button>
                 ))}
+
+                {!isShareView && (
+                  <Link
+                    href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
+                    className="flex h-8 max-w-[170px] shrink-0 items-center gap-1.5 rounded-full bg-white/70 px-3 text-sm font-medium text-zinc-600 ring-1 ring-black/10 transition hover:bg-white hover:text-zinc-950"
+                    aria-label="Manage events"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Manage Events
+                  </Link>
+                )}
               </div>
             </div>
           )}
