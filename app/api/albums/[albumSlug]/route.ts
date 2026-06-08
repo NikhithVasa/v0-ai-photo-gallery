@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { handleDbRouteError } from "@/lib/db-response";
+import { ensurePhotoSortSchema, normalizePhotoSortMode } from "@/lib/photo-sort";
 import { signedUrl } from "@/lib/s3";
 import {
   canAccessAlbumFromHost,
@@ -27,6 +28,7 @@ interface AlbumRow {
   is_expired: boolean | null;
   password_required: boolean | null;
   watermark_enabled: boolean | null;
+  photo_sort_mode: string | null;
   cover_photo_s3_key: string | null;
   photo_count: number | string | null;
   people_count: number | string | null;
@@ -45,6 +47,7 @@ interface EventRow {
   slug: string;
   name: string;
   sort_order: number | string | null;
+  photo_sort_mode: string | null;
   photo_count: number | string | null;
   people_count: number | string | null;
 }
@@ -119,6 +122,7 @@ async function publicPasscodeAlbumDetail(
     isExpired: Boolean(album.is_expired),
     passwordRequired: true,
     watermarkEnabled: Boolean(album.watermark_enabled),
+    photoSortMode: "added_oldest",
     events: [],
     photoCount: 0,
     peopleCount: 0,
@@ -174,6 +178,8 @@ export async function GET(request: Request, { params }: Props) {
       });
     }
 
+    await ensurePhotoSortSchema();
+
     console.info("[share-debug] album detail API querying album", {
       albumSlug,
     });
@@ -190,6 +196,7 @@ export async function GET(request: Request, { params }: Props) {
           (a.expires_at IS NOT NULL AND a.expires_at < CURRENT_DATE) AS is_expired,
           a.password_required,
           a.watermark_enabled,
+          a.photo_sort_mode,
           a.cover_photo_s3_key,
           a.customer_id
         FROM albums a
@@ -229,6 +236,7 @@ export async function GET(request: Request, { params }: Props) {
         a.is_expired,
         a.password_required,
         a.watermark_enabled,
+        a.photo_sort_mode,
         a.cover_photo_s3_key,
 
         COALESCE(pc.photo_count, 0)::int AS photo_count,
@@ -291,6 +299,7 @@ export async function GET(request: Request, { params }: Props) {
           e.slug,
           e.name,
           e.sort_order,
+          e.photo_sort_mode,
           e.album_id
         FROM album_events e
         JOIN selected_album a ON a.id = e.album_id
@@ -323,6 +332,7 @@ export async function GET(request: Request, { params }: Props) {
         e.slug,
         e.name,
         e.sort_order,
+        e.photo_sort_mode,
         COALESCE(pc.photo_count, 0)::int AS photo_count,
         COALESCE(pec.people_count, 0)::int AS people_count
       FROM active_events e
@@ -350,12 +360,14 @@ export async function GET(request: Request, { params }: Props) {
       isExpired: Boolean(album.is_expired),
       passwordRequired: Boolean(album.password_required),
       watermarkEnabled: Boolean(album.watermark_enabled),
+      photoSortMode: normalizePhotoSortMode(album.photo_sort_mode),
 
       events: events.map((event) => ({
         id: event.id,
         slug: event.slug,
         name: event.name,
         sortOrder: numberValue(event.sort_order),
+        photoSortMode: normalizePhotoSortMode(event.photo_sort_mode),
         photoCount: numberValue(event.photo_count),
         peopleCount: numberValue(event.people_count),
       })),

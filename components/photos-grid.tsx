@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check } from "lucide-react";
+import { ArrowUpDown, Check, Loader2 } from "lucide-react";
 import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +13,7 @@ import type {
   Person,
   Photo,
   PhotoPerson,
+  PhotoSortMode,
 } from "@/lib/types";
 
 export type PeopleMatchMode = "all" | "any";
@@ -29,6 +30,99 @@ const swrOptions = {
   revalidateOnFocus: false,
   revalidateOnReconnect: false,
 };
+
+const PHOTO_SORT_OPTIONS: Array<{ value: PhotoSortMode; label: string }> = [
+  { value: "title_asc", label: "Title (A-Z)" },
+  { value: "title_desc", label: "Title (Z-A)" },
+  { value: "added_newest", label: "Added date (Newest)" },
+  { value: "added_oldest", label: "Added date (Oldest)" },
+  { value: "original_newest", label: "Original date (Newest)" },
+  { value: "original_oldest", label: "Original date (Oldest)" },
+  { value: "rating", label: "Rating" },
+  { value: "custom", label: "Custom" },
+];
+
+const DEFAULT_SORT_MODE: PhotoSortMode = "added_oldest";
+
+function sortLabel(sortMode: PhotoSortMode) {
+  return (
+    PHOTO_SORT_OPTIONS.find((option) => option.value === sortMode)?.label ??
+    "Added date (Oldest)"
+  );
+}
+
+function dateMs(value?: string | null) {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function titleValue(photo: Photo) {
+  return (photo.caption || photo.fileName || "").trim().toLowerCase();
+}
+
+function withCustomPositions(photos: Photo[]) {
+  return photos.map((photo, index) => ({
+    ...photo,
+    customSortOrder: index + 1,
+  }));
+}
+
+function sortPhotos(photos: Photo[], sortMode: PhotoSortMode) {
+  const indexed = photos.map((photo, index) => ({ photo, index }));
+
+  indexed.sort((a, b) => {
+    switch (sortMode) {
+      case "title_asc":
+        return (
+          titleValue(a.photo).localeCompare(titleValue(b.photo)) ||
+          a.index - b.index
+        );
+      case "title_desc":
+        return (
+          titleValue(b.photo).localeCompare(titleValue(a.photo)) ||
+          a.index - b.index
+        );
+      case "added_newest":
+        return dateMs(b.photo.createdAt) - dateMs(a.photo.createdAt) || b.index - a.index;
+      case "original_newest":
+        return (
+          dateMs(b.photo.originalDate || b.photo.createdAt) -
+            dateMs(a.photo.originalDate || a.photo.createdAt) ||
+          b.index - a.index
+        );
+      case "original_oldest":
+        return (
+          dateMs(a.photo.originalDate || a.photo.createdAt) -
+            dateMs(b.photo.originalDate || b.photo.createdAt) ||
+          a.index - b.index
+        );
+      case "rating": {
+        const aRating = a.photo.rating ?? Number.NEGATIVE_INFINITY;
+        const bRating = b.photo.rating ?? Number.NEGATIVE_INFINITY;
+        return bRating - aRating || a.index - b.index;
+      }
+      case "custom":
+        return (
+          (a.photo.customSortOrder ?? a.index + 1) -
+            (b.photo.customSortOrder ?? b.index + 1) ||
+          a.index - b.index
+        );
+      case "added_oldest":
+      default:
+        return dateMs(a.photo.createdAt) - dateMs(b.photo.createdAt) || a.index - b.index;
+    }
+  });
+
+  return indexed.map((item) => item.photo);
+}
+
+function positionsPayload(photos: Photo[]) {
+  return photos.map((photo, index) => ({
+    photoId: photo.id,
+    position: index + 1,
+  }));
+}
 
 interface PhotosGridProps {
   albumSlug: string;
@@ -49,6 +143,7 @@ interface PhotosGridProps {
   canManagePeople?: boolean;
   onPeopleChanged?: () => void | Promise<void>;
   shareSettings?: AlbumShareSettings | null;
+  canManageSort?: boolean;
 }
 
 function photosUrl(
@@ -180,6 +275,52 @@ function SelectionPhotoCell({
   );
 }
 
+function CustomPositionControl({
+  position,
+  onCommit,
+  disabled,
+}: {
+  position: number;
+  onCommit: (position: number) => void;
+  disabled: boolean;
+}) {
+  const [value, setValue] = useState(String(position));
+
+  useEffect(() => {
+    setValue(String(position));
+  }, [position]);
+
+  const commit = () => {
+    const nextPosition = Number.parseInt(value, 10);
+    if (!Number.isFinite(nextPosition)) {
+      setValue(String(position));
+      return;
+    }
+    onCommit(nextPosition);
+  };
+
+  return (
+    <label className="absolute left-2 top-2 z-20 flex items-center gap-1.5 rounded-full bg-white/92 px-2 py-1 text-[11px] font-semibold text-zinc-700 shadow-sm ring-1 ring-black/10 backdrop-blur">
+      <span>Position</span>
+      <input
+        type="number"
+        min={1}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.currentTarget.blur();
+          }
+        }}
+        className="h-6 w-12 rounded-full border border-zinc-200 bg-white px-2 text-center text-xs font-semibold text-zinc-950 outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 disabled:opacity-60"
+        aria-label={`Position ${position}`}
+      />
+    </label>
+  );
+}
+
 export function PhotosGrid({
   albumSlug,
   shareToken = "",
@@ -199,6 +340,7 @@ export function PhotosGrid({
   canManagePeople = false,
   onPeopleChanged,
   shareSettings,
+  canManageSort = false,
 }: PhotosGridProps) {
   const photosRequestUrl = useMemo(
     () =>
@@ -212,11 +354,16 @@ export function PhotosGrid({
     [albumSlug, shareToken, selectedEventSlug, selectedPeopleIds, peopleMatchMode],
   );
 
-  const { data, error, isLoading, mutate } = useSWR<{ photos: Photo[] }>(
+  const { data, error, isLoading, mutate } = useSWR<{
+    photos: Photo[];
+    sortMode: PhotoSortMode;
+  }>(
     photosRequestUrl,
     fetcher,
     swrOptions,
   );
+  const [isSavingSort, setIsSavingSort] = useState(false);
+  const [sortError, setSortError] = useState("");
 
   const [lightboxState, setLightboxState] = useState<{
     index: number;
@@ -225,6 +372,104 @@ export function PhotosGrid({
   const selectedPhotoIdSet = useMemo(
     () => new Set(selectedPhotoIds),
     [selectedPhotoIds],
+  );
+  const activeSortMode = data?.sortMode ?? DEFAULT_SORT_MODE;
+  const canEditSort =
+    canManageSort && selectedPeopleIds.length === 0 && !isSelectionMode;
+
+  const saveSort = useCallback(
+    async (sortMode: PhotoSortMode, photos: Photo[]) => {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/photos/sort`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventSlug: selectedEventSlug,
+            sortMode,
+            positions: sortMode === "custom" ? positionsPayload(photos) : undefined,
+          }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to save sort");
+      }
+    },
+    [albumSlug, selectedEventSlug],
+  );
+
+  const applySortMode = useCallback(
+    async (sortMode: PhotoSortMode) => {
+      if (!data?.photos?.length || !canEditSort) return;
+
+      const previous = data;
+      const sorted = sortPhotos(data.photos, sortMode);
+      const nextPhotos =
+        sortMode === "custom" ? withCustomPositions(sorted) : sorted;
+
+      setSortError("");
+      setIsSavingSort(true);
+      await mutate({ photos: nextPhotos, sortMode }, { revalidate: false });
+
+      try {
+        await saveSort(sortMode, nextPhotos);
+      } catch (error) {
+        console.error("Failed to save photo sort:", error);
+        setSortError(
+          error instanceof Error ? error.message : "Failed to save sort",
+        );
+        await mutate(previous, { revalidate: false });
+      } finally {
+        setIsSavingSort(false);
+      }
+    },
+    [canEditSort, data, mutate, saveSort],
+  );
+
+  const moveCustomPosition = useCallback(
+    async (photoId: string, rawPosition: number) => {
+      if (!data?.photos?.length || !canEditSort) return;
+
+      const previous = data;
+      const currentIndex = data.photos.findIndex((photo) => photo.id === photoId);
+      if (currentIndex < 0) return;
+
+      const targetIndex = Math.min(
+        Math.max(Math.floor(rawPosition) - 1, 0),
+        data.photos.length - 1,
+      );
+      if (targetIndex === currentIndex) return;
+
+      const nextPhotos = [...data.photos];
+      const [moved] = nextPhotos.splice(currentIndex, 1);
+      if (!moved) return;
+      nextPhotos.splice(targetIndex, 0, moved);
+
+      const rankedPhotos = withCustomPositions(nextPhotos);
+      setSortError("");
+      setIsSavingSort(true);
+      await mutate(
+        { photos: rankedPhotos, sortMode: "custom" },
+        { revalidate: false },
+      );
+
+      try {
+        await saveSort("custom", rankedPhotos);
+      } catch (error) {
+        console.error("Failed to save custom photo sort:", error);
+        setSortError(
+          error instanceof Error ? error.message : "Failed to save custom order",
+        );
+        await mutate(previous, { revalidate: false });
+      } finally {
+        setIsSavingSort(false);
+      }
+    },
+    [canEditSort, data, mutate, saveSort],
   );
 
   const endSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -358,12 +603,55 @@ export function PhotosGrid({
 
   return (
     <>
+      {canEditSort && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-2 sm:px-0">
+          <label className="flex h-10 max-w-full items-center gap-2 rounded-full bg-white/85 px-3 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 backdrop-blur">
+            <ArrowUpDown className="h-4 w-4 shrink-0" />
+            <span className="shrink-0">Sort</span>
+            <select
+              value={activeSortMode}
+              onChange={(event) =>
+                void applySortMode(event.target.value as PhotoSortMode)
+              }
+              disabled={isSavingSort}
+              className="min-w-0 cursor-pointer bg-transparent text-sm font-semibold text-zinc-950 outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Sort photos"
+            >
+              {PHOTO_SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {isSavingSort && <Loader2 className="h-4 w-4 animate-spin" />}
+          </label>
+
+          {sortError ? (
+            <p className="text-sm font-medium text-rose-600">{sortError}</p>
+          ) : (
+            <p className="text-sm font-medium text-zinc-500">
+              {sortLabel(activeSortMode)}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="columns-2 gap-2 sm:columns-2 sm:gap-3 lg:columns-3">
         {data.photos.map((photo, index) => (
           <div
             key={photo.id}
-            className="mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:mb-3"
+            className="relative mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:mb-3"
           >
+            {canEditSort && activeSortMode === "custom" && (
+              <CustomPositionControl
+                position={index + 1}
+                disabled={isSavingSort}
+                onCommit={(position) => {
+                  void moveCustomPosition(photo.id, position);
+                }}
+              />
+            )}
+
             {isSelectionMode ? (
               <SelectionPhotoCell
                 photo={photo}

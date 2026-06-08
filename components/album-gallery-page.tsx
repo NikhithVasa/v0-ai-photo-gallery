@@ -2720,6 +2720,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               canManagePeople={!isShareView}
               onPeopleChanged={refreshPeopleData}
               shareSettings={shareSettings}
+              canManageSort={!isShareView}
             />
           </section>
         )}

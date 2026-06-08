@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { ensurePhotoSortSchema, normalizePhotoSortMode } from "@/lib/photo-sort";
 import { signedDownloadUrl, signedUrl } from "@/lib/s3";
 import type { AlbumEvent, Photo, PhotoPerson, Person } from "@/lib/types";
 
@@ -7,6 +8,7 @@ export interface AlbumEventRow {
   slug: string;
   name: string;
   sort_order: number | null;
+  photo_sort_mode?: string | null;
   photo_count: number | string | null;
   people_count: number | string | null;
 }
@@ -21,6 +23,9 @@ export interface PhotoRow {
   file_name: string | null;
   caption: string | null;
   search_text: string | null;
+  created_at?: Date | string | null;
+  original_date?: Date | string | null;
+  rating?: number | string | null;
   width: number | null;
   height: number | null;
   original_s3_key: string | null;
@@ -29,6 +34,7 @@ export interface PhotoRow {
   watermarked_preview_s3_key: string | null;
   thumbnail_s3_key: string | null;
   annotated_s3_key: string | null;
+  custom_sort_order?: number | null;
   compression_status?: string | null;
   watermark_status?: string | null;
   person_search_text?: string | null;
@@ -62,12 +68,28 @@ function numberValue(value: number | string | null | undefined) {
   return 0;
 }
 
+function dateTimeValue(value: Date | string | null | undefined) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  return value;
+}
+
+function nullableNumberValue(value: number | string | null | undefined) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 export function toAlbumEvent(row: AlbumEventRow): AlbumEvent {
   return {
     id: row.id,
     slug: row.slug,
     name: row.name,
     sortOrder: numberValue(row.sort_order),
+    photoSortMode: normalizePhotoSortMode(row.photo_sort_mode),
     photoCount: numberValue(row.photo_count),
     peopleCount: numberValue(row.people_count),
   };
@@ -143,6 +165,9 @@ export async function toPhoto(row: PhotoRow): Promise<Photo> {
     fileName: row.file_name,
     caption: row.caption,
     searchText: row.search_text,
+    createdAt: dateTimeValue(row.created_at),
+    originalDate: dateTimeValue(row.original_date),
+    rating: nullableNumberValue(row.rating),
     previewUrl,
     thumbnailUrl,
     downloadUrl: null,
@@ -156,6 +181,7 @@ export async function toPhoto(row: PhotoRow): Promise<Photo> {
     watermarkedPreviewS3Key: row.watermarked_preview_s3_key,
     thumbnailS3Key: row.thumbnail_s3_key,
     annotatedS3Key: row.annotated_s3_key,
+    customSortOrder: nullableNumberValue(row.custom_sort_order),
     people,
   };
 }
@@ -189,6 +215,8 @@ export async function signedPhotoUrlBundle(row: Pick<
 }
 
 export async function fetchAlbumEvents(albumSlug: string) {
+  await ensurePhotoSortSchema();
+
   const rows = await query<AlbumEventRow>(
     `
     SELECT
@@ -196,6 +224,7 @@ export async function fetchAlbumEvents(albumSlug: string) {
       e.slug,
       e.name,
       e.sort_order,
+      e.photo_sort_mode,
       COUNT(DISTINCT p.id)::int AS photo_count,
       COUNT(DISTINCT CASE
         WHEN COALESCE(pes.photo_count, 0) > 0 THEN pes.person_id
@@ -209,7 +238,7 @@ export async function fetchAlbumEvents(albumSlug: string) {
     LEFT JOIN person_event_stats pes ON pes.album_event_id = e.id
     WHERE lower(a.slug) = lower($1)
       AND COALESCE(e.is_deleted, false) = false
-    GROUP BY e.id, e.slug, e.name, e.sort_order
+    GROUP BY e.id, e.slug, e.name, e.sort_order, e.photo_sort_mode
     ORDER BY e.sort_order ASC NULLS LAST, e.name ASC
     `,
     [albumSlug]

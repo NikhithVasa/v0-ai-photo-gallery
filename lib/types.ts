@@ -35,6 +35,7 @@ export interface AlbumDetail {
   isExpired?: boolean;
   passwordRequired: boolean;
   watermarkEnabled: boolean;
+  photoSortMode: PhotoSortMode;
   events: AlbumEvent[];
   photoCount: number;
   peopleCount: number;
@@ -47,9 +48,20 @@ export interface AlbumEvent {
   slug: string;
   name: string;
   sortOrder: number;
+  photoSortMode: PhotoSortMode;
   photoCount: number;
   peopleCount: number;
 }
+
+export type PhotoSortMode =
+  | "title_asc"
+  | "title_desc"
+  | "added_newest"
+  | "added_oldest"
+  | "original_newest"
+  | "original_oldest"
+  | "rating"
+  | "custom";
 
 export interface Person {
   id: string;
@@ -88,6 +100,9 @@ export interface Photo {
   fileName: string | null;
   caption: string | null;
   searchText: string | null;
+  createdAt?: string | null;
+  originalDate?: string | null;
+  rating?: number | null;
   previewUrl: string | null;
   thumbnailUrl: string | null;
   downloadUrl: string | null;
@@ -101,6 +116,7 @@ export interface Photo {
   watermarkedPreviewS3Key?: string | null;
   thumbnailS3Key?: string | null;
   annotatedS3Key?: string | null;
+  customSortOrder?: number | null;
   people?: PhotoPerson[];
 }
 
