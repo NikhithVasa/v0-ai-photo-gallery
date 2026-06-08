@@ -720,7 +720,11 @@ export function PhotoLightbox({
   const [isMobilePointer, setIsMobilePointer] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [entryStyle, setEntryStyle] = useState<CSSProperties>();
+  const [entryStyle, setEntryStyle] = useState<CSSProperties>({
+    opacity: 0,
+    transform: "translate3d(0, 10px, 0) scale(0.985)",
+    transformOrigin: "center center",
+  });
   const [signedUrlsByPhotoId, setSignedUrlsByPhotoId] = useState<
     Record<string, SignedPhotoUrls>
   >({});
@@ -748,6 +752,7 @@ export function PhotoLightbox({
   const isDownloadHoveringRef = useRef(isDownloadHovering);
   const isAnimatingSwipeRef = useRef(isAnimatingSwipe);
   const isMountedRef = useRef(false);
+  const hasPlayedEntryAnimationRef = useRef(false);
   const originalPreloadRef = useRef(new Map<string, string>());
   const { mutate } = useSWRConfig();
 
@@ -1000,13 +1005,8 @@ export function PhotoLightbox({
       else showControlsBriefly();
     }, 320);
 
-    const backdropFrame = window.requestAnimationFrame(() =>
-      setIsBackdropVisible(true),
-    );
-
     return () => {
       window.clearTimeout(controlsTimer);
-      window.cancelAnimationFrame(backdropFrame);
     };
   }, [showControlsBriefly]);
 
@@ -1067,10 +1067,33 @@ export function PhotoLightbox({
 
   useLayoutEffect(() => {
     const frame = photoFrameRef.current;
+    const visibleEntryStyle: CSSProperties = {
+      opacity: 1,
+      transform: "translate3d(0, 0, 0) scale(1)",
+      transformOrigin: "center center",
+    };
+    const revealFrame = () => {
+      const animationFrame = window.requestAnimationFrame(() => {
+        setIsBackdropVisible(true);
+        hasPlayedEntryAnimationRef.current = true;
+        setEntryStyle(visibleEntryStyle);
+      });
+
+      return () => window.cancelAnimationFrame(animationFrame);
+    };
+
+    if (hasPlayedEntryAnimationRef.current) {
+      setEntryStyle(visibleEntryStyle);
+      return;
+    }
 
     if (!frame || !originRect) {
-      setEntryStyle(undefined);
-      return;
+      setEntryStyle({
+        opacity: 0,
+        transform: "translate3d(0, 10px, 0) scale(0.985)",
+        transformOrigin: "center center",
+      });
+      return revealFrame();
     }
 
     const prefersReducedMotion = window.matchMedia(
@@ -1078,12 +1101,13 @@ export function PhotoLightbox({
     ).matches;
 
     if (prefersReducedMotion) {
-      setEntryStyle(undefined);
-      return;
+      return revealFrame();
     }
 
     const targetRect = frame.getBoundingClientRect();
-    if (!targetRect.width || !targetRect.height) return;
+    if (!targetRect.width || !targetRect.height) {
+      return revealFrame();
+    }
 
     const originCenterX = originRect.left + originRect.width / 2;
     const originCenterY = originRect.top + originRect.height / 2;
@@ -1095,20 +1119,12 @@ export function PhotoLightbox({
     const scale = originRect.width / targetRect.width;
 
     setEntryStyle({
-      opacity: 0.72,
+      opacity: 0,
       transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`,
       transformOrigin: "center center",
     });
 
-	    const animationFrame = window.requestAnimationFrame(() => {
-	      setEntryStyle({
-	        opacity: 1,
-	        transform: "translate3d(0, 0, 0) scale(1)",
-	        transformOrigin: "center center",
-	      });
-	    });
-
-    return () => window.cancelAnimationFrame(animationFrame);
+    return revealFrame();
   }, [originRect]);
 
   useEffect(() => {
@@ -1524,10 +1540,11 @@ export function PhotoLightbox({
 
   const imageClassName =
     "pointer-events-none h-full w-full cursor-default select-none object-contain";
+  const lightboxEnterDurationClass = isClosing ? "duration-300" : "duration-700";
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex cursor-default items-center justify-center text-white transition-colors duration-300 ease-in-out ${
+      className={`fixed inset-0 z-50 flex cursor-default items-center justify-center text-white transition-colors ${lightboxEnterDurationClass} ease-in-out ${
         isBackdropVisible ? "bg-black" : "bg-black/0"
       }`}
       onMouseEnter={() => {
@@ -1628,7 +1645,7 @@ export function PhotoLightbox({
         {currentDisplayBaseUrl ? (
           <div
             ref={photoFrameRef}
-            className="flex cursor-default flex-col transition-[transform,opacity] duration-300 ease-in-out will-change-transform"
+            className={`flex cursor-default flex-col transition-[transform,opacity] ${lightboxEnterDurationClass} ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform`}
             style={{
               width: photoFrameWidth,
               ...entryStyle,
