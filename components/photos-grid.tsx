@@ -74,12 +74,32 @@ function SelectionPhotoCell({
   isSelected: boolean;
   onTogglePhoto?: (photoId: string) => void;
 }) {
-  const imageUrl = photo.previewUrl || photo.thumbnailUrl || "";
+  const imageCandidates = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [
+            photo.previewUrl,
+            photo.thumbnailUrl,
+            photo.aiInputS3Key
+              ? `/api/media?key=${encodeURIComponent(photo.aiInputS3Key)}`
+              : null,
+          ].filter((url): url is string => Boolean(url)),
+        ),
+      ),
+    [photo],
+  );
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const imageUrl = imageCandidates[activeImageIndex] || "";
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   useEffect(() => {
+    setActiveImageIndex(0);
+  }, [photo.id]);
+
+  useEffect(() => {
     setIsImageLoaded(false);
-  }, [imageUrl, photo.id]);
+  }, [imageUrl]);
 
   return (
     <button
@@ -104,7 +124,14 @@ function SelectionPhotoCell({
             loading={index < 12 ? "eager" : "lazy"}
             decoding="async"
             onLoad={() => setIsImageLoaded(true)}
-            onError={() => setIsImageLoaded(true)}
+            onError={() => {
+              setActiveImageIndex((current) => {
+                if (current < imageCandidates.length - 1) return current + 1;
+
+                setIsImageLoaded(true);
+                return current;
+              });
+            }}
           />
           {!isImageLoaded && (
             <Skeleton className="absolute inset-0 rounded-[22px] bg-zinc-200/80" />

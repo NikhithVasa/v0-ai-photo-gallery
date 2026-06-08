@@ -73,6 +73,7 @@ export async function GET() {
           downloadUrl: null,
           width: row?.width ?? null,
           height: row?.height ?? null,
+          aiInputS3Key: row?.ai_input_s3_key ?? null,
         };
       })
     );

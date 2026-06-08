@@ -106,6 +106,18 @@ function uniqueUrls(urls: Array<string | null | undefined>) {
   return Array.from(new Set(urls.filter((url): url is string => Boolean(url))));
 }
 
+function mediaUrlForS3Key(key?: string | null) {
+  return key ? `/api/media?key=${encodeURIComponent(key)}` : null;
+}
+
+function previewUrlsForPhoto(photo: Photo) {
+  return uniqueUrls([
+    photo.previewUrl,
+    photo.thumbnailUrl,
+    mediaUrlForS3Key(photo.aiInputS3Key),
+  ]);
+}
+
 const AI_EDIT_PRESETS = [
   {
     key: "remove_background",
@@ -435,7 +447,9 @@ export const PhotoCard = memo(function PhotoCard({
   forceFill = false,
   shareSettings,
 }: PhotoCardProps) {
-  const imageUrl = photo.previewUrl || photo.thumbnailUrl;
+  const imageCandidates = useMemo(() => previewUrlsForPhoto(photo), [photo]);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const aspectRatio = photoAspectRatio(photo);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [shouldLoadImage, setShouldLoadImage] = useState(index < 18);
@@ -450,6 +464,7 @@ export const PhotoCard = memo(function PhotoCard({
   useEffect(() => {
     setShouldLoadImage(index < 18);
     setIsImageLoaded(false);
+    setActiveImageIndex(0);
   }, [index, photo.id]);
 
   useEffect(() => {
@@ -459,6 +474,15 @@ export const PhotoCard = memo(function PhotoCard({
   const handleImageLoad = useCallback(() => {
     setIsImageLoaded(true);
   }, []);
+
+  const handleImageError = useCallback(() => {
+    setActiveImageIndex((current) => {
+      if (current < imageCandidates.length - 1) return current + 1;
+
+      setIsImageLoaded(true);
+      return current;
+    });
+  }, [imageCandidates.length]);
 
   useEffect(() => {
     if (shouldLoadImage) return;
@@ -559,7 +583,7 @@ export const PhotoCard = memo(function PhotoCard({
             settings={shareSettings}
             fit="contain"
             onLoad={handleImageLoad}
-            onError={handleImageLoad}
+            onError={handleImageError}
           />
         ) : imageUrl ? (
           <Skeleton className="absolute inset-0 rounded-md bg-zinc-200/80" />
@@ -745,10 +769,12 @@ export function PhotoLightbox({
   );
   const preloadPhotoIdsKey = preloadPhotoIds.join(":");
 
+  const signedCurrentUrls = signedUrlsByPhotoId[photo.id];
   const previewImageCandidates = uniqueUrls([
     originRect?.imageUrl,
-    photo.previewUrl,
-    photo.thumbnailUrl,
+    ...previewUrlsForPhoto(photo),
+    signedCurrentUrls?.previewUrl,
+    signedCurrentUrls?.thumbnailUrl,
   ]);
   const imageUrl = previewImageCandidates[activeImageIndex] ?? null;
   const originalImageUrl = loadedOriginalUrlsByPhotoId[photo.id] ?? null;
@@ -793,7 +819,7 @@ export function PhotoLightbox({
 
   const getPreviewUrl = useCallback((targetPhoto: Photo | undefined) => {
     if (!targetPhoto) return null;
-    return targetPhoto.previewUrl || targetPhoto.thumbnailUrl || null;
+    return previewUrlsForPhoto(targetPhoto)[0] ?? null;
   }, []);
 
   const getLightboxUrl = useCallback(

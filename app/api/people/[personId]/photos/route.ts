@@ -75,6 +75,7 @@ export async function GET(request: Request, { params }: Props) {
           downloadUrl: null,
           width: row.width,
           height: row.height,
+          aiInputS3Key: row.ai_input_s3_key,
           personSearchText: row.person_search_text,
           qwenDescription: row.qwen_description,
         };
