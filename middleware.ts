@@ -19,6 +19,7 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
   if (pathname === "/" && !customerSlug) return true;
   if (pathname === "/login" || pathname === "/auth/callback") return true;
   if (pathname.startsWith("/legal/") || pathname.startsWith("/share/")) return true;
+  if (/^\/albums\/[^/]+$/.test(pathname)) return true;
 
   return (
     /^\/albums\/[^/]+(?:\/(?:culling|collage))?$/.test(pathname) &&

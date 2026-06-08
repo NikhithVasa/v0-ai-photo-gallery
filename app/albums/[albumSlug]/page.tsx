@@ -3,7 +3,10 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AlbumGalleryPage } from "@/components/album-gallery-page";
 import { ProtectedRoute } from "@/components/protected-route";
-import { canAccessAlbumFromHost } from "@/lib/album-access";
+import {
+  albumAllowsPublicPasscode,
+  canAccessAlbumFromHost,
+} from "@/lib/album-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -48,8 +51,14 @@ export default async function AlbumPage({ params, searchParams }: Props) {
     });
   }
 
+  const allowPublicAlbumPasscode =
+    !hasShareToken && (await albumAllowsPublicPasscode(albumSlug));
+
   return (
-    <ProtectedRoute allowShareToken>
+    <ProtectedRoute
+      allowShareToken
+      allowPublicAlbumPasscode={allowPublicAlbumPasscode}
+    >
       <Suspense>
         <AlbumGalleryPage albumSlug={albumSlug} />
       </Suspense>

@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { handleDbRouteError } from "@/lib/db-response";
 import { signedUrl } from "@/lib/s3";
-import { requireAlbumAccess } from "@/lib/album-access";
+import {
+  canAccessAlbumFromHost,
+  requireAlbumAccess,
+} from "@/lib/album-access";
 import { ensureCustomerAccessSchema } from "@/lib/customer-schema";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 import type { AlbumDetail } from "@/lib/types";
@@ -46,6 +49,19 @@ interface EventRow {
   people_count: number | string | null;
 }
 
+interface PublicPasscodeAlbumRow {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  album_date: Date | string | null;
+  expires_at: Date | string | null;
+  is_expired: boolean | null;
+  password_required: boolean | null;
+  watermark_enabled: boolean | null;
+  cover_photo_s3_key: string | null;
+}
+
 function numberValue(value: number | string | null) {
   if (typeof value === "number") return value;
   if (typeof value === "string") return Number.parseInt(value, 10) || 0;
@@ -56,6 +72,59 @@ function dateValue(value: Date | string | null) {
   if (!value) return null;
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return value;
+}
+
+async function publicPasscodeAlbumDetail(
+  request: Request,
+  albumSlug: string,
+): Promise<AlbumDetail | null> {
+  const canAccessFromHost = await canAccessAlbumFromHost(
+    albumSlug,
+    request.headers.get("host") || "",
+  );
+
+  if (!canAccessFromHost) return null;
+
+  const album = await queryOne<PublicPasscodeAlbumRow>(
+    `
+    SELECT
+      id,
+      slug,
+      name,
+      description,
+      album_date,
+      expires_at,
+      (expires_at IS NOT NULL AND expires_at < CURRENT_DATE) AS is_expired,
+      password_required,
+      watermark_enabled,
+      cover_photo_s3_key
+    FROM albums
+    WHERE lower(slug) = lower($1)
+      AND COALESCE(is_deleted, false) = false
+      AND (expires_at IS NULL OR expires_at >= CURRENT_DATE)
+    LIMIT 1
+    `,
+    [albumSlug],
+  );
+
+  if (!album?.password_required) return null;
+
+  return {
+    id: album.id,
+    slug: album.slug,
+    name: album.name,
+    description: album.description,
+    albumDate: dateValue(album.album_date),
+    expiresAt: dateValue(album.expires_at),
+    isExpired: Boolean(album.is_expired),
+    passwordRequired: true,
+    watermarkEnabled: Boolean(album.watermark_enabled),
+    events: [],
+    photoCount: 0,
+    peopleCount: 0,
+    customer: null,
+    coverPhotoUrl: await signedUrl(album.cover_photo_s3_key),
+  };
 }
 
 export async function GET(request: Request, { params }: Props) {
@@ -72,6 +141,22 @@ export async function GET(request: Request, { params }: Props) {
 
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) {
+      const publicGateAlbum = await publicPasscodeAlbumDetail(
+        request,
+        albumSlug,
+      );
+      if (publicGateAlbum) {
+        return NextResponse.json(
+          { album: publicGateAlbum },
+          {
+            headers: {
+              "Cache-Control":
+                "no-store, no-cache, must-revalidate, proxy-revalidate",
+            },
+          },
+        );
+      }
+
       console.warn("[share-debug] album detail API access denied", {
         albumSlug,
         status: accessDenied.status,

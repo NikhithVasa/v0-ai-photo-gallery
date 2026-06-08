@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 interface ProtectedRouteProps {
   children: ReactNode;
   allowShareToken?: boolean;
+  allowPublicAlbumPasscode?: boolean;
 }
 
 function LoadingScreen() {
@@ -22,13 +23,18 @@ function LoadingScreen() {
 function ProtectedRouteInner({
   children,
   allowShareToken = false,
+  allowPublicAlbumPasscode = false,
 }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
   const shareToken = searchParams.get("share");
-  const publicAccessAllowed = allowShareToken && Boolean(shareToken);
+  const publicAlbumPasscodeAllowed =
+    allowPublicAlbumPasscode &&
+    Boolean(pathname && /^\/albums\/[^/]+$/.test(pathname));
+  const publicAccessAllowed =
+    (allowShareToken && Boolean(shareToken)) || publicAlbumPasscodeAllowed;
 
   useEffect(() => {
     if (loading || user || publicAccessAllowed) return;
@@ -52,10 +58,14 @@ function ProtectedRouteInner({
 export function ProtectedRoute({
   children,
   allowShareToken = false,
+  allowPublicAlbumPasscode = false,
 }: ProtectedRouteProps) {
   return (
     <Suspense fallback={<LoadingScreen />}>
-      <ProtectedRouteInner allowShareToken={allowShareToken}>
+      <ProtectedRouteInner
+        allowShareToken={allowShareToken}
+        allowPublicAlbumPasscode={allowPublicAlbumPasscode}
+      >
         {children}
       </ProtectedRouteInner>
     </Suspense>

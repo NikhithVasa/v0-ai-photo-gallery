@@ -6,10 +6,19 @@ import {
   unauthorizedResponse,
 } from "@/lib/auth-access";
 import { getCustomerSlugFromHost } from "@/lib/customer-host";
+import {
+  passcodeAccessTokenFromRequest,
+  verifyPasscodeAccessToken,
+} from "@/lib/passcode-access-cookie";
 
 interface AlbumAccessRow {
   id: string;
   customer_id: string | null;
+}
+
+interface AlbumPasscodeAccessRow {
+  password_required: boolean | null;
+  password_hash: string | null;
 }
 
 export async function canAccessAlbumFromCustomerSlug(
@@ -66,9 +75,61 @@ export async function canAccessAlbumFromHost(albumSlug: string, host: string) {
   );
 }
 
+export async function albumAllowsPublicPasscode(albumSlug: string) {
+  const album = await queryOne<{ id: string; password_required: boolean | null }>(
+    `
+    SELECT id, password_required
+    FROM albums
+    WHERE lower(slug) = lower($1)
+      AND COALESCE(is_deleted, false) = false
+      AND (expires_at IS NULL OR expires_at >= CURRENT_DATE)
+    LIMIT 1
+    `,
+    [albumSlug],
+  );
+
+  return Boolean(album?.password_required);
+}
+
+export async function hasValidAlbumPasscodeAccess(
+  request: Request,
+  albumSlug: string,
+) {
+  const token = passcodeAccessTokenFromRequest(request, "album", albumSlug);
+  if (!token) return false;
+
+  const album = await queryOne<AlbumPasscodeAccessRow>(
+    `
+    SELECT password_required, password_hash
+    FROM albums
+    WHERE lower(slug) = lower($1)
+      AND COALESCE(is_deleted, false) = false
+      AND (expires_at IS NULL OR expires_at >= CURRENT_DATE)
+    LIMIT 1
+    `,
+    [albumSlug],
+  );
+
+  if (!album?.password_required || !album.password_hash) return false;
+
+  return verifyPasscodeAccessToken(
+    token,
+    "album",
+    albumSlug,
+    album.password_hash,
+  );
+}
+
 export async function requireAlbumAccess(request: Request, albumSlug: string) {
   if (await canAccessAlbumByShareToken(request, albumSlug)) {
     console.info("[share-debug] requireAlbumAccess allowed by share token", {
+      albumSlug,
+    });
+    return null;
+  }
+
+  if (await hasValidAlbumPasscodeAccess(request, albumSlug)) {
+    console.info("[share-debug] requireAlbumAccess allowed by passcode", {
       albumSlug,
     });
     return null;

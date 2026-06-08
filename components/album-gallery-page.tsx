@@ -139,12 +139,6 @@ interface PublicShareResponse {
   share: AlbumShareSettings;
 }
 
-interface AlbumSummaryForGate {
-  slug: string;
-  name: string;
-  coverPhotoUrl?: string | null;
-}
-
 function eventQuery(selectedEventSlug: string | null, shareToken = "") {
   const params = new URLSearchParams();
   if (selectedEventSlug) params.set("event", selectedEventSlug);
@@ -198,31 +192,17 @@ function todayIsoDate() {
 function PasswordGate({
   albumSlug,
   albumName,
+  coverPhotoUrl,
   onVerified,
 }: {
   albumSlug: string;
   albumName: string;
+  coverPhotoUrl?: string | null;
   onVerified: () => void;
 }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const { data: albumsData } = useSWR<{ albums: AlbumSummaryForGate[] }>(
-    "/api/albums",
-    fetcher,
-    {
-      dedupingInterval: 5 * 60 * 1000,
-      revalidateOnFocus: false,
-    }
-  );
-
-  const coverPhotoUrl = useMemo(() => {
-    return (
-      albumsData?.albums?.find((album) => album.slug === albumSlug)
-        ?.coverPhotoUrl ?? null
-    );
-  }, [albumsData?.albums, albumSlug]);
 
   const verify = async () => {
     if (!password || isSubmitting) return;
@@ -1288,6 +1268,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     isVerified: isPasswordVerified,
     markVerified: markPasswordVerified,
   } = usePasscodeVerification("album", albumSlug);
+  const [isLoadingVerifiedAlbum, setIsLoadingVerifiedAlbum] = useState(false);
   const [isCoverDismissed, setIsCoverDismissed] = useState(false);
   const [isPhotoSelectionMode, setIsPhotoSelectionMode] = useState(false);
   const [selectedDownloadPhotoIds, setSelectedDownloadPhotoIds] = useState<string[]>([]);
@@ -1318,7 +1299,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }, [data?.album?.events]);
 
   const { data: statsData, mutate: mutateStats } = useSWR<AlbumStatsResponse>(
-    data?.album ? albumApiUrl(albumSlug, "/stats", shareToken) : null,
+    data?.album &&
+      (!data.album.passwordRequired || isPasswordVerified || isShareView)
+      ? albumApiUrl(albumSlug, "/stats", shareToken)
+      : null,
     fetcher,
     {
       dedupingInterval: hasEventsLoadingAi ? 10 * 1000 : 5 * 60 * 1000, // Refresh every 10s if AI is loading, else 5 minutes
@@ -1366,6 +1350,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       }),
     };
   }, [data?.album, statsData?.stats]);
+
+  const handlePasswordVerified = () => {
+    setIsLoadingVerifiedAlbum(true);
+    markPasswordVerified();
+    void mutate().finally(() => setIsLoadingVerifiedAlbum(false));
+    void mutateStats();
+  };
 
   const filterPeople = peopleFilterData?.people ?? [];
 
@@ -1903,7 +1894,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     <p className="text-sm font-medium text-zinc-500">{eventLabel}</p>
   );
 
-  if (isLoading) {
+  if (isLoading || isLoadingVerifiedAlbum) {
     return (
       <main className="min-h-screen bg-[#f5f5f7]">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -1941,7 +1932,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       <PasswordGate
         albumSlug={albumSlug}
         albumName={album.name}
-        onVerified={markPasswordVerified}
+        coverPhotoUrl={album.coverPhotoUrl}
+        onVerified={handlePasswordVerified}
       />
     );
   }
