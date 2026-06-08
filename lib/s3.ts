@@ -6,6 +6,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 
 const globalForS3 = globalThis as unknown as {
   s3Client: S3Client | undefined;
@@ -119,6 +120,9 @@ export async function listS3Keys(prefix?: string | null) {
 export async function signedUrl(key?: string | null): Promise<string | null> {
   if (!key) return null;
 
+  const cloudFrontUrl = cloudFrontImageUrl(key);
+  if (cloudFrontUrl) return cloudFrontUrl;
+
   if (process.env.NEXT_PUBLIC_DIRECT_S3_IMAGES !== "true") {
     return `/api/media?key=${encodeURIComponent(key)}`;
   }
@@ -167,6 +171,9 @@ export async function signedUploadUrl(
 
 export async function signedObjectUrl(key?: string | null): Promise<string | null> {
   if (!key) return null;
+
+  const cloudFrontUrl = cloudFrontImageUrl(key);
+  if (cloudFrontUrl) return cloudFrontUrl;
 
   return cachedSignedUrl(`object:${key}`, () => {
     const command = new GetObjectCommand({

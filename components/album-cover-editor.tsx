@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ImageUp, Loader2, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 
 interface AlbumCoverEditorProps {
   albumSlug: string;
@@ -113,7 +114,10 @@ export function AlbumCoverEditor({
         description: `${albumName} cover photo has been updated.`,
       });
 
-      onCoverUpdated(`/api/media?key=${encodeURIComponent(uploadRequest.upload.key)}`);
+      onCoverUpdated(
+        cloudFrontImageUrl(uploadRequest.upload.key) ??
+          `/api/media?key=${encodeURIComponent(uploadRequest.upload.key)}`,
+      );
       onClose();
     } catch (err) {
       const errorMsg =
