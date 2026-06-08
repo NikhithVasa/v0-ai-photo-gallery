@@ -4,10 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 const CLICK_LOADING_SELECTOR = [
-  "button",
-  "a[data-slot='button']",
-  "[role='button']",
-  "[role='tab']",
+  "a[href]",
   "[data-click-loading-target]",
 ].join(",");
 
@@ -91,15 +88,6 @@ export function ClickLoadingIndicator() {
       return event.target.closest<HTMLElement>(CLICK_LOADING_SELECTOR);
     };
 
-    const handlePointerDown = (event: PointerEvent) => {
-      if (event.button !== 0) return;
-
-      const target = targetFromEvent(event);
-      if (!target) return;
-
-      startLoading(target);
-    };
-
     const handleClick = (event: MouseEvent) => {
       if (activeTargetRef.current) return;
 
@@ -109,17 +97,11 @@ export function ClickLoadingIndicator() {
       startLoading(target);
     };
 
-    document.addEventListener("pointerdown", handlePointerDown, {
-      capture: true,
-    });
     document.addEventListener("click", handleClick, {
       capture: true,
     });
 
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, {
-        capture: true,
-      });
       document.removeEventListener("click", handleClick, {
         capture: true,
       });
