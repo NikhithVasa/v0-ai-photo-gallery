@@ -1,5 +1,5 @@
 const DEFAULT_RUNPOD_ENDPOINT =
-  "https://api.runpod.ai/v2/lnqoy8xpzigzv0/run";
+  "https://api.runpod.ai/v2/hvn0uutfoq4cbj/run";
 
 export async function submitRunpodJob(input: Record<string, unknown>) {
   const apiKey = process.env.RUNPOD_API_KEY;
