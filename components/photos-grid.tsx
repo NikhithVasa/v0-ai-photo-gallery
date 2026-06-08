@@ -10,6 +10,7 @@ import { photoAspectRatio } from "@/lib/photo-layout";
 import type {
   AlbumEvent,
   AlbumShareSettings,
+  Person,
   Photo,
   PhotoPerson,
 } from "@/lib/types";
@@ -44,6 +45,9 @@ interface PhotosGridProps {
   selectedPhotoIds?: string[];
   onTogglePhoto?: (photoId: string) => void;
   events?: AlbumEvent[];
+  people?: Person[];
+  canManagePeople?: boolean;
+  onPeopleChanged?: () => void | Promise<void>;
   shareSettings?: AlbumShareSettings | null;
 }
 
@@ -191,6 +195,9 @@ export function PhotosGrid({
   selectedPhotoIds = [],
   onTogglePhoto,
   events,
+  people = [],
+  canManagePeople = false,
+  onPeopleChanged,
   shareSettings,
 }: PhotosGridProps) {
   const photosRequestUrl = useMemo(
@@ -205,7 +212,7 @@ export function PhotosGrid({
     [albumSlug, shareToken, selectedEventSlug, selectedPeopleIds, peopleMatchMode],
   );
 
-  const { data, error, isLoading } = useSWR<{ photos: Photo[] }>(
+  const { data, error, isLoading, mutate } = useSWR<{ photos: Photo[] }>(
     photosRequestUrl,
     fetcher,
     swrOptions,
@@ -387,6 +394,8 @@ export function PhotosGrid({
           photos={data.photos}
           currentIndex={lightboxState.index}
           events={events}
+          allPeople={people}
+          canManagePeople={canManagePeople}
           originRect={lightboxState.originRect}
           onClose={() => setLightboxState(null)}
           onNavigate={handleNavigate}
@@ -398,6 +407,10 @@ export function PhotosGrid({
             }
 
             onPersonClick?.(person.id);
+          }}
+          onPeopleChanged={async () => {
+            await mutate();
+            await onPeopleChanged?.();
           }}
           shareSettings={shareSettings}
         />

@@ -12,15 +12,18 @@ import {
   useState,
 } from "react";
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
   Download,
+  GitMerge,
   Heart,
   ImagePlus,
   Loader2,
   Mail,
   Palette,
   Pause,
+  Pencil,
   Play,
   Share2,
   Sparkles,
@@ -44,6 +47,7 @@ import { photoAspectRatio } from "@/lib/photo-layout";
 import type {
   AlbumEvent,
   AlbumShareSettings,
+  Person,
   Photo,
   PhotoPerson,
 } from "@/lib/types";
@@ -688,10 +692,13 @@ interface PhotoLightboxProps {
   photos: Photo[];
   currentIndex: number;
   events?: AlbumEvent[];
+  allPeople?: Person[];
+  canManagePeople?: boolean;
   originRect?: PhotoOpenRect;
   onClose: () => void;
   onNavigate: (index: number) => void;
   onPersonClick?: (person: PhotoPerson) => void;
+  onPeopleChanged?: () => void | Promise<void>;
   shareSettings?: AlbumShareSettings | null;
 }
 
@@ -701,10 +708,13 @@ export function PhotoLightbox({
   photos,
   currentIndex,
   events,
+  allPeople = [],
+  canManagePeople = false,
   originRect,
   onClose,
   onNavigate,
   onPersonClick,
+  onPeopleChanged,
   shareSettings,
 }: PhotoLightboxProps) {
   const [isDownloading, setIsDownloading] = useState(false);
@@ -744,6 +754,21 @@ export function PhotoLightbox({
     useState<Record<string, string>>({});
   const [failedOriginalUrlsByPhotoId, setFailedOriginalUrlsByPhotoId] =
     useState<Record<string, string>>({});
+  const [personNameOverrides, setPersonNameOverrides] = useState<
+    Record<string, string>
+  >({});
+  const [editingPersonId, setEditingPersonId] = useState("");
+  const [renameDraft, setRenameDraft] = useState("");
+  const [isRenamingPerson, setIsRenamingPerson] = useState(false);
+  const [renameError, setRenameError] = useState("");
+  const [mergeTargetPerson, setMergeTargetPerson] =
+    useState<PhotoPerson | null>(null);
+  const [selectedMergePersonIds, setSelectedMergePersonIds] = useState<string[]>(
+    [],
+  );
+  const [mergeQuery, setMergeQuery] = useState("");
+  const [isMergingPeople, setIsMergingPeople] = useState(false);
+  const [mergeError, setMergeError] = useState("");
 
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -809,6 +834,33 @@ export function PhotoLightbox({
   const canEditPhoto = true;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
+  const canManageLightboxPeople = canManagePeople && !shareToken;
+  const getPersonDisplayName = useCallback(
+    (person: Person | PhotoPerson) =>
+      personNameOverrides[person.id] || person.displayName || person.defaultName,
+    [personNameOverrides],
+  );
+  const mergeCandidatePeople = useMemo(() => {
+    if (!mergeTargetPerson) return [];
+
+    const normalizedQuery = mergeQuery.trim().toLowerCase();
+
+    return allPeople
+      .filter((person) => person.id !== mergeTargetPerson.id)
+      .filter((person) => {
+        if (!normalizedQuery) return true;
+
+        const name = `${getPersonDisplayName(person)} ${person.defaultName} Person ${
+          person.personNumber
+        }`.toLowerCase();
+
+        return name.includes(normalizedQuery);
+      });
+  }, [allPeople, getPersonDisplayName, mergeQuery, mergeTargetPerson]);
+  const selectedMergePeople = useMemo(() => {
+    const selectedIds = new Set(selectedMergePersonIds);
+    return allPeople.filter((person) => selectedIds.has(person.id));
+  }, [allPeople, selectedMergePersonIds]);
   const aiEditDownloadName = `${(photo.fileName || `photo-${photo.id}`).replace(
     /\.[^.]+$/,
     "",
@@ -973,6 +1025,13 @@ export function PhotoLightbox({
     setAiEditError("");
     setAiEditResult(null);
     setAiEditAddStatus("");
+    setEditingPersonId("");
+    setRenameDraft("");
+    setRenameError("");
+    setMergeTargetPerson(null);
+    setSelectedMergePersonIds([]);
+    setMergeQuery("");
+    setMergeError("");
   }, [photo.id]);
 
   const startControlsTimer = useCallback(() => {
@@ -1533,8 +1592,136 @@ export function PhotoLightbox({
     onClose();
   };
 
+  const startRenamePerson = (person: PhotoPerson) => {
+    setEditingPersonId(person.id);
+    setRenameDraft(getPersonDisplayName(person));
+    setRenameError("");
+  };
+
+  const cancelRenamePerson = () => {
+    setEditingPersonId("");
+    setRenameDraft("");
+    setRenameError("");
+  };
+
+  const savePersonName = async (person: PhotoPerson) => {
+    const nextName = renameDraft.trim();
+    if (!nextName || isRenamingPerson) return;
+
+    setIsRenamingPerson(true);
+    setRenameError("");
+    setPersonNameOverrides((current) => ({
+      ...current,
+      [person.id]: nextName,
+    }));
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/people/${encodeURIComponent(
+          person.id,
+        )}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ displayName: nextName }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not rename person");
+      }
+
+      setEditingPersonId("");
+      setRenameDraft("");
+      await onPeopleChanged?.();
+    } catch (error) {
+      setRenameError(
+        error instanceof Error ? error.message : "Could not rename person",
+      );
+      await onPeopleChanged?.();
+    } finally {
+      setIsRenamingPerson(false);
+    }
+  };
+
+  const openMergePeopleDialog = (person: PhotoPerson) => {
+    setMergeTargetPerson(person);
+    setSelectedMergePersonIds([]);
+    setMergeQuery("");
+    setMergeError("");
+  };
+
+  const closeMergePeopleDialog = () => {
+    if (isMergingPeople) return;
+
+    setMergeTargetPerson(null);
+    setSelectedMergePersonIds([]);
+    setMergeQuery("");
+    setMergeError("");
+  };
+
+  const toggleMergePerson = (personId: string) => {
+    setSelectedMergePersonIds((current) =>
+      current.includes(personId)
+        ? current.filter((id) => id !== personId)
+        : [...current, personId],
+    );
+  };
+
+  const mergePeopleIntoTarget = async () => {
+    if (!mergeTargetPerson || !selectedMergePersonIds.length || isMergingPeople) {
+      return;
+    }
+
+    setIsMergingPeople(true);
+    setMergeError("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/people/merge`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetPersonId: mergeTargetPerson.id,
+            sourcePersonIds: selectedMergePersonIds,
+            coverPersonId: mergeTargetPerson.id,
+          }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not merge people");
+      }
+
+      setMergeTargetPerson(null);
+      setSelectedMergePersonIds([]);
+      setMergeQuery("");
+      setMergeError("");
+      setIsPeopleOpen(false);
+      await onPeopleChanged?.();
+    } catch (error) {
+      setMergeError(
+        error instanceof Error ? error.message : "Could not merge people",
+      );
+      await onPeopleChanged?.();
+    } finally {
+      setIsMergingPeople(false);
+    }
+  };
+
   const areOverlaysInteractive =
-    isMobilePointer || areControlsVisible || isPeopleOpen || isDownloadHovering;
+    isMobilePointer ||
+    areControlsVisible ||
+    isPeopleOpen ||
+    Boolean(mergeTargetPerson) ||
+    isDownloadHovering;
 
   const overlayOpacityClass = areControlsReady && areOverlaysInteractive
     ? "opacity-100"
@@ -1901,38 +2088,120 @@ export function PhotoLightbox({
                     {photoPeople.length ? (
                       <div className="space-y-1">
                         {photoPeople.map((person) => {
-                          const displayName =
-                            person.displayName || person.defaultName;
+                          const displayName = getPersonDisplayName(person);
 
                           return (
-                            <button
+                            <div
                               key={person.id}
-                              type="button"
-                              onClick={() => handlePersonClick(person)}
-                              className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-zinc-950/[0.05] focus:outline-none focus:ring-2 focus:ring-zinc-300"
+                              className="rounded-lg px-2 py-1.5 transition hover:bg-zinc-950/[0.05]"
                             >
-                              <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
-                                <span className="flex h-full w-full items-center justify-center text-zinc-400">
-                                  <User className="h-4 w-4" />
-                                </span>
-                                {person.coverFaceUrl ? (
-                                  <RetryableAvatarImage
-                                    src={person.coverFaceUrl}
-                                    alt={displayName}
-                                    className="absolute inset-0 h-full w-full object-cover"
-                                  />
-                                ) : null}
-                              </span>
+                              <div className="flex w-full items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePersonClick(person)}
+                                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left focus:outline-none focus:ring-2 focus:ring-zinc-300"
+                                >
+                                  <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
+                                    <span className="flex h-full w-full items-center justify-center text-zinc-400">
+                                      <User className="h-4 w-4" />
+                                    </span>
+                                    {person.coverFaceUrl ? (
+                                      <RetryableAvatarImage
+                                        src={person.coverFaceUrl}
+                                        alt={displayName}
+                                        className="absolute inset-0 h-full w-full object-cover"
+                                      />
+                                    ) : null}
+                                  </span>
 
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm font-medium">
-                                  {displayName}
-                                </span>
-                                <span className="block truncate text-xs text-zinc-500">
-                                  {person.photoCount} photos
-                                </span>
-                              </span>
-                            </button>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-medium">
+                                      {displayName}
+                                    </span>
+                                    <span className="block truncate text-xs text-zinc-500">
+                                      {person.photoCount} photos
+                                    </span>
+                                  </span>
+                                </button>
+
+                                {canManageLightboxPeople && (
+                                  <div className="flex shrink-0 items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => startRenamePerson(person)}
+                                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+                                      aria-label={`Rename ${displayName}`}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => openMergePeopleDialog(person)}
+                                      disabled={allPeople.length < 2}
+                                      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 disabled:cursor-not-allowed disabled:opacity-35"
+                                      aria-label={`Merge people into ${displayName}`}
+                                    >
+                                      <GitMerge className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {canManageLightboxPeople &&
+                                editingPersonId === person.id && (
+                                  <div className="mt-2 space-y-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        value={renameDraft}
+                                        onChange={(event) =>
+                                          setRenameDraft(event.target.value)
+                                        }
+                                        onKeyDown={(event) => {
+                                          if (event.key === "Enter") {
+                                            void savePersonName(person);
+                                          }
+                                          if (event.key === "Escape") {
+                                            cancelRenamePerson();
+                                          }
+                                        }}
+                                        disabled={isRenamingPerson}
+                                        className="h-8 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-950 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+                                        aria-label="Person name"
+                                        autoFocus
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => savePersonName(person)}
+                                        disabled={
+                                          isRenamingPerson || !renameDraft.trim()
+                                        }
+                                        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-35"
+                                        aria-label="Save person name"
+                                      >
+                                        {isRenamingPerson ? (
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <Check className="h-3.5 w-3.5" />
+                                        )}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={cancelRenamePerson}
+                                        disabled={isRenamingPerson}
+                                        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-35"
+                                        aria-label="Cancel person rename"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                    {renameError && (
+                                      <p className="text-xs font-medium text-rose-600">
+                                        {renameError}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                            </div>
                           );
                         })}
                       </div>
@@ -1952,6 +2221,159 @@ export function PhotoLightbox({
           </div>
         )}
       </div>
+
+      {mergeTargetPerson && (
+        <div
+          className="fixed inset-0 z-[70] flex cursor-default items-center justify-center bg-black/60 p-4 text-zinc-950"
+          onClick={(event) => {
+            event.stopPropagation();
+            closeMergePeopleDialog();
+          }}
+        >
+          <div
+            className="flex max-h-[min(88svh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lightbox-merge-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-zinc-200 px-4 py-4">
+              <div className="min-w-0">
+                <h2
+                  id="lightbox-merge-title"
+                  className="text-lg font-semibold text-zinc-950"
+                >
+                  Merge people
+                </h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Selected faces will be merged into{" "}
+                  {getPersonDisplayName(mergeTargetPerson)}.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeMergePeopleDialog}
+                disabled={isMergingPeople}
+                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Close merge dialog"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="border-b border-zinc-200 p-4">
+              <input
+                value={mergeQuery}
+                onChange={(event) => setMergeQuery(event.target.value)}
+                placeholder="Search people"
+                className="h-9 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+              />
+              <p className="mt-2 text-xs text-zinc-500">
+                {selectedMergePersonIds.length
+                  ? `${selectedMergePersonIds.length} selected`
+                  : "Choose one or more people to merge."}
+              </p>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
+              {mergeCandidatePeople.length ? (
+                mergeCandidatePeople.map((person) => {
+                  const displayName = getPersonDisplayName(person);
+                  const isSelected = selectedMergePersonIds.includes(person.id);
+
+                  return (
+                    <button
+                      key={person.id}
+                      type="button"
+                      onClick={() => toggleMergePerson(person.id)}
+                      aria-pressed={isSelected}
+                      className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-left transition ${
+                        isSelected
+                          ? "border-zinc-950 bg-zinc-50"
+                          : "border-zinc-200 hover:bg-zinc-50"
+                      }`}
+                    >
+                      <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
+                        <span className="flex h-full w-full items-center justify-center text-zinc-400">
+                          <User className="h-5 w-5" />
+                        </span>
+                        {person.coverFaceUrl ? (
+                          <RetryableAvatarImage
+                            src={person.coverFaceUrl}
+                            alt={displayName}
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        ) : null}
+                      </span>
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-zinc-950">
+                          {displayName}
+                        </span>
+                        <span className="block truncate text-xs text-zinc-500">
+                          {person.photoCount} photos
+                        </span>
+                      </span>
+
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                          isSelected
+                            ? "border-zinc-950 bg-zinc-950 text-white"
+                            : "border-zinc-300"
+                        }`}
+                      >
+                        {isSelected && <Check className="h-3 w-3" />}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="px-3 py-8 text-center text-sm text-zinc-500">
+                  No other people found.
+                </div>
+              )}
+            </div>
+
+            {selectedMergePeople.length > 0 && (
+              <div className="border-t border-zinc-200 px-4 py-2 text-xs text-zinc-500">
+                Merging {selectedMergePeople.length} into{" "}
+                {getPersonDisplayName(mergeTargetPerson)}
+              </div>
+            )}
+
+            {mergeError && (
+              <div className="mx-4 mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {mergeError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 border-t border-zinc-200 px-4 py-4">
+              <button
+                type="button"
+                onClick={closeMergePeopleDialog}
+                disabled={isMergingPeople}
+                className="h-9 cursor-pointer rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-600 transition hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={mergePeopleIntoTarget}
+                disabled={isMergingPeople || !selectedMergePersonIds.length}
+                className="flex h-9 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isMergingPeople ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <GitMerge className="h-4 w-4" />
+                )}
+                Merge
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isPresetPanelOpen && (
         <PhotoPresetPanel

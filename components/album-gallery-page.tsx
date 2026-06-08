@@ -1332,7 +1332,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     void mutateStats();
   }, [data?.album?.id, mutate, mutateStats, selectedEventSlug]);
 
-  const { data: peopleFilterData } = useSWR<{ people: Person[] }>(
+  const { data: peopleFilterData, mutate: mutatePeopleFilter } = useSWR<{
+    people: Person[];
+  }>(
     data?.album &&
       (!data.album.passwordRequired || isPasswordVerified || isShareView)
       ? albumApiUrl(albumSlug, "/people", shareToken)
@@ -1375,6 +1377,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   const filterPeople = peopleFilterData?.people ?? [];
+
+  const refreshPeopleData = async () => {
+    await Promise.all([mutate(), mutateStats(), mutatePeopleFilter()]);
+  };
 
   const selectedFilterPeople = useMemo(() => {
     const selectedIds = new Set(selectedPeopleIds);
@@ -2710,6 +2716,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               selectedPhotoIds={selectedDownloadPhotoIds}
               onTogglePhoto={toggleSelectedDownloadPhotoId}
               events={album.events}
+              people={filterPeople}
+              canManagePeople={!isShareView}
+              onPeopleChanged={refreshPeopleData}
               shareSettings={shareSettings}
             />
           </section>
