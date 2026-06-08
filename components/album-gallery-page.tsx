@@ -2359,18 +2359,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             </div>
 
             <div className="flex max-w-full flex-wrap items-center gap-2 overflow-visible sm:flex-nowrap sm:overflow-x-auto sm:[scrollbar-width:none] sm:[-ms-overflow-style:none] sm:[&::-webkit-scrollbar]:hidden xl:justify-end">
-              <AlbumDownloadMenu
-                albumSlug={albumSlug}
-                shareToken={shareToken}
-                events={album.events}
-                selectedEventSlug={selectedEventSlug}
-                selectedPeopleIds={selectedPeopleIds}
-                selectedPeople={selectedFilterPeople}
-                peopleMatchMode={peopleMatchMode}
-                selectedDownloadPhotoIds={selectedDownloadPhotoIds}
-                downloadsEnabled={downloadsEnabled}
-              />
-
+              
               <button
                 type="button"
                 onClick={() => {
@@ -2425,17 +2414,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 <span>Collage</span>
               </Link>
 
-              {!isShareView && (
-                <Link
-                  href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
-                  className={`${navPillButtonClass} min-w-[106px]`}
-                  aria-label="Manage events"
-                >
-                  <Plus className="h-4 w-4 shrink-0" />
-                  <span>Events</span>
-                </Link>
-              )}
-
+              <AlbumDownloadMenu
+                albumSlug={albumSlug}
+                shareToken={shareToken}
+                events={album.events}
+                selectedEventSlug={selectedEventSlug}
+                selectedPeopleIds={selectedPeopleIds}
+                selectedPeople={selectedFilterPeople}
+                peopleMatchMode={peopleMatchMode}
+                selectedDownloadPhotoIds={selectedDownloadPhotoIds}
+                downloadsEnabled={downloadsEnabled}
+              />
               {!selectedPerson && (
                 <div
                   className="hidden shrink-0 items-center gap-1 rounded-full bg-transparent p-1 ring-1 ring-black/5 sm:flex"
