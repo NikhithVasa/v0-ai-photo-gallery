@@ -829,7 +829,7 @@ function AlbumDownloadMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-    <Button type="button" variant="outline"           className={`${navPillButtonClass} min-w-[126px]`}
+    <Button type="button" variant="outline"           className={`${navIconButtonClass}`}
  aria-label="Download photos">
                 <DownloadIcon className="h-4 w-4" />
               </Button>
