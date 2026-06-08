@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query, queryOne, withTransaction } from "@/lib/db";
-import { submitRunpodJob } from "@/lib/runpod";
+import { checkRunpodEndpoint, submitRunpodJob } from "@/lib/runpod";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 
 interface Props {
@@ -473,6 +473,10 @@ export async function POST(request: Request, { params }: Props) {
         ...event,
         only_s3_keys: keysByEvent.get(event.slug) ?? [],
       }));
+    }
+
+    if (action === "reset_album_ai") {
+      await checkRunpodEndpoint();
     }
 
     const reset =
