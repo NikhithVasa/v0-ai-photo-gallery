@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { derivedThumbnailKey, listS3Keys, signedUrl } from "@/lib/s3";
+import { listS3Keys, signedUrl } from "@/lib/s3";
 import { requireAdminAccess } from "@/lib/auth-access";
 
 interface PhotoRow {
@@ -9,7 +9,7 @@ interface PhotoRow {
   caption: string | null;
   search_text: string | null;
   original_s3_key: string | null;
-  preview_s3_key: string | null;
+  ai_input_s3_key: string | null;
   thumbnail_s3_key: string | null;
   width: number | null;
   height: number | null;
@@ -29,8 +29,7 @@ export async function GET() {
     if (admin.response) return admin.response;
 
     const originalPrefix = process.env.ORIGINAL_PREFIX || "originals/pilot-100/";
-    const thumbnailPrefix = process.env.THUMB_PREFIX || "thumbnails/pilot-100/";
-    const [rows, originalKeys, thumbnailKeys] = await Promise.all([
+    const [rows, originalKeys] = await Promise.all([
       query<PhotoRow>(`
         SELECT
           id,
@@ -38,14 +37,13 @@ export async function GET() {
           caption,
           search_text,
           original_s3_key,
-          preview_s3_key,
+          ai_input_s3_key,
           thumbnail_s3_key,
           width,
           height
         FROM photos
       `),
       listS3Keys(originalPrefix),
-      listS3Keys(thumbnailPrefix),
     ]);
 
     const rowsByOriginalKey = new Map(
@@ -58,17 +56,11 @@ export async function GET() {
         .filter((row) => row.file_name)
         .map((row) => [row.file_name as string, row])
     );
-    const thumbnailKeySet = new Set(thumbnailKeys);
-
     const photos = await Promise.all(
       originalKeys.filter(isImageKey).map(async (originalKey) => {
         const fileName = fileNameFromKey(originalKey);
         const row = rowsByOriginalKey.get(originalKey) ?? rowsByFileName.get(fileName);
-        const derivedKey = derivedThumbnailKey(originalKey, row?.thumbnail_s3_key);
-        const gridKey =
-          derivedKey && thumbnailKeySet.has(derivedKey)
-            ? derivedKey
-            : originalKey ?? row?.preview_s3_key;
+        const gridKey = row?.ai_input_s3_key ?? null;
         const thumbnailUrl = await signedUrl(gridKey);
 
         return {

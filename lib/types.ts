@@ -96,6 +96,7 @@ export interface Photo {
   personSearchText?: string | null;
   qwenDescription?: string | null;
   originalS3Key?: string | null;
+  aiInputS3Key?: string | null;
   cleanPreviewS3Key?: string | null;
   watermarkedPreviewS3Key?: string | null;
   thumbnailS3Key?: string | null;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { derivedThumbnailKey, listS3Keys, signedUrl } from "@/lib/s3";
+import { signedUrl } from "@/lib/s3";
 import {
   getAuthAccess,
   unauthorizedResponse,
@@ -12,7 +12,7 @@ interface PhotoRow {
   caption: string | null;
   search_text: string | null;
   original_s3_key: string | null;
-  preview_s3_key: string | null;
+  ai_input_s3_key: string | null;
   thumbnail_s3_key: string | null;
   width: number | null;
   height: number | null;
@@ -39,7 +39,7 @@ export async function GET(request: Request, { params }: Props) {
         p.caption,
         p.search_text,
         p.original_s3_key,
-        p.preview_s3_key,
+        p.ai_input_s3_key,
         p.thumbnail_s3_key,
         p.width,
         p.height,
@@ -61,29 +61,16 @@ export async function GET(request: Request, { params }: Props) {
     `,
       [personId, access.isAdmin, access.customerIds]
     );
-    const thumbnailKeys = await listS3Keys(
-      process.env.THUMB_PREFIX || "thumbnails/pilot-100/"
-    );
-    const thumbnailKeySet = new Set(thumbnailKeys);
-
     const photos = await Promise.all(
       rows.map(async (row) => {
-        const derivedKey = derivedThumbnailKey(
-          row.original_s3_key,
-          row.thumbnail_s3_key
-        );
-        const gridKey =
-          derivedKey && thumbnailKeySet.has(derivedKey)
-            ? derivedKey
-            : row.original_s3_key ?? row.preview_s3_key;
-        const thumbnailUrl = await signedUrl(gridKey);
+        const thumbnailUrl = await signedUrl(row.ai_input_s3_key);
 
         return {
           id: row.id,
           fileName: row.file_name,
           caption: row.caption,
           searchText: row.search_text,
-          previewUrl: null,
+          previewUrl: thumbnailUrl,
           thumbnailUrl,
           downloadUrl: null,
           width: row.width,

@@ -62,6 +62,7 @@ export async function GET(request: Request, { params }: Props) {
         p.width,
         p.height,
         p.original_s3_key,
+        p.ai_input_s3_key,
         p.clean_preview_s3_key,
         p.watermarked_preview_s3_key,
         p.thumbnail_s3_key,

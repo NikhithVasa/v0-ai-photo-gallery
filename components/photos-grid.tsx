@@ -63,6 +63,70 @@ function photosUrl(
   return query ? `${base}?${query}` : base;
 }
 
+function SelectionPhotoCell({
+  photo,
+  index,
+  isSelected,
+  onTogglePhoto,
+}: {
+  photo: Photo;
+  index: number;
+  isSelected: boolean;
+  onTogglePhoto?: (photoId: string) => void;
+}) {
+  const imageUrl = photo.previewUrl || photo.thumbnailUrl || "";
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+
+  useEffect(() => {
+    setIsImageLoaded(false);
+  }, [imageUrl, photo.id]);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onTogglePhoto?.(photo.id)}
+      aria-pressed={isSelected}
+      className={`group relative w-full cursor-pointer overflow-hidden rounded-[22px] bg-white text-left ring-1 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
+        isSelected
+          ? "ring-2 ring-zinc-950"
+          : "ring-border hover:ring-zinc-400"
+      }`}
+      style={{ aspectRatio: photoAspectRatio(photo) }}
+    >
+      {imageUrl ? (
+        <>
+          <img
+            src={imageUrl}
+            alt={photo.caption || photo.fileName || "Photo"}
+            className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
+              isImageLoaded ? "opacity-100" : "opacity-0"
+            }`}
+            loading={index < 12 ? "eager" : "lazy"}
+            decoding="async"
+            onLoad={() => setIsImageLoaded(true)}
+            onError={() => setIsImageLoaded(true)}
+          />
+          {!isImageLoaded && (
+            <Skeleton className="absolute inset-0 rounded-[22px] bg-zinc-200/80" />
+          )}
+        </>
+      ) : (
+        <span className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+          No preview
+        </span>
+      )}
+
+      <span
+        className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full shadow-sm ${
+          isSelected ? "bg-zinc-950 text-white" : "bg-white/90 text-zinc-400"
+        }`}
+      >
+        <Check className="h-4 w-4" />
+      </span>
+    </button>
+  );
+}
+
 export function PhotosGrid({
   albumSlug,
   shareToken = "",
@@ -231,41 +295,12 @@ export function PhotosGrid({
             className="mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:mb-3"
           >
             {isSelectionMode ? (
-              <button
-                type="button"
-                onClick={() => onTogglePhoto?.(photo.id)}
-                aria-pressed={selectedPhotoIdSet.has(photo.id)}
-                className={`group relative w-full cursor-pointer overflow-hidden rounded-[22px] bg-white text-left ring-1 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
-                  selectedPhotoIdSet.has(photo.id)
-                    ? "ring-2 ring-zinc-950"
-                    : "ring-border hover:ring-zinc-400"
-                }`}
-                style={{ aspectRatio: photoAspectRatio(photo) }}
-              >
-                {photo.previewUrl || photo.thumbnailUrl ? (
-                  <img
-                    src={photo.previewUrl || photo.thumbnailUrl || ""}
-                    alt={photo.caption || photo.fileName || "Photo"}
-                    className="absolute inset-0 h-full w-full object-contain"
-	                    loading={index < 12 ? "eager" : "lazy"}
-                    decoding="async"
-                  />
-                ) : (
-                  <span className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-                    No preview
-                  </span>
-                )}
-
-                <span
-                  className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full shadow-sm ${
-                    selectedPhotoIdSet.has(photo.id)
-                      ? "bg-zinc-950 text-white"
-                      : "bg-white/90 text-zinc-400"
-                  }`}
-                >
-                  <Check className="h-4 w-4" />
-                </span>
-              </button>
+              <SelectionPhotoCell
+                photo={photo}
+                index={index}
+                isSelected={selectedPhotoIdSet.has(photo.id)}
+                onTogglePhoto={onTogglePhoto}
+              />
             ) : (
               <PhotoCard
                 albumSlug={albumSlug}

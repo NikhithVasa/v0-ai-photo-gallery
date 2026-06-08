@@ -182,3 +182,73 @@
 .gallery-calm-bounce {
   animation: gallery-calm-bounce 4.8s ease-in-out infinite;
 }
+
+@keyframes click-loading-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes app-click-loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  45% {
+    transform: translateX(-20%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+:where(
+  button,
+  a[data-slot='button'],
+  [role='button'],
+  [role='tab'],
+  [data-click-loading-target]
+)[data-click-loading='true'] {
+  position: relative;
+  pointer-events: none;
+}
+
+:where(
+  button,
+  a[data-slot='button'],
+  [role='button'],
+  [role='tab'],
+  [data-click-loading-target]
+)[data-click-loading='true']::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 50;
+  height: 1.05rem;
+  width: 1.05rem;
+  border-radius: 9999px;
+  border: 2px solid color-mix(in oklch, currentColor 28%, transparent);
+  border-top-color: currentColor;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.16);
+  transform: translate(-50%, -50%);
+  animation: click-loading-spin 650ms linear infinite;
+}
+
+body[data-app-click-loading='true']::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2147483647;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--foreground) 65%, transparent),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: app-click-loading-bar 1.2s ease-in-out infinite;
+  pointer-events: none;
+}

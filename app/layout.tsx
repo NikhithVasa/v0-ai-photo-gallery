@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono, Inter, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from '@/components/ui/toaster'
+import { ClickLoadingIndicator } from '@/components/click-loading-indicator'
 import { AuthProvider } from '@/lib/auth-context'
 import { ScrollToTop } from '@/components/scroll-to-top'
 import './globals.css'
@@ -53,6 +54,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <AuthProvider>
           <ScrollToTop />
+          <ClickLoadingIndicator />
           {children}
           <Toaster />
         </AuthProvider>

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PhotoPresetPanel } from "@/components/photo-preset-panel";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
+import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio } from "@/lib/photo-layout";
 import type { AlbumEvent, AlbumShareSettings, Photo } from "@/lib/types";
 
@@ -45,6 +46,7 @@ interface SignedPhotoUrls {
   previewUrl: string | null;
   downloadUrl: string | null;
   thumbnailUrl?: string | null;
+  originalUrl?: string | null;
 }
 
 async function fetchSignedPhotoUrls(
@@ -84,6 +86,7 @@ async function fetchSignedPhotoUrls(
         previewUrl: photo.previewUrl,
         downloadUrl: photo.downloadUrl,
         thumbnailUrl: photo.thumbnailUrl,
+        originalUrl: photo.originalUrl,
       },
     ]),
   ) as Record<string, SignedPhotoUrls>;
@@ -274,6 +277,20 @@ function drawWatermark(
   ctx.restore();
 }
 
+type WatermarkedImageProps = {
+  src: string;
+  alt: string;
+  className?: string;
+  fit?: "cover" | "contain";
+  settings?: AlbumShareSettings | null;
+  loading?: "eager" | "lazy";
+  decoding?: "async" | "auto" | "sync";
+  fetchPriority?: "high" | "low" | "auto";
+  draggable?: boolean;
+  onLoad?: () => void;
+  onError?: () => void;
+};
+
 function WatermarkedImage({
   src,
   alt,
@@ -284,22 +301,18 @@ function WatermarkedImage({
   decoding,
   fetchPriority,
   draggable,
+  onLoad,
   onError,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-  fit?: "cover" | "contain";
-  settings?: AlbumShareSettings | null;
-  loading?: "eager" | "lazy";
-  decoding?: "async" | "auto" | "sync";
-  fetchPriority?: "high" | "low" | "auto";
-  draggable?: boolean;
-  onError?: () => void;
-}) {
+}: WatermarkedImageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hasLoadedRef = useRef(false);
   const [fallback, setFallback] = useState(false);
   const watermarkEnabled = Boolean(settings?.watermarkEnabled && settings.watermarkText);
+
+  useEffect(() => {
+    hasLoadedRef.current = false;
+    setFallback(false);
+  }, [src]);
 
   useEffect(() => {
     if (!watermarkEnabled || !settings) return;
@@ -331,6 +344,11 @@ function WatermarkedImage({
       ctx.clearRect(0, 0, cssWidth, cssHeight);
       drawImageToRect(ctx, image, cssWidth, cssHeight, fit);
       drawWatermark(ctx, settings, cssWidth, cssHeight);
+
+      if (!hasLoadedRef.current) {
+        hasLoadedRef.current = true;
+        onLoad?.();
+      }
     };
 
     image.onload = draw;
@@ -347,7 +365,7 @@ function WatermarkedImage({
       isCancelled = true;
       resizeObserver.disconnect();
     };
-  }, [decoding, fit, onError, settings, src, watermarkEnabled]);
+  }, [decoding, fit, onError, onLoad, settings, src, watermarkEnabled]);
 
   if (!watermarkEnabled || fallback) {
     return (
@@ -359,6 +377,7 @@ function WatermarkedImage({
         decoding={decoding}
         fetchPriority={fetchPriority}
         draggable={draggable}
+        onLoad={onLoad}
         onError={onError}
       />
     );
@@ -371,6 +390,38 @@ function WatermarkedImage({
       role="img"
       className={className}
       draggable={draggable}
+    />
+  );
+}
+
+function FadingWatermarkedImage({
+  className,
+  src,
+  onLoad,
+  ...props
+}: WatermarkedImageProps) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(false);
+  }, [src]);
+
+  const handleLoad = useCallback(() => {
+    onLoad?.();
+
+    window.requestAnimationFrame(() => {
+      setIsVisible(true);
+    });
+  }, [onLoad]);
+
+  return (
+    <WatermarkedImage
+      {...props}
+      src={src}
+      onLoad={handleLoad}
+      className={`${className ?? ""} transition-opacity duration-500 ease-out ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
     />
   );
 }
@@ -388,6 +439,7 @@ export const PhotoCard = memo(function PhotoCard({
   const aspectRatio = photoAspectRatio(photo);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [shouldLoadImage, setShouldLoadImage] = useState(index < 18);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
   const isShareView = Boolean(shareToken);
@@ -397,7 +449,16 @@ export const PhotoCard = memo(function PhotoCard({
 
   useEffect(() => {
     setShouldLoadImage(index < 18);
+    setIsImageLoaded(false);
   }, [index, photo.id]);
+
+  useEffect(() => {
+    setIsImageLoaded(false);
+  }, [imageUrl]);
+
+  const handleImageLoad = useCallback(() => {
+    setIsImageLoaded(true);
+  }, []);
 
   useEffect(() => {
     if (shouldLoadImage) return;
@@ -489,19 +550,27 @@ export const PhotoCard = memo(function PhotoCard({
           <WatermarkedImage
             src={imageUrl}
             alt={photo.caption || "Photo"}
-            className="absolute inset-0 h-full w-full object-contain"
+            className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
+              isImageLoaded ? "opacity-100" : "opacity-0"
+            }`}
             loading="eager"
             decoding="async"
             fetchPriority={index < 8 ? "high" : "auto"}
             settings={shareSettings}
             fit="contain"
+            onLoad={handleImageLoad}
+            onError={handleImageLoad}
           />
         ) : imageUrl ? (
-          <div className="absolute inset-0 bg-secondary" />
+          <Skeleton className="absolute inset-0 rounded-md bg-zinc-200/80" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-secondary">
             <span className="text-sm text-muted-foreground">No preview</span>
           </div>
+        )}
+
+        {imageUrl && shouldLoadImage && !isImageLoaded && (
+          <Skeleton className="absolute inset-0 rounded-md bg-zinc-200/80" />
         )}
       </button>
 
@@ -626,6 +695,13 @@ export function PhotoLightbox({
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [entryStyle, setEntryStyle] = useState<CSSProperties>();
+  const [signedUrlsByPhotoId, setSignedUrlsByPhotoId] = useState<
+    Record<string, SignedPhotoUrls>
+  >({});
+  const [loadedOriginalUrlsByPhotoId, setLoadedOriginalUrlsByPhotoId] =
+    useState<Record<string, string>>({});
+  const [failedOriginalUrlsByPhotoId, setFailedOriginalUrlsByPhotoId] =
+    useState<Record<string, string>>({});
 
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -645,6 +721,8 @@ export function PhotoLightbox({
   const isPeopleOpenRef = useRef(isPeopleOpen);
   const isDownloadHoveringRef = useRef(isDownloadHovering);
   const isAnimatingSwipeRef = useRef(isAnimatingSwipe);
+  const isMountedRef = useRef(false);
+  const originalPreloadRef = useRef(new Map<string, string>());
   const { mutate } = useSWRConfig();
 
   const photo = photos[currentIndex];
@@ -654,14 +732,30 @@ export function PhotoLightbox({
 
   const previousPhoto = photos[previousIndex];
   const nextPhoto = photos[nextIndex];
+  const preloadPhotoIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [photo?.id, previousPhoto?.id, nextPhoto?.id].filter(
+            (id): id is string => Boolean(id),
+          ),
+        ),
+      ),
+    [nextPhoto?.id, photo?.id, previousPhoto?.id],
+  );
+  const preloadPhotoIdsKey = preloadPhotoIds.join(":");
 
-  const imageCandidates = uniqueUrls([
+  const previewImageCandidates = uniqueUrls([
     originRect?.imageUrl,
     photo.previewUrl,
     photo.thumbnailUrl,
   ]);
-  const imageUrl = imageCandidates[activeImageIndex] ?? null;
-  const downloadUrl = photo.downloadUrl;
+  const imageUrl = previewImageCandidates[activeImageIndex] ?? null;
+  const originalImageUrl = loadedOriginalUrlsByPhotoId[photo.id] ?? null;
+  const upgradedImageUrl =
+    originalImageUrl && originalImageUrl !== imageUrl ? originalImageUrl : null;
+  const currentDisplayBaseUrl = imageUrl ?? upgradedImageUrl;
+  const downloadUrl = signedUrlsByPhotoId[photo.id]?.downloadUrl ?? photo.downloadUrl;
   const isShareView = Boolean(shareToken);
   const canDownload = isShareView
     ? Boolean(shareSettings?.allowDownloads)
@@ -702,22 +796,104 @@ export function PhotoLightbox({
     return targetPhoto.previewUrl || targetPhoto.thumbnailUrl || null;
   }, []);
 
+  const getLightboxUrl = useCallback(
+    (targetPhoto: Photo | undefined) => {
+      if (!targetPhoto) return null;
+      return loadedOriginalUrlsByPhotoId[targetPhoto.id] || getPreviewUrl(targetPhoto);
+    },
+    [getPreviewUrl, loadedOriginalUrlsByPhotoId],
+  );
+
   const previousImageUrl = useMemo(
-    () => getPreviewUrl(previousPhoto),
-    [getPreviewUrl, previousPhoto],
+    () => getLightboxUrl(previousPhoto),
+    [getLightboxUrl, previousPhoto],
   );
 
   const currentImageUrl = imageUrl;
 
   const nextImageUrl = useMemo(
-    () => getPreviewUrl(nextPhoto),
-    [getPreviewUrl, nextPhoto],
+    () => getLightboxUrl(nextPhoto),
+    [getLightboxUrl, nextPhoto],
   );
 
   isMobilePointerRef.current = isMobilePointer;
   isPeopleOpenRef.current = isPeopleOpen;
   isDownloadHoveringRef.current = isDownloadHovering;
   isAnimatingSwipeRef.current = isAnimatingSwipe;
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const missingPhotoIds = preloadPhotoIds.filter((id) => {
+      const urls = signedUrlsByPhotoId[id];
+      return urls?.originalUrl === undefined || urls?.downloadUrl === undefined;
+    });
+
+    if (!missingPhotoIds.length) return;
+
+    let isCancelled = false;
+
+    fetchSignedPhotoUrls(albumSlug, missingPhotoIds, shareToken)
+      .then((urls) => {
+        if (isCancelled || !Object.keys(urls).length) return;
+
+        setSignedUrlsByPhotoId((current) => ({
+          ...current,
+          ...urls,
+        }));
+      })
+      .catch((error) => {
+        console.error("Failed to preload original photo URLs:", error);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [albumSlug, preloadPhotoIds, preloadPhotoIdsKey, shareToken, signedUrlsByPhotoId]);
+
+  useEffect(() => {
+    for (const photoId of preloadPhotoIds) {
+      const originalUrl = signedUrlsByPhotoId[photoId]?.originalUrl;
+      if (!originalUrl) continue;
+      if (loadedOriginalUrlsByPhotoId[photoId] === originalUrl) continue;
+      if (failedOriginalUrlsByPhotoId[photoId] === originalUrl) continue;
+      if (originalPreloadRef.current.get(photoId) === originalUrl) continue;
+
+      originalPreloadRef.current.set(photoId, originalUrl);
+
+      const image = new window.Image();
+      image.decoding = "async";
+      image.onload = () => {
+        if (!isMountedRef.current) return;
+
+        setLoadedOriginalUrlsByPhotoId((current) => ({
+          ...current,
+          [photoId]: originalUrl,
+        }));
+      };
+      image.onerror = () => {
+        if (!isMountedRef.current) return;
+
+        setFailedOriginalUrlsByPhotoId((current) => ({
+          ...current,
+          [photoId]: originalUrl,
+        }));
+      };
+      image.src = originalUrl;
+    }
+  }, [
+    failedOriginalUrlsByPhotoId,
+    loadedOriginalUrlsByPhotoId,
+    preloadPhotoIds,
+    preloadPhotoIdsKey,
+    signedUrlsByPhotoId,
+  ]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(pointer: coarse)");
@@ -987,7 +1163,7 @@ export function PhotoLightbox({
   };
 
   const handleShare = async () => {
-    const url = currentImageUrl || downloadUrl || photo.thumbnailUrl;
+    const url = upgradedImageUrl || currentImageUrl || photo.thumbnailUrl;
     if (!url) return;
 
     const shareUrl = absoluteBrowserUrl(url);
@@ -1142,7 +1318,7 @@ export function PhotoLightbox({
 
   const handleImageError = () => {
     setActiveImageIndex((current) =>
-      current < imageCandidates.length - 1 ? current + 1 : current,
+      current < previewImageCandidates.length - 1 ? current + 1 : current,
     );
   };
 
@@ -1176,7 +1352,6 @@ export function PhotoLightbox({
     setIsClosing(true);
     setAreControlsVisible(false);
     setAreControlsReady(false);
-    setIsBackdropVisible(false);
     setIsPeopleOpen(false);
     setIsAiEditOpen(false);
     setIsPresetPanelOpen(false);
@@ -1418,7 +1593,7 @@ export function PhotoLightbox({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
       >
-        {currentImageUrl ? (
+        {currentDisplayBaseUrl ? (
           <div
             ref={photoFrameRef}
             className="flex cursor-default flex-col transition-[transform,opacity] duration-300 ease-in-out will-change-transform"
@@ -1447,7 +1622,7 @@ export function PhotoLightbox({
               }}
             >
               <WatermarkedImage
-                src={currentImageUrl}
+                src={currentDisplayBaseUrl}
                 alt={photo.caption || "Photo"}
                 className="pointer-events-none absolute inset-0 h-full w-full cursor-default select-none object-contain opacity-0"
                 decoding="async"
@@ -1479,17 +1654,32 @@ export function PhotoLightbox({
                   </div>
 
                   <div className="relative flex h-full w-full shrink-0 cursor-default items-center justify-center">
-                    <WatermarkedImage
-                      src={currentImageUrl}
-                      alt={photo.caption || "Photo"}
-                      className={imageClassName}
-                      decoding="async"
-                      fetchPriority="high"
-                      draggable={false}
-                      onError={handleImageError}
-                      settings={shareSettings}
-                      fit="contain"
-                    />
+                    {currentImageUrl ? (
+                      <WatermarkedImage
+                        src={currentImageUrl}
+                        alt={photo.caption || "Photo"}
+                        className={`${imageClassName} absolute inset-0`}
+                        decoding="async"
+                        fetchPriority="high"
+                        draggable={false}
+                        onError={handleImageError}
+                        settings={shareSettings}
+                        fit="contain"
+                      />
+                    ) : null}
+
+                    {upgradedImageUrl ? (
+                      <FadingWatermarkedImage
+                        src={upgradedImageUrl}
+                        alt={photo.caption || "Photo"}
+                        className={`${imageClassName} absolute inset-0`}
+                        decoding="async"
+                        fetchPriority="high"
+                        draggable={false}
+                        settings={shareSettings}
+                        fit="contain"
+                      />
+                    ) : null}
                   </div>
 
                   <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">

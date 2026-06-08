@@ -7,7 +7,7 @@ interface PhotoUrlRow {
   id: string;
   file_name: string | null;
   original_s3_key: string | null;
-  preview_s3_key: string | null;
+  ai_input_s3_key: string | null;
   thumbnail_s3_key: string | null;
 }
 
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         id,
         file_name,
         original_s3_key,
-        preview_s3_key,
+        ai_input_s3_key,
         thumbnail_s3_key
       FROM photos
       WHERE id = ANY($1::uuid[])
@@ -62,17 +62,17 @@ export async function POST(request: Request) {
 
     const dbPhotos = await Promise.all(
       rows.map(async (row) => {
-        const previewKey =
-          row.original_s3_key ?? row.preview_s3_key ?? row.thumbnail_s3_key;
         const [previewUrl, downloadUrl] = await Promise.all([
-          signedUrl(previewKey),
+          signedUrl(row.ai_input_s3_key),
           signedDownloadUrl(row.original_s3_key, row.file_name ?? undefined),
         ]);
 
         return {
           id: row.id,
           previewUrl,
+          thumbnailUrl: previewUrl,
           downloadUrl,
+          originalUrl: await signedUrl(row.original_s3_key),
         };
       })
     );

@@ -15,7 +15,7 @@ interface PhotoRow {
   caption: string | null;
   search_text: string | null;
   original_s3_key: string | null;
-  preview_s3_key: string | null;
+  ai_input_s3_key: string | null;
   thumbnail_s3_key: string | null;
   person_search_text: string | null;
   qwen_description: string | null;
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
           p.caption,
           p.search_text,
           p.original_s3_key,
-          p.preview_s3_key,
+          p.ai_input_s3_key,
           p.thumbnail_s3_key,
           p.created_at,
           pp.search_text AS person_search_text,
@@ -214,7 +214,7 @@ export async function POST(request: Request) {
           p.caption,
           p.search_text,
           p.original_s3_key,
-          p.preview_s3_key,
+          p.ai_input_s3_key,
           p.thumbnail_s3_key,
           p.created_at,
           pp.search_text AS person_search_text,
@@ -246,7 +246,7 @@ export async function POST(request: Request) {
           p.caption,
           p.search_text,
           p.original_s3_key,
-          p.preview_s3_key,
+          p.ai_input_s3_key,
           p.thumbnail_s3_key,
           p.created_at,
           pp.search_text AS person_search_text,
@@ -273,7 +273,7 @@ export async function POST(request: Request) {
           p.caption,
           p.search_text,
           p.original_s3_key,
-          p.preview_s3_key,
+          p.ai_input_s3_key,
           p.thumbnail_s3_key,
           p.created_at,
           pp.search_text AS person_search_text,
@@ -296,10 +296,8 @@ export async function POST(request: Request) {
     const results: SearchResult[] = await Promise.all(
       rows.map(async (row, index) => ({
         photoId: row.id,
-        previewUrl: await signedUrl(row.original_s3_key ?? row.preview_s3_key),
-        thumbnailUrl: await signedUrl(
-          row.thumbnail_s3_key ?? row.original_s3_key ?? row.preview_s3_key
-        ),
+        previewUrl: await signedUrl(row.ai_input_s3_key),
+        thumbnailUrl: await signedUrl(row.ai_input_s3_key),
         downloadUrl: await signedDownloadUrl(row.original_s3_key),
         reason:
           row.person_search_text || row.qwen_description || row.caption || null,

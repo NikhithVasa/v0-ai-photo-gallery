@@ -17,6 +17,7 @@ export interface CullingClusterRow {
   similar_count: number | string | null;
   file_name: string | null;
   original_s3_key: string | null;
+  ai_input_s3_key: string | null;
   thumbnail_s3_key: string | null;
   clean_preview_s3_key: string | null;
   watermarked_preview_s3_key: string | null;
@@ -37,6 +38,7 @@ export interface CullingClusterItemRow {
   cluster_item_reason: string | null;
   file_name: string | null;
   original_s3_key: string | null;
+  ai_input_s3_key: string | null;
   thumbnail_s3_key: string | null;
   clean_preview_s3_key: string | null;
   watermarked_preview_s3_key: string | null;
@@ -81,19 +83,14 @@ async function photoFromRow(row: {
   photo_id?: string | null;
   file_name: string | null;
   original_s3_key: string | null;
+  ai_input_s3_key: string | null;
   thumbnail_s3_key: string | null;
   clean_preview_s3_key: string | null;
   watermarked_preview_s3_key: string | null;
 }): Promise<CullingClusterPhoto> {
-  const previewKey =
-    row.original_s3_key ??
-    row.watermarked_preview_s3_key ??
-    row.clean_preview_s3_key ??
-    row.thumbnail_s3_key;
-
   const [thumbnailUrl, previewUrl] = await Promise.all([
-    signedUrl(row.thumbnail_s3_key ?? previewKey),
-    signedUrl(previewKey),
+    signedUrl(row.ai_input_s3_key),
+    signedUrl(row.ai_input_s3_key),
   ]);
 
   return {
