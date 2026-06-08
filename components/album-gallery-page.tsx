@@ -30,6 +30,7 @@ import {
   User,
   Users,
   X,
+  DownloadIcon,
 } from "lucide-react";
 import { PeopleGrid } from "@/components/people-grid";
 import { PersonView } from "@/components/person-view";
@@ -828,14 +829,11 @@ function AlbumDownloadMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={`${navPillButtonClass} min-w-[126px]`}
-          aria-label="Download photos"
-        >
-          <Download className="h-4 w-4 shrink-0" />
-          <span>Download</span>
-        </button>
+    <Button type="button" variant="outline"           className={`${navPillButtonClass} min-w-[126px]`}
+ aria-label="Download photos">
+                <DownloadIcon className="h-4 w-4" />
+              </Button>
+       
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
