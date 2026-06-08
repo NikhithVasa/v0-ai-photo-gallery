@@ -7,7 +7,12 @@ import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 import { photoAspectRatio } from "@/lib/photo-layout";
-import type { AlbumEvent, AlbumShareSettings, Photo } from "@/lib/types";
+import type {
+  AlbumEvent,
+  AlbumShareSettings,
+  Photo,
+  PhotoPerson,
+} from "@/lib/types";
 
 export type PeopleMatchMode = "all" | "any";
 
@@ -31,6 +36,9 @@ interface PhotosGridProps {
   selectedPeopleIds: string[];
   peopleMatchMode: PeopleMatchMode;
   onPersonClick?: (personId: string) => void;
+  onPhotoPersonClick?: (person: PhotoPerson, photoId: string) => void;
+  openPhotoId?: string | null;
+  onOpenPhotoHandled?: () => void;
   onReachedEnd?: () => void;
   isSelectionMode?: boolean;
   selectedPhotoIds?: string[];
@@ -175,6 +183,9 @@ export function PhotosGrid({
   selectedPeopleIds,
   peopleMatchMode,
   onPersonClick,
+  onPhotoPersonClick,
+  openPhotoId,
+  onOpenPhotoHandled,
   onReachedEnd,
   isSelectionMode = false,
   selectedPhotoIds = [],
@@ -237,6 +248,17 @@ export function PhotosGrid({
   const handleNavigate = useCallback((index: number) => {
     setLightboxState({ index });
   }, []);
+
+  useEffect(() => {
+    if (!openPhotoId || !data?.photos?.length) return;
+
+    const index = data.photos.findIndex((photo) => photo.id === openPhotoId);
+    if (index >= 0) {
+      setLightboxState({ index });
+    }
+
+    onOpenPhotoHandled?.();
+  }, [data?.photos, onOpenPhotoHandled, openPhotoId]);
 
   useEffect(() => {
     if (!onReachedEnd) return;
@@ -368,7 +390,15 @@ export function PhotosGrid({
           originRect={lightboxState.originRect}
           onClose={() => setLightboxState(null)}
           onNavigate={handleNavigate}
-          onPersonClick={onPersonClick}
+          onPersonClick={(person) => {
+            const sourcePhoto = data.photos[lightboxState.index];
+            if (onPhotoPersonClick && sourcePhoto) {
+              onPhotoPersonClick(person, sourcePhoto.id);
+              return;
+            }
+
+            onPersonClick?.(person.id);
+          }}
           shareSettings={shareSettings}
         />
       )}

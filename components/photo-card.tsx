@@ -41,7 +41,12 @@ import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 import { photoAspectRatio } from "@/lib/photo-layout";
-import type { AlbumEvent, AlbumShareSettings, Photo } from "@/lib/types";
+import type {
+  AlbumEvent,
+  AlbumShareSettings,
+  Photo,
+  PhotoPerson,
+} from "@/lib/types";
 
 interface SignedPhotoUrls {
   previewUrl: string | null;
@@ -686,7 +691,7 @@ interface PhotoLightboxProps {
   originRect?: PhotoOpenRect;
   onClose: () => void;
   onNavigate: (index: number) => void;
-  onPersonClick?: (personId: string) => void;
+  onPersonClick?: (person: PhotoPerson) => void;
   shareSettings?: AlbumShareSettings | null;
 }
 
@@ -1523,8 +1528,8 @@ export function PhotoLightbox({
     }, 280);
   };
 
-  const handlePersonClick = (personId: string) => {
-    onPersonClick?.(personId);
+  const handlePersonClick = (person: PhotoPerson) => {
+    onPersonClick?.(person);
     onClose();
   };
 
@@ -1903,7 +1908,7 @@ export function PhotoLightbox({
                             <button
                               key={person.id}
                               type="button"
-                              onClick={() => handlePersonClick(person.id)}
+                              onClick={() => handlePersonClick(person)}
                               className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-zinc-950/[0.05] focus:outline-none focus:ring-2 focus:ring-zinc-300"
                             >
                               <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">

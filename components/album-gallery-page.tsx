@@ -77,10 +77,19 @@ import {
   normalizeShareBackgroundColor,
   shareBackgroundRgba,
 } from "@/lib/share-theme";
-import type { AlbumDetail, AlbumShareSettings, Person, Photo } from "@/lib/types";
+import type {
+  AlbumDetail,
+  AlbumShareSettings,
+  Person,
+  Photo,
+  PhotoPerson,
+} from "@/lib/types";
 
 type Tab = "photos" | "people";
 type DownloadFormat = "original" | "png" | "jpeg";
+type PersonReturnTarget =
+  | { kind: "photos" }
+  | { kind: "photo"; photoId: string };
 
 const DOWNLOAD_FORMATS: Array<{ format: DownloadFormat; label: string }> = [
   { format: "original", label: "Original" },
@@ -448,7 +457,7 @@ function SearchResultsGrid({
           originRect={lightboxState.originRect}
           onClose={() => setLightboxState(null)}
           onNavigate={handleNavigate}
-          onPersonClick={onPersonClick}
+          onPersonClick={(person) => onPersonClick?.(person.id)}
           shareSettings={shareSettings}
         />
       )}
@@ -1247,6 +1256,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const isShareView = Boolean(shareToken);
   const autoCoverScrollDoneRef = useRef(false);
   const autoCoverScrollTimerRef = useRef<number | null>(null);
+  const coverRevealAnimationFrameRef = useRef<number | null>(null);
+  const coverRevealTimerRef = useRef<number | null>(null);
   const coverScrollAnimationFrameRef = useRef<number | null>(null);
   const coverTouchStartYRef = useRef<number | null>(null);
   const coverGestureTriggeredRef = useRef(false);
@@ -1257,6 +1268,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>("photos");
   const [isNavHidden, setIsNavHidden] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [selectedPersonReturnTarget, setSelectedPersonReturnTarget] =
+    useState<PersonReturnTarget>({ kind: "photos" });
+  const [photoIdToReopen, setPhotoIdToReopen] = useState<string | null>(null);
   const [selectedPeopleIds, setSelectedPeopleIds] = useState<string[]>([]);
   const [peopleMatchMode, setPeopleMatchMode] =
     useState<PeopleMatchMode>("all");
@@ -1270,6 +1284,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   } = usePasscodeVerification("album", albumSlug);
   const [isLoadingVerifiedAlbum, setIsLoadingVerifiedAlbum] = useState(false);
   const [isCoverDismissed, setIsCoverDismissed] = useState(false);
+  const [isCoverTransitioning, setIsCoverTransitioning] = useState(false);
+  const [isCoverSliding, setIsCoverSliding] = useState(false);
   const [isPhotoSelectionMode, setIsPhotoSelectionMode] = useState(false);
   const [selectedDownloadPhotoIds, setSelectedDownloadPhotoIds] = useState<string[]>([]);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -1420,16 +1436,65 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   };
 
+  const clearCoverRevealTransition = () => {
+    if (coverRevealAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(coverRevealAnimationFrameRef.current);
+      coverRevealAnimationFrameRef.current = null;
+    }
+
+    if (coverRevealTimerRef.current !== null) {
+      window.clearTimeout(coverRevealTimerRef.current);
+      coverRevealTimerRef.current = null;
+    }
+  };
+
   const enterLockedGalleryView = () => {
     setIsCoverDismissed(true);
+    setIsCoverTransitioning(false);
+    setIsCoverSliding(false);
     requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     });
   };
 
+  const revealGalleryFromCover = () => {
+    if (
+      isCoverDismissed ||
+      isCoverTransitioning ||
+      coverGestureTriggeredRef.current
+    ) {
+      return;
+    }
+
+    clearAutoCoverScroll();
+    cancelGalleryScrollAnimation();
+    clearCoverRevealTransition();
+    suppressNavHideDuringProgrammaticScroll(1200);
+    coverGestureTriggeredRef.current = true;
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    setIsCoverTransitioning(true);
+    setIsCoverSliding(false);
+
+    coverRevealAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      coverRevealAnimationFrameRef.current = null;
+      setIsCoverSliding(true);
+    });
+
+    coverRevealTimerRef.current = window.setTimeout(() => {
+      coverRevealTimerRef.current = null;
+      enterLockedGalleryView();
+    }, 920);
+  };
+
   const scrollToGalleryTop = (
     mode: "instant" | "normal" | "soothing" = "normal",
   ) => {
+    if (mode === "soothing" && !isCoverDismissed) {
+      revealGalleryFromCover();
+      return;
+    }
+
     requestAnimationFrame(() => {
       clearAutoCoverScroll();
       cancelGalleryScrollAnimation();
@@ -1486,7 +1551,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       return;
     }
 
-    coverGestureTriggeredRef.current = true;
     scrollToGalleryTop("soothing");
   };
 
@@ -1575,12 +1639,18 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     coverGestureTriggeredRef.current = false;
     coverTouchStartYRef.current = null;
     setIsCoverDismissed(false);
+    setIsCoverTransitioning(false);
+    setIsCoverSliding(false);
+    setSelectedPerson(null);
+    setSelectedPersonReturnTarget({ kind: "photos" });
+    setPhotoIdToReopen(null);
     setIsPhotoSelectionMode(false);
     setSelectedDownloadPhotoIds([]);
   }, [albumSlug]);
 
   useEffect(() => {
     if (isCoverDismissed) return;
+    if (isCoverTransitioning) return;
 
     const dismissWhenGalleryIsReached = () => {
       if (coverScrollAnimationFrameRef.current !== null) return;
@@ -1599,7 +1669,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       passive: true,
     });
     return () => window.removeEventListener("scroll", dismissWhenGalleryIsReached);
-  }, [isCoverDismissed]);
+  }, [isCoverDismissed, isCoverTransitioning]);
 
   useEffect(() => {
     return () => {
@@ -1612,6 +1682,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         programmaticNavScrollTimerRef.current = null;
       }
       programmaticNavScrollRef.current = false;
+      clearCoverRevealTransition();
       cancelGalleryScrollAnimation();
     };
   }, []);
@@ -1699,11 +1770,49 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     changeEvent(nextEvent.slug);
   };
 
-  const openPerson = (person: Person) => {
+  const openPerson = (
+    person: Person,
+    returnTarget: PersonReturnTarget = { kind: "photos" },
+  ) => {
     setApsaraTextSearch(null);
+    setSelectedPeopleIds([]);
+    setPeopleMatchMode("all");
+    setSelectedPersonReturnTarget(returnTarget);
     setSelectedPerson(person);
     setActiveTab("people");
     scrollToGalleryTop("instant");
+  };
+
+  const openPersonFromPhoto = (photoPerson: PhotoPerson, photoId: string) => {
+    const fullPerson = filterPeople.find((person) => person.id === photoPerson.id);
+    const person: Person =
+      fullPerson ?? {
+        id: photoPerson.id,
+        albumId: album?.id ?? "",
+        personNumber: photoPerson.personNumber,
+        defaultName: photoPerson.defaultName,
+        displayName: photoPerson.displayName,
+        photoCount: photoPerson.photoCount,
+        faceCount: 0,
+        occurrenceCount: 0,
+        coverFaceUrl: photoPerson.coverFaceUrl,
+        eventStats: [],
+      };
+
+    openPerson(person, { kind: "photo", photoId });
+  };
+
+  const handlePersonBack = () => {
+    const returnTarget = selectedPersonReturnTarget;
+
+    setSelectedPerson(null);
+    setApsaraTextSearch(null);
+    setActiveTab("photos");
+    scrollToGalleryTop("instant");
+
+    if (returnTarget.kind === "photo") {
+      setPhotoIdToReopen(returnTarget.photoId);
+    }
   };
 
   const filterByPerson = (personId: string) => {
@@ -1948,7 +2057,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           onWheel={handleCoverWheel}
           onTouchStart={handleCoverTouchStart}
           onTouchMove={handleCoverTouchMove}
-          className="relative flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 py-8 text-center sm:py-10"
+          className={`${
+            isCoverTransitioning ? "fixed inset-0 z-50" : "relative"
+          } flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 py-8 text-center transition-transform duration-[920ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform sm:py-10 ${
+            isCoverSliding ? "-translate-y-full" : "translate-y-0"
+          }`}
           style={{
             backgroundColor: galleryBackgroundColor,
             minHeight: "100svh",
@@ -2034,7 +2147,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             <button
               type="button"
               onClick={() => scrollToGalleryTop("soothing")}
-              className="absolute bottom-5 left-1/2 flex h-12 w-12 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7"
+              className={`absolute bottom-5 left-1/2 flex h-12 w-12 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm transition hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7 ${
+                isCoverTransitioning ? "pointer-events-none opacity-0" : "opacity-100"
+              }`}
               aria-label="Scroll to gallery"
             >
               <span className="gallery-calm-bounce flex h-6 w-6 items-center justify-center">
@@ -2433,11 +2548,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             selectedEventSlug={null}
             events={album.events}
             person={selectedPerson}
-            onBack={() => {
-              setSelectedPerson(null);
-              setActiveTab("people");
-              scrollToGalleryTop();
-            }}
+            onBack={handlePersonBack}
             shareSettings={shareSettings}
           />
         ) : activeTab === "people" ? (
@@ -2591,6 +2702,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               selectedPeopleIds={selectedPeopleIds}
               peopleMatchMode={peopleMatchMode}
               onPersonClick={filterByPerson}
+              onPhotoPersonClick={openPersonFromPhoto}
+              openPhotoId={photoIdToReopen}
+              onOpenPhotoHandled={() => setPhotoIdToReopen(null)}
               onReachedEnd={goToNextEvent}
               isSelectionMode={isPhotoSelectionMode}
               selectedPhotoIds={selectedDownloadPhotoIds}
