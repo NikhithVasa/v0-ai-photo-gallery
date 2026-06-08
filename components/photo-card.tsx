@@ -39,6 +39,7 @@ import {
 import { PhotoPresetPanel } from "@/components/photo-preset-panel";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 import { photoAspectRatio } from "@/lib/photo-layout";
 import type { AlbumEvent, AlbumShareSettings, Photo } from "@/lib/types";
 
@@ -112,6 +113,7 @@ function mediaUrlForS3Key(key?: string | null) {
 
 function previewUrlsForPhoto(photo: Photo) {
   return uniqueUrls([
+    cloudFrontImageUrl(photo.aiInputS3Key),
     photo.previewUrl,
     photo.thumbnailUrl,
     mediaUrlForS3Key(photo.aiInputS3Key),
@@ -885,7 +887,10 @@ export function PhotoLightbox({
 
   useEffect(() => {
     for (const photoId of preloadPhotoIds) {
-      const originalUrl = signedUrlsByPhotoId[photoId]?.originalUrl;
+      const targetPhoto = photos.find((item) => item.id === photoId);
+      const originalUrl =
+        cloudFrontImageUrl(targetPhoto?.originalS3Key) ??
+        signedUrlsByPhotoId[photoId]?.originalUrl;
       if (!originalUrl) continue;
       if (loadedOriginalUrlsByPhotoId[photoId] === originalUrl) continue;
       if (failedOriginalUrlsByPhotoId[photoId] === originalUrl) continue;
@@ -916,6 +921,7 @@ export function PhotoLightbox({
   }, [
     failedOriginalUrlsByPhotoId,
     loadedOriginalUrlsByPhotoId,
+    photos,
     preloadPhotoIds,
     preloadPhotoIdsKey,
     signedUrlsByPhotoId,

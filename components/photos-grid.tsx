@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 import { photoAspectRatio } from "@/lib/photo-layout";
 import type { AlbumEvent, AlbumShareSettings, Photo } from "@/lib/types";
 
@@ -79,6 +80,7 @@ function SelectionPhotoCell({
       Array.from(
         new Set(
           [
+            cloudFrontImageUrl(photo.aiInputS3Key),
             photo.previewUrl,
             photo.thumbnailUrl,
             photo.aiInputS3Key

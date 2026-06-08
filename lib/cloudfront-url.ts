@@ -1,5 +1,10 @@
-const CLOUDFRONT_IMAGE_BASE_URL =
-  process.env.NEXT_PUBLIC_CLOUDFRONT_IMAGE_BASE_URL?.replace(/\/+$/, "");
+const DEFAULT_CLOUDFRONT_IMAGE_BASE_URL =
+  "https://d1uua8l2m13p03.cloudfront.net";
+
+const CLOUDFRONT_IMAGE_BASE_URL = (
+  process.env.NEXT_PUBLIC_CLOUDFRONT_IMAGE_BASE_URL ||
+  DEFAULT_CLOUDFRONT_IMAGE_BASE_URL
+).replace(/\/+$/, "");
 
 function encodeS3KeyPath(key: string) {
   return key.split("/").map(encodeURIComponent).join("/");

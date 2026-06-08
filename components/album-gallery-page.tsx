@@ -1461,7 +1461,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         return;
       }
 
-      const startTop = window.scrollY;
+      const startTop = Math.min(window.scrollY, targetTop);
+      if (window.scrollY > targetTop) {
+        window.scrollTo({ top: startTop, left: 0, behavior: "auto" });
+      }
       const distance = targetTop - startTop;
       const duration = mode === "soothing" && !isCoverDismissed ? 900 : 1300;
       const startedAt = performance.now();
@@ -1498,6 +1501,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   const handleCoverWheel = (event: ReactWheelEvent<HTMLElement>) => {
     if (event.deltaY > 4) {
+      if (event.cancelable) event.preventDefault();
       triggerCoverGestureScroll();
     }
   };
@@ -1511,10 +1515,69 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     const currentY = event.touches[0]?.clientY;
     if (startY === null || currentY === undefined) return;
 
+    if (event.cancelable) event.preventDefault();
+
     if (Math.abs(currentY - startY) > 24) {
       triggerCoverGestureScroll();
     }
   };
+
+  useEffect(() => {
+    if (isCoverDismissed) return;
+
+    const isCoverScrollRunning = () =>
+      coverGestureTriggeredRef.current ||
+      coverScrollAnimationFrameRef.current !== null;
+
+    const handleNativeWheel = (event: WheelEvent) => {
+      if (event.deltaY > 4 || isCoverScrollRunning()) {
+        if (event.cancelable) event.preventDefault();
+      }
+
+      if (event.deltaY > 4) {
+        triggerCoverGestureScroll();
+      }
+    };
+
+    const handleNativeTouchStart = (event: TouchEvent) => {
+      coverTouchStartYRef.current = event.touches[0]?.clientY ?? null;
+    };
+
+    const handleNativeTouchMove = (event: TouchEvent) => {
+      const startY = coverTouchStartYRef.current;
+      const currentY = event.touches[0]?.clientY;
+      if (startY === null || currentY === undefined) return;
+
+      if (event.cancelable) event.preventDefault();
+
+      if (Math.abs(currentY - startY) > 24) {
+        triggerCoverGestureScroll();
+      }
+    };
+
+    window.addEventListener("wheel", handleNativeWheel, {
+      capture: true,
+      passive: false,
+    });
+    window.addEventListener("touchstart", handleNativeTouchStart, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("touchmove", handleNativeTouchMove, {
+      capture: true,
+      passive: false,
+    });
+
+    return () => {
+      window.removeEventListener("wheel", handleNativeWheel, { capture: true });
+      window.removeEventListener("touchstart", handleNativeTouchStart, {
+        capture: true,
+      });
+      window.removeEventListener("touchmove", handleNativeTouchMove, {
+        capture: true,
+      });
+    };
+  }, [isCoverDismissed]);
 
   useEffect(() => {
     autoCoverScrollDoneRef.current = false;
