@@ -113,10 +113,16 @@ function mediaUrlForS3Key(key?: string | null) {
 
 function previewUrlsForPhoto(photo: Photo) {
   return uniqueUrls([
-    cloudFrontImageUrl(photo.aiInputS3Key),
     photo.previewUrl,
     photo.thumbnailUrl,
+    mediaUrlForS3Key(photo.cleanPreviewS3Key),
+    mediaUrlForS3Key(photo.watermarkedPreviewS3Key),
+    mediaUrlForS3Key(photo.thumbnailS3Key),
     mediaUrlForS3Key(photo.aiInputS3Key),
+    cloudFrontImageUrl(photo.cleanPreviewS3Key),
+    cloudFrontImageUrl(photo.watermarkedPreviewS3Key),
+    cloudFrontImageUrl(photo.thumbnailS3Key),
+    cloudFrontImageUrl(photo.aiInputS3Key),
   ]);
 }
 
@@ -558,6 +564,7 @@ export const PhotoCard = memo(function PhotoCard({
     >
       <button
         type="button"
+        data-click-loading-skip="true"
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
 
@@ -893,13 +900,18 @@ export function PhotoLightbox({
   useEffect(() => {
     for (const photoId of preloadPhotoIds) {
       const targetPhoto = photos.find((item) => item.id === photoId);
-      const originalUrl =
-        cloudFrontImageUrl(targetPhoto?.originalS3Key) ??
-        signedUrlsByPhotoId[photoId]?.originalUrl;
+      if (loadedOriginalUrlsByPhotoId[photoId]) continue;
+
+      const originalUrl = uniqueUrls([
+        signedUrlsByPhotoId[photoId]?.originalUrl,
+        mediaUrlForS3Key(targetPhoto?.originalS3Key),
+        cloudFrontImageUrl(targetPhoto?.originalS3Key),
+      ]).find((url) => {
+        if (failedOriginalUrlsByPhotoId[photoId] === url) return false;
+        return originalPreloadRef.current.get(photoId) !== url;
+      });
+
       if (!originalUrl) continue;
-      if (loadedOriginalUrlsByPhotoId[photoId] === originalUrl) continue;
-      if (failedOriginalUrlsByPhotoId[photoId] === originalUrl) continue;
-      if (originalPreloadRef.current.get(photoId) === originalUrl) continue;
 
       originalPreloadRef.current.set(photoId, originalUrl);
 

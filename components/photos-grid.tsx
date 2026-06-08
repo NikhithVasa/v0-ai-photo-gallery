@@ -80,12 +80,24 @@ function SelectionPhotoCell({
       Array.from(
         new Set(
           [
-            cloudFrontImageUrl(photo.aiInputS3Key),
             photo.previewUrl,
             photo.thumbnailUrl,
+            photo.cleanPreviewS3Key
+              ? `/api/media?key=${encodeURIComponent(photo.cleanPreviewS3Key)}`
+              : null,
+            photo.watermarkedPreviewS3Key
+              ? `/api/media?key=${encodeURIComponent(photo.watermarkedPreviewS3Key)}`
+              : null,
+            photo.thumbnailS3Key
+              ? `/api/media?key=${encodeURIComponent(photo.thumbnailS3Key)}`
+              : null,
             photo.aiInputS3Key
               ? `/api/media?key=${encodeURIComponent(photo.aiInputS3Key)}`
               : null,
+            cloudFrontImageUrl(photo.cleanPreviewS3Key),
+            cloudFrontImageUrl(photo.watermarkedPreviewS3Key),
+            cloudFrontImageUrl(photo.thumbnailS3Key),
+            cloudFrontImageUrl(photo.aiInputS3Key),
           ].filter((url): url is string => Boolean(url)),
         ),
       ),

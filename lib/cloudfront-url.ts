@@ -1,17 +1,17 @@
-const DEFAULT_CLOUDFRONT_IMAGE_BASE_URL =
-  "https://d1uua8l2m13p03.cloudfront.net";
+const CLOUDFRONT_IMAGES_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_CLOUDFRONT_IMAGES === "true";
 
-const CLOUDFRONT_IMAGE_BASE_URL = (
-  process.env.NEXT_PUBLIC_CLOUDFRONT_IMAGE_BASE_URL ||
-  DEFAULT_CLOUDFRONT_IMAGE_BASE_URL
-).replace(/\/+$/, "");
+const CLOUDFRONT_IMAGE_BASE_URL =
+  process.env.NEXT_PUBLIC_CLOUDFRONT_IMAGE_BASE_URL?.replace(/\/+$/, "");
 
 function encodeS3KeyPath(key: string) {
   return key.split("/").map(encodeURIComponent).join("/");
 }
 
 export function cloudFrontImageUrl(key?: string | null) {
-  if (!key || !CLOUDFRONT_IMAGE_BASE_URL) return null;
+  if (!key || !CLOUDFRONT_IMAGES_ENABLED || !CLOUDFRONT_IMAGE_BASE_URL) {
+    return null;
+  }
 
   return `${CLOUDFRONT_IMAGE_BASE_URL}/${encodeS3KeyPath(key)}`;
 }
