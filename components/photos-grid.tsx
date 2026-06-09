@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpDown, Check, Loader2 } from "lucide-react";
+import { ArrowUpDown, Check, Loader2, Pencil } from "lucide-react";
 import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -364,6 +364,8 @@ export function PhotosGrid({
   );
   const [isSavingSort, setIsSavingSort] = useState(false);
   const [sortError, setSortError] = useState("");
+  const [isCustomOrderEditing, setIsCustomOrderEditing] = useState(false);
+  const savedCustomPhotosRef = useRef<Photo[] | null>(null);
 
   const [lightboxState, setLightboxState] = useState<{
     index: number;
@@ -412,9 +414,17 @@ export function PhotosGrid({
         sortMode === "custom" ? withCustomPositions(sorted) : sorted;
 
       setSortError("");
-      setIsSavingSort(true);
       await mutate({ photos: nextPhotos, sortMode }, { revalidate: false });
 
+      if (sortMode === "custom") {
+        savedCustomPhotosRef.current = previous.photos;
+        setIsCustomOrderEditing(true);
+        return;
+      }
+
+      setIsCustomOrderEditing(false);
+      savedCustomPhotosRef.current = null;
+      setIsSavingSort(true);
       try {
         await saveSort(sortMode, nextPhotos);
       } catch (error) {
@@ -431,10 +441,9 @@ export function PhotosGrid({
   );
 
   const moveCustomPosition = useCallback(
-    async (photoId: string, rawPosition: number) => {
-      if (!data?.photos?.length || !canEditSort) return;
+    (photoId: string, rawPosition: number) => {
+      if (!data?.photos?.length || !canEditSort || !isCustomOrderEditing) return;
 
-      const previous = data;
       const currentIndex = data.photos.findIndex((photo) => photo.id === photoId);
       if (currentIndex < 0) return;
 
@@ -451,26 +460,68 @@ export function PhotosGrid({
 
       const rankedPhotos = withCustomPositions(nextPhotos);
       setSortError("");
-      setIsSavingSort(true);
-      await mutate(
+      void mutate(
         { photos: rankedPhotos, sortMode: "custom" },
         { revalidate: false },
       );
-
-      try {
-        await saveSort("custom", rankedPhotos);
-      } catch (error) {
-        console.error("Failed to save custom photo sort:", error);
-        setSortError(
-          error instanceof Error ? error.message : "Failed to save custom order",
-        );
-        await mutate(previous, { revalidate: false });
-      } finally {
-        setIsSavingSort(false);
-      }
     },
-    [canEditSort, data, mutate, saveSort],
+    [canEditSort, data, isCustomOrderEditing, mutate],
   );
+
+  const saveCustomOrder = useCallback(async () => {
+    if (!data?.photos?.length || !canEditSort) return;
+
+    setSortError("");
+    setIsSavingSort(true);
+    const rankedPhotos = withCustomPositions(data.photos);
+    await mutate(
+      { photos: rankedPhotos, sortMode: "custom" },
+      { revalidate: false },
+    );
+
+    try {
+      await saveSort("custom", rankedPhotos);
+      setIsCustomOrderEditing(false);
+      savedCustomPhotosRef.current = null;
+    } catch (error) {
+      console.error("Failed to save custom photo sort:", error);
+      setSortError(
+        error instanceof Error ? error.message : "Failed to save custom order",
+      );
+      if (savedCustomPhotosRef.current) {
+        await mutate(
+          { photos: savedCustomPhotosRef.current, sortMode: activeSortMode },
+          { revalidate: false },
+        );
+      }
+    } finally {
+      setIsSavingSort(false);
+    }
+  }, [activeSortMode, canEditSort, data, mutate, saveSort]);
+
+  const startCustomOrderEditing = useCallback(() => {
+    if (!data?.photos?.length || !canEditSort) return;
+
+    savedCustomPhotosRef.current = data.photos;
+    setSortError("");
+    setIsCustomOrderEditing(true);
+    if (activeSortMode !== "custom") {
+      void applySortMode("custom");
+    }
+  }, [activeSortMode, applySortMode, canEditSort, data]);
+
+  const cancelCustomOrderEditing = useCallback(async () => {
+    if (savedCustomPhotosRef.current) {
+      await mutate(
+        { photos: savedCustomPhotosRef.current, sortMode: activeSortMode },
+        { revalidate: false },
+      );
+    }
+
+    savedCustomPhotosRef.current = null;
+    setIsCustomOrderEditing(false);
+    setSortError("");
+  }, [activeSortMode, mutate]);
 
   const endSentinelRef = useRef<HTMLDivElement | null>(null);
   const lastTriggeredKeyRef = useRef<string | null>(null);
@@ -567,9 +618,9 @@ export function PhotosGrid({
 
   if (isLoading) {
     return (
-      <div className="columns-2 gap-2 sm:columns-2 sm:gap-3 lg:columns-3">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
         {Array.from({ length: 14 }).map((_, index) => (
-          <div key={index} className="mb-2 break-inside-avoid sm:mb-3">
+          <div key={index}>
             <Skeleton
               className={`w-full rounded-[22px] bg-white/70 shadow-[0_16px_45px_rgba(0,0,0,0.08)] ${
                 index % 6 === 0
@@ -626,23 +677,62 @@ export function PhotosGrid({
             {isSavingSort && <Loader2 className="h-4 w-4 animate-spin" />}
           </label>
 
+          {activeSortMode === "custom" &&
+            (isCustomOrderEditing ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void cancelCustomOrderEditing()}
+                  disabled={isSavingSort}
+                  className="h-9 rounded-full bg-white/80 px-3 text-sm font-semibold text-zinc-600 shadow-sm ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void saveCustomOrder()}
+                  disabled={isSavingSort}
+                  className="inline-flex h-9 items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSavingSort ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  Save Order
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={startCustomOrderEditing}
+                disabled={isSavingSort}
+                className="inline-flex h-9 items-center gap-2 rounded-full bg-white/85 px-3 text-sm font-semibold text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit custom order
+              </button>
+            ))}
+
           {sortError ? (
             <p className="text-sm font-medium text-rose-600">{sortError}</p>
           ) : (
             <p className="text-sm font-medium text-zinc-500">
-              {sortLabel(activeSortMode)}
+              {isCustomOrderEditing
+                ? "Editing custom order"
+                : sortLabel(activeSortMode)}
             </p>
           )}
         </div>
       )}
 
-      <div className="columns-2 gap-2 sm:columns-2 sm:gap-3 lg:columns-3">
+      <div className="grid grid-cols-2 items-start gap-2 sm:gap-3 lg:grid-cols-3">
         {data.photos.map((photo, index) => (
           <div
             key={photo.id}
-            className="relative mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:mb-3"
+            className="relative overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
           >
-            {canEditSort && activeSortMode === "custom" && (
+            {canEditSort && isCustomOrderEditing && (
               <CustomPositionControl
                 position={index + 1}
                 disabled={isSavingSort}

@@ -27,6 +27,7 @@ export async function GET(request: Request, { params }: Props) {
     const { albumSlug } = await params;
     const requestUrl = new URL(request.url);
     const shareToken = requestUrl.searchParams.get("share") || "";
+    const isPublicShare = Boolean(shareToken);
     console.info("[share-debug] album photos API start", {
       albumSlug,
       hasShareToken: Boolean(shareToken),
@@ -141,9 +142,22 @@ export async function GET(request: Request, { params }: Props) {
         )
         AND COALESCE(p.is_deleted, false) = false
         AND p.upload_status = 'completed'
+        AND (
+          $5::boolean = false
+          OR (
+            lower(COALESCE(p.compression_status, '')) IN ('completed', 'skipped')
+            AND lower(COALESCE(p.watermark_status, '')) IN ('completed', 'skipped')
+          )
+        )
       ORDER BY ${orderBy}
       `,
-      [albumSlug, eventSlug, personIds.length ? personIds : null, peopleMode === "all"]
+      [
+        albumSlug,
+        eventSlug,
+        personIds.length ? personIds : null,
+        peopleMode === "all",
+        isPublicShare,
+      ]
     );
 
     console.info("[share-debug] album photos API rows loaded", {
