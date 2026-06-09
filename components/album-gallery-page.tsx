@@ -2394,8 +2394,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               )}
             </div>
 
-            <div className="flex max-w-full flex-wrap items-center gap-2 overflow-visible sm:flex-nowrap sm:overflow-x-auto sm:[scrollbar-width:none] sm:[-ms-overflow-style:none] sm:[&::-webkit-scrollbar]:hidden xl:justify-end">
-              
+<div className="-mx-3 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none] [-ms-overflow-style:none] sm:mx-0 sm:max-w-full sm:flex-nowrap sm:px-0 xl:justify-end [&::-webkit-scrollbar]:hidden">              
               <button
                 type="button"
                 onClick={() => {
@@ -2439,16 +2438,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </Link>
 
               <Link
-                href={withShareParam(
-                  `/albums/${encodeURIComponent(albumSlug)}/collage`,
-                  shareToken,
-                )}
-                className={`${navPillButtonClass} min-w-[118px]`}
-                aria-label="Create collage"
-              >
-                <LayoutTemplate className="h-4 w-4 shrink-0" />
-                <span>Collage</span>
-              </Link>
+  href={withShareParam(
+    `/albums/${encodeURIComponent(albumSlug)}/collage`,
+    shareToken,
+  )}
+  className={`${navPillButtonClass} hidden min-w-[118px] sm:flex`}
+  aria-label="Create collage"
+>
+  <LayoutTemplate className="h-4 w-4 shrink-0" />
+  <span>Collage</span>
+</Link>
 
               <AlbumDownloadMenu
                 albumSlug={albumSlug}
