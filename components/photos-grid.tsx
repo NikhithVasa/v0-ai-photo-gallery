@@ -43,6 +43,7 @@ const PHOTO_SORT_OPTIONS: Array<{ value: PhotoSortMode; label: string }> = [
 ];
 
 const DEFAULT_SORT_MODE: PhotoSortMode = "added_oldest";
+const RESET_SORT_MODE: PhotoSortMode = "added_newest";
 
 function sortLabel(sortMode: PhotoSortMode) {
   return (
@@ -523,6 +524,14 @@ export function PhotosGrid({
     setSortError("");
   }, [activeSortMode, mutate]);
 
+  const resetSort = useCallback(async () => {
+    if (!data?.photos?.length || !canEditSort) return;
+
+    savedCustomPhotosRef.current = null;
+    setIsCustomOrderEditing(false);
+    await applySortMode(RESET_SORT_MODE);
+  }, [applySortMode, canEditSort, data]);
+
   const endSentinelRef = useRef<HTMLDivElement | null>(null);
   const lastTriggeredKeyRef = useRef<string | null>(null);
 
@@ -682,6 +691,14 @@ export function PhotosGrid({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => void resetSort()}
+                  disabled={isSavingSort}
+                  className="h-9 rounded-full bg-white/80 px-3 text-sm font-semibold text-zinc-600 shadow-sm ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Reset Sort
+                </button>
+                <button
+                  type="button"
                   onClick={() => void cancelCustomOrderEditing()}
                   disabled={isSavingSort}
                   className="h-9 rounded-full bg-white/80 px-3 text-sm font-semibold text-zinc-600 shadow-sm ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
@@ -703,16 +720,37 @@ export function PhotosGrid({
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={startCustomOrderEditing}
-                disabled={isSavingSort}
-                className="inline-flex h-9 items-center gap-2 rounded-full bg-white/85 px-3 text-sm font-semibold text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Pencil className="h-4 w-4" />
-                Edit custom order
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void resetSort()}
+                  disabled={isSavingSort}
+                  className="h-9 rounded-full bg-white/80 px-3 text-sm font-semibold text-zinc-600 shadow-sm ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Reset Sort
+                </button>
+                <button
+                  type="button"
+                  onClick={startCustomOrderEditing}
+                  disabled={isSavingSort}
+                  className="inline-flex h-9 items-center gap-2 rounded-full bg-white/85 px-3 text-sm font-semibold text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit custom order
+                </button>
+              </div>
             ))}
+
+          {activeSortMode !== RESET_SORT_MODE && activeSortMode !== "custom" && (
+            <button
+              type="button"
+              onClick={() => void resetSort()}
+              disabled={isSavingSort}
+              className="h-9 rounded-full bg-white/80 px-3 text-sm font-semibold text-zinc-600 shadow-sm ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Reset Sort
+            </button>
+          )}
 
           {sortError ? (
             <p className="text-sm font-medium text-rose-600">{sortError}</p>
@@ -726,11 +764,19 @@ export function PhotosGrid({
         </div>
       )}
 
-      <div className="grid grid-cols-2 items-start gap-2 sm:gap-3 lg:grid-cols-3">
+      <div
+        className={
+          isCustomOrderEditing
+            ? "grid grid-cols-2 items-start gap-2 sm:gap-3 lg:grid-cols-3"
+            : "columns-2 gap-2 sm:columns-2 sm:gap-3 lg:columns-3"
+        }
+      >
         {data.photos.map((photo, index) => (
           <div
             key={photo.id}
-            className="relative overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
+            className={`relative overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 ${
+              isCustomOrderEditing ? "aspect-square" : "mb-2 break-inside-avoid sm:mb-3"
+            }`}
           >
             {canEditSort && isCustomOrderEditing && (
               <CustomPositionControl
@@ -756,6 +802,8 @@ export function PhotosGrid({
                 photo={photo}
                 index={index}
                 onOpen={handleOpen}
+                forceFill={isCustomOrderEditing}
+                imageFit={isCustomOrderEditing ? "cover" : "contain"}
                 shareSettings={shareSettings}
               />
             )}

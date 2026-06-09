@@ -195,6 +195,7 @@ interface PhotoCardProps {
   index: number;
   onOpen: (index: number, originRect: PhotoOpenRect) => void;
   forceFill?: boolean;
+  imageFit?: "contain" | "cover";
   shareSettings?: AlbumShareSettings | null;
 }
 
@@ -462,6 +463,7 @@ export const PhotoCard = memo(function PhotoCard({
   index,
   onOpen,
   forceFill = false,
+  imageFit = "contain",
   shareSettings,
 }: PhotoCardProps) {
   const imageCandidates = useMemo(() => previewUrlsForPhoto(photo), [photo]);
@@ -479,10 +481,14 @@ export const PhotoCard = memo(function PhotoCard({
     : shareSettings?.allowDownloads ?? true;
 
   useEffect(() => {
+    if (index < 18) setShouldLoadImage(true);
+  }, [index]);
+
+  useEffect(() => {
     setShouldLoadImage(index < 18);
     setIsImageLoaded(false);
     setActiveImageIndex(0);
-  }, [index, photo.id]);
+  }, [photo.id]);
 
   useEffect(() => {
     setIsImageLoaded(false);
@@ -592,14 +598,14 @@ export const PhotoCard = memo(function PhotoCard({
           <WatermarkedImage
             src={imageUrl}
             alt={photo.caption || "Photo"}
-            className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
+            className={`absolute inset-0 h-full w-full transition-opacity duration-300 ${
               isImageLoaded ? "opacity-100" : "opacity-0"
             }`}
             loading="eager"
             decoding="async"
             fetchPriority={index < 8 ? "high" : "auto"}
             settings={shareSettings}
-            fit="contain"
+            fit={imageFit}
             onLoad={handleImageLoad}
             onError={handleImageError}
           />

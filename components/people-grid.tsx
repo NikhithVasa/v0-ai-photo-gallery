@@ -274,7 +274,7 @@ export function PeopleGrid({
       </div>
 
       {isSelectionMode && (
-        <div className="sticky top-[112px] z-20 w-full max-w-full overflow-hidden rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-sm backdrop-blur-md sm:top-[132px]">
+        <div className="sticky top-[86px] z-20 w-full max-w-full overflow-hidden rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-sm backdrop-blur-md sm:top-4">
           <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
               <div className="flex max-w-[42vw] shrink-0 -space-x-2 overflow-hidden sm:max-w-none">

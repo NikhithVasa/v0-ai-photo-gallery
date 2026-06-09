@@ -24,6 +24,7 @@ interface EventStatsRow {
   photo_count: number | string | null;
   people_count: number | string | null;
   pending_ai_count: number | string | null;
+  failed_ai_count: number | string | null;
 }
 
 function countValue(value: number | string | null) {
@@ -132,7 +133,12 @@ export async function GET(request: Request, { params }: Props) {
                       'started',
                       'in_progress'
                     )
-            )::int AS pending_ai_count
+            )::int AS pending_ai_count,
+            COUNT(*) FILTER (
+              WHERE lower(COALESCE(face_index_status, '')) IN ('failed', 'error')
+                 OR lower(COALESCE(qwen_status, '')) IN ('failed', 'error')
+                 OR lower(COALESCE(search_index_status, '')) IN ('failed', 'error')
+            )::int AS failed_ai_count
           FROM photos
           WHERE album_id = $1::uuid
             AND COALESCE(is_deleted, false) = false
@@ -153,7 +159,8 @@ export async function GET(request: Request, { params }: Props) {
           e.id AS event_id,
           COALESCE(epc.photo_count, 0)::int AS photo_count,
           COALESCE(epec.people_count, 0)::int AS people_count,
-          COALESCE(epc.pending_ai_count, 0)::int AS pending_ai_count
+          COALESCE(epc.pending_ai_count, 0)::int AS pending_ai_count,
+          COALESCE(epc.failed_ai_count, 0)::int AS failed_ai_count
         FROM album_events e
         LEFT JOIN event_photo_counts epc ON epc.album_event_id = e.id
         LEFT JOIN event_people_counts epec ON epec.album_event_id = e.id
@@ -174,6 +181,7 @@ export async function GET(request: Request, { params }: Props) {
             photoCount: countValue(event.photo_count),
             peopleCount: countValue(event.people_count),
             pendingAiCount: countValue(event.pending_ai_count),
+            failedAiCount: countValue(event.failed_ai_count),
           })),
         },
       },

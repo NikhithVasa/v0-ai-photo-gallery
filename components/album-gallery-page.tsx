@@ -141,6 +141,7 @@ interface AlbumStatsResponse {
       photoCount: number;
       peopleCount: number;
       pendingAiCount?: number;
+      failedAiCount?: number;
     }[];
   };
 }
@@ -1289,6 +1290,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [eventNameDraft, setEventNameDraft] = useState("");
   const [isSavingEventName, setIsSavingEventName] = useState(false);
+  const [isRetryingAiDetails, setIsRetryingAiDetails] = useState(false);
   const [apsaraTextSearch, setApsaraTextSearch] = useState<{
     query: string;
     photos: Photo[];
@@ -1988,9 +1990,41 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const selectedEventStats = statsData?.stats.events.find(
     (event) => event.eventId === selectedEvent?.id
   );
-  const isAiDataLoadingForEvent = Boolean(
-    selectedEvent && (selectedEventStats?.pendingAiCount ?? 0) > 0
-  );
+  const pendingAiCount = selectedEventStats?.pendingAiCount ?? 0;
+  const failedAiCount = selectedEventStats?.failedAiCount ?? 0;
+  const aiDetailsBannerState = !selectedEvent
+    ? "hidden"
+    : pendingAiCount > 0
+      ? "pending"
+      : failedAiCount > 0
+        ? "failed"
+        : "hidden";
+
+  const retryAiDetails = async () => {
+    if (!selectedEvent || isRetryingAiDetails) return;
+
+    setIsRetryingAiDetails(true);
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/ai`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "process_new",
+            eventSlugs: [selectedEvent.slug],
+          }),
+        },
+      );
+
+      if (!response.ok) throw new Error("Failed to retry AI processing");
+      await mutateStats();
+    } catch (retryError) {
+      console.error("Failed to retry AI details:", retryError);
+    } finally {
+      setIsRetryingAiDetails(false);
+    }
+  };
 
   const eventHeader = selectedEvent && !isShareView ? (
     <EventNameControl
@@ -2077,20 +2111,20 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               alt={album.name}
               fill
               sizes="100vw"
-              className="object-cover object-[center_35%] opacity-35 saturate-[1.08] contrast-[1.03]"
+              className="object-cover object-[center_35%] opacity-100 saturate-[1.08] contrast-[1.03] sm:opacity-35"
               priority
               unoptimized
             />
           )}
           <div
-            className="absolute inset-0 bg-[#f5f5f7]/68 backdrop-blur-[2px]"
+            className="absolute inset-0 hidden bg-[#f5f5f7]/68 backdrop-blur-[2px] sm:block"
             style={{ backgroundColor: galleryOverlayColor }}
           />
 
           <div
             className="relative z-10 flex w-full max-w-6xl flex-col items-center pb-16"
           >
-            <div className="relative grid w-full items-center gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(300px,460px)_minmax(0,1fr)] sm:gap-4 lg:gap-6">
+            <div className="relative hidden w-full items-center gap-5 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(300px,460px)_minmax(0,1fr)] sm:gap-4 lg:gap-6">
               <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
                 <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[340px] sm:-rotate-90">
                   <span>Photos by</span>
@@ -2137,13 +2171,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             </div>
 
             {album.description && (
-              <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-500">
+              <p className="mt-4 hidden max-w-2xl text-base leading-7 text-zinc-500 sm:block">
                 {album.description}
               </p>
             )}
 
             {album.isExpired && (
-              <div className="mt-5 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-rose-700">
+              <div className="mt-5 hidden rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-rose-700 sm:block">
                 Album expired
               </div>
             )}
@@ -2166,7 +2200,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
       <header
         id="album-gallery-shell"
-        className={`sticky top-0 z-30 px-0 pt-0 transition-transform duration-300 ease-out will-change-transform sm:px-5 sm:pt-3 ${
+        className={`sticky top-0 z-30 px-0 pt-0 transition-transform duration-300 ease-out will-change-transform sm:px-5 sm:pt-2 ${
+          !isCoverDismissed ? "hidden" : ""
+        } ${
           isNavHidden ? "sm:-translate-y-[calc(100%+0.75rem)]" : "translate-y-0"
         }`}
       >
@@ -2680,10 +2716,29 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   </div>
                 )}
               </div>
-              {!isShareView && isAiDataLoadingForEvent && (
-                <div className="mt-4 rounded-2xl border border-[#d8ddff] bg-[#f3f5ff] px-4 py-3 text-sm text-zinc-700">
-                  AI data is loading for this event. Photos are available now;
-                  people and search details will appear after processing finishes.
+              {!isShareView && aiDetailsBannerState !== "hidden" && (
+                <div
+                  className={`mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${
+                    aiDetailsBannerState === "failed"
+                      ? "border-amber-200 bg-amber-50 text-amber-900"
+                      : "border-[#d8ddff] bg-[#f3f5ff] text-zinc-700"
+                  }`}
+                >
+                  <span>
+                    {aiDetailsBannerState === "failed"
+                      ? "Some AI details failed to process. Photos are available."
+                      : "Photos are ready. AI details are still processing."}
+                  </span>
+                  {aiDetailsBannerState === "failed" && (
+                    <button
+                      type="button"
+                      onClick={() => void retryAiDetails()}
+                      disabled={isRetryingAiDetails}
+                      className="h-8 rounded-full bg-white/80 px-3 text-xs font-semibold text-amber-900 ring-1 ring-amber-200 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isRetryingAiDetails ? "Retrying..." : "Retry AI processing"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
