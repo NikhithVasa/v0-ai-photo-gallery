@@ -45,6 +45,39 @@ const PHOTO_SORT_OPTIONS: Array<{ value: PhotoSortMode; label: string }> = [
 const DEFAULT_SORT_MODE: PhotoSortMode = "added_oldest";
 const RESET_SORT_MODE: PhotoSortMode = "added_newest";
 
+function scrollDebugMetrics(gridRoot?: HTMLElement | null) {
+  if (typeof window === "undefined") return {};
+
+  const html = document.documentElement;
+  const body = document.body;
+  const htmlStyle = window.getComputedStyle(html);
+  const bodyStyle = window.getComputedStyle(body);
+  const gridRect = gridRoot?.getBoundingClientRect();
+  const sentinel = document.querySelector<HTMLElement>("[data-photos-grid-end]");
+  const sentinelRect = sentinel?.getBoundingClientRect();
+  const scrollHeight = Math.max(html.scrollHeight, body.scrollHeight);
+
+  return {
+    scrollY: Math.round(window.scrollY),
+    maxScrollY: Math.max(scrollHeight - window.innerHeight, 0),
+    innerHeight: Math.round(window.innerHeight),
+    visualViewportHeight: Math.round(window.visualViewport?.height ?? 0),
+    htmlClientHeight: html.clientHeight,
+    htmlScrollHeight: html.scrollHeight,
+    bodyClientHeight: body.clientHeight,
+    bodyScrollHeight: body.scrollHeight,
+    htmlOverflowY: htmlStyle.overflowY,
+    bodyOverflowY: bodyStyle.overflowY,
+    bodyPosition: bodyStyle.position,
+    bodyInlinePosition: body.style.position || "(empty)",
+    bodyInlineTop: body.style.top || "(empty)",
+    gridTop: gridRect ? Math.round(gridRect.top) : null,
+    gridHeight: gridRect ? Math.round(gridRect.height) : null,
+    sentinelTop: sentinelRect ? Math.round(sentinelRect.top) : null,
+    sentinelHeight: sentinelRect ? Math.round(sentinelRect.height) : null,
+  };
+}
+
 function sortLabel(sortMode: PhotoSortMode) {
   return (
     PHOTO_SORT_OPTIONS.find((option) => option.value === sortMode)?.label ??
@@ -343,6 +376,7 @@ export function PhotosGrid({
   shareSettings,
   canManageSort = false,
 }: PhotosGridProps) {
+  const gridRootRef = useRef<HTMLDivElement | null>(null);
   const photosRequestUrl = useMemo(
     () =>
       photosUrl(
@@ -379,6 +413,43 @@ export function PhotosGrid({
   const activeSortMode = data?.sortMode ?? DEFAULT_SORT_MODE;
   const canEditSort =
     canManageSort && selectedPeopleIds.length === 0 && !isSelectionMode;
+
+  const logGridScrollDebug = useCallback(
+    (label: string, extra: Record<string, unknown> = {}) => {
+      console.log(`[photos-scroll-debug] photos-grid ${label}`, {
+        albumSlug,
+        selectedEventSlug,
+        selectedPeopleIds,
+        peopleMatchMode,
+        shareView: Boolean(shareToken),
+        requestUrl: photosRequestUrl,
+        isLoading,
+        hasError: Boolean(error),
+        photoCount: data?.photos?.length ?? 0,
+        activeSortMode,
+        isCustomOrderEditing,
+        isSelectionMode,
+        canEditSort,
+        ...scrollDebugMetrics(gridRootRef.current),
+        ...extra,
+      });
+    },
+    [
+      activeSortMode,
+      albumSlug,
+      canEditSort,
+      data?.photos?.length,
+      error,
+      isCustomOrderEditing,
+      isLoading,
+      isSelectionMode,
+      peopleMatchMode,
+      photosRequestUrl,
+      selectedEventSlug,
+      selectedPeopleIds,
+      shareToken,
+    ],
+  );
 
   const saveSort = useCallback(
     async (sortMode: PhotoSortMode, photos: Photo[]) => {
@@ -553,41 +624,135 @@ export function PhotosGrid({
     ],
   );
 
+  useEffect(() => {
+    logGridScrollDebug("state changed");
+  }, [
+    activeSortMode,
+    data?.photos?.length,
+    error,
+    isCustomOrderEditing,
+    isLoading,
+    isSelectionMode,
+    logGridScrollDebug,
+    photosRequestUrl,
+  ]);
+
+  useEffect(() => {
+    const grid = gridRootRef.current;
+    let lastScrollLogAt = 0;
+    let lastGridInputLogAt = 0;
+
+    const logWindowScroll = () => {
+      const now = performance.now();
+      if (now - lastScrollLogAt < 250) return;
+      lastScrollLogAt = now;
+      logGridScrollDebug("window scroll observed");
+    };
+
+    const logGridWheel = (event: WheelEvent) => {
+      const now = performance.now();
+      if (now - lastGridInputLogAt < 120) return;
+      lastGridInputLogAt = now;
+      logGridScrollDebug("wheel over grid", {
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        cancelable: event.cancelable,
+        defaultPrevented: event.defaultPrevented,
+      });
+    };
+
+    const logGridTouchMove = (event: TouchEvent) => {
+      const now = performance.now();
+      if (now - lastGridInputLogAt < 120) return;
+      lastGridInputLogAt = now;
+      const touch = event.touches[0];
+      logGridScrollDebug("touchmove over grid", {
+        touchCount: event.touches.length,
+        touchClientY: touch?.clientY ?? null,
+        cancelable: event.cancelable,
+        defaultPrevented: event.defaultPrevented,
+      });
+    };
+
+    logGridScrollDebug("listeners attached", {
+      hasGridRoot: Boolean(grid),
+    });
+    window.addEventListener("scroll", logWindowScroll, { passive: true });
+    grid?.addEventListener("wheel", logGridWheel, { passive: true });
+    grid?.addEventListener("touchmove", logGridTouchMove, { passive: true });
+
+    return () => {
+      logGridScrollDebug("listeners detached", {
+        hadGridRoot: Boolean(grid),
+      });
+      window.removeEventListener("scroll", logWindowScroll);
+      grid?.removeEventListener("wheel", logGridWheel);
+      grid?.removeEventListener("touchmove", logGridTouchMove);
+    };
+  }, [data?.photos?.length, logGridScrollDebug]);
+
   const handleOpen = useCallback((index: number, originRect: PhotoOpenRect) => {
+    logGridScrollDebug("open lightbox", { index });
     setLightboxState({ index, originRect });
-  }, []);
+  }, [logGridScrollDebug]);
 
   const handleNavigate = useCallback((index: number) => {
+    logGridScrollDebug("navigate lightbox", { index });
     setLightboxState({ index });
-  }, []);
+  }, [logGridScrollDebug]);
 
   useEffect(() => {
     if (!openPhotoId || !data?.photos?.length) return;
 
     const index = data.photos.findIndex((photo) => photo.id === openPhotoId);
+    logGridScrollDebug("open photo id requested", {
+      openPhotoId,
+      resolvedIndex: index,
+    });
     if (index >= 0) {
       setLightboxState({ index });
     }
 
     onOpenPhotoHandled?.();
-  }, [data?.photos, onOpenPhotoHandled, openPhotoId]);
+  }, [data?.photos, logGridScrollDebug, onOpenPhotoHandled, openPhotoId]);
 
   useEffect(() => {
-    if (!onReachedEnd) return;
-    if (isLoading) return;
-    if (!data?.photos?.length) return;
+    if (!onReachedEnd) {
+      logGridScrollDebug("end sentinel disabled", { reason: "no callback" });
+      return;
+    }
+    if (isLoading) {
+      logGridScrollDebug("end sentinel waiting", { reason: "loading" });
+      return;
+    }
+    if (!data?.photos?.length) {
+      logGridScrollDebug("end sentinel waiting", { reason: "no photos" });
+      return;
+    }
 
     const sentinel = endSentinelRef.current;
-    if (!sentinel) return;
+    if (!sentinel) {
+      logGridScrollDebug("end sentinel missing");
+      return;
+    }
+
+    logGridScrollDebug("end sentinel observer attached", { triggerKey });
 
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
+        logGridScrollDebug("end sentinel intersection", {
+          isIntersecting: Boolean(entry?.isIntersecting),
+          intersectionRatio: entry?.intersectionRatio ?? null,
+          triggerKey,
+          lastTriggeredKey: lastTriggeredKeyRef.current,
+        });
         if (!entry?.isIntersecting) return;
 
         if (lastTriggeredKeyRef.current === triggerKey) return;
         lastTriggeredKeyRef.current = triggerKey;
 
+        logGridScrollDebug("end sentinel reached", { triggerKey });
         onReachedEnd();
       },
       {
@@ -599,13 +764,20 @@ export function PhotosGrid({
 
     observer.observe(sentinel);
 
-    return () => observer.disconnect();
-  }, [data?.photos?.length, isLoading, onReachedEnd, triggerKey]);
+    return () => {
+      logGridScrollDebug("end sentinel observer detached", { triggerKey });
+      observer.disconnect();
+    };
+  }, [data?.photos?.length, isLoading, logGridScrollDebug, onReachedEnd, triggerKey]);
 
   if (error) {
     console.error("Photos loading error:", error);
     return (
-      <div className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl">
+      <div
+        ref={gridRootRef}
+        data-photos-grid-root
+        className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl"
+      >
         <p className="text-sm font-medium text-rose-700">
           Failed to load photos
         </p>
@@ -627,7 +799,11 @@ export function PhotosGrid({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
+      <div
+        ref={gridRootRef}
+        data-photos-grid-root
+        className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3"
+      >
         {Array.from({ length: 14 }).map((_, index) => (
           <div key={index}>
             <Skeleton
@@ -649,7 +825,11 @@ export function PhotosGrid({
 
   if (!data?.photos?.length) {
     return (
-      <div className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center text-zinc-500 shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl">
+      <div
+        ref={gridRootRef}
+        data-photos-grid-root
+        className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center text-zinc-500 shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl"
+      >
         {selectedPeopleIds.length
           ? peopleMatchMode === "any" && selectedPeopleIds.length > 1
             ? "No photos found for any of the selected people."
@@ -662,7 +842,7 @@ export function PhotosGrid({
   }
 
   return (
-    <>
+    <div ref={gridRootRef} data-photos-grid-root className="min-w-0">
       {canEditSort && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-2 sm:px-0">
           <label className="flex h-10 max-w-full items-center gap-2 rounded-full bg-white/85 px-3 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 backdrop-blur">
@@ -811,7 +991,7 @@ export function PhotosGrid({
         ))}
       </div>
 
-      <div ref={endSentinelRef} className="h-px w-full" />
+      <div ref={endSentinelRef} data-photos-grid-end className="h-px w-full" />
 
       {lightboxState !== null && !isSelectionMode && (
         <PhotoLightbox
@@ -841,6 +1021,6 @@ export function PhotosGrid({
           shareSettings={shareSettings}
         />
       )}
-    </>
+    </div>
   );
 }

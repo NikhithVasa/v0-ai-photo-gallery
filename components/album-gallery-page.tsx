@@ -107,6 +107,41 @@ const navPillButtonActiveClass =
 const navIconButtonClass =
   "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-zinc-500 ring-1 ring-inset ring-black/10 transition hover:bg-white/55 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
 
+function scrollDebugMetrics() {
+  if (typeof window === "undefined") return {};
+
+  const html = document.documentElement;
+  const body = document.body;
+  const htmlStyle = window.getComputedStyle(html);
+  const bodyStyle = window.getComputedStyle(body);
+  const shell = document.getElementById("album-gallery-shell");
+  const grid = document.querySelector<HTMLElement>("[data-photos-grid-root]");
+  const shellRect = shell?.getBoundingClientRect();
+  const gridRect = grid?.getBoundingClientRect();
+  const scrollHeight = Math.max(html.scrollHeight, body.scrollHeight);
+
+  return {
+    scrollY: Math.round(window.scrollY),
+    maxScrollY: Math.max(scrollHeight - window.innerHeight, 0),
+    innerHeight: Math.round(window.innerHeight),
+    visualViewportHeight: Math.round(window.visualViewport?.height ?? 0),
+    htmlClientHeight: html.clientHeight,
+    htmlScrollHeight: html.scrollHeight,
+    bodyClientHeight: body.clientHeight,
+    bodyScrollHeight: body.scrollHeight,
+    htmlOverflowY: htmlStyle.overflowY,
+    bodyOverflowY: bodyStyle.overflowY,
+    bodyPosition: bodyStyle.position,
+    bodyInlinePosition: body.style.position || "(empty)",
+    bodyInlineTop: body.style.top || "(empty)",
+    shellOffsetTop: shell?.offsetTop ?? null,
+    shellTop: shellRect ? Math.round(shellRect.top) : null,
+    shellHeight: shellRect ? Math.round(shellRect.height) : null,
+    gridTop: gridRect ? Math.round(gridRect.top) : null,
+    gridHeight: gridRect ? Math.round(gridRect.height) : null,
+  };
+}
+
 const fetcher = async (url: string) => {
   const response = await fetch(url);
   const contentType = response.headers.get("content-type") || "";
@@ -1260,6 +1295,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverScrollAnimationFrameRef = useRef<number | null>(null);
   const coverTouchStartYRef = useRef<number | null>(null);
   const coverGestureTriggeredRef = useRef(false);
+  const isCoverDismissedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   const programmaticNavScrollRef = useRef(false);
   const programmaticNavScrollTimerRef = useRef<number | null>(null);
@@ -1414,8 +1450,37 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     ? shareBackgroundRgba(galleryBackgroundColor, 0.86)
     : "rgba(255, 255, 255, 0.82)";
 
+  isCoverDismissedRef.current = isCoverDismissed;
+
+  const logScrollDebug = (
+    label: string,
+    extra: Record<string, unknown> = {},
+  ) => {
+    console.log(`[photos-scroll-debug] ${label}`, {
+      albumSlug,
+      activeTab,
+      selectedEventSlug,
+      selectedPeopleIds,
+      selectedPersonId: selectedPerson?.id ?? null,
+      isShareView,
+      isCoverDismissed,
+      isCoverDismissedRef: isCoverDismissedRef.current,
+      isCoverTransitioning,
+      isCoverSliding,
+      coverGestureTriggered: coverGestureTriggeredRef.current,
+      isPhotoSelectionMode,
+      albumPhotoCount: album?.photoCount ?? null,
+      eventCount: album?.events.length ?? null,
+      ...scrollDebugMetrics(),
+      ...extra,
+    });
+  };
+
   const cancelGalleryScrollAnimation = () => {
     if (coverScrollAnimationFrameRef.current === null) return;
+    logScrollDebug("cancel gallery scroll animation", {
+      frameId: coverScrollAnimationFrameRef.current,
+    });
     window.cancelAnimationFrame(coverScrollAnimationFrameRef.current);
     coverScrollAnimationFrameRef.current = null;
   };
@@ -1437,6 +1502,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const clearAutoCoverScroll = () => {
     autoCoverScrollDoneRef.current = true;
     if (autoCoverScrollTimerRef.current !== null) {
+      logScrollDebug("clear auto cover scroll timer", {
+        timerId: autoCoverScrollTimerRef.current,
+      });
       window.clearTimeout(autoCoverScrollTimerRef.current);
       autoCoverScrollTimerRef.current = null;
     }
@@ -1444,34 +1512,55 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   const clearCoverRevealTransition = () => {
     if (coverRevealAnimationFrameRef.current !== null) {
+      logScrollDebug("clear cover reveal animation frame", {
+        frameId: coverRevealAnimationFrameRef.current,
+      });
       window.cancelAnimationFrame(coverRevealAnimationFrameRef.current);
       coverRevealAnimationFrameRef.current = null;
     }
 
     if (coverRevealTimerRef.current !== null) {
+      logScrollDebug("clear cover reveal timer", {
+        timerId: coverRevealTimerRef.current,
+      });
       window.clearTimeout(coverRevealTimerRef.current);
       coverRevealTimerRef.current = null;
     }
   };
 
-  const enterLockedGalleryView = () => {
+  const enterLockedGalleryView = (reason = "unknown") => {
+    isCoverDismissedRef.current = true;
+    coverGestureTriggeredRef.current = false;
+    clearAutoCoverScroll();
+    clearCoverRevealTransition();
+    cancelGalleryScrollAnimation();
+    logScrollDebug("enter gallery view", { reason });
     setIsCoverDismissed(true);
     setIsCoverTransitioning(false);
     setIsCoverSliding(false);
     requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      logScrollDebug("enter gallery view after scroll reset", { reason });
     });
   };
 
   const revealGalleryFromCover = () => {
     if (
-      isCoverDismissed ||
+      isCoverDismissedRef.current ||
       isCoverTransitioning ||
       coverGestureTriggeredRef.current
     ) {
+      logScrollDebug("reveal gallery ignored", {
+        reason: isCoverDismissedRef.current
+          ? "cover already dismissed"
+          : isCoverTransitioning
+            ? "cover already transitioning"
+            : "cover gesture already triggered",
+      });
       return;
     }
 
+    logScrollDebug("reveal gallery from cover start");
     clearAutoCoverScroll();
     cancelGalleryScrollAnimation();
     clearCoverRevealTransition();
@@ -1485,18 +1574,21 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     coverRevealAnimationFrameRef.current = window.requestAnimationFrame(() => {
       coverRevealAnimationFrameRef.current = null;
       setIsCoverSliding(true);
+      logScrollDebug("cover slide animation started");
     });
 
     coverRevealTimerRef.current = window.setTimeout(() => {
       coverRevealTimerRef.current = null;
-      enterLockedGalleryView();
+      enterLockedGalleryView("cover reveal timer");
     }, 920);
   };
 
   const scrollToGalleryTop = (
     mode: "instant" | "normal" | "soothing" = "normal",
   ) => {
-    if (mode === "soothing" && !isCoverDismissed) {
+    logScrollDebug("scrollToGalleryTop requested", { mode });
+
+    if (!isCoverDismissedRef.current) {
       revealGalleryFromCover();
       return;
     }
@@ -1508,6 +1600,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
       const shell = document.getElementById("album-gallery-shell");
       const targetTop = shell ? Math.max(shell.offsetTop - 8, 0) : 0;
+      logScrollDebug("scrollToGalleryTop target calculated", {
+        mode,
+        targetTop,
+        shellFound: Boolean(shell),
+      });
 
       if (
         mode === "instant" ||
@@ -1519,7 +1616,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           left: 0,
           behavior: mode === "instant" ? "auto" : "smooth",
         });
-        enterLockedGalleryView();
+        enterLockedGalleryView(`scrollToGalleryTop:${mode}`);
         return;
       }
 
@@ -1545,7 +1642,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         }
 
         coverScrollAnimationFrameRef.current = null;
-        enterLockedGalleryView();
+        enterLockedGalleryView(`scrollToGalleryTop animation:${mode}`);
       };
 
       coverScrollAnimationFrameRef.current = window.requestAnimationFrame(animate);
@@ -1553,14 +1650,24 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   const triggerCoverGestureScroll = () => {
-    if (isCoverDismissed || coverGestureTriggeredRef.current) {
+    if (isCoverDismissedRef.current || coverGestureTriggeredRef.current) {
+      logScrollDebug("cover gesture ignored", {
+        reason: isCoverDismissedRef.current
+          ? "cover already dismissed"
+          : "gesture already triggered",
+      });
       return;
     }
 
+    logScrollDebug("cover gesture accepted");
     scrollToGalleryTop("soothing");
   };
 
   const handleCoverWheel = (event: ReactWheelEvent<HTMLElement>) => {
+    logScrollDebug("cover wheel", {
+      deltaY: event.deltaY,
+      cancelable: event.cancelable,
+    });
     if (event.deltaY > 4) {
       if (event.cancelable) event.preventDefault();
       triggerCoverGestureScroll();
@@ -1575,6 +1682,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     const startY = coverTouchStartYRef.current;
     const currentY = event.touches[0]?.clientY;
     if (startY === null || currentY === undefined) return;
+
+    logScrollDebug("cover touch move", {
+      startY,
+      currentY,
+      deltaY: currentY - startY,
+      cancelable: event.cancelable,
+    });
 
     if (event.cancelable) event.preventDefault();
 
@@ -1591,7 +1705,23 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       coverScrollAnimationFrameRef.current !== null;
 
     const handleNativeWheel = (event: WheelEvent) => {
-      if (event.deltaY > 4 || isCoverScrollRunning()) {
+      if (isCoverDismissedRef.current) {
+        logScrollDebug("native cover wheel ignored after gallery entered", {
+          deltaY: event.deltaY,
+          cancelable: event.cancelable,
+        });
+        return;
+      }
+
+      const shouldBlock = event.deltaY > 4 || isCoverScrollRunning();
+      logScrollDebug("native cover wheel", {
+        deltaY: event.deltaY,
+        cancelable: event.cancelable,
+        shouldBlock,
+        willTriggerReveal: event.deltaY > 4,
+      });
+
+      if (shouldBlock) {
         if (event.cancelable) event.preventDefault();
       }
 
@@ -1601,20 +1731,51 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     };
 
     const handleNativeTouchStart = (event: TouchEvent) => {
+      if (isCoverDismissedRef.current) {
+        logScrollDebug("native cover touchstart ignored after gallery entered", {
+          touchCount: event.touches.length,
+        });
+        return;
+      }
+
       coverTouchStartYRef.current = event.touches[0]?.clientY ?? null;
+      logScrollDebug("native cover touchstart", {
+        startY: coverTouchStartYRef.current,
+        touchCount: event.touches.length,
+      });
     };
 
     const handleNativeTouchMove = (event: TouchEvent) => {
+      if (isCoverDismissedRef.current) {
+        logScrollDebug("native cover touchmove ignored after gallery entered", {
+          touchCount: event.touches.length,
+          cancelable: event.cancelable,
+        });
+        return;
+      }
+
       const startY = coverTouchStartYRef.current;
       const currentY = event.touches[0]?.clientY;
       if (startY === null || currentY === undefined) return;
 
+      const deltaY = currentY - startY;
+      const willTriggerReveal = Math.abs(deltaY) > 24;
+      logScrollDebug("native cover touchmove", {
+        startY,
+        currentY,
+        deltaY,
+        cancelable: event.cancelable,
+        willTriggerReveal,
+      });
+
       if (event.cancelable) event.preventDefault();
 
-      if (Math.abs(currentY - startY) > 24) {
+      if (willTriggerReveal) {
         triggerCoverGestureScroll();
       }
     };
+
+    logScrollDebug("native cover scroll interceptors attached");
 
     window.addEventListener("wheel", handleNativeWheel, {
       capture: true,
@@ -1630,6 +1791,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     });
 
     return () => {
+      logScrollDebug("native cover scroll interceptors detached");
       window.removeEventListener("wheel", handleNativeWheel, { capture: true });
       window.removeEventListener("touchstart", handleNativeTouchStart, {
         capture: true,
@@ -1639,6 +1801,49 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       });
     };
   }, [isCoverDismissed]);
+
+  useEffect(() => {
+    logScrollDebug("album scroll state changed");
+  }, [
+    activeTab,
+    albumSlug,
+    isCoverDismissed,
+    isCoverSliding,
+    isCoverTransitioning,
+    isPhotoSelectionMode,
+    selectedEventSlug,
+    selectedPeopleIds,
+    selectedPerson,
+  ]);
+
+  useEffect(() => {
+    let lastLogAt = 0;
+
+    const handleDebugScroll = () => {
+      const now = performance.now();
+      if (now - lastLogAt < 250) return;
+      lastLogAt = now;
+      logScrollDebug("window scroll observed");
+    };
+
+    logScrollDebug("window scroll logger attached");
+    window.addEventListener("scroll", handleDebugScroll, { passive: true });
+
+    return () => {
+      logScrollDebug("window scroll logger detached");
+      window.removeEventListener("scroll", handleDebugScroll);
+    };
+  }, [
+    activeTab,
+    albumSlug,
+    isCoverDismissed,
+    isCoverSliding,
+    isCoverTransitioning,
+    isPhotoSelectionMode,
+    selectedEventSlug,
+    selectedPeopleIds,
+    selectedPerson,
+  ]);
 
   useEffect(() => {
     autoCoverScrollDoneRef.current = false;
@@ -1664,17 +1869,27 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       const shell = document.getElementById("album-gallery-shell");
       if (!shell) return;
 
-      if (window.scrollY >= Math.max(shell.offsetTop - 24, 0)) {
+      const targetY = Math.max(shell.offsetTop - 24, 0);
+      logScrollDebug("dismiss watcher scroll check", {
+        targetY,
+        shellOffsetTop: shell.offsetTop,
+      });
+
+      if (window.scrollY >= targetY) {
         clearAutoCoverScroll();
         cancelGalleryScrollAnimation();
-        enterLockedGalleryView();
+        enterLockedGalleryView("dismiss watcher reached gallery");
       }
     };
 
+    logScrollDebug("dismiss watcher attached");
     window.addEventListener("scroll", dismissWhenGalleryIsReached, {
       passive: true,
     });
-    return () => window.removeEventListener("scroll", dismissWhenGalleryIsReached);
+    return () => {
+      logScrollDebug("dismiss watcher detached");
+      window.removeEventListener("scroll", dismissWhenGalleryIsReached);
+    };
   }, [isCoverDismissed, isCoverTransitioning]);
 
   useEffect(() => {
