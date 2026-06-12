@@ -124,14 +124,14 @@ function previewUrlsForPhoto(photo: Photo) {
   return uniqueUrls([
     photo.previewUrl,
     photo.thumbnailUrl,
-    mediaUrlForS3Key(photo.cleanPreviewS3Key),
-    mediaUrlForS3Key(photo.watermarkedPreviewS3Key),
-    mediaUrlForS3Key(photo.thumbnailS3Key),
-    mediaUrlForS3Key(photo.aiInputS3Key),
     cloudFrontImageUrl(photo.cleanPreviewS3Key),
     cloudFrontImageUrl(photo.watermarkedPreviewS3Key),
     cloudFrontImageUrl(photo.thumbnailS3Key),
     cloudFrontImageUrl(photo.aiInputS3Key),
+    mediaUrlForS3Key(photo.cleanPreviewS3Key),
+    mediaUrlForS3Key(photo.watermarkedPreviewS3Key),
+    mediaUrlForS3Key(photo.thumbnailS3Key),
+    mediaUrlForS3Key(photo.aiInputS3Key),
   ]);
 }
 
@@ -967,8 +967,8 @@ export function PhotoLightbox({
 
       const originalUrl = uniqueUrls([
         signedUrlsByPhotoId[photoId]?.originalUrl,
-        mediaUrlForS3Key(targetPhoto?.originalS3Key),
         cloudFrontImageUrl(targetPhoto?.originalS3Key),
+        mediaUrlForS3Key(targetPhoto?.originalS3Key),
       ]).find((url) => {
         if (failedOriginalUrlsByPhotoId[photoId] === url) return false;
         return originalPreloadRef.current.get(photoId) !== url;

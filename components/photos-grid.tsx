@@ -190,6 +190,10 @@ function SelectionPhotoCell({
           [
             photo.previewUrl,
             photo.thumbnailUrl,
+            cloudFrontImageUrl(photo.cleanPreviewS3Key),
+            cloudFrontImageUrl(photo.watermarkedPreviewS3Key),
+            cloudFrontImageUrl(photo.thumbnailS3Key),
+            cloudFrontImageUrl(photo.aiInputS3Key),
             photo.cleanPreviewS3Key
               ? `/api/media?key=${encodeURIComponent(photo.cleanPreviewS3Key)}`
               : null,
@@ -202,10 +206,6 @@ function SelectionPhotoCell({
             photo.aiInputS3Key
               ? `/api/media?key=${encodeURIComponent(photo.aiInputS3Key)}`
               : null,
-            cloudFrontImageUrl(photo.cleanPreviewS3Key),
-            cloudFrontImageUrl(photo.watermarkedPreviewS3Key),
-            cloudFrontImageUrl(photo.thumbnailS3Key),
-            cloudFrontImageUrl(photo.aiInputS3Key),
           ].filter((url): url is string => Boolean(url)),
         ),
       ),
