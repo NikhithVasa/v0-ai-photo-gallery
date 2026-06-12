@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ArrowUpDown, Check, Loader2, Pencil } from "lucide-react";
 import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
@@ -44,6 +50,11 @@ const PHOTO_SORT_OPTIONS: Array<{ value: PhotoSortMode; label: string }> = [
 
 const DEFAULT_SORT_MODE: PhotoSortMode = "added_oldest";
 const RESET_SORT_MODE: PhotoSortMode = "added_newest";
+
+function isPhotosScrollDebugEnabled() {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).has("scrollDebug");
+}
 
 function scrollDebugMetrics(gridRoot?: HTMLElement | null) {
   if (typeof window === "undefined") return {};
@@ -156,6 +167,141 @@ function positionsPayload(photos: Photo[]) {
     photoId: photo.id,
     position: index + 1,
   }));
+}
+
+type VirtualMasonryItem = {
+  photo: Photo;
+  index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+function masonryColumnCount(width: number) {
+  return width >= 1024 ? 3 : 2;
+}
+
+function masonryGap(width: number) {
+  return width >= 640 ? 12 : 8;
+}
+
+function createVirtualMasonryLayout(
+  photos: Photo[],
+  containerWidth: number,
+  squareItems = false,
+) {
+  const safeWidth = Math.max(Math.floor(containerWidth), 320);
+  const columnCount = masonryColumnCount(safeWidth);
+  const gap = masonryGap(safeWidth);
+  const itemWidth = Math.floor((safeWidth - gap * (columnCount - 1)) / columnCount);
+  const columnHeights = Array.from({ length: columnCount }, () => 0);
+  const items: VirtualMasonryItem[] = photos.map((photo, index) => {
+    let column = 0;
+
+    for (let nextColumn = 1; nextColumn < columnCount; nextColumn += 1) {
+      if (columnHeights[nextColumn] < columnHeights[column]) {
+        column = nextColumn;
+      }
+    }
+
+    const ratio = Math.max(photoAspectRatio(photo), 0.2);
+    const height = squareItems
+      ? itemWidth
+      : Math.max(96, Math.round(itemWidth / ratio));
+    const x = column * (itemWidth + gap);
+    const y = columnHeights[column];
+
+    columnHeights[column] += height + gap;
+
+    return {
+      photo,
+      index,
+      x,
+      y,
+      width: itemWidth,
+      height,
+    };
+  });
+  const totalHeight = Math.max(0, Math.max(...columnHeights) - gap);
+
+  return {
+    columnCount,
+    gap,
+    items,
+    totalHeight,
+  };
+}
+
+function useElementWidth(element: HTMLElement | null) {
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    if (!element) return;
+
+    const updateWidth = () => {
+      setWidth(Math.round(element.getBoundingClientRect().width));
+    };
+
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [element]);
+
+  return width;
+}
+
+function useWindowScrollWindow(element: HTMLElement | null) {
+  const [windowState, setWindowState] = useState({
+    start: -1200,
+    end: 2400,
+    scrollY: 0,
+  });
+
+  useEffect(() => {
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      const scrollY = window.scrollY;
+      const viewportHeight =
+        window.visualViewport?.height ?? window.innerHeight;
+      const elementTop = element
+        ? element.getBoundingClientRect().top + scrollY
+        : 0;
+      const localViewportTop = scrollY - elementTop;
+
+      setWindowState({
+        start: localViewportTop - 1200,
+        end: localViewportTop + viewportHeight + 1200,
+        scrollY,
+      });
+    };
+
+    const scheduleUpdate = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate, { passive: true });
+    window.visualViewport?.addEventListener("resize", scheduleUpdate, {
+      passive: true,
+    });
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+      window.visualViewport?.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [element]);
+
+  return windowState;
 }
 
 interface PhotosGridProps {
@@ -377,6 +523,11 @@ export function PhotosGrid({
   canManageSort = false,
 }: PhotosGridProps) {
   const gridRootRef = useRef<HTMLDivElement | null>(null);
+  const [virtualGridElement, setVirtualGridElement] =
+    useState<HTMLDivElement | null>(null);
+  const [isScrollDebugEnabled, setIsScrollDebugEnabled] = useState(false);
+  const virtualGridWidth = useElementWidth(virtualGridElement);
+  const virtualWindow = useWindowScrollWindow(virtualGridElement);
   const photosRequestUrl = useMemo(
     () =>
       photosUrl(
@@ -413,9 +564,39 @@ export function PhotosGrid({
   const activeSortMode = data?.sortMode ?? DEFAULT_SORT_MODE;
   const canEditSort =
     canManageSort && selectedPeopleIds.length === 0 && !isSelectionMode;
+  const setVirtualGridRef = useCallback((node: HTMLDivElement | null) => {
+    setVirtualGridElement(node);
+  }, []);
+  const photos = data?.photos ?? [];
+  const shouldVirtualizeGrid =
+    photos.length > 0 && !isCustomOrderEditing;
+  const virtualLayout = useMemo(
+    () =>
+      createVirtualMasonryLayout(
+        photos,
+        virtualGridWidth || 360,
+        false,
+      ),
+    [photos, virtualGridWidth],
+  );
+  const visibleVirtualItems = useMemo(
+    () =>
+      virtualLayout.items.filter(
+        (item) =>
+          item.y + item.height >= virtualWindow.start &&
+          item.y <= virtualWindow.end,
+      ),
+    [virtualLayout.items, virtualWindow.end, virtualWindow.start],
+  );
+
+  useEffect(() => {
+    setIsScrollDebugEnabled(isPhotosScrollDebugEnabled());
+  }, []);
 
   const logGridScrollDebug = useCallback(
     (label: string, extra: Record<string, unknown> = {}) => {
+      if (!isScrollDebugEnabled) return;
+
       console.log(`[photos-scroll-debug] photos-grid ${label}`, {
         albumSlug,
         selectedEventSlug,
@@ -443,6 +624,7 @@ export function PhotosGrid({
       isCustomOrderEditing,
       isLoading,
       isSelectionMode,
+      isScrollDebugEnabled,
       peopleMatchMode,
       photosRequestUrl,
       selectedEventSlug,
@@ -625,6 +807,8 @@ export function PhotosGrid({
   );
 
   useEffect(() => {
+    if (!isScrollDebugEnabled) return;
+
     logGridScrollDebug("state changed");
   }, [
     activeSortMode,
@@ -633,11 +817,14 @@ export function PhotosGrid({
     isCustomOrderEditing,
     isLoading,
     isSelectionMode,
+    isScrollDebugEnabled,
     logGridScrollDebug,
     photosRequestUrl,
   ]);
 
   useEffect(() => {
+    if (!isScrollDebugEnabled) return;
+
     const grid = gridRootRef.current;
     let lastScrollLogAt = 0;
     let lastGridInputLogAt = 0;
@@ -689,7 +876,7 @@ export function PhotosGrid({
       grid?.removeEventListener("wheel", logGridWheel);
       grid?.removeEventListener("touchmove", logGridTouchMove);
     };
-  }, [data?.photos?.length, logGridScrollDebug]);
+  }, [data?.photos?.length, isScrollDebugEnabled, logGridScrollDebug]);
 
   const handleOpen = useCallback((index: number, originRect: PhotoOpenRect) => {
     logGridScrollDebug("open lightbox", { index });
@@ -952,52 +1139,86 @@ export function PhotosGrid({
         </div>
       )}
 
-      <div
-        className={
-          isCustomOrderEditing
-            ? "grid grid-cols-2 items-start gap-2 sm:gap-3 lg:grid-cols-3"
-            : "columns-2 gap-2 sm:columns-2 sm:gap-3 lg:columns-3"
-        }
-      >
-        {data.photos.map((photo, index) => (
-          <div
-            key={photo.id}
-            className={`relative overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 ${
-              isCustomOrderEditing ? "aspect-square" : "mb-2 break-inside-avoid sm:mb-3"
-            }`}
-          >
-            {canEditSort && isCustomOrderEditing && (
-              <CustomPositionControl
-                position={index + 1}
-                disabled={isSavingSort}
-                onCommit={(position) => {
-                  void moveCustomPosition(photo.id, position);
-                }}
-              />
-            )}
+      {shouldVirtualizeGrid ? (
+        <div
+          ref={setVirtualGridRef}
+          className="relative w-full"
+          style={{ height: virtualLayout.totalHeight }}
+        >
+          {visibleVirtualItems.map((item) => (
+            <div
+              key={item.photo.id}
+              className="absolute left-0 top-0 overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
+              style={{
+                width: item.width,
+                height: item.height,
+                transform: `translate3d(${item.x}px, ${item.y}px, 0)`,
+              }}
+            >
+              {isSelectionMode ? (
+                <SelectionPhotoCell
+                  photo={item.photo}
+                  index={item.index}
+                  isSelected={selectedPhotoIdSet.has(item.photo.id)}
+                  onTogglePhoto={onTogglePhoto}
+                />
+              ) : (
+                <PhotoCard
+                  albumSlug={albumSlug}
+                  shareToken={shareToken}
+                  photo={item.photo}
+                  index={item.index}
+                  onOpen={handleOpen}
+                  forceFill
+                  imageFit="contain"
+                  shareSettings={shareSettings}
+                  debugScroll={isScrollDebugEnabled}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 items-start gap-2 sm:gap-3 lg:grid-cols-3">
+          {data.photos.map((photo, index) => (
+            <div
+              key={photo.id}
+              className="relative aspect-square overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
+            >
+              {canEditSort && isCustomOrderEditing && (
+                <CustomPositionControl
+                  position={index + 1}
+                  disabled={isSavingSort}
+                  onCommit={(position) => {
+                    void moveCustomPosition(photo.id, position);
+                  }}
+                />
+              )}
 
-            {isSelectionMode ? (
-              <SelectionPhotoCell
-                photo={photo}
-                index={index}
-                isSelected={selectedPhotoIdSet.has(photo.id)}
-                onTogglePhoto={onTogglePhoto}
-              />
-            ) : (
-              <PhotoCard
-                albumSlug={albumSlug}
-                shareToken={shareToken}
-                photo={photo}
-                index={index}
-                onOpen={handleOpen}
-                forceFill={isCustomOrderEditing}
-                imageFit={isCustomOrderEditing ? "cover" : "contain"}
-                shareSettings={shareSettings}
-              />
-            )}
-          </div>
-        ))}
-      </div>
+              {isSelectionMode ? (
+                <SelectionPhotoCell
+                  photo={photo}
+                  index={index}
+                  isSelected={selectedPhotoIdSet.has(photo.id)}
+                  onTogglePhoto={onTogglePhoto}
+                />
+              ) : (
+                <PhotoCard
+                  albumSlug={albumSlug}
+                  shareToken={shareToken}
+                  photo={photo}
+                  index={index}
+                  onOpen={handleOpen}
+                  forceFill
+                  imageFit="cover"
+                  shareSettings={shareSettings}
+                  debugScroll={isScrollDebugEnabled}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div ref={endSentinelRef} data-photos-grid-end className="h-px w-full" />
 

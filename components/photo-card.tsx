@@ -59,6 +59,12 @@ interface SignedPhotoUrls {
   originalUrl?: string | null;
 }
 
+const signedPhotoUrlCache = new Map<string, SignedPhotoUrls | null>();
+
+function signedPhotoUrlCacheKey(albumSlug: string, shareToken: string, photoId: string) {
+  return `${albumSlug}:${shareToken}:${photoId}`;
+}
+
 async function fetchSignedPhotoUrls(
   albumSlug: string,
   ids: string[],
@@ -206,6 +212,7 @@ interface PhotoCardProps {
   forceFill?: boolean;
   imageFit?: "contain" | "cover";
   shareSettings?: AlbumShareSettings | null;
+  debugScroll?: boolean;
 }
 
 export interface PhotoOpenRect {
@@ -474,11 +481,19 @@ export const PhotoCard = memo(function PhotoCard({
   forceFill = false,
   imageFit = "contain",
   shareSettings,
+  debugScroll = false,
 }: PhotoCardProps) {
+  const signedUrlCacheKey = signedPhotoUrlCacheKey(
+    albumSlug,
+    shareToken,
+    photo.id,
+  );
   const [signedPreviewUrls, setSignedPreviewUrls] =
-    useState<SignedPhotoUrls | null>(null);
+    useState<SignedPhotoUrls | null>(
+      () => signedPhotoUrlCache.get(signedUrlCacheKey) ?? null,
+    );
   const [hasFetchedSignedPreviewUrls, setHasFetchedSignedPreviewUrls] =
-    useState(false);
+    useState(() => signedPhotoUrlCache.has(signedUrlCacheKey));
   const imageCandidates = useMemo(
     () =>
       uniqueUrls([
@@ -505,11 +520,11 @@ export const PhotoCard = memo(function PhotoCard({
 
   useEffect(() => {
     setShouldLoadImage(false);
-    setSignedPreviewUrls(null);
-    setHasFetchedSignedPreviewUrls(false);
+    setSignedPreviewUrls(signedPhotoUrlCache.get(signedUrlCacheKey) ?? null);
+    setHasFetchedSignedPreviewUrls(signedPhotoUrlCache.has(signedUrlCacheKey));
     setIsImageLoaded(false);
     setActiveImageIndex(0);
-  }, [photo.id]);
+  }, [photo.id, signedUrlCacheKey]);
 
   useEffect(() => {
     setIsImageLoaded(false);
@@ -536,10 +551,12 @@ export const PhotoCard = memo(function PhotoCard({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
-          console.log("[photos-scroll-debug] photo-card entered view", {
-            photoId: photo.id,
-            index,
-          });
+          if (debugScroll) {
+            console.log("[photos-scroll-debug] photo-card entered view", {
+              photoId: photo.id,
+              index,
+            });
+          }
           setShouldLoadImage(true);
           observer.disconnect();
         }
@@ -549,39 +566,46 @@ export const PhotoCard = memo(function PhotoCard({
 
     observer.observe(card);
     return () => observer.disconnect();
-  }, [index, photo.id, shouldLoadImage]);
+  }, [debugScroll, index, photo.id, shouldLoadImage]);
 
   useEffect(() => {
     if (!shouldLoadImage || hasFetchedSignedPreviewUrls) return;
 
     let isCancelled = false;
 
-    console.log("[photos-scroll-debug] photo-card signing URLs", {
-      photoId: photo.id,
-      index,
-    });
+    if (debugScroll) {
+      console.log("[photos-scroll-debug] photo-card signing URLs", {
+        photoId: photo.id,
+        index,
+      });
+    }
 
     fetchSignedPhotoUrls(albumSlug, [photo.id], shareToken)
       .then((urls) => {
         if (isCancelled) return;
 
         const signedUrls = urls[photo.id] ?? null;
+        signedPhotoUrlCache.set(signedUrlCacheKey, signedUrls);
         setSignedPreviewUrls(signedUrls);
         setActiveImageIndex(0);
 
-        console.log("[photos-scroll-debug] photo-card signed URLs loaded", {
-          photoId: photo.id,
-          index,
-          hasPreviewUrl: Boolean(signedUrls?.previewUrl),
-          hasThumbnailUrl: Boolean(signedUrls?.thumbnailUrl),
-        });
+        if (debugScroll) {
+          console.log("[photos-scroll-debug] photo-card signed URLs loaded", {
+            photoId: photo.id,
+            index,
+            hasPreviewUrl: Boolean(signedUrls?.previewUrl),
+            hasThumbnailUrl: Boolean(signedUrls?.thumbnailUrl),
+          });
+        }
       })
       .catch((error) => {
-        console.error("[photos-scroll-debug] photo-card signed URLs failed", {
-          photoId: photo.id,
-          index,
-          error,
-        });
+        if (debugScroll) {
+          console.error("[photos-scroll-debug] photo-card signed URLs failed", {
+            photoId: photo.id,
+            index,
+            error,
+          });
+        }
       })
       .finally(() => {
         if (!isCancelled) setHasFetchedSignedPreviewUrls(true);
@@ -592,11 +616,13 @@ export const PhotoCard = memo(function PhotoCard({
     };
   }, [
     albumSlug,
+    debugScroll,
     hasFetchedSignedPreviewUrls,
     index,
     photo.id,
     shareToken,
     shouldLoadImage,
+    signedUrlCacheKey,
   ]);
 
   const handleDownload = async () => {

@@ -142,6 +142,11 @@ function scrollDebugMetrics() {
   };
 }
 
+function isPhotosScrollDebugEnabled() {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).has("scrollDebug");
+}
+
 const fetcher = async (url: string) => {
   const response = await fetch(url);
   const contentType = response.headers.get("content-type") || "";
@@ -1322,6 +1327,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [isCoverDismissed, setIsCoverDismissed] = useState(false);
   const [isCoverTransitioning, setIsCoverTransitioning] = useState(false);
   const [isCoverSliding, setIsCoverSliding] = useState(false);
+  const [isScrollDebugEnabled, setIsScrollDebugEnabled] = useState(false);
   const [isPhotoSelectionMode, setIsPhotoSelectionMode] = useState(false);
   const [selectedDownloadPhotoIds, setSelectedDownloadPhotoIds] = useState<string[]>([]);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -1453,6 +1459,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   isCoverDismissedRef.current = isCoverDismissed;
 
+  useEffect(() => {
+    setIsScrollDebugEnabled(isPhotosScrollDebugEnabled());
+  }, []);
+
   const isEventFromCover = (event: Event) => {
     const cover = coverSectionRef.current;
     const target = event.target;
@@ -1463,6 +1473,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     label: string,
     extra: Record<string, unknown> = {},
   ) => {
+    if (!isScrollDebugEnabled) return;
+
     console.log(`[photos-scroll-debug] ${label}`, {
       albumSlug,
       activeTab,
@@ -1835,6 +1847,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }, [isCoverDismissed]);
 
   useEffect(() => {
+    if (!isScrollDebugEnabled) return;
+
     logScrollDebug("album scroll state changed");
   }, [
     activeTab,
@@ -1843,12 +1857,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     isCoverSliding,
     isCoverTransitioning,
     isPhotoSelectionMode,
+    isScrollDebugEnabled,
     selectedEventSlug,
     selectedPeopleIds,
     selectedPerson,
   ]);
 
   useEffect(() => {
+    if (!isScrollDebugEnabled) return;
+
     let lastLogAt = 0;
 
     const handleDebugScroll = () => {
@@ -1872,6 +1889,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     isCoverSliding,
     isCoverTransitioning,
     isPhotoSelectionMode,
+    isScrollDebugEnabled,
     selectedEventSlug,
     selectedPeopleIds,
     selectedPerson,
