@@ -120,7 +120,12 @@ function mediaUrlForS3Key(key?: string | null) {
   return key ? `/api/media?key=${encodeURIComponent(key)}` : null;
 }
 
-function previewUrlsForPhoto(photo: Photo) {
+function previewUrlsForPhoto(
+  photo: Photo,
+  options: { includeMediaFallback?: boolean } = {},
+) {
+  const includeMediaFallback = options.includeMediaFallback ?? true;
+
   return uniqueUrls([
     photo.previewUrl,
     photo.thumbnailUrl,
@@ -128,10 +133,14 @@ function previewUrlsForPhoto(photo: Photo) {
     cloudFrontImageUrl(photo.watermarkedPreviewS3Key),
     cloudFrontImageUrl(photo.thumbnailS3Key),
     cloudFrontImageUrl(photo.aiInputS3Key),
-    mediaUrlForS3Key(photo.cleanPreviewS3Key),
-    mediaUrlForS3Key(photo.watermarkedPreviewS3Key),
-    mediaUrlForS3Key(photo.thumbnailS3Key),
-    mediaUrlForS3Key(photo.aiInputS3Key),
+    ...(includeMediaFallback
+      ? [
+          mediaUrlForS3Key(photo.cleanPreviewS3Key),
+          mediaUrlForS3Key(photo.watermarkedPreviewS3Key),
+          mediaUrlForS3Key(photo.thumbnailS3Key),
+          mediaUrlForS3Key(photo.aiInputS3Key),
+        ]
+      : []),
   ]);
 }
 
@@ -466,12 +475,26 @@ export const PhotoCard = memo(function PhotoCard({
   imageFit = "contain",
   shareSettings,
 }: PhotoCardProps) {
-  const imageCandidates = useMemo(() => previewUrlsForPhoto(photo), [photo]);
+  const [signedPreviewUrls, setSignedPreviewUrls] =
+    useState<SignedPhotoUrls | null>(null);
+  const [hasFetchedSignedPreviewUrls, setHasFetchedSignedPreviewUrls] =
+    useState(false);
+  const imageCandidates = useMemo(
+    () =>
+      uniqueUrls([
+        signedPreviewUrls?.previewUrl,
+        signedPreviewUrls?.thumbnailUrl,
+        ...previewUrlsForPhoto(photo, {
+          includeMediaFallback: hasFetchedSignedPreviewUrls,
+        }),
+      ]),
+    [hasFetchedSignedPreviewUrls, photo, signedPreviewUrls],
+  );
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const aspectRatio = photoAspectRatio(photo);
   const cardRef = useRef<HTMLDivElement | null>(null);
-  const [shouldLoadImage, setShouldLoadImage] = useState(index < 18);
+  const [shouldLoadImage, setShouldLoadImage] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
@@ -481,11 +504,9 @@ export const PhotoCard = memo(function PhotoCard({
     : shareSettings?.allowDownloads ?? true;
 
   useEffect(() => {
-    if (index < 18) setShouldLoadImage(true);
-  }, [index]);
-
-  useEffect(() => {
-    setShouldLoadImage(index < 18);
+    setShouldLoadImage(false);
+    setSignedPreviewUrls(null);
+    setHasFetchedSignedPreviewUrls(false);
     setIsImageLoaded(false);
     setActiveImageIndex(0);
   }, [photo.id]);
@@ -515,16 +536,68 @@ export const PhotoCard = memo(function PhotoCard({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
+          console.log("[photos-scroll-debug] photo-card entered view", {
+            photoId: photo.id,
+            index,
+          });
           setShouldLoadImage(true);
           observer.disconnect();
         }
       },
-      { rootMargin: "1800px 0px" },
+      { rootMargin: "300px 0px", threshold: 0.01 },
     );
 
     observer.observe(card);
     return () => observer.disconnect();
-  }, [shouldLoadImage]);
+  }, [index, photo.id, shouldLoadImage]);
+
+  useEffect(() => {
+    if (!shouldLoadImage || hasFetchedSignedPreviewUrls) return;
+
+    let isCancelled = false;
+
+    console.log("[photos-scroll-debug] photo-card signing URLs", {
+      photoId: photo.id,
+      index,
+    });
+
+    fetchSignedPhotoUrls(albumSlug, [photo.id], shareToken)
+      .then((urls) => {
+        if (isCancelled) return;
+
+        const signedUrls = urls[photo.id] ?? null;
+        setSignedPreviewUrls(signedUrls);
+        setActiveImageIndex(0);
+
+        console.log("[photos-scroll-debug] photo-card signed URLs loaded", {
+          photoId: photo.id,
+          index,
+          hasPreviewUrl: Boolean(signedUrls?.previewUrl),
+          hasThumbnailUrl: Boolean(signedUrls?.thumbnailUrl),
+        });
+      })
+      .catch((error) => {
+        console.error("[photos-scroll-debug] photo-card signed URLs failed", {
+          photoId: photo.id,
+          index,
+          error,
+        });
+      })
+      .finally(() => {
+        if (!isCancelled) setHasFetchedSignedPreviewUrls(true);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    albumSlug,
+    hasFetchedSignedPreviewUrls,
+    index,
+    photo.id,
+    shareToken,
+    shouldLoadImage,
+  ]);
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -601,14 +674,16 @@ export const PhotoCard = memo(function PhotoCard({
             className={`absolute inset-0 h-full w-full transition-opacity duration-300 ${
               isImageLoaded ? "opacity-100" : "opacity-0"
             }`}
-            loading="eager"
+            loading="lazy"
             decoding="async"
-            fetchPriority={index < 8 ? "high" : "auto"}
+            fetchPriority={index < 4 ? "high" : "auto"}
             settings={shareSettings}
             fit={imageFit}
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
+        ) : !shouldLoadImage || !hasFetchedSignedPreviewUrls ? (
+          <Skeleton className="absolute inset-0 rounded-md bg-zinc-200/80" />
         ) : imageUrl ? (
           <Skeleton className="absolute inset-0 rounded-md bg-zinc-200/80" />
         ) : (
@@ -886,6 +961,7 @@ export function PhotoLightbox({
         slug: item.eventSlug,
         name: item.eventName,
         sortOrder: byId.size,
+        photoSortMode: "added_oldest",
         photoCount: 0,
         peopleCount: 0,
       });

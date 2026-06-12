@@ -165,7 +165,14 @@ export async function GET(request: Request, { params }: Props) {
       count: rows.length,
     });
 
-    const photos: Photo[] = await Promise.all(rows.map(toPhoto));
+    const photos: Photo[] = await Promise.all(
+      rows.map((row) =>
+        toPhoto(row, {
+          signMediaUrls: false,
+          signPersonCoverUrls: false,
+        }),
+      ),
+    );
     return NextResponse.json(
       { photos, sortMode },
       {

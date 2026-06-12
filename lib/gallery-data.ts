@@ -125,7 +125,15 @@ function parsePhotoPeople(value: unknown): PhotoPersonRow[] {
   }
 }
 
-async function toPhotoPerson(row: PhotoPersonRow): Promise<PhotoPerson | null> {
+interface ToPhotoOptions {
+  signMediaUrls?: boolean;
+  signPersonCoverUrls?: boolean;
+}
+
+async function toPhotoPerson(
+  row: PhotoPersonRow,
+  options: { signCoverUrl: boolean },
+): Promise<PhotoPerson | null> {
   if (typeof row.id !== "string") return null;
 
   return {
@@ -140,18 +148,32 @@ async function toPhotoPerson(row: PhotoPersonRow): Promise<PhotoPerson | null> {
       typeof row.default_name === "string" ? row.default_name : "Person",
     displayName: typeof row.display_name === "string" ? row.display_name : null,
     photoCount: numberValue(row.photo_count as number | string | null),
-    coverFaceUrl: await signedUrl(
-      typeof row.cover_face_s3_key === "string" ? row.cover_face_s3_key : null
-    ),
+    coverFaceUrl: options.signCoverUrl
+      ? await signedUrl(
+          typeof row.cover_face_s3_key === "string"
+            ? row.cover_face_s3_key
+            : null,
+        )
+      : null,
   };
 }
 
-export async function toPhoto(row: PhotoRow): Promise<Photo> {
+export async function toPhoto(
+  row: PhotoRow,
+  options: ToPhotoOptions | number = {},
+): Promise<Photo> {
+  const photoOptions = typeof options === "number" ? {} : options;
+  const signMediaUrls = photoOptions.signMediaUrls ?? true;
+  const signPersonCoverUrls = photoOptions.signPersonCoverUrls ?? true;
   const [thumbnailUrl, previewUrl, people] = await Promise.all([
-    signedUrl(gridKey(row)),
-    signedUrl(previewKey(row)),
-    Promise.all(parsePhotoPeople(row.people).map(toPhotoPerson)).then((items) =>
-      items.filter((item): item is PhotoPerson => Boolean(item))
+    signMediaUrls ? signedUrl(gridKey(row)) : null,
+    signMediaUrls ? signedUrl(previewKey(row)) : null,
+    Promise.all(
+      parsePhotoPeople(row.people).map((person) =>
+        toPhotoPerson(person, { signCoverUrl: signPersonCoverUrls }),
+      ),
+    ).then((items) =>
+      items.filter((item): item is PhotoPerson => Boolean(item)),
     ),
   ]);
 
