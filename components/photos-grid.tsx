@@ -777,6 +777,7 @@ export function PhotosGrid({
         ref={gridRootRef}
         data-photos-grid-root
         className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl"
+        style={{ touchAction: "pan-y" }}
       >
         <p className="text-sm font-medium text-rose-700">
           Failed to load photos
@@ -803,6 +804,7 @@ export function PhotosGrid({
         ref={gridRootRef}
         data-photos-grid-root
         className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3"
+        style={{ touchAction: "pan-y" }}
       >
         {Array.from({ length: 14 }).map((_, index) => (
           <div key={index}>
@@ -829,6 +831,7 @@ export function PhotosGrid({
         ref={gridRootRef}
         data-photos-grid-root
         className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center text-zinc-500 shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl"
+        style={{ touchAction: "pan-y" }}
       >
         {selectedPeopleIds.length
           ? peopleMatchMode === "any" && selectedPeopleIds.length > 1
@@ -842,7 +845,12 @@ export function PhotosGrid({
   }
 
   return (
-    <div ref={gridRootRef} data-photos-grid-root className="min-w-0">
+    <div
+      ref={gridRootRef}
+      data-photos-grid-root
+      className="min-w-0"
+      style={{ touchAction: "pan-y" }}
+    >
       {canEditSort && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-2 sm:px-0">
           <label className="flex h-10 max-w-full items-center gap-2 rounded-full bg-white/85 px-3 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 backdrop-blur">

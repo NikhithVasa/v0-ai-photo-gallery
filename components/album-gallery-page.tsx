@@ -1295,6 +1295,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverScrollAnimationFrameRef = useRef<number | null>(null);
   const coverTouchStartYRef = useRef<number | null>(null);
   const coverGestureTriggeredRef = useRef(false);
+  const coverSectionRef = useRef<HTMLElement | null>(null);
   const isCoverDismissedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   const programmaticNavScrollRef = useRef(false);
@@ -1451,6 +1452,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     : "rgba(255, 255, 255, 0.82)";
 
   isCoverDismissedRef.current = isCoverDismissed;
+
+  const isEventFromCover = (event: Event) => {
+    const cover = coverSectionRef.current;
+    const target = event.target;
+    return Boolean(cover && target instanceof Node && cover.contains(target));
+  };
 
   const logScrollDebug = (
     label: string,
@@ -1705,34 +1712,47 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       coverScrollAnimationFrameRef.current !== null;
 
     const handleNativeWheel = (event: WheelEvent) => {
+      const fromCover = isEventFromCover(event);
       if (isCoverDismissedRef.current) {
         logScrollDebug("native cover wheel ignored after gallery entered", {
           deltaY: event.deltaY,
           cancelable: event.cancelable,
+          fromCover,
         });
         return;
       }
 
-      const shouldBlock = event.deltaY > 4 || isCoverScrollRunning();
+      const shouldBlock = fromCover && (event.deltaY > 4 || isCoverScrollRunning());
       logScrollDebug("native cover wheel", {
         deltaY: event.deltaY,
         cancelable: event.cancelable,
+        fromCover,
         shouldBlock,
-        willTriggerReveal: event.deltaY > 4,
+        willTriggerReveal: fromCover && event.deltaY > 4,
       });
 
       if (shouldBlock) {
         if (event.cancelable) event.preventDefault();
       }
 
-      if (event.deltaY > 4) {
+      if (fromCover && event.deltaY > 4) {
         triggerCoverGestureScroll();
       }
     };
 
     const handleNativeTouchStart = (event: TouchEvent) => {
+      const fromCover = isEventFromCover(event);
       if (isCoverDismissedRef.current) {
         logScrollDebug("native cover touchstart ignored after gallery entered", {
+          touchCount: event.touches.length,
+          fromCover,
+        });
+        return;
+      }
+
+      if (!fromCover) {
+        coverTouchStartYRef.current = null;
+        logScrollDebug("native cover touchstart ignored outside cover", {
           touchCount: event.touches.length,
         });
         return;
@@ -1742,12 +1762,23 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       logScrollDebug("native cover touchstart", {
         startY: coverTouchStartYRef.current,
         touchCount: event.touches.length,
+        fromCover,
       });
     };
 
     const handleNativeTouchMove = (event: TouchEvent) => {
+      const fromCover = isEventFromCover(event);
       if (isCoverDismissedRef.current) {
         logScrollDebug("native cover touchmove ignored after gallery entered", {
+          touchCount: event.touches.length,
+          cancelable: event.cancelable,
+          fromCover,
+        });
+        return;
+      }
+
+      if (!fromCover) {
+        logScrollDebug("native cover touchmove ignored outside cover", {
           touchCount: event.touches.length,
           cancelable: event.cancelable,
         });
@@ -1765,6 +1796,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         currentY,
         deltaY,
         cancelable: event.cancelable,
+        fromCover,
         willTriggerReveal,
       });
 
@@ -2307,6 +2339,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     >
       {!isCoverDismissed && (
         <section
+          ref={coverSectionRef}
           onWheel={handleCoverWheel}
           onTouchStart={handleCoverTouchStart}
           onTouchMove={handleCoverTouchMove}
