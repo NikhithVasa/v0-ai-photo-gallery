@@ -246,12 +246,19 @@ async function createPickerSession(accessToken: string) {
   return session;
 }
 
-function openPickerWindow(pickerUri: string) {
+const PICKER_WINDOW_FEATURES =
+  "popup=yes,width=1100,height=760,resizable=yes,scrollbars=yes";
+
+function pickerAutocloseUri(pickerUri: string) {
   const separator = pickerUri.endsWith("/") ? "" : "/";
+  return `${pickerUri}${separator}autoclose`;
+}
+
+export function openGooglePhotosPickerPlaceholder() {
   const pickerWindow = window.open(
-    `${pickerUri}${separator}autoclose`,
+    "about:blank",
     "google-photos-picker",
-    "popup=yes,width=1100,height=760,resizable=yes,scrollbars=yes",
+    PICKER_WINDOW_FEATURES,
   );
 
   if (!pickerWindow) {
@@ -260,8 +267,44 @@ function openPickerWindow(pickerUri: string) {
     );
   }
 
+  try {
+    pickerWindow.document.title = "Google Photos";
+    pickerWindow.document.body.style.fontFamily =
+      "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    pickerWindow.document.body.style.margin = "0";
+    pickerWindow.document.body.innerHTML =
+      "<main style=\"min-height:100vh;display:flex;align-items:center;justify-content:center;color:#3f3f46;background:#fafafa;\"><p>Preparing Google Photos...</p></main>";
+  } catch {
+    // The picker can still navigate even if the placeholder content cannot be written.
+  }
+
   pickerWindow.focus();
   return pickerWindow;
+}
+
+function openPickerWindow(pickerUri: string, pickerWindow?: Window | null) {
+  const pickerUrl = pickerAutocloseUri(pickerUri);
+
+  if (pickerWindow && !pickerWindow.closed) {
+    pickerWindow.location.href = pickerUrl;
+    pickerWindow.focus();
+    return pickerWindow;
+  }
+
+  const openedWindow = window.open(
+    pickerUrl,
+    "google-photos-picker",
+    PICKER_WINDOW_FEATURES,
+  );
+
+  if (!openedWindow) {
+    throw new Error(
+      "Google Photos Picker popup was blocked. Allow popups for this site and try again.",
+    );
+  }
+
+  openedWindow.focus();
+  return openedWindow;
 }
 
 async function waitForSelection(
@@ -364,12 +407,20 @@ export async function createGooglePhotosPickerSession(): Promise<GooglePhotosPic
 
 export async function completeGooglePhotosPickerSession(
   handle: GooglePhotosPickerSessionHandle,
+  pickerWindow?: Window | null,
 ): Promise<GooglePhotosPickerResult> {
   const sessionId = handle.session.id as string;
-  const pickerWindow = openPickerWindow(handle.session.pickerUri as string);
+  const activePickerWindow = openPickerWindow(
+    handle.session.pickerUri as string,
+    pickerWindow,
+  );
 
   try {
-    await waitForSelection(handle.session, handle.accessToken, pickerWindow);
+    await waitForSelection(
+      handle.session,
+      handle.accessToken,
+      activePickerWindow,
+    );
     const mediaItems = await listSelectedMediaItems(sessionId, handle.accessToken);
 
     return {

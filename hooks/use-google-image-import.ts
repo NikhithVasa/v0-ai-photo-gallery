@@ -12,6 +12,7 @@ import {
   createGooglePhotosPickerSession,
   deleteGooglePhotosPickerSession,
   downloadGooglePhotosImage,
+  openGooglePhotosPickerPlaceholder,
   prepareGooglePhotosPicker,
   type GooglePhotosMediaItem,
   type GooglePhotosPickerSessionHandle,
@@ -201,23 +202,23 @@ export function useGoogleImageImport({
     setIsImportingPhotos(true);
     setMessage("");
     let completedSession: { id: string; accessToken: string } | null = null;
+    let pickerWindow: Window | null = null;
 
     try {
-      if (!googlePhotosSession) {
+      let activeSession = googlePhotosSession;
+      if (!activeSession) {
         setMessage("Preparing Google Photos Picker...");
-        const preparedSession = await createGooglePhotosPickerSession();
-        setGooglePhotosSession(preparedSession);
-        setMessage(
-          "Google Photos is ready. Click Continue in Google Photos to choose images.",
-        );
-        return;
+        pickerWindow = openGooglePhotosPickerPlaceholder();
+        activeSession = await createGooglePhotosPickerSession();
       }
 
-      const activeSession = googlePhotosSession;
       setGooglePhotosSession(null);
       googlePhotosSessionRef.current = null;
       setMessage("Waiting for your Google Photos selection...");
-      const selection = await completeGooglePhotosPickerSession(activeSession);
+      const selection = await completeGooglePhotosPickerSession(
+        activeSession,
+        pickerWindow,
+      );
       completedSession = {
         id: selection.sessionId,
         accessToken: selection.accessToken,
@@ -279,6 +280,10 @@ export function useGoogleImageImport({
       ].filter(Boolean);
       setMessage(notes.join(" "));
     } catch (error) {
+      if (pickerWindow && !pickerWindow.closed) {
+        pickerWindow.close();
+      }
+
       setMessage(
         error instanceof Error
           ? error.message
