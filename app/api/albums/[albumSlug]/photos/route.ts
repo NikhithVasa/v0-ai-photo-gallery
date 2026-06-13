@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { toPhoto, type PhotoRow } from "@/lib/gallery-data";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { getShareLinkAccess } from "@/lib/share-access";
 import {
   albumSortMode,
   ensurePhotoSortSchema,
@@ -27,7 +28,6 @@ export async function GET(request: Request, { params }: Props) {
     const { albumSlug } = await params;
     const requestUrl = new URL(request.url);
     const shareToken = requestUrl.searchParams.get("share") || "";
-    const isPublicShare = Boolean(shareToken);
     console.info("[share-debug] album photos API start", {
       albumSlug,
       hasShareToken: Boolean(shareToken),
@@ -42,6 +42,12 @@ export async function GET(request: Request, { params }: Props) {
       });
       return accessDenied;
     }
+
+    const shareAccess = shareToken
+      ? await getShareLinkAccess(request, albumSlug)
+      : null;
+    const isPublicShare = Boolean(shareAccess);
+    const requiresWatermarkOutput = Boolean(shareAccess?.watermarkEnabled);
 
     const { searchParams } = requestUrl;
     const eventSlug = searchParams.get("event") || null;
@@ -64,6 +70,8 @@ export async function GET(request: Request, { params }: Props) {
       peopleCount: personIds.length,
       peopleMode,
       sortMode,
+      isPublicShare,
+      requiresWatermarkOutput,
     });
 
     const rows = await query<PhotoRow>(
@@ -146,7 +154,10 @@ export async function GET(request: Request, { params }: Props) {
           $5::boolean = false
           OR (
             lower(COALESCE(p.compression_status, '')) IN ('completed', 'skipped')
-            AND lower(COALESCE(p.watermark_status, '')) IN ('completed', 'skipped')
+            AND (
+              $6::boolean = false
+              OR lower(COALESCE(p.watermark_status, '')) IN ('completed', 'skipped')
+            )
           )
         )
       ORDER BY ${orderBy}
@@ -157,6 +168,7 @@ export async function GET(request: Request, { params }: Props) {
         personIds.length ? personIds : null,
         peopleMode === "all",
         isPublicShare,
+        requiresWatermarkOutput,
       ]
     );
 
