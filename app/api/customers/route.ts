@@ -40,6 +40,22 @@ function slugify(value: string) {
   );
 }
 
+function duplicateCustomerResponse() {
+  return NextResponse.json(
+    { error: "Duplicate customer found. Use a different customer name." },
+    { status: 409 },
+  );
+}
+
+function isUniqueViolation(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "23505"
+  );
+}
+
 async function availableCustomerSlug(name: string) {
   const baseSlug = slugify(name);
   const existing = await queryOne<{ id: string }>(
@@ -164,6 +180,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
 
+    const baseSlug = slugify(name);
+    const duplicateCustomer = await queryOne<{ id: string }>(
+      `
+      SELECT id
+      FROM customers
+      WHERE COALESCE(is_deleted, false) = false
+        AND (
+          lower(name) = lower($1)
+          OR slug = $2
+        )
+      LIMIT 1
+      `,
+      [name, baseSlug],
+    );
+
+    if (duplicateCustomer) {
+      return duplicateCustomerResponse();
+    }
+
     const slug = await availableCustomerSlug(name);
     const customer = await queryOne<CustomerRow>(
       `
@@ -231,6 +266,10 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Error creating customer:", error);
+
+    if (isUniqueViolation(error)) {
+      return duplicateCustomerResponse();
+    }
 
     return NextResponse.json(
       { error: "Failed to create customer" },
