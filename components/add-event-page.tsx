@@ -21,6 +21,8 @@ import {
   X,
 } from "lucide-react";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useGoogleImageImport } from "@/hooks/use-google-image-import";
 import type { AlbumDetail, AlbumEvent, Photo } from "@/lib/types";
@@ -79,6 +81,7 @@ interface PreparedCoverUpload {
 
 interface AddEventPageProps {
   albumSlug: string;
+  initialEventSlug?: string | null;
 }
 
 function formatBytes(value: number) {
@@ -100,18 +103,24 @@ function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-export function AddEventPage({ albumSlug }: AddEventPageProps) {
+export function AddEventPage({
+  albumSlug,
+  initialEventSlug = null,
+}: AddEventPageProps) {
   const router = useRouter();
   const coverInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
-  const [uploadTarget, setUploadTarget] = useState<UploadTarget>("new");
-  const [selectedExistingEventSlug, setSelectedExistingEventSlug] = useState("");
+  const [uploadTarget, setUploadTarget] = useState<UploadTarget>(
+    initialEventSlug ? "existing" : "new",
+  );
+  const [selectedExistingEventSlug, setSelectedExistingEventSlug] = useState(
+    initialEventSlug ?? "",
+  );
   const [runAi, setRunAi] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isSavingCover, setIsSavingCover] = useState(false);
@@ -122,6 +131,11 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const [isPhotoSelectMode, setIsPhotoSelectMode] = useState(false);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const [completedUpload, setCompletedUpload] = useState<{
+    eventSlug: string;
+    eventName: string;
+    count: number;
+  } | null>(null);
   const coverPreviewUrlRef = useRef<string | null>(null);
   const queuedFilesRef = useRef<QueuedFile[]>([]);
   const {
@@ -175,6 +189,10 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const selectedExistingEvent = album?.events.find(
     (event) => event.slug === selectedExistingEventSlug,
   );
+  const destinationEventName =
+    uploadTarget === "existing"
+      ? selectedExistingEvent?.name || "Select event"
+      : title.trim() || "New event";
   const canCreate = Boolean(
     filesReadyToUpload.length &&
       !isUploading &&
@@ -184,13 +202,12 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   const canSaveCover = Boolean(
     coverFile &&
       !isUploading &&
-      !isSavingCover
+      !isSavingCover &&
+      (uploadTarget === "new" ? title.trim() : selectedExistingEventSlug)
   );
 
-  const eventTitle =
-    uploadTarget === "existing"
-      ? selectedExistingEvent?.name || "Select an event"
-      : title.trim() || "Add a Title";
+  const uploadButtonLabel =
+    uploadTarget === "new" ? "Create event and upload" : "Start upload";
   const mediaSummary = useMemo(() => {
     if (!queuedFiles.length) return "No photos selected";
     if (uploadedCount === queuedFiles.length) return "All photos uploaded";
@@ -204,6 +221,12 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
   useEffect(() => {
     queuedFilesRef.current = queuedFiles;
   }, [queuedFiles]);
+
+  useEffect(() => {
+    if (!initialEventSlug) return;
+    setUploadTarget("existing");
+    setSelectedExistingEventSlug(initialEventSlug);
+  }, [initialEventSlug]);
 
   useEffect(() => {
     if (selectedExistingEventSlug || !album?.events.length) return;
@@ -263,6 +286,7 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       })),
     ]);
     setErrorMessage("");
+    setCompletedUpload(null);
     if (mediaInputRef.current) mediaInputRef.current.value = "";
   };
 
@@ -276,6 +300,14 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
       if (removed) URL.revokeObjectURL(removed.previewUrl);
       return current.filter((file) => file.localId !== localId);
     });
+  };
+
+  const clearUploadQueue = () => {
+    queuedFiles.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    setQueuedFiles([]);
+    setCompletedUpload(null);
+    setErrorMessage("");
+    if (mediaInputRef.current) mediaInputRef.current.value = "";
   };
 
   const updateFile = (
@@ -750,11 +782,14 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
         } added to ${prepared.event.name}.`,
       });
 
-      router.push(
-        `/albums/${encodeURIComponent(albumSlug)}?event=${encodeURIComponent(
-          prepared.event.slug,
-        )}`,
-      );
+      setCompletedUpload({
+        eventSlug: prepared.event.slug,
+        eventName: prepared.event.name,
+        count: completedPhotoIds.length,
+      });
+      setUploadTarget("existing");
+      setSelectedExistingEventSlug(prepared.event.slug);
+      setTitle("");
       router.refresh();
     } catch (error) {
       const message =
@@ -1156,12 +1191,22 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
                 {album.customer?.name || album.name}
               </p>
               <h1 className="truncate text-lg font-semibold sm:text-xl">
-                {uploadTarget === "new" ? "New event" : "Add photos"}
+                Add Photos
               </h1>
             </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href={`/albums/${encodeURIComponent(albumSlug)}${
+                selectedExistingEventSlug
+                  ? `?event=${encodeURIComponent(selectedExistingEventSlug)}`
+                  : ""
+              }`}
+              className="hidden h-9 shrink-0 items-center rounded-full border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950 sm:flex"
+            >
+              View album
+            </Link>
             <button
               type="button"
               onClick={createEvent}
@@ -1173,209 +1218,278 @@ export function AddEventPage({ albumSlug }: AddEventPageProps) {
               ) : (
                 <Upload className="h-4 w-4" />
               )}
-              {uploadTarget === "new" ? "Create" : "Upload"}
+              <span className="hidden sm:inline">{uploadButtonLabel}</span>
+              <span className="sm:hidden">Upload</span>
             </button>
             <AuthAvatarMenu />
           </div>
         </div>
       </header>
 
-      <section
-        className="relative min-h-[430px] border-b border-zinc-200 bg-white"
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => {
-          event.preventDefault();
-          chooseCover(event.dataTransfer.files);
-        }}
-      >
-        {(coverPreviewUrl || album.coverPhotoUrl) && (
-          <Image
-            src={coverPreviewUrl || album.coverPhotoUrl || ""}
-            alt={coverPreviewUrl ? "Event cover preview" : `${album.name} cover`}
-            fill
-            sizes="100vw"
-            className="object-cover"
-            unoptimized
-          />
-        )}
-        {(coverPreviewUrl || album.coverPhotoUrl) && (
-          <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px]" />
+      <section className="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6 lg:px-8">
+        {completedUpload && (
+          <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-4 text-emerald-900 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+                <div className="min-w-0">
+                  <p className="font-semibold">
+                    {completedUpload.count} photo{completedUpload.count === 1 ? "" : "s"} added to {completedUpload.eventName}
+                  </p>
+                  <p className="mt-1 text-sm text-emerald-800/80">
+                    {runAi
+                      ? "AI processing has been submitted for the new uploads."
+                      : "AI processing is off for this upload."}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/albums/${encodeURIComponent(albumSlug)}?event=${encodeURIComponent(
+                    completedUpload.eventSlug,
+                  )}`}
+                  className="h-9 rounded-full bg-emerald-900 px-3 text-sm font-semibold text-white transition hover:bg-emerald-950"
+                >
+                  View event
+                </Link>
+                <button
+                  type="button"
+                  onClick={clearUploadQueue}
+                  className="h-9 rounded-full bg-white px-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition hover:bg-emerald-100"
+                >
+                  Upload more
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
-        <div className="relative z-10 mx-auto flex min-h-[430px] max-w-5xl flex-col items-center justify-center px-5 pt-10 text-center">
-          {uploadTarget === "new" ? (
-            <>
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Add a Title"
-                aria-label="Event title"
-                className="w-full min-w-0 border-0 bg-transparent text-center text-5xl font-bold tracking-normal text-zinc-700 outline-none placeholder:text-zinc-500 sm:text-7xl"
-              />
-              <input
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Add a description"
-                aria-label="Event description"
-                className="mt-4 w-full min-w-0 border-0 bg-transparent text-center text-2xl font-normal tracking-normal text-zinc-500 outline-none placeholder:text-zinc-400 sm:text-4xl"
-              />
-            </>
-          ) : (
-            <>
-              <h1 className="text-5xl font-bold tracking-normal text-zinc-700 sm:text-7xl">
-                Add photos
-              </h1>
-              <p className="mt-4 text-3xl text-zinc-500 sm:text-4xl">
-                {selectedExistingEvent?.name || "Select an event"}
+        <div className="rounded-[24px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-zinc-950">Destination</p>
+              <h2 className="mt-1 truncate text-2xl font-semibold tracking-normal text-zinc-950 sm:text-3xl">
+                {album.name}
+              </h2>
+              <p className="mt-1 text-sm text-zinc-500">
+                {album.customer?.name || "Album"} · {destinationEventName}
               </p>
-            </>
-          )}
+            </div>
 
-          <button
-            type="button"
-            onClick={() => coverInputRef.current?.click()}
-            className="group absolute bottom-6 left-1/2 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-zinc-400 transition hover:bg-white/80 hover:text-zinc-950 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-300"
-            aria-label="Drop or select cover photo"
-          >
-            <ImageUp className="h-4 w-4" strokeWidth={1.6} />
-            <span>{coverPreviewUrl || album.coverPhotoUrl ? "Change" : "Drop or"}</span>
-            <span className="text-zinc-600 group-hover:text-zinc-950">
-              Cover
-            </span>
-          </button>
-          {coverFile && (
-            <button
-              type="button"
-              onClick={saveCoverOnly}
-              disabled={!canSaveCover}
-              className="absolute bottom-6 right-6 flex h-10 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-lg transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isSavingCover ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ImageUp className="h-4 w-4" />
-              )}
-              Save Cover
-            </button>
+            <div className="grid gap-3 sm:grid-cols-[220px_minmax(260px,420px)] lg:min-w-[640px]">
+              <div>
+                <Label className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                  Target
+                </Label>
+                <div className="grid grid-cols-2 gap-1 rounded-full bg-zinc-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setUploadTarget("existing")}
+                    className={`h-10 rounded-full text-sm font-semibold transition ${
+                      uploadTarget === "existing"
+                        ? "bg-white text-zinc-950 shadow-sm"
+                        : "text-zinc-500"
+                    }`}
+                  >
+                    Existing
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadTarget("new")}
+                    className={`h-10 rounded-full text-sm font-semibold transition ${
+                      uploadTarget === "new"
+                        ? "bg-white text-zinc-950 shadow-sm"
+                        : "text-zinc-500"
+                    }`}
+                  >
+                    New event
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <Label
+                  htmlFor={uploadTarget === "existing" ? "upload-event" : "new-event-name"}
+                  className="mb-2 block text-xs font-semibold uppercase tracking-[0.08em] text-zinc-400"
+                >
+                  Event
+                </Label>
+                {uploadTarget === "existing" ? (
+                  album.events.length ? (
+                    <select
+                      id="upload-event"
+                      value={selectedExistingEventSlug}
+                      onChange={(event) =>
+                        setSelectedExistingEventSlug(event.target.value)
+                      }
+                      className="h-11 w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3 text-sm font-semibold text-zinc-900 outline-none transition focus:border-zinc-400 focus:bg-white focus:ring-2 focus:ring-zinc-200"
+                    >
+                      {(album.events as AlbumEvent[]).map((event) => (
+                        <option key={event.id} value={event.slug}>
+                          {event.name} ({event.photoCount})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="flex h-11 items-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-500">
+                      No events yet
+                    </div>
+                  )
+                ) : (
+                  <Input
+                    id="new-event-name"
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="Event name"
+                    className="h-11 rounded-2xl border-zinc-200 bg-zinc-50 font-semibold focus:bg-white"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {queuedFiles.length > 0 && (
+            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-zinc-950">
+                  {mediaSummary}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-zinc-500">
+                  Destination: {album.name} / {destinationEventName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={createEvent}
+                disabled={!canCreate}
+                className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                {uploadButtonLabel}
+              </button>
+            </div>
           )}
-          <input
-            ref={coverInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(event) => chooseCover(event.target.files)}
-          />
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
-        {uploadTarget === "existing"
-          ? renderSelectedEventPhotos()
-          : renderUploadArea("large")}
+      <section className="mx-auto grid max-w-7xl gap-6 px-4 pb-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
+        <div className="space-y-6">
+          {renderUploadArea("large")}
+          {uploadTarget === "existing" && renderSelectedEventPhotos()}
+        </div>
 
         <aside className="space-y-4">
           <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-zinc-950">Destination</p>
-            <p className="mt-1 text-sm text-zinc-500">
-              {uploadTarget === "new" ? `${eventTitle} will be added to` : `${eventTitle} in`}{" "}
-              {album.customer?.name || album.name}. Photos upload to the event
-              originals folder in S3.
-            </p>
-            <div className="mt-4 rounded-2xl bg-zinc-50 px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-400">
-                Media
-              </p>
-              <p className="mt-1 text-sm font-medium text-zinc-800">{mediaSummary}</p>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-zinc-950">Cover photo</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {uploadTarget === "existing"
+                    ? selectedExistingEvent?.name || "Select event"
+                    : title.trim() || "New event"}
+                </p>
+              </div>
+              {coverFile && (
+                <button
+                  type="button"
+                  onClick={saveCoverOnly}
+                  disabled={!canSaveCover}
+                  className="flex h-9 items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSavingCover ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ImageUp className="h-4 w-4" />
+                  )}
+                  Save
+                </button>
+              )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                chooseCover(event.dataTransfer.files);
+              }}
+              className="mt-4 flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 text-zinc-500 transition hover:border-zinc-300 hover:bg-zinc-100"
+            >
+              {coverPreviewUrl || album.coverPhotoUrl ? (
+                <Image
+                  src={coverPreviewUrl || album.coverPhotoUrl || ""}
+                  alt={coverPreviewUrl ? "Cover preview" : `${album.name} cover`}
+                  width={640}
+                  height={400}
+                  className="h-full w-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <span className="flex flex-col items-center gap-2 text-sm font-semibold">
+                  <ImageUp className="h-6 w-6" />
+                  Add cover
+                </span>
+              )}
+            </button>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => chooseCover(event.target.files)}
+            />
           </div>
 
           <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-zinc-950">Upload target</p>
-            <div className="mt-3 grid grid-cols-2 gap-1 rounded-full bg-zinc-100 p-1">
-              <button
-                type="button"
-                onClick={() => setUploadTarget("new")}
-                className={`h-9 rounded-full text-sm font-semibold transition ${
-                  uploadTarget === "new"
-                    ? "bg-white text-zinc-950 shadow-sm"
-                    : "text-zinc-500"
-                }`}
-              >
-                New event
-              </button>
-              <button
-                type="button"
-                onClick={() => setUploadTarget("existing")}
-                className={`h-9 rounded-full text-sm font-semibold transition ${
-                  uploadTarget === "existing"
-                    ? "bg-white text-zinc-950 shadow-sm"
-                    : "text-zinc-500"
-                }`}
-              >
-                Existing
-              </button>
-            </div>
-
-            {uploadTarget === "existing" && (
+            <p className="text-sm font-semibold text-zinc-950">Event tools</p>
+            {uploadTarget === "existing" && selectedExistingEvent ? (
               <div className="mt-4 space-y-3">
-                <select
-                  value={selectedExistingEventSlug}
-                  onChange={(event) =>
-                    setSelectedExistingEventSlug(event.target.value)
-                  }
-                  className="h-11 w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium outline-none transition focus:border-zinc-400 focus:bg-white focus:ring-2 focus:ring-zinc-200"
-                  aria-label="Select existing event"
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl bg-zinc-50 p-3">
+                    <p className="text-xs uppercase tracking-[0.08em] text-zinc-400">
+                      Photos
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-zinc-900">
+                      {selectedEventPhotosData
+                        ? selectedEventPhotos.length
+                        : selectedExistingEvent.photoCount}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-zinc-50 p-3">
+                    <p className="text-xs uppercase tracking-[0.08em] text-zinc-400">
+                      People
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-zinc-900">
+                      {selectedExistingEvent.peopleCount}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={deleteSelectedEvent}
+                  disabled={isDeletingEvent}
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {(album.events as AlbumEvent[]).map((event) => (
-                    <option key={event.id} value={event.slug}>
-                      {event.name}
-                    </option>
-                  ))}
-                </select>
-
-                {selectedExistingEvent && (
-                  <>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-2xl bg-zinc-50 p-3">
-                        <p className="text-xs uppercase tracking-[0.08em] text-zinc-400">
-                          Photos
-                        </p>
-                        <p className="mt-1 text-lg font-semibold text-zinc-900">
-                          {selectedEventPhotosData
-                            ? selectedEventPhotos.length
-                            : selectedExistingEvent.photoCount}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl bg-zinc-50 p-3">
-                        <p className="text-xs uppercase tracking-[0.08em] text-zinc-400">
-                          People
-                        </p>
-                        <p className="mt-1 text-lg font-semibold text-zinc-900">
-                          {selectedExistingEvent.peopleCount}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={deleteSelectedEvent}
-                      disabled={isDeletingEvent}
-                      className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isDeletingEvent ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                      Delete Event
-                    </button>
-                  </>
-                )}
+                  {isDeletingEvent ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  Delete Event
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-5 text-center text-sm text-zinc-500">
+                Choose an existing event to edit event-level settings.
               </div>
             )}
           </div>
-
-          {uploadTarget === "existing" && renderUploadArea("side")}
 
           <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm">
             <div>

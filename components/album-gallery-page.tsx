@@ -11,7 +11,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import useSWR from "swr";
+import useSWR, { mutate as mutateSWR } from "swr";
 import {
   Check,
   ArrowLeft,
@@ -196,6 +196,11 @@ function eventQuery(selectedEventSlug: string | null, shareToken = "") {
   if (shareToken) params.set("share", shareToken);
   const query = params.toString();
   return query ? `?${query}` : "";
+}
+
+function uploadQuery(selectedEventSlug: string | null) {
+  if (!selectedEventSlug) return "";
+  return `?event=${encodeURIComponent(selectedEventSlug)}`;
 }
 
 function withShareParam(url: string, shareToken = "") {
@@ -1251,10 +1256,17 @@ function AlbumShareDialog({
           </div>
 
           {shareUrl && (
-            <div className="flex min-w-0 gap-2">
-              <Input value={shareUrl} readOnly className="font-mono text-xs" />
-              <Button type="button" variant="outline" size="icon" onClick={copyLink}>
-                <Copy className="h-4 w-4" />
+            <div className="space-y-2">
+              <div className="flex min-w-0 gap-2">
+                <Input value={shareUrl} readOnly className="font-mono text-xs" />
+                <Button type="button" variant="outline" size="icon" onClick={copyLink}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button type="button" variant="outline" className="w-full" asChild>
+                <a href={shareUrl} target="_blank" rel="noopener noreferrer">
+                  Preview as Client
+                </a>
               </Button>
             </div>
           )}
@@ -1334,6 +1346,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [eventNameDraft, setEventNameDraft] = useState("");
   const [isSavingEventName, setIsSavingEventName] = useState(false);
   const [isRetryingAiDetails, setIsRetryingAiDetails] = useState(false);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [moveTargetEventSlug, setMoveTargetEventSlug] = useState("");
+  const [isMovingPhotos, setIsMovingPhotos] = useState(false);
+  const [moveError, setMoveError] = useState("");
   const [apsaraTextSearch, setApsaraTextSearch] = useState<{
     query: string;
     photos: Photo[];
@@ -1434,6 +1450,30 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     () => album?.events.find((event) => event.slug === selectedEventSlug),
     [album?.events, selectedEventSlug]
   );
+  const addPhotosHref = `/albums/${encodeURIComponent(albumSlug)}/upload${uploadQuery(
+    selectedEventSlug,
+  )}`;
+  const editEventsHref = `/albums/${encodeURIComponent(albumSlug)}/upload${uploadQuery(
+    selectedEventSlug,
+  )}`;
+
+  useEffect(() => {
+    if (!album?.events.length) {
+      if (moveTargetEventSlug) setMoveTargetEventSlug("");
+      return;
+    }
+
+    const targetStillExists = album.events.some(
+      (event) => event.slug === moveTargetEventSlug,
+    );
+    if (targetStillExists) return;
+
+    const fallback =
+      album.events.find((event) => event.slug !== selectedEventSlug) ??
+      album.events[0];
+    setMoveTargetEventSlug(fallback?.slug ?? "");
+  }, [album?.events, moveTargetEventSlug, selectedEventSlug]);
+
   const albumDateLabel = formatAlbumDate(album?.albumDate);
   const coverTitle = album?.name || "";
   const coverCreditName = album?.customer?.name || album?.name || "";
@@ -2291,6 +2331,70 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   };
 
+  const moveSelectedPhotosToEvent = async () => {
+    if (
+      !album ||
+      !selectedDownloadPhotoIds.length ||
+      !moveTargetEventSlug ||
+      isMovingPhotos
+    ) {
+      return;
+    }
+
+    setIsMovingPhotos(true);
+    setMoveError("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/photos/move`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            photoIds: selectedDownloadPhotoIds,
+            eventSlug: moveTargetEventSlug,
+          }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        movedCount?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not move selected photos");
+      }
+
+      const encodedAlbumSlug = encodeURIComponent(albumSlug);
+      await Promise.all([
+        mutate(),
+        mutateStats(),
+        mutatePeopleFilter(),
+        mutateSWR(
+          (key) =>
+            typeof key === "string" &&
+            key.startsWith(`/api/albums/${encodedAlbumSlug}/photos`),
+        ),
+      ]);
+
+      setSelectedDownloadPhotoIds([]);
+      setIsPhotoSelectionMode(false);
+      setIsMoveDialogOpen(false);
+      setSelectedEventSlug(moveTargetEventSlug);
+      router.replace(
+        `/albums/${albumSlug}${eventQuery(moveTargetEventSlug, shareToken)}`,
+        { scroll: false },
+      );
+      scrollToGalleryTop("instant");
+    } catch (error) {
+      setMoveError(
+        error instanceof Error ? error.message : "Could not move selected photos",
+      );
+    } finally {
+      setIsMovingPhotos(false);
+    }
+  };
+
   const eventHeader = selectedEvent && !isShareView ? (
     <EventNameControl
       eventName={selectedEvent.name}
@@ -2448,6 +2552,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </div>
             )}
 
+            {!isShareView && (
+              <Link
+                href={addPhotosHref}
+                className="absolute right-3 top-3 flex h-10 items-center gap-2 rounded-full bg-zinc-950/90 px-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition hover:bg-zinc-900 sm:right-5 sm:top-5 sm:px-4"
+                aria-label="Add photos"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Photos</span>
+              </Link>
+            )}
+
             <button
               type="button"
               onClick={() => scrollToGalleryTop("soothing")}
@@ -2558,12 +2673,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
                 {!isShareView && (
                   <Link
-                    href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
+                    href={editEventsHref}
                     className="flex h-8 max-w-[170px] shrink-0 items-center gap-1.5 rounded-full bg-white/70 px-3 text-sm font-medium text-zinc-600 ring-1 ring-black/10 transition hover:bg-white hover:text-zinc-950"
-                    aria-label="Manage events"
+                    aria-label="Edit events"
                   >
                     <Plus className="h-4 w-4" />
-                    Manage Events
+                    Edit Events
                   </Link>
                 )}
               </div>
@@ -2685,35 +2800,44 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </button>
 
               {!isShareView && (
+                <Link
+                  href={addPhotosHref}
+                  className={`${navPillButtonClass} ${navPillButtonActiveClass} min-w-[122px]`}
+                  aria-label="Add photos"
+                >
+                  <Plus className="h-4 w-4 shrink-0" />
+                  <span>Add Photos</span>
+                </Link>
+              )}
+
+              {!isShareView && (
                 <AlbumShareDialog
                   albumSlug={albumSlug}
                   defaultWatermarkText={album.customer?.name || album.name}
                 />
               )}
 
-              <Link
-                href={withShareParam(
-                  `/albums/${encodeURIComponent(albumSlug)}/culling`,
-                  shareToken,
-                )}
-                className={`${navPillButtonClass} min-w-[118px] px-3`}
-                aria-label="AI review"
-              >
-                <Sparkles className="h-4 w-4 shrink-0" />
-                <span>AI Review</span>
-              </Link>
+              {!isShareView && (
+                <Link
+                  href={`/albums/${encodeURIComponent(albumSlug)}/culling`}
+                  className={`${navPillButtonClass} min-w-[118px] px-3`}
+                  aria-label="AI review"
+                >
+                  <Sparkles className="h-4 w-4 shrink-0" />
+                  <span>AI Review</span>
+                </Link>
+              )}
 
-              <Link
-  href={withShareParam(
-    `/albums/${encodeURIComponent(albumSlug)}/collage`,
-    shareToken,
-  )}
-  className={`${navPillButtonClass} hidden min-w-[118px] sm:flex`}
-  aria-label="Create collage"
->
-  <LayoutTemplate className="h-4 w-4 shrink-0" />
-  <span>Collage</span>
-</Link>
+              {!isShareView && (
+                <Link
+                  href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
+                  className={`${navPillButtonClass} hidden min-w-[118px] sm:flex`}
+                  aria-label="Create collage"
+                >
+                  <LayoutTemplate className="h-4 w-4 shrink-0" />
+                  <span>Collage</span>
+                </Link>
+              )}
 
               <AlbumDownloadMenu
                 albumSlug={albumSlug}
@@ -2821,11 +2945,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
               {!isShareView && (
                 <Link
-                  href={`/albums/${encodeURIComponent(albumSlug)}/events/new`}
+                  href={editEventsHref}
                   className="flex max-w-full shrink-0 items-center gap-1.5 rounded-full bg-white/70 px-4 py-2 text-sm font-medium text-zinc-600 ring-1 ring-black/10 transition hover:bg-white hover:text-zinc-950"
+                  aria-label="Edit events"
                 >
                   <Plus className="h-4 w-4" />
-                  Manage Events
+                  Edit Events
                 </Link>
               )}
             </div>
@@ -2969,6 +3094,88 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
+                    {!isShareView && album.events.length > 1 && (
+                      <Dialog
+                        open={isMoveDialogOpen}
+                        onOpenChange={(open) => {
+                          setIsMoveDialogOpen(open);
+                          if (!open) setMoveError("");
+                        }}
+                      >
+                        <DialogTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={!selectedDownloadPhotoIds.length}
+                            className="flex h-9 cursor-pointer items-center gap-2 rounded-full bg-white/85 px-3 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Move to Event
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>Move selected photos</DialogTitle>
+                          </DialogHeader>
+
+                          <div className="space-y-4">
+                            <div className="rounded-2xl bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+                              {selectedDownloadPhotoIds.length} photo
+                              {selectedDownloadPhotoIds.length === 1 ? "" : "s"} selected
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="move-target-event">
+                                Destination event
+                              </Label>
+                              <select
+                                id="move-target-event"
+                                value={moveTargetEventSlug}
+                                onChange={(event) =>
+                                  setMoveTargetEventSlug(event.target.value)
+                                }
+                                className="h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-900 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+                              >
+                                {album.events.map((event) => (
+                                  <option key={event.id} value={event.slug}>
+                                    {event.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {moveError && (
+                              <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                                {moveError}
+                              </p>
+                            )}
+                          </div>
+
+                          <DialogFooter>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setIsMoveDialogOpen(false)}
+                              disabled={isMovingPhotos}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              onClick={moveSelectedPhotosToEvent}
+                              disabled={
+                                !selectedDownloadPhotoIds.length ||
+                                !moveTargetEventSlug ||
+                                isMovingPhotos
+                              }
+                            >
+                              {isMovingPhotos && (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              )}
+                              Move photos
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    )}
                     {!isShareView && (
                       <ApplyPresetSelectionDialog
                         albumSlug={albumSlug}
@@ -3028,13 +3235,23 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               onPeopleChanged={refreshPeopleData}
               shareSettings={shareSettings}
               canManageSort={!isShareView}
+              canUploadPhotos={!isShareView}
+              uploadHref={addPhotosHref}
             />
           </section>
         )}
       </div>
 
       {isCoverDismissed && activeTab === "photos" && !selectedPerson && (
-        <>
+        <div
+          className={`fixed bottom-4 left-1/2 z-40 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 gap-1 rounded-full bg-zinc-950/92 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 sm:hidden ${
+            isShareView ? "grid-cols-2" : "grid-cols-4"
+          } ${
+            isNavHidden
+              ? "translate-y-16 opacity-0 pointer-events-none"
+              : "translate-y-0 opacity-100"
+          }`}
+        >
           <button
             type="button"
             onClick={() => {
@@ -3043,32 +3260,45 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               setActiveTab("people");
               scrollToGalleryTop();
             }}
-            className={`fixed bottom-4 left-4 z-40 flex h-10 cursor-pointer items-center gap-2 rounded-full bg-zinc-950/90 px-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 sm:hidden ${
-              isNavHidden
-                ? "translate-y-16 opacity-0 pointer-events-none"
-                : "translate-y-0 opacity-100"
-            }`}
+            className="flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold text-white transition hover:bg-white/10"
             aria-label="Open people"
           >
             <Users className="h-4 w-4" />
-            People
+            <span>People</span>
           </button>
 
-          <Link
-            href={withShareParam(
-              `/albums/${encodeURIComponent(albumSlug)}/culling`,
-              shareToken,
-            )}
-            className={`fixed bottom-4 left-1/2 z-40 flex h-11 w-11 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-zinc-950/90 text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 sm:hidden ${
-              isNavHidden
-                ? "translate-y-16 opacity-0 pointer-events-none"
-                : "translate-y-0 opacity-100"
-            }`}
-            aria-label="AI review"
+          {!isShareView && (
+            <Link
+              href={addPhotosHref}
+              className="flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-white px-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100"
+              aria-label="Add photos"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add</span>
+            </Link>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsSearchOpen(true)}
+            className="flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold text-white transition hover:bg-white/10"
+            aria-label="Search"
           >
-            <Sparkles className="h-5 w-5" />
-          </Link>
-        </>
+            <Search className="h-4 w-4" />
+            <span>Search</span>
+          </button>
+
+          {!isShareView && (
+            <Link
+              href={`/albums/${encodeURIComponent(albumSlug)}/culling`}
+              className="flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold text-white transition hover:bg-white/10"
+              aria-label="AI review"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>AI</span>
+            </Link>
+          )}
+        </div>
       )}
 
       <ApsaraMomentsRoot

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import { ArrowUpDown, Check, Loader2, Pencil } from "lucide-react";
 import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
@@ -324,6 +325,8 @@ interface PhotosGridProps {
   onPeopleChanged?: () => void | Promise<void>;
   shareSettings?: AlbumShareSettings | null;
   canManageSort?: boolean;
+  canUploadPhotos?: boolean;
+  uploadHref?: string;
 }
 
 function photosUrl(
@@ -521,6 +524,8 @@ export function PhotosGrid({
   onPeopleChanged,
   shareSettings,
   canManageSort = false,
+  canUploadPhotos = false,
+  uploadHref,
 }: PhotosGridProps) {
   const gridRootRef = useRef<HTMLDivElement | null>(null);
   const [virtualGridElement, setVirtualGridElement] =
@@ -1013,6 +1018,16 @@ export function PhotosGrid({
   }
 
   if (!data?.photos?.length) {
+    const emptyMessage = selectedPeopleIds.length
+      ? peopleMatchMode === "any" && selectedPeopleIds.length > 1
+        ? "No photos found for any of the selected people."
+        : "No photos found with all selected people."
+      : selectedEventSlug
+        ? "No photos found for this event yet."
+        : "No photos found in this album yet.";
+    const shouldShowUploadCta =
+      canUploadPhotos && uploadHref && selectedPeopleIds.length === 0;
+
     return (
       <div
         ref={gridRootRef}
@@ -1020,13 +1035,15 @@ export function PhotosGrid({
         className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center text-zinc-500 shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl"
         style={{ touchAction: "pan-y" }}
       >
-        {selectedPeopleIds.length
-          ? peopleMatchMode === "any" && selectedPeopleIds.length > 1
-            ? "No photos found for any of the selected people."
-            : "No photos found with all selected people."
-          : selectedEventSlug
-            ? "No photos found for this event yet."
-            : "No photos found in this album yet."}
+        <p>{emptyMessage}</p>
+        {shouldShowUploadCta && (
+          <Link
+            href={uploadHref}
+            className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+          >
+            Add Photos
+          </Link>
+        )}
       </div>
     );
   }
