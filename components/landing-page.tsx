@@ -37,6 +37,8 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
+// Photographer theme: warm ivory, charcoal, muted gold, soft beige, optional rose/sage tones.
+
 function useReveal(): MotionProps {
   const prefersReducedMotion = useReducedMotion();
 
@@ -151,38 +153,38 @@ const toneStyles: Record<
 > = {
   blush: {
     background:
-      "linear-gradient(150deg, #f7e7da 0%, #ebc9b3 55%, #b88366 100%)",
-    grainOpacity: 0.18,
+      "linear-gradient(150deg, #FFF8ED 0%, #E8CFC3 55%, #B88366 100%)",
+    grainOpacity: 0.16,
   },
   champagne: {
     background:
-      "linear-gradient(160deg, #f4ecdc 0%, #d9c39a 55%, #8c7148 100%)",
-    grainOpacity: 0.16,
+      "linear-gradient(160deg, #FAF7F2 0%, #E7D6B5 55%, #C6A15B 100%)",
+    grainOpacity: 0.14,
   },
   rose: {
     background:
-      "linear-gradient(145deg, #f3dcd4 0%, #d99a8e 55%, #8e4a40 100%)",
-    grainOpacity: 0.18,
+      "linear-gradient(145deg, #FFF2EF 0%, #E8CFC3 55%, #8E4A40 100%)",
+    grainOpacity: 0.17,
   },
   sand: {
     background:
-      "linear-gradient(155deg, #efe8db 0%, #c8b89a 55%, #7d6c52 100%)",
-    grainOpacity: 0.15,
+      "linear-gradient(155deg, #F3EDE4 0%, #D6C8B8 55%, #8A7252 100%)",
+    grainOpacity: 0.14,
   },
   sage: {
     background:
-      "linear-gradient(145deg, #e5ece1 0%, #aebf9f 55%, #5f755c 100%)",
-    grainOpacity: 0.16,
+      "linear-gradient(145deg, #EEF3EA 0%, #B7C4AA 55%, #5F755C 100%)",
+    grainOpacity: 0.14,
   },
   sky: {
     background:
-      "linear-gradient(150deg, #e1edf0 0%, #9db9c2 55%, #506f7a 100%)",
-    grainOpacity: 0.15,
+      "linear-gradient(150deg, #EEF6F7 0%, #B8CDD3 55%, #506F7A 100%)",
+    grainOpacity: 0.13,
   },
   ink: {
     background:
-      "linear-gradient(150deg, #3b3a35 0%, #24231f 58%, #11100e 100%)",
-    grainOpacity: 0.2,
+      "linear-gradient(150deg, #3A2A22 0%, #241C17 58%, #171411 100%)",
+    grainOpacity: 0.18,
   },
 };
 
@@ -196,7 +198,7 @@ const galleryTiles: Array<{
   {
     className: "row-span-2",
     gradient:
-      "linear-gradient(135deg, #f5e0d3 0%, #e6b8a5 45%, #b0816a 100%)",
+      "linear-gradient(135deg, #FFF8ED 0%, #E8CFC3 45%, #B88366 100%)",
     label: "Golden hour",
     badge: { icon: Heart, tone: "rose" },
     people: 2,
@@ -204,44 +206,44 @@ const galleryTiles: Array<{
   {
     className: "",
     gradient:
-      "linear-gradient(135deg, #efe7dc 0%, #d6c6b2 60%, #a89379 100%)",
+      "linear-gradient(135deg, #FAF7F2 0%, #D6C8B8 60%, #8A7252 100%)",
     label: "First look",
     people: 3,
   },
   {
     className: "",
     gradient:
-      "linear-gradient(160deg, #efe1d0 0%, #d8a87a 70%, #8a5a3a 100%)",
+      "linear-gradient(160deg, #FFF8ED 0%, #E7D6B5 70%, #A77C45 100%)",
     label: "Ceremony",
     badge: { icon: Sparkles, tone: "amber" },
   },
   {
     className: "row-span-2",
     gradient:
-      "linear-gradient(135deg, #e7e2d6 0%, #b8b6a4 55%, #6f6e5a 100%)",
+      "linear-gradient(135deg, #F3EDE4 0%, #B7C4AA 55%, #5F755C 100%)",
     label: "Vows",
     people: 4,
   },
   {
     className: "",
     gradient:
-      "linear-gradient(150deg, #f1ddd0 0%, #d99c8a 50%, #9a5642 100%)",
+      "linear-gradient(150deg, #FFF2EF 0%, #E8CFC3 50%, #8E4A40 100%)",
     label: "Reception",
     badge: { icon: Heart, tone: "rose" },
   },
   {
     className: "",
     gradient:
-      "linear-gradient(145deg, #ebe6d8 0%, #cbb692 55%, #8a7252 100%)",
+      "linear-gradient(145deg, #FAF7F2 0%, #E7D6B5 55%, #8A7252 100%)",
     label: "Toast",
     people: 5,
   },
 ];
 
 const badgeToneClasses: Record<"rose" | "amber" | "stone", string> = {
-  rose: "bg-rose-50 text-rose-700 ring-rose-200/80",
-  amber: "bg-amber-50 text-amber-800 ring-amber-200/80",
-  stone: "bg-stone-50 text-stone-700 ring-stone-200/80",
+  rose: "bg-[#FFF2EF] text-[#8E4A40] ring-[#E8CFC3]/80",
+  amber: "bg-[#FFF8ED] text-[#8A6434] ring-[#E7D6B5]/80",
+  stone: "bg-[#F7F1E8] text-[#4F473F] ring-[#E8DED2]/80",
 };
 
 const docPages: Array<{
@@ -465,23 +467,23 @@ export function LandingPage() {
   const stagger = useStagger();
 
   return (
-    <main className="min-h-screen bg-[#fbfaf8] text-stone-950 antialiased">
+    <main className="min-h-screen bg-[#FAF7F2] text-[#1F1B16] antialiased">
       <Header />
 
       <Hero reveal={reveal} />
 
       <DocsHub reveal={reveal} stagger={stagger} />
 
-      <section className="border-y border-stone-200/70 bg-white/60">
+      <section className="border-y border-[#E8DED2]/70 bg-white/60">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-10 text-center sm:flex-row sm:justify-between sm:gap-8 sm:py-12 sm:text-left">
           <motion.div {...reveal} className="max-w-2xl">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-700">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#A77C45]">
               Powered by AI
             </p>
-            <h2 className="mt-2 font-serif text-2xl leading-tight text-stone-950 sm:text-3xl">
+            <h2 className="mt-2 font-serif text-2xl leading-tight text-[#1F1B16] sm:text-3xl">
               Search by face, by feeling, by moment.
             </h2>
-            <p className="mt-2 text-sm text-stone-600 sm:text-base">
+            <p className="mt-2 text-sm text-[#6F675E] sm:text-base">
               Every photo is indexed by who is in it and what is happening — so
               the right memory surfaces in a single tap.
             </p>
@@ -501,7 +503,7 @@ export function LandingPage() {
             ].map((chip) => (
               <span
                 key={chip}
-                className="inline-flex items-center rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-medium text-stone-700 shadow-[0_1px_0_rgba(0,0,0,0.02)]"
+                className="inline-flex items-center rounded-full border border-[#E8DED2] bg-white px-3 py-1 text-xs font-medium text-[#4F473F] shadow-[0_1px_0_rgba(0,0,0,0.02)]"
               >
                 {chip}
               </span>
@@ -529,14 +531,14 @@ export function LandingPage() {
 
 function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-stone-200/60 bg-[#fbfaf8]/85 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-[#E8DED2]/60 bg-[#FAF7F2]/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
         <Link
           href="/"
-          className="group inline-flex items-center gap-2 text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 rounded-md"
+          className="group inline-flex items-center gap-2 text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 rounded-md"
           aria-label="SaathiDesk home"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8] transition-transform duration-300 group-hover:scale-105">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#171411] text-[#FAF7F2] transition-transform duration-300 group-hover:scale-105">
             <Camera className="h-4 w-4" strokeWidth={1.75} />
           </span>
           <span className="font-serif text-lg leading-none tracking-tight">
@@ -547,25 +549,25 @@ function Header() {
         <nav className="flex items-center gap-1 sm:gap-2">
           <a
             href="#docs"
-            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-stone-700 transition hover:text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 md:inline-flex"
+            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 md:inline-flex"
           >
             Docs
           </a>
           <a
             href="#ai-workflow"
-            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-stone-700 transition hover:text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 lg:inline-flex"
+            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 lg:inline-flex"
           >
             How AI works
           </a>
           <Link
             href="/login"
-            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-stone-700 transition hover:text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 sm:inline-flex"
+            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 sm:inline-flex"
           >
             Galleries
           </Link>
           <Link
             href="/login"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-stone-950 px-4 text-sm font-medium text-[#fbfaf8] shadow-sm transition hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#171411] px-4 text-sm font-medium text-[#FAF7F2] shadow-sm transition hover:bg-[#241C17] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
           >
             Open album
             <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
@@ -593,18 +595,18 @@ function Hero({ reveal }: { reveal: MotionProps }) {
       <div className="mx-auto max-w-7xl px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16 lg:pt-24">
         <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
           <motion.div {...reveal}>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white/80 px-3 py-1 text-xs font-medium text-stone-700 shadow-sm backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5 text-amber-700" strokeWidth={2} />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E8DED2] bg-white/80 px-3 py-1 text-xs font-medium text-[#4F473F] shadow-sm backdrop-blur">
+              <Sparkles className="h-3.5 w-3.5 text-[#A77C45]" strokeWidth={2} />
               SaathiDesk · AI-powered photo gallery platform
             </span>
 
-            <h1 className="mt-5 font-serif text-[2.6rem] leading-[1.05] tracking-tight text-stone-950 sm:text-6xl lg:text-[4.2rem]">
+            <h1 className="mt-5 font-serif text-[2.6rem] leading-[1.05] tracking-tight text-[#1F1B16] sm:text-6xl lg:text-[4.2rem]">
               Every moment,
               <br />
-              <span className="italic text-stone-800">beautifully</span> findable.
+              <span className="italic text-[#3A2A22]">beautifully</span> findable.
             </h1>
 
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-stone-600 sm:text-lg">
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-[#6F675E] sm:text-lg">
               A private gallery for your wedding day with people filters,
               semantic search, AI photo edits, collage exports, flexible
               downloads, and share links you can protect with watermarks.
@@ -613,7 +615,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href="/login"
-                className="group inline-flex h-12 items-center gap-2 rounded-full bg-stone-950 px-6 text-sm font-medium text-[#fbfaf8] shadow-md shadow-stone-900/10 transition hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
+                className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#171411] px-6 text-sm font-medium text-[#FAF7F2] shadow-md shadow-[#1F1B16]/10 transition hover:bg-[#241C17] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
               >
                 Open your album
                 <ArrowRight
@@ -624,30 +626,30 @@ function Hero({ reveal }: { reveal: MotionProps }) {
 
               <Link
                 href="/login?mode=signup"
-                className="inline-flex h-12 items-center rounded-full border border-stone-300 bg-white/80 px-6 text-sm font-medium text-stone-800 backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
+                className="inline-flex h-12 items-center rounded-full border border-[#D6C8B8] bg-white/80 px-6 text-sm font-medium text-[#3A2A22] backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
               >
                 Sign Up
               </Link>
 
               <a
                 href="#docs"
-                className="inline-flex h-12 items-center rounded-full border border-stone-300 bg-white/80 px-6 text-sm font-medium text-stone-800 backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
+                className="inline-flex h-12 items-center rounded-full border border-[#D6C8B8] bg-white/80 px-6 text-sm font-medium text-[#3A2A22] backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
               >
                 Read the docs
               </a>
             </div>
 
-            <dl className="mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-stone-200/80 pt-6">
+            <dl className="mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-[#E8DED2]/80 pt-6">
               {[
                 { value: "People", label: "Face filters" },
                 { value: "Ask AI", label: "Search prompts" },
                 { value: "Private", label: "Share controls" },
               ].map((stat) => (
                 <div key={stat.label}>
-                  <dt className="font-serif text-2xl text-stone-950">
+                  <dt className="font-serif text-2xl text-[#1F1B16]">
                     {stat.value}
                   </dt>
-                  <dd className="mt-1 text-xs text-stone-500">{stat.label}</dd>
+                  <dd className="mt-1 text-xs text-[#8B8176]">{stat.label}</dd>
                 </div>
               ))}
             </dl>
@@ -675,12 +677,12 @@ function HeroPreview() {
         className="absolute -inset-x-4 -inset-y-6 -z-10 rounded-[2rem] bg-gradient-to-br from-white/70 via-white/30 to-transparent blur-2xl"
       />
 
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[1.5rem] border border-stone-200/80 bg-stone-100 shadow-[0_30px_80px_-30px_rgba(20,15,10,0.35)]">
+      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[1.5rem] border border-[#E8DED2]/80 bg-[#F3EDE4] shadow-[0_30px_80px_-30px_rgba(20,15,10,0.35)]">
         <div
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(160deg, #f4e3d2 0%, #e0b89a 38%, #b07a5a 78%, #6e4a36 100%)",
+              "linear-gradient(160deg, #FFF8ED 0%, #E8CFC3 38%, #B88366 78%, #3A2A22 100%)",
           }}
         />
 
@@ -693,61 +695,61 @@ function HeroPreview() {
           }}
         />
 
-        <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 text-xs font-medium text-stone-800 shadow-sm ring-1 ring-stone-900/5 backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 text-amber-700" strokeWidth={2} />
+        <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 text-xs font-medium text-[#3A2A22] shadow-sm ring-1 ring-[#1F1B16]/5 backdrop-blur">
+          <Sparkles className="h-3.5 w-3.5 text-[#A77C45]" strokeWidth={2} />
           AI suggested
         </div>
 
         <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
-          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-sm ring-1 ring-stone-900/5 backdrop-blur">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-stone-500">
+          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-sm ring-1 ring-[#1F1B16]/5 backdrop-blur">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-[#8B8176]">
               Golden hour
             </p>
-            <p className="font-serif text-base leading-tight text-stone-950">
+            <p className="font-serif text-base leading-tight text-[#1F1B16]">
               First dance
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-full bg-white/80 px-2 py-1.5 shadow-sm ring-1 ring-stone-900/5 backdrop-blur">
+          <div className="flex items-center gap-1.5 rounded-full bg-white/80 px-2 py-1.5 shadow-sm ring-1 ring-[#1F1B16]/5 backdrop-blur">
             {[0, 1, 2].map((idx) => (
               <span
                 key={idx}
                 className="relative h-6 w-6 overflow-hidden rounded-full ring-2 ring-white"
                 style={{
                   background: [
-                    "linear-gradient(135deg,#e8c4a8,#9c6a4a)",
-                    "linear-gradient(135deg,#d8d3c4,#7a7560)",
-                    "linear-gradient(135deg,#efd0c4,#a87060)",
+                    "linear-gradient(135deg,#E8CFC3,#8E4A40)",
+                    "linear-gradient(135deg,#D6C8B8,#5F755C)",
+                    "linear-gradient(135deg,#FFF2EF,#B88366)",
                   ][idx],
                 }}
               />
             ))}
-            <Users className="ml-1 h-3.5 w-3.5 text-stone-700" strokeWidth={1.75} />
+            <Users className="ml-1 h-3.5 w-3.5 text-[#4F473F]" strokeWidth={1.75} />
           </div>
         </div>
       </div>
 
-      <div className="absolute -right-3 -top-3 hidden w-56 rounded-2xl border border-stone-200 bg-white/90 p-3 shadow-lg shadow-stone-900/5 ring-1 ring-stone-900/5 backdrop-blur sm:block">
-        <div className="flex items-center gap-2 rounded-xl bg-stone-50 px-3 py-2 ring-1 ring-stone-200/70">
-          <Search className="h-4 w-4 text-stone-500" strokeWidth={1.75} />
-          <span className="truncate text-sm text-stone-700">
+      <div className="absolute -right-3 -top-3 hidden w-56 rounded-2xl border border-[#E8DED2] bg-white/90 p-3 shadow-lg shadow-[#1F1B16]/5 ring-1 ring-[#1F1B16]/5 backdrop-blur sm:block">
+        <div className="flex items-center gap-2 rounded-xl bg-[#F7F1E8] px-3 py-2 ring-1 ring-[#E8DED2]/70">
+          <Search className="h-4 w-4 text-[#8B8176]" strokeWidth={1.75} />
+          <span className="truncate text-sm text-[#4F473F]">
             “Mum laughing at the toast”
           </span>
         </div>
-        <p className="mt-2 px-1 text-[11px] text-stone-500">
+        <p className="mt-2 px-1 text-[11px] text-[#8B8176]">
           12 matches · sorted by best moment
         </p>
       </div>
 
-      <div className="absolute -bottom-4 -left-2 hidden items-center gap-3 rounded-2xl border border-stone-200 bg-white/95 px-3 py-2.5 shadow-lg shadow-stone-900/5 ring-1 ring-stone-900/5 backdrop-blur sm:flex">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-50 text-rose-600 ring-1 ring-rose-100">
+      <div className="absolute -bottom-4 -left-2 hidden items-center gap-3 rounded-2xl border border-[#E8DED2] bg-white/95 px-3 py-2.5 shadow-lg shadow-[#1F1B16]/5 ring-1 ring-[#1F1B16]/5 backdrop-blur sm:flex">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFF2EF] text-[#A85D50] ring-1 ring-[#E8CFC3]">
           <Heart className="h-4 w-4" strokeWidth={2} />
         </span>
         <div>
-          <p className="text-xs font-semibold text-stone-950">
+          <p className="text-xs font-semibold text-[#1F1B16]">
             Saved to favourites
           </p>
-          <p className="text-[11px] text-stone-500">Synced to your album</p>
+          <p className="text-[11px] text-[#8B8176]">Synced to your album</p>
         </div>
       </div>
     </div>
@@ -762,20 +764,20 @@ function DocsHub({
   stagger: MotionProps;
 }) {
   return (
-    <section id="docs" className="relative border-y border-stone-200/70 bg-white">
+    <section id="docs" className="relative border-y border-[#E8DED2]/70 bg-white">
       <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
         <motion.div
           {...reveal}
           className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
         >
           <div className="max-w-2xl">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-700">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#A77C45]">
               Documentation hub
             </p>
-            <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-stone-950 sm:text-5xl">
+            <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-[#1F1B16] sm:text-5xl">
               Clear paths for every <span className="italic">album job.</span>
             </h2>
-            <p className="mt-4 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#6F675E] sm:text-lg">
               SaathiDesk is both a client gallery and a studio workspace. These
               quick pages explain where to go, what the AI prepares, and how to
               deliver a finished set with the right privacy controls.
@@ -784,7 +786,7 @@ function DocsHub({
 
           <a
             href="#guides"
-            className="inline-flex h-11 w-fit items-center gap-2 rounded-full border border-stone-300 bg-[#fbfaf8] px-5 text-sm font-medium text-stone-900 transition hover:border-stone-400 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30"
+            className="inline-flex h-11 w-fit items-center gap-2 rounded-full border border-[#D6C8B8] bg-[#FAF7F2] px-5 text-sm font-medium text-[#1F1B16] transition hover:border-[#C8B8A6] hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30"
           >
             View all guides
             <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
@@ -802,7 +804,7 @@ function DocsHub({
               <motion.article
                 key={page.title}
                 variants={itemVariants}
-                className="group flex h-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#fbfaf8] shadow-[0_1px_0_rgba(0,0,0,0.02)] transition duration-500 hover:-translate-y-1 hover:border-stone-300 hover:shadow-xl"
+                className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#E8DED2] bg-[#FAF7F2] shadow-[0_1px_0_rgba(0,0,0,0.02)] transition duration-500 hover:-translate-y-1 hover:border-[#D6C8B8] hover:shadow-xl"
               >
                 <DocPhotoPlate
                   icon={Icon}
@@ -813,23 +815,23 @@ function DocsHub({
 
                 <div className="flex flex-1 flex-col p-5">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8] transition group-hover:bg-amber-700">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#171411] text-[#FAF7F2] transition group-hover:bg-[#C6A15B]">
                       <Icon className="h-4 w-4" strokeWidth={1.75} />
                     </span>
-                    <h3 className="font-serif text-xl leading-tight text-stone-950">
+                    <h3 className="font-serif text-xl leading-tight text-[#1F1B16]">
                       {page.title}
                     </h3>
                   </div>
 
-                  <p className="mt-3 text-sm leading-relaxed text-stone-600">
+                  <p className="mt-3 text-sm leading-relaxed text-[#6F675E]">
                     {page.body}
                   </p>
 
-                  <ul className="mt-4 space-y-2 text-sm text-stone-700">
+                  <ul className="mt-4 space-y-2 text-sm text-[#4F473F]">
                     {page.highlights.map((highlight) => (
                       <li key={highlight} className="flex gap-2">
                         <CheckCircle2
-                          className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+                          className="mt-0.5 h-4 w-4 shrink-0 text-[#5F755C]"
                           strokeWidth={2}
                         />
                         <span>{highlight}</span>
@@ -839,7 +841,7 @@ function DocsHub({
 
                   <a
                     href={page.href}
-                    className="mt-5 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-stone-950 transition hover:text-amber-800"
+                    className="mt-5 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[#1F1B16] transition hover:text-[#8A6434]"
                   >
                     Open guide
                     <ArrowRight
@@ -907,7 +909,7 @@ function DocPhotoPlate({
         <rect width="100%" height="100%" filter={`url(#${grainId})`} />
       </svg>
 
-      <span className="absolute left-4 top-4 inline-flex h-8 items-center rounded-full bg-white/85 px-3 text-[10px] font-medium uppercase tracking-[0.18em] text-stone-700 ring-1 ring-stone-900/10 backdrop-blur">
+      <span className="absolute left-4 top-4 inline-flex h-8 items-center rounded-full bg-white/85 px-3 text-[10px] font-medium uppercase tracking-[0.18em] text-[#4F473F] ring-1 ring-[#1F1B16]/10 backdrop-blur">
         {label}
       </span>
 
@@ -940,7 +942,7 @@ function AiWorkflow({
   stagger: MotionProps;
 }) {
   return (
-    <section id="ai-workflow" className="relative overflow-hidden bg-stone-950 text-[#fbfaf8]">
+    <section id="ai-workflow" className="relative overflow-hidden bg-[#171411] text-[#FAF7F2]">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -953,19 +955,19 @@ function AiWorkflow({
       <div className="relative mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <motion.div {...reveal}>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-300/90">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#E7D6B5]/90">
               How the AI works
             </p>
             <h2 className="mt-3 font-serif text-3xl leading-[1.1] sm:text-5xl">
               From upload to <span className="italic">findable gallery.</span>
             </h2>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-stone-300 sm:text-lg">
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-[#D6C8B8] sm:text-lg">
               AI processing is submitted by an authenticated album owner, handled
               by the configured worker, then written back as searchable metadata,
               people groups, review scores, and optional edited outputs.
             </p>
 
-            <div className="mt-7 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
+            <div className="mt-7 grid gap-3 text-sm text-[#D6C8B8] sm:grid-cols-2">
               {[
                 "Original photos stay separate from generated previews and edits.",
                 "AI metadata is scoped to the album and event the photo belongs to.",
@@ -977,7 +979,7 @@ function AiWorkflow({
                   className="flex gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3"
                 >
                   <CheckCircle2
-                    className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300"
+                    className="mt-0.5 h-4 w-4 shrink-0 text-[#B7C4AA]"
                     strokeWidth={2}
                   />
                   <span>{note}</span>
@@ -1008,17 +1010,17 @@ function AiWorkflow({
                 className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05] p-5 ring-1 ring-white/5"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <span className="font-serif text-sm tracking-[0.22em] text-amber-200/80">
+                  <span className="font-serif text-sm tracking-[0.22em] text-[#E7D6B5]/80">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-amber-200 ring-1 ring-white/10">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-[#E7D6B5] ring-1 ring-white/10">
                     <Icon className="h-4 w-4" strokeWidth={1.75} />
                   </span>
                 </div>
                 <h3 className="mt-5 font-serif text-xl leading-tight">
                   {step.title}
                 </h3>
-                <p className="mt-3 text-sm leading-relaxed text-stone-300">
+                <p className="mt-3 text-sm leading-relaxed text-[#D6C8B8]">
                   {step.body}
                 </p>
               </motion.article>
@@ -1032,31 +1034,31 @@ function AiWorkflow({
 
 function AiSystemPreview() {
   return (
-    <div className="relative aspect-[4/3] overflow-hidden rounded-[1.1rem] bg-[#f7f1e8] text-stone-950">
+    <div className="relative aspect-[4/3] overflow-hidden rounded-[1.1rem] bg-[#FAF7F2] text-[#1F1B16]">
       <div
         aria-hidden
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(145deg, #f5e2d2 0%, #d8b88f 48%, #597063 100%)",
+            "linear-gradient(145deg, #FFF8ED 0%, #E7D6B5 48%, #5F755C 100%)",
         }}
       />
       <div
         aria-hidden
-        className="absolute inset-0 bg-gradient-to-tr from-stone-950/55 via-stone-950/5 to-white/20"
+        className="absolute inset-0 bg-gradient-to-tr from-[#171411]/55 via-[#171411]/5 to-white/20"
       />
 
-      <div className="absolute left-4 top-4 rounded-2xl bg-white/85 p-3 shadow-lg ring-1 ring-stone-900/10 backdrop-blur">
-        <div className="flex items-center gap-2 text-xs font-medium text-stone-700">
-          <UploadCloud className="h-4 w-4 text-stone-500" strokeWidth={1.75} />
+      <div className="absolute left-4 top-4 rounded-2xl bg-white/85 p-3 shadow-lg ring-1 ring-[#1F1B16]/10 backdrop-blur">
+        <div className="flex items-center gap-2 text-xs font-medium text-[#4F473F]">
+          <UploadCloud className="h-4 w-4 text-[#8B8176]" strokeWidth={1.75} />
           Upload complete
         </div>
         <div className="mt-3 grid grid-cols-3 gap-1.5">
-          {["#e9c4aa", "#c7b89a", "#8fa89a", "#d49b88", "#8b7460", "#b9cbd2"].map(
+          {["#E8CFC3", "#D6C8B8", "#B7C4AA", "#B88366", "#8A7252", "#B8CDD3"].map(
             (color, index) => (
               <span
                 key={color}
-                className="h-10 rounded-md ring-1 ring-stone-900/5"
+                className="h-10 rounded-md ring-1 ring-[#1F1B16]/5"
                 style={{ backgroundColor: color, opacity: index === 5 ? 0.85 : 1 }}
               />
             ),
@@ -1064,12 +1066,12 @@ function AiSystemPreview() {
         </div>
       </div>
 
-      <div className="absolute right-4 top-14 w-52 rounded-2xl bg-stone-950/82 p-3 text-[#fbfaf8] shadow-xl ring-1 ring-white/10 backdrop-blur">
+      <div className="absolute right-4 top-14 w-52 rounded-2xl bg-[#171411]/82 p-3 text-[#FAF7F2] shadow-xl ring-1 ring-white/10 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-amber-200">
+          <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#E7D6B5]">
             Pipeline
           </span>
-          <Sparkles className="h-4 w-4 text-amber-200" strokeWidth={1.75} />
+          <Sparkles className="h-4 w-4 text-[#E7D6B5]" strokeWidth={1.75} />
         </div>
         <div className="mt-3 space-y-2">
           {[
@@ -1082,24 +1084,24 @@ function AiSystemPreview() {
               className="flex items-center justify-between rounded-full bg-white/10 px-3 py-1.5 text-xs"
             >
               <span>{label}</span>
-              <span className="text-emerald-200">{value}</span>
+              <span className="text-[#DDE8D5]">{value}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-4 right-4 rounded-2xl bg-white/88 p-3 shadow-xl ring-1 ring-stone-900/10 backdrop-blur">
-        <div className="flex items-center gap-2 rounded-xl bg-stone-50 px-3 py-2 ring-1 ring-stone-200/70">
-          <Search className="h-4 w-4 text-stone-500" strokeWidth={1.75} />
-          <span className="truncate text-sm text-stone-700">
+      <div className="absolute bottom-4 left-4 right-4 rounded-2xl bg-white/88 p-3 shadow-xl ring-1 ring-[#1F1B16]/10 backdrop-blur">
+        <div className="flex items-center gap-2 rounded-xl bg-[#F7F1E8] px-3 py-2 ring-1 ring-[#E8DED2]/70">
+          <Search className="h-4 w-4 text-[#8B8176]" strokeWidth={1.75} />
+          <span className="truncate text-sm text-[#4F473F]">
             bride jewelry near floral stage
           </span>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-medium text-stone-700">
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-medium text-[#4F473F]">
           {["14 matches", "2 people", "ceremony event"].map((chip) => (
             <span
               key={chip}
-              className="rounded-full bg-stone-100 px-2 py-1 ring-1 ring-stone-200"
+              className="rounded-full bg-[#F3EDE4] px-2 py-1 ring-1 ring-[#E8DED2]"
             >
               {chip}
             </span>
@@ -1124,13 +1126,13 @@ function PromptGuide({
         className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
       >
         <div className="max-w-2xl">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-700">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#A77C45]">
             Ask AI directions
           </p>
-          <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-stone-950 sm:text-5xl">
+          <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-[#1F1B16] sm:text-5xl">
             Search like you are describing <span className="italic">a frame.</span>
           </h2>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#6F675E] sm:text-lg">
             Ask AI is strongest when the prompt names a person, a scene, or a
             visible detail. It returns matching photos, while culling and review
             pages handle best-photo comparisons.
@@ -1139,7 +1141,7 @@ function PromptGuide({
 
         <a
           href="#search-guide"
-          className="inline-flex h-11 w-fit items-center gap-2 rounded-full border border-stone-300 bg-white px-5 text-sm font-medium text-stone-900 transition hover:border-stone-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30"
+          className="inline-flex h-11 w-fit items-center gap-2 rounded-full border border-[#D6C8B8] bg-white px-5 text-sm font-medium text-[#1F1B16] transition hover:border-[#C8B8A6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30"
         >
           Search guide
           <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
@@ -1157,7 +1159,7 @@ function PromptGuide({
             <motion.article
               key={guide.title}
               variants={itemVariants}
-              className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_1px_0_rgba(0,0,0,0.02)]"
+              className="overflow-hidden rounded-2xl border border-[#E8DED2] bg-white shadow-[0_1px_0_rgba(0,0,0,0.02)]"
             >
               <DocPhotoPlate
                 icon={Icon}
@@ -1166,17 +1168,17 @@ function PromptGuide({
                 label="Prompt"
               />
               <div className="p-5">
-                <h3 className="font-serif text-xl leading-tight text-stone-950">
+                <h3 className="font-serif text-xl leading-tight text-[#1F1B16]">
                   {guide.title}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                <p className="mt-2 text-sm leading-relaxed text-[#6F675E]">
                   {guide.body}
                 </p>
                 <div className="mt-4 space-y-2">
                   {guide.examples.map((example) => (
                     <code
                       key={example}
-                      className="block rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-700 ring-1 ring-stone-200"
+                      className="block rounded-lg bg-[#F7F1E8] px-3 py-2 text-xs text-[#4F473F] ring-1 ring-[#E8DED2]"
                     >
                       {example}
                     </code>
@@ -1189,15 +1191,15 @@ function PromptGuide({
 
         <motion.aside
           variants={itemVariants}
-          className="rounded-2xl border border-stone-200 bg-[#fbfaf8] p-5 shadow-[0_1px_0_rgba(0,0,0,0.02)]"
+          className="rounded-2xl border border-[#E8DED2] bg-[#FAF7F2] p-5 shadow-[0_1px_0_rgba(0,0,0,0.02)]"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8]">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#171411] text-[#FAF7F2]">
             <BookOpen className="h-4 w-4" strokeWidth={1.75} />
           </span>
-          <h3 className="mt-5 font-serif text-xl leading-tight text-stone-950">
+          <h3 className="mt-5 font-serif text-xl leading-tight text-[#1F1B16]">
             What to avoid
           </h3>
-          <p className="mt-2 text-sm leading-relaxed text-stone-600">
+          <p className="mt-2 text-sm leading-relaxed text-[#6F675E]">
             Open-ended questions need a ranking layer. Use visual keywords or
             culling views instead.
           </p>
@@ -1209,13 +1211,13 @@ function PromptGuide({
             ].map((example) => (
               <code
                 key={example}
-                className="block rounded-lg bg-white px-3 py-2 text-xs text-stone-500 line-through decoration-rose-400 ring-1 ring-stone-200"
+                className="block rounded-lg bg-white px-3 py-2 text-xs text-[#8B8176] line-through decoration-[#B88366] ring-1 ring-[#E8DED2]"
               >
                 {example}
               </code>
             ))}
           </div>
-          <p className="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-800 ring-1 ring-emerald-100">
+          <p className="mt-4 rounded-xl bg-[#EEF3EA] px-3 py-2 text-xs leading-relaxed text-[#4F6F52] ring-1 ring-[#DDE8D5]">
             Better: search for jewelry, bangles, saree, stage, couple portrait,
             family group, or a named person plus a visible detail.
           </p>
@@ -1235,17 +1237,17 @@ function FeatureGuides({
   return (
     <section
       id="guides"
-      className="relative border-y border-stone-200/70 bg-gradient-to-b from-[#f6f1ea] via-[#fbfaf8] to-white"
+      className="relative border-y border-[#E8DED2]/70 bg-gradient-to-b from-[#F3EDE4] via-[#FAF7F2] to-white"
     >
       <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
         <motion.div {...reveal} className="max-w-3xl">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-700">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#A77C45]">
             Product walkthroughs
           </p>
-          <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-stone-950 sm:text-5xl">
+          <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-[#1F1B16] sm:text-5xl">
             The sub-pages your team <span className="italic">actually needs.</span>
           </h2>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#6F675E] sm:text-lg">
             Each guide below maps to an existing app surface and explains the
             practical order of work, from first upload to final client handoff.
           </p>
@@ -1261,7 +1263,7 @@ function FeatureGuides({
                 id={guide.id}
                 key={guide.id}
                 variants={itemVariants}
-                className="grid overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_1px_0_rgba(0,0,0,0.02)] lg:grid-cols-[0.85fr_1.15fr]"
+                className="grid overflow-hidden rounded-2xl border border-[#E8DED2] bg-white shadow-[0_1px_0_rgba(0,0,0,0.02)] lg:grid-cols-[0.85fr_1.15fr]"
               >
                 <div className={flip ? "lg:order-2" : undefined}>
                   <DocPhotoPlate
@@ -1274,19 +1276,19 @@ function FeatureGuides({
 
                 <div className="flex flex-col justify-center p-6 sm:p-8">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="inline-flex h-9 items-center rounded-full bg-stone-950 px-3 text-xs font-medium uppercase tracking-[0.16em] text-[#fbfaf8]">
+                    <span className="inline-flex h-9 items-center rounded-full bg-[#171411] px-3 text-xs font-medium uppercase tracking-[0.16em] text-[#FAF7F2]">
                       {guide.eyebrow}
                     </span>
-                    <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-stone-50 px-3 text-xs font-medium text-stone-600 ring-1 ring-stone-200">
+                    <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#F7F1E8] px-3 text-xs font-medium text-[#6F675E] ring-1 ring-[#E8DED2]">
                       <KeyRound className="h-3.5 w-3.5" strokeWidth={1.75} />
                       {guide.routeLabel}
                     </span>
                   </div>
 
-                  <h3 className="mt-5 font-serif text-2xl leading-tight text-stone-950 sm:text-3xl">
+                  <h3 className="mt-5 font-serif text-2xl leading-tight text-[#1F1B16] sm:text-3xl">
                     {guide.title}
                   </h3>
-                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600 sm:text-base">
+                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#6F675E] sm:text-base">
                     {guide.body}
                   </p>
 
@@ -1294,9 +1296,9 @@ function FeatureGuides({
                     {guide.steps.map((step, stepIndex) => (
                       <li
                         key={step}
-                        className="flex gap-3 rounded-xl border border-stone-200 bg-[#fbfaf8] p-3 text-sm leading-relaxed text-stone-700"
+                        className="flex gap-3 rounded-xl border border-[#E8DED2] bg-[#FAF7F2] p-3 text-sm leading-relaxed text-[#4F473F]"
                       >
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-stone-700 ring-1 ring-stone-200">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-[#4F473F] ring-1 ring-[#E8DED2]">
                           {stepIndex + 1}
                         </span>
                         <span>{step}</span>
@@ -1403,14 +1405,14 @@ function MomentsCarousel({ reveal }: { reveal: MotionProps }) {
       className="relative mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28"
     >
       <motion.div {...reveal} className="max-w-2xl">
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-700">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#A77C45]">
           Moments, not features
         </p>
-        <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-stone-950 sm:text-5xl">
+        <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-[#1F1B16] sm:text-5xl">
           A gallery that <span className="italic">remembers</span>
           <br className="hidden sm:block" /> for you.
         </h2>
-        <p className="mt-4 max-w-xl text-base leading-relaxed text-stone-600 sm:text-lg">
+        <p className="mt-4 max-w-xl text-base leading-relaxed text-[#6F675E] sm:text-lg">
           Swipe through the small, quiet ways your photographs become a story
           you can actually find your way back into.
         </p>
@@ -1419,12 +1421,12 @@ function MomentsCarousel({ reveal }: { reveal: MotionProps }) {
       <div className="relative mt-10 sm:mt-14">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-16 bg-gradient-to-r from-[#fbfaf8] to-transparent transition-opacity duration-300 sm:block"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-16 bg-gradient-to-r from-[#FAF7F2] to-transparent transition-opacity duration-300 sm:block"
           style={{ opacity: canScrollPrev ? 1 : 0 }}
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-16 bg-gradient-to-l from-[#fbfaf8] to-transparent transition-opacity duration-300 sm:block"
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-16 bg-gradient-to-l from-[#FAF7F2] to-transparent transition-opacity duration-300 sm:block"
           style={{ opacity: canScrollNext ? 1 : 0 }}
         />
 
@@ -1433,7 +1435,7 @@ function MomentsCarousel({ reveal }: { reveal: MotionProps }) {
           onClick={() => scrollByDir(-1)}
           disabled={!canScrollPrev}
           aria-label="Previous moment"
-          className="absolute -left-2 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-stone-200 bg-white/95 text-stone-800 shadow-md backdrop-blur transition hover:border-stone-300 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 sm:flex"
+          className="absolute -left-2 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[#E8DED2] bg-white/95 text-[#3A2A22] shadow-md backdrop-blur transition hover:border-[#D6C8B8] hover:text-[#1F1B16] disabled:cursor-not-allowed disabled:opacity-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 sm:flex"
         >
           <ChevronLeft className="h-5 w-5" strokeWidth={1.75} />
         </button>
@@ -1443,7 +1445,7 @@ function MomentsCarousel({ reveal }: { reveal: MotionProps }) {
           onClick={() => scrollByDir(1)}
           disabled={!canScrollNext}
           aria-label="Next moment"
-          className="absolute -right-2 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-stone-200 bg-white/95 text-stone-800 shadow-md backdrop-blur transition hover:border-stone-300 hover:text-stone-950 disabled:cursor-not-allowed disabled:opacity-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 sm:flex"
+          className="absolute -right-2 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-[#E8DED2] bg-white/95 text-[#3A2A22] shadow-md backdrop-blur transition hover:border-[#D6C8B8] hover:text-[#1F1B16] disabled:cursor-not-allowed disabled:opacity-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 sm:flex"
         >
           <ChevronRight className="h-5 w-5" strokeWidth={1.75} />
         </button>
@@ -1481,8 +1483,8 @@ function MomentsCarousel({ reveal }: { reveal: MotionProps }) {
             <span
               className={`block h-1.5 rounded-full transition-all duration-300 ${
                 activeIndex === i
-                  ? "w-8 bg-stone-900"
-                  : "w-2 bg-stone-300 group-hover:bg-stone-500"
+                  ? "w-8 bg-[#1F1B16]"
+                  : "w-2 bg-[#D6C8B8] group-hover:bg-[#6F675E]"
               }`}
             />
           </button>
@@ -1506,8 +1508,8 @@ function MomentCard({
   const toneStyle = toneStyles[tone];
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_1px_0_rgba(0,0,0,0.02)] transition duration-500 hover:-translate-y-1 hover:border-stone-300 hover:shadow-xl">
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-stone-100">
+    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#E8DED2] bg-white shadow-[0_1px_0_rgba(0,0,0,0.02)] transition duration-500 hover:-translate-y-1 hover:border-[#D6C8B8] hover:shadow-xl">
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#F3EDE4]">
         {src ? (
           <>
             <img
@@ -1533,21 +1535,21 @@ function MomentCard({
           {indexLabel}
         </span>
 
-        <span className="absolute right-4 top-4 inline-flex h-8 items-center rounded-full bg-white/85 px-3 text-[10px] font-medium uppercase tracking-[0.18em] text-stone-700 ring-1 ring-stone-900/10 backdrop-blur">
+        <span className="absolute right-4 top-4 inline-flex h-8 items-center rounded-full bg-white/85 px-3 text-[10px] font-medium uppercase tracking-[0.18em] text-[#4F473F] ring-1 ring-[#1F1B16]/10 backdrop-blur">
           {eyebrow}
         </span>
       </div>
 
       <div className="flex flex-1 flex-col gap-3 p-6 sm:p-7">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8] transition group-hover:bg-amber-700">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#171411] text-[#FAF7F2] transition group-hover:bg-[#C6A15B]">
             <Icon className="h-4 w-4" strokeWidth={1.75} />
           </span>
-          <h3 className="font-serif text-xl leading-tight text-stone-950 sm:text-2xl">
+          <h3 className="font-serif text-xl leading-tight text-[#1F1B16] sm:text-2xl">
             {title}
           </h3>
         </div>
-        <p className="text-sm leading-relaxed text-stone-600 sm:text-base">
+        <p className="text-sm leading-relaxed text-[#6F675E] sm:text-base">
           {body}
         </p>
       </div>
@@ -1634,20 +1636,20 @@ function GalleryPreview({
   stagger: MotionProps;
 }) {
   return (
-    <section className="relative border-y border-stone-200/70 bg-gradient-to-b from-[#f6f1ea] via-[#fbfaf8] to-[#fbfaf8]">
+    <section className="relative border-y border-[#E8DED2]/70 bg-gradient-to-b from-[#F3EDE4] via-[#FAF7F2] to-[#FAF7F2]">
       <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
         <motion.div
           {...reveal}
           className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
         >
           <div className="max-w-xl">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-700">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#A77C45]">
               A glimpse
             </p>
-            <h2 className="mt-3 font-serif text-3xl leading-tight text-stone-950 sm:text-4xl">
+            <h2 className="mt-3 font-serif text-3xl leading-tight text-[#1F1B16] sm:text-4xl">
               The whole day, <span className="italic">held in light.</span>
             </h2>
-            <p className="mt-3 text-base text-stone-600">
+            <p className="mt-3 text-base text-[#6F675E]">
               Masonry-style galleries, face filters and a focused viewer that
               feels as good on a phone as on a 27-inch screen.
             </p>
@@ -1655,7 +1657,7 @@ function GalleryPreview({
 
           <Link
             href="/login"
-            className="group inline-flex h-11 w-fit items-center gap-1.5 rounded-full border border-stone-300 bg-white px-5 text-sm font-medium text-stone-900 transition hover:border-stone-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
+            className="group inline-flex h-11 w-fit items-center gap-1.5 rounded-full border border-[#D6C8B8] bg-white px-5 text-sm font-medium text-[#1F1B16] transition hover:border-[#C8B8A6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
           >
             Browse galleries
             <ArrowRight
@@ -1673,7 +1675,7 @@ function GalleryPreview({
             <motion.div
               key={tile.label + idx}
               variants={itemVariants}
-              className={`group relative overflow-hidden rounded-xl shadow-sm ring-1 ring-stone-900/5 transition duration-500 hover:shadow-lg ${tile.className}`}
+              className={`group relative overflow-hidden rounded-xl shadow-sm ring-1 ring-[#1F1B16]/5 transition duration-500 hover:shadow-lg ${tile.className}`}
               style={{ background: tile.gradient }}
             >
               <div
@@ -1706,7 +1708,7 @@ function GalleryPreview({
                 </p>
 
                 {tile.people ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/85 px-2 py-0.5 text-[11px] font-medium text-stone-800 ring-1 ring-stone-900/5 backdrop-blur">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/85 px-2 py-0.5 text-[11px] font-medium text-[#3A2A22] ring-1 ring-[#1F1B16]/5 backdrop-blur">
                     <Users className="h-3 w-3" strokeWidth={2} />
                     {tile.people}
                   </span>
@@ -1718,7 +1720,7 @@ function GalleryPreview({
 
         <motion.div
           {...reveal}
-          className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-stone-500"
+          className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-[#8B8176]"
         >
           <span className="inline-flex items-center gap-1.5">
             <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -1747,7 +1749,7 @@ function FinalCTA({ reveal }: { reveal: MotionProps }) {
     <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
       <motion.div
         {...reveal}
-        className="relative overflow-hidden rounded-3xl bg-stone-950 px-6 py-14 text-center text-[#fbfaf8] sm:px-12 sm:py-20"
+        className="relative overflow-hidden rounded-3xl bg-[#171411] px-6 py-14 text-center text-[#FAF7F2] sm:px-12 sm:py-20"
       >
         <div
           aria-hidden
@@ -1758,20 +1760,20 @@ function FinalCTA({ reveal }: { reveal: MotionProps }) {
           }}
         />
 
-        <p className="relative text-xs font-medium uppercase tracking-[0.18em] text-amber-300/90">
+        <p className="relative text-xs font-medium uppercase tracking-[0.18em] text-[#E7D6B5]/90">
           Ready when you are
         </p>
         <h2 className="relative mx-auto mt-3 max-w-2xl font-serif text-3xl leading-tight sm:text-5xl">
           Open your album. <span className="italic">Relive the day.</span>
         </h2>
-        <p className="relative mx-auto mt-4 max-w-xl text-base text-stone-300 sm:text-lg">
+        <p className="relative mx-auto mt-4 max-w-xl text-base text-[#D6C8B8] sm:text-lg">
           Sign in to your private gallery and let the photos find you.
         </p>
 
         <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/login"
-            className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#fbfaf8] px-6 text-sm font-medium text-stone-950 shadow-lg shadow-black/20 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 cursor-pointer"
+            className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#FAF7F2] px-6 text-sm font-medium text-[#1F1B16] shadow-lg shadow-black/20 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 cursor-pointer"
           >
             Open your album
             <ArrowRight
@@ -1782,7 +1784,7 @@ function FinalCTA({ reveal }: { reveal: MotionProps }) {
 
           <a
             href="mailto:support@saathidesk.com"
-            className="inline-flex h-12 items-center rounded-full border border-white/20 px-6 text-sm font-medium text-[#fbfaf8] transition hover:border-white/40 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 cursor-pointer"
+            className="inline-flex h-12 items-center rounded-full border border-white/20 px-6 text-sm font-medium text-[#FAF7F2] transition hover:border-white/40 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 cursor-pointer"
           >
             Talk to us
           </a>
@@ -1794,34 +1796,34 @@ function FinalCTA({ reveal }: { reveal: MotionProps }) {
 
 function Footer() {
   return (
-    <footer className="border-t border-stone-200/70 bg-[#fbfaf8]">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 py-8 text-xs text-stone-500 sm:flex-row sm:px-8">
+    <footer className="border-t border-[#E8DED2]/70 bg-[#FAF7F2]">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 py-8 text-xs text-[#8B8176] sm:flex-row sm:px-8">
         <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8]">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#171411] text-[#FAF7F2]">
             <Camera className="h-3 w-3" strokeWidth={1.75} />
           </span>
-          <span className="font-serif text-sm text-stone-700">SaathiDesk</span>
+          <span className="font-serif text-sm text-[#4F473F]">SaathiDesk</span>
         </div>
 
         <p>© {new Date().getFullYear()} SaathiDesk. All photographs belong to their owners.</p>
 
         <div className="flex items-center gap-4">
-          <Link href="/login" className="hover:text-stone-800">
+          <Link href="/login" className="hover:text-[#3A2A22]">
             Galleries
           </Link>
-          <a href="#docs" className="hover:text-stone-800">
+          <a href="#docs" className="hover:text-[#3A2A22]">
             Docs
           </a>
-          <a href="#ai-workflow" className="hover:text-stone-800">
+          <a href="#ai-workflow" className="hover:text-[#3A2A22]">
             AI
           </a>
-          <Link href="/legal/privacy-policy" className="hover:text-stone-800">
+          <Link href="/legal/privacy-policy" className="hover:text-[#3A2A22]">
             Privacy
           </Link>
-          <Link href="/legal/terms-of-service" className="hover:text-stone-800">
+          <Link href="/legal/terms-of-service" className="hover:text-[#3A2A22]">
             Terms
           </Link>
-          <a href="mailto:support@saathidesk.com" className="hover:text-stone-800">
+          <a href="mailto:support@saathidesk.com" className="hover:text-[#3A2A22]">
             Contact
           </a>
         </div>
