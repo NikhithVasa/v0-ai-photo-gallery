@@ -3,15 +3,28 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  BookOpen,
+  BrainCircuit,
   Camera,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Download,
+  FileImage,
   Heart,
+  KeyRound,
+  Layers3,
+  LockKeyhole,
+  MessageCircle,
   Search,
+  ScanFace,
   Share2,
+  ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
+  UploadCloud,
   Users,
+  Wand2,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -20,7 +33,7 @@ import {
   type MotionProps,
   type Variants,
 } from "framer-motion";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -89,8 +102,17 @@ interface Moment {
   src?: string;
   alt?: string;
   /** Background tone for the typographic plate (used only when src is absent). */
-  tone: "blush" | "champagne" | "sand" | "rose";
+  tone: PlateTone;
 }
+
+type PlateTone =
+  | "blush"
+  | "champagne"
+  | "sand"
+  | "rose"
+  | "sage"
+  | "sky"
+  | "ink";
 
 const moments: Moment[] = [
   {
@@ -124,7 +146,7 @@ const moments: Moment[] = [
 ];
 
 const toneStyles: Record<
-  Moment["tone"],
+  PlateTone,
   { background: string; grainOpacity: number }
 > = {
   blush: {
@@ -146,6 +168,21 @@ const toneStyles: Record<
     background:
       "linear-gradient(155deg, #efe8db 0%, #c8b89a 55%, #7d6c52 100%)",
     grainOpacity: 0.15,
+  },
+  sage: {
+    background:
+      "linear-gradient(145deg, #e5ece1 0%, #aebf9f 55%, #5f755c 100%)",
+    grainOpacity: 0.16,
+  },
+  sky: {
+    background:
+      "linear-gradient(150deg, #e1edf0 0%, #9db9c2 55%, #506f7a 100%)",
+    grainOpacity: 0.15,
+  },
+  ink: {
+    background:
+      "linear-gradient(150deg, #3b3a35 0%, #24231f 58%, #11100e 100%)",
+    grainOpacity: 0.2,
   },
 };
 
@@ -207,6 +244,222 @@ const badgeToneClasses: Record<"rose" | "amber" | "stone", string> = {
   stone: "bg-stone-50 text-stone-700 ring-stone-200/80",
 };
 
+const docPages: Array<{
+  eyebrow: string;
+  title: string;
+  body: string;
+  href: string;
+  icon: LucideIcon;
+  tone: PlateTone;
+  highlights: string[];
+}> = [
+  {
+    eyebrow: "Guest guide",
+    title: "Open, find, save",
+    body: "Start with the album link, enter the passcode if one is set, then move between Photos, People, search, collage, and downloads without leaving the gallery.",
+    href: "#guest-guide",
+    icon: Heart,
+    tone: "blush",
+    highlights: ["Use People to find yourself", "Search moments in plain words", "Download selected favorites"],
+  },
+  {
+    eyebrow: "Studio guide",
+    title: "Upload, process, deliver",
+    body: "Create an album, split the day into events, upload files from desktop, Google Drive, or Google Photos, then let processing build previews and AI metadata.",
+    href: "#studio-guide",
+    icon: UploadCloud,
+    tone: "sage",
+    highlights: ["Retry failed uploads", "Run event-level AI actions", "Control covers and event order"],
+  },
+  {
+    eyebrow: "AI guide",
+    title: "How intelligence is made",
+    body: "The AI pipeline creates face groups, scene descriptions, quality signals, searchable text, review clusters, and optional image edits while keeping the original file intact.",
+    href: "#ai-workflow",
+    icon: BrainCircuit,
+    tone: "sky",
+    highlights: ["Face grouping", "Search descriptions", "Culling scores"],
+  },
+  {
+    eyebrow: "Delivery guide",
+    title: "Share with control",
+    body: "Use private links, passcodes, watermark previews, and download controls to decide what clients can view, save, and pass along.",
+    href: "#sharing-guide",
+    icon: ShieldCheck,
+    tone: "champagne",
+    highlights: ["Watermarked previews", "Album passcodes", "All, event, or selected exports"],
+  },
+];
+
+const aiWorkflowSteps: Array<{
+  title: string;
+  body: string;
+  icon: LucideIcon;
+}> = [
+  {
+    title: "Photos enter an album event",
+    body: "Uploads are registered against an album and event, then stored with original file keys so every photo keeps its source version.",
+    icon: UploadCloud,
+  },
+  {
+    title: "Processing builds usable images",
+    body: "The app prepares thumbnails, clean previews, watermarked previews, and AI-ready copies so galleries stay fast on phones and desktops.",
+    icon: FileImage,
+  },
+  {
+    title: "Faces become people filters",
+    body: "Face indexing groups repeated faces into People. You can rename people, filter by one person or a group, and jump into their photos.",
+    icon: ScanFace,
+  },
+  {
+    title: "Vision metadata describes the scene",
+    body: "AI descriptions capture people, clothing, decor, ceremony details, camera gaze, clarity, background quality, and album-worthy signals.",
+    icon: BrainCircuit,
+  },
+  {
+    title: "Search combines names and details",
+    body: "Ask AI resolves names or person numbers, respects the current album and event, and matches against captions, scene text, and person-level descriptions.",
+    icon: MessageCircle,
+  },
+  {
+    title: "Review tools surface the strongest set",
+    body: "Culling views use scores and clusters for needs-review, duplicates, low-score images, photo type, and best-by-person selections.",
+    icon: SlidersHorizontal,
+  },
+];
+
+const promptGuides: Array<{
+  title: string;
+  body: string;
+  examples: string[];
+  icon: LucideIcon;
+  tone: PlateTone;
+}> = [
+  {
+    title: "Find a person",
+    body: "Names work after someone has been renamed in the People screen. Person numbers work before names are added.",
+    examples: ["photos of person 1", "photos of Kavya", "person 1 with person 23"],
+    icon: Users,
+    tone: "blush",
+  },
+  {
+    title: "Find a person in a moment",
+    body: "Keep prompts short and visual. Combine a person or name with clothing, decor, pose, or ceremony words.",
+    examples: ["Kavya jewelry", "person 1 on stage", "Shramik traditional attire"],
+    icon: Search,
+    tone: "sage",
+  },
+  {
+    title: "Find a scene",
+    body: "Use scene words when you do not care who is in the frame. This is best for decor, venue, ceremony, and group shots.",
+    examples: ["family portrait", "floral decorations", "wedding ceremony"],
+    icon: Camera,
+    tone: "sky",
+  },
+];
+
+const featureGuides: Array<{
+  id: string;
+  eyebrow: string;
+  title: string;
+  body: string;
+  icon: LucideIcon;
+  tone: PlateTone;
+  steps: string[];
+  routeLabel: string;
+}> = [
+  {
+    id: "guest-guide",
+    eyebrow: "For guests",
+    title: "Move through a delivered album",
+    body: "Guests land in a private gallery built for browsing, filtering, saving, and downloading without needing to understand the backend.",
+    icon: Heart,
+    tone: "rose",
+    steps: [
+      "Open the shared album link and enter the passcode when required.",
+      "Use Photos for the full event story or People to find faces faster.",
+      "Use search for visual phrases like stage, jewelry, family portrait, or dancing.",
+      "Download one photo, selected photos, an event, or the full album when downloads are enabled.",
+    ],
+    routeLabel: "Album and share pages",
+  },
+  {
+    id: "studio-guide",
+    eyebrow: "For photographers",
+    title: "Prepare a clean delivery",
+    body: "Studios can keep client albums organized by customer, album, event, cover image, AI status, and share permissions.",
+    icon: Layers3,
+    tone: "sage",
+    steps: [
+      "Create customers, albums, and events before upload when the shoot has clear sections.",
+      "Upload from device, Google Drive, or Google Photos and retry failed files from the queue.",
+      "Start AI processing for new uploads or rerun selected event actions when metadata needs rebuilding.",
+      "Set cover imagery and event order before sharing the final gallery.",
+    ],
+    routeLabel: "/customers, /albums, /upload",
+  },
+  {
+    id: "search-guide",
+    eyebrow: "Findability",
+    title: "Use AI search with filters",
+    body: "Search is album-scoped and can be event-scoped. Person filters are exact, while typed prompts search scene and person metadata.",
+    icon: Search,
+    tone: "sky",
+    steps: [
+      "Choose an event first if you only want results from one part of the day.",
+      "Use People filters when exact faces matter, especially for multi-person searches.",
+      "Use short prompt terms for clothing, decor, emotions, ceremony details, and group types.",
+      "Expect matching photos, not a written essay or ranked answer to open-ended questions.",
+    ],
+    routeLabel: "Album search panel",
+  },
+  {
+    id: "culling-guide",
+    eyebrow: "Review",
+    title: "Cull and compare faster",
+    body: "The culling view turns AI scores and duplicate clusters into review lanes so the best delivery set is easier to assemble.",
+    icon: CheckCircle2,
+    tone: "ink",
+    steps: [
+      "Review all photos, needs-review images, low-score frames, duplicate clusters, and photo-type groups.",
+      "Open best-by-person when every important person needs strong coverage.",
+      "Keep or reject candidates as you review and export selected keepers.",
+      "Use scores as a starting point; final taste and client context still matter.",
+    ],
+    routeLabel: "Album culling",
+  },
+  {
+    id: "editing-guide",
+    eyebrow: "Finishing",
+    title: "Edit photos, presets, and collages",
+    body: "Finishing tools are optional layers on top of the gallery: AI image edits, LUT presets, before/after previews, and exportable collages.",
+    icon: Wand2,
+    tone: "champagne",
+    steps: [
+      "Open a photo and use AI edit presets or a custom prompt for targeted changes.",
+      "Apply saved or marketplace LUT presets to one photo or selected photos.",
+      "Build collages from album photos, drag and crop each frame, then export JPG or PNG.",
+      "Edited outputs are saved separately so the original photo remains available.",
+    ],
+    routeLabel: "Photo viewer, /presets, /collage",
+  },
+  {
+    id: "sharing-guide",
+    eyebrow: "Delivery",
+    title: "Protect what clients see",
+    body: "Sharing controls let the same album work for private review, client delivery, and selected-photo handoff.",
+    icon: LockKeyhole,
+    tone: "blush",
+    steps: [
+      "Turn on passcodes for albums or customer pages that need gated access.",
+      "Use watermarked previews when clients can browse before final download rights are granted.",
+      "Share by album link and keep downloads limited to all, event, filtered, or selected sets.",
+      "Use signed media URLs so private image files are not exposed as permanent public links.",
+    ],
+    routeLabel: "Share links and album settings",
+  },
+];
+
 export function LandingPage() {
   const reveal = useReveal();
   const stagger = useStagger();
@@ -216,6 +469,8 @@ export function LandingPage() {
       <Header />
 
       <Hero reveal={reveal} />
+
+      <DocsHub reveal={reveal} stagger={stagger} />
 
       <section className="border-y border-stone-200/70 bg-white/60">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-10 text-center sm:flex-row sm:justify-between sm:gap-8 sm:py-12 sm:text-left">
@@ -255,7 +510,13 @@ export function LandingPage() {
         </div>
       </section>
 
+      <AiWorkflow reveal={reveal} stagger={stagger} />
+
       <MomentsCarousel reveal={reveal} />
+
+      <PromptGuide reveal={reveal} stagger={stagger} />
+
+      <FeatureGuides reveal={reveal} stagger={stagger} />
 
       <GalleryPreview reveal={reveal} stagger={stagger} />
 
@@ -284,6 +545,18 @@ function Header() {
         </Link>
 
         <nav className="flex items-center gap-1 sm:gap-2">
+          <a
+            href="#docs"
+            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-stone-700 transition hover:text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 md:inline-flex"
+          >
+            Docs
+          </a>
+          <a
+            href="#ai-workflow"
+            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-stone-700 transition hover:text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 lg:inline-flex"
+          >
+            How AI works
+          </a>
           <Link
             href="/login"
             className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-stone-700 transition hover:text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 sm:inline-flex"
@@ -357,18 +630,18 @@ function Hero({ reveal }: { reveal: MotionProps }) {
               </Link>
 
               <a
-                href="#features"
+                href="#docs"
                 className="inline-flex h-12 items-center rounded-full border border-stone-300 bg-white/80 px-6 text-sm font-medium text-stone-800 backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30 cursor-pointer"
               >
-                See how it works
+                Read the docs
               </a>
             </div>
 
             <dl className="mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-stone-200/80 pt-6">
               {[
-                { value: "JPG/PNG", label: "Export options" },
-                { value: "AI", label: "Edit and search" },
-                { value: "Private", label: "Watermark controls" },
+                { value: "People", label: "Face filters" },
+                { value: "Ask AI", label: "Search prompts" },
+                { value: "Private", label: "Share controls" },
               ].map((stat) => (
                 <div key={stat.label}>
                   <dt className="font-serif text-2xl text-stone-950">
@@ -478,6 +751,565 @@ function HeroPreview() {
         </div>
       </div>
     </div>
+  );
+}
+
+function DocsHub({
+  reveal,
+  stagger,
+}: {
+  reveal: MotionProps;
+  stagger: MotionProps;
+}) {
+  return (
+    <section id="docs" className="relative border-y border-stone-200/70 bg-white">
+      <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+        <motion.div
+          {...reveal}
+          className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
+        >
+          <div className="max-w-2xl">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-700">
+              Documentation hub
+            </p>
+            <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-stone-950 sm:text-5xl">
+              Clear paths for every <span className="italic">album job.</span>
+            </h2>
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
+              SaathiDesk is both a client gallery and a studio workspace. These
+              quick pages explain where to go, what the AI prepares, and how to
+              deliver a finished set with the right privacy controls.
+            </p>
+          </div>
+
+          <a
+            href="#guides"
+            className="inline-flex h-11 w-fit items-center gap-2 rounded-full border border-stone-300 bg-[#fbfaf8] px-5 text-sm font-medium text-stone-900 transition hover:border-stone-400 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30"
+          >
+            View all guides
+            <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+          </a>
+        </motion.div>
+
+        <motion.div
+          {...stagger}
+          className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {docPages.map((page) => {
+            const Icon = page.icon;
+
+            return (
+              <motion.article
+                key={page.title}
+                variants={itemVariants}
+                className="group flex h-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-[#fbfaf8] shadow-[0_1px_0_rgba(0,0,0,0.02)] transition duration-500 hover:-translate-y-1 hover:border-stone-300 hover:shadow-xl"
+              >
+                <DocPhotoPlate
+                  icon={Icon}
+                  title={page.title}
+                  tone={page.tone}
+                  label={page.eyebrow}
+                />
+
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8] transition group-hover:bg-amber-700">
+                      <Icon className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                    <h3 className="font-serif text-xl leading-tight text-stone-950">
+                      {page.title}
+                    </h3>
+                  </div>
+
+                  <p className="mt-3 text-sm leading-relaxed text-stone-600">
+                    {page.body}
+                  </p>
+
+                  <ul className="mt-4 space-y-2 text-sm text-stone-700">
+                    {page.highlights.map((highlight) => (
+                      <li key={highlight} className="flex gap-2">
+                        <CheckCircle2
+                          className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+                          strokeWidth={2}
+                        />
+                        <span>{highlight}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <a
+                    href={page.href}
+                    className="mt-5 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-stone-950 transition hover:text-amber-800"
+                  >
+                    Open guide
+                    <ArrowRight
+                      className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5"
+                      strokeWidth={1.75}
+                    />
+                  </a>
+                </div>
+              </motion.article>
+            );
+          })}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function DocPhotoPlate({
+  icon: Icon,
+  title,
+  tone,
+  label,
+}: {
+  icon: LucideIcon;
+  title: string;
+  tone: PlateTone;
+  label: string;
+}) {
+  const toneStyle = toneStyles[tone];
+  const grainId = useId().replace(/:/g, "");
+  const words = title.split(" ");
+  const lead = words.slice(0, 2).join(" ");
+  const rest = words.slice(2).join(" ");
+
+  return (
+    <div className="relative aspect-[4/3] overflow-hidden" style={{ background: toneStyle.background }}>
+      <div
+        aria-hidden
+        className="absolute inset-0 mix-blend-soft-light"
+        style={{
+          background:
+            "radial-gradient(40% 35% at 25% 25%, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0) 70%), radial-gradient(55% 45% at 85% 75%, rgba(40,20,10,0.35) 0%, rgba(40,20,10,0) 75%)",
+        }}
+      />
+      <svg
+        aria-hidden
+        className="absolute inset-0 h-full w-full mix-blend-overlay"
+        style={{ opacity: toneStyle.grainOpacity }}
+      >
+        <filter id={grainId}>
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.85"
+            numOctaves="2"
+            stitchTiles="stitch"
+          />
+          <feColorMatrix
+            type="matrix"
+            values="0 0 0 0 0
+                    0 0 0 0 0
+                    0 0 0 0 0
+                    0 0 0 0.45 0"
+          />
+        </filter>
+        <rect width="100%" height="100%" filter={`url(#${grainId})`} />
+      </svg>
+
+      <span className="absolute left-4 top-4 inline-flex h-8 items-center rounded-full bg-white/85 px-3 text-[10px] font-medium uppercase tracking-[0.18em] text-stone-700 ring-1 ring-stone-900/10 backdrop-blur">
+        {label}
+      </span>
+
+      <Icon
+        aria-hidden
+        className="absolute -right-5 -bottom-6 h-36 w-36 text-white/18"
+        strokeWidth={1}
+      />
+
+      <div className="absolute inset-x-4 bottom-4">
+        <p className="max-w-[12rem] font-serif text-2xl leading-[1.05] text-white drop-shadow-[0_1px_8px_rgba(0,0,0,0.18)]">
+          {lead}
+          {rest ? <span className="block italic text-white/80">{rest}</span> : null}
+        </p>
+      </div>
+
+      <div
+        aria-hidden
+        className="absolute inset-3 rounded-xl ring-1 ring-white/15"
+      />
+    </div>
+  );
+}
+
+function AiWorkflow({
+  reveal,
+  stagger,
+}: {
+  reveal: MotionProps;
+  stagger: MotionProps;
+}) {
+  return (
+    <section id="ai-workflow" className="relative overflow-hidden bg-stone-950 text-[#fbfaf8]">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(50% 60% at 10% 0%, rgba(252,217,177,0.18) 0%, rgba(252,217,177,0) 70%), radial-gradient(55% 60% at 100% 35%, rgba(115,150,135,0.22) 0%, rgba(115,150,135,0) 70%)",
+        }}
+      />
+
+      <div className="relative mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <motion.div {...reveal}>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-300/90">
+              How the AI works
+            </p>
+            <h2 className="mt-3 font-serif text-3xl leading-[1.1] sm:text-5xl">
+              From upload to <span className="italic">findable gallery.</span>
+            </h2>
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-stone-300 sm:text-lg">
+              AI processing is submitted by an authenticated album owner, handled
+              by the configured worker, then written back as searchable metadata,
+              people groups, review scores, and optional edited outputs.
+            </p>
+
+            <div className="mt-7 grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
+              {[
+                "Original photos stay separate from generated previews and edits.",
+                "AI metadata is scoped to the album and event the photo belongs to.",
+                "Ask AI returns matching photos; culling views handle review and ranking.",
+                "Share permissions still decide what guests can view or download.",
+              ].map((note) => (
+                <div
+                  key={note}
+                  className="flex gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3"
+                >
+                  <CheckCircle2
+                    className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300"
+                    strokeWidth={2}
+                  />
+                  <span>{note}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div
+            {...reveal}
+            className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4 shadow-[0_30px_80px_-35px_rgba(0,0,0,0.8)]"
+          >
+            <AiSystemPreview />
+          </motion.div>
+        </div>
+
+        <motion.div
+          {...stagger}
+          className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {aiWorkflowSteps.map((step, index) => {
+            const Icon = step.icon;
+
+            return (
+              <motion.article
+                key={step.title}
+                variants={itemVariants}
+                className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05] p-5 ring-1 ring-white/5"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <span className="font-serif text-sm tracking-[0.22em] text-amber-200/80">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-amber-200 ring-1 ring-white/10">
+                    <Icon className="h-4 w-4" strokeWidth={1.75} />
+                  </span>
+                </div>
+                <h3 className="mt-5 font-serif text-xl leading-tight">
+                  {step.title}
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-stone-300">
+                  {step.body}
+                </p>
+              </motion.article>
+            );
+          })}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function AiSystemPreview() {
+  return (
+    <div className="relative aspect-[4/3] overflow-hidden rounded-[1.1rem] bg-[#f7f1e8] text-stone-950">
+      <div
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(145deg, #f5e2d2 0%, #d8b88f 48%, #597063 100%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-tr from-stone-950/55 via-stone-950/5 to-white/20"
+      />
+
+      <div className="absolute left-4 top-4 rounded-2xl bg-white/85 p-3 shadow-lg ring-1 ring-stone-900/10 backdrop-blur">
+        <div className="flex items-center gap-2 text-xs font-medium text-stone-700">
+          <UploadCloud className="h-4 w-4 text-stone-500" strokeWidth={1.75} />
+          Upload complete
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
+          {["#e9c4aa", "#c7b89a", "#8fa89a", "#d49b88", "#8b7460", "#b9cbd2"].map(
+            (color, index) => (
+              <span
+                key={color}
+                className="h-10 rounded-md ring-1 ring-stone-900/5"
+                style={{ backgroundColor: color, opacity: index === 5 ? 0.85 : 1 }}
+              />
+            ),
+          )}
+        </div>
+      </div>
+
+      <div className="absolute right-4 top-14 w-52 rounded-2xl bg-stone-950/82 p-3 text-[#fbfaf8] shadow-xl ring-1 ring-white/10 backdrop-blur">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-amber-200">
+            Pipeline
+          </span>
+          <Sparkles className="h-4 w-4 text-amber-200" strokeWidth={1.75} />
+        </div>
+        <div className="mt-3 space-y-2">
+          {[
+            ["Faces", "grouped"],
+            ["Scenes", "described"],
+            ["Search", "indexed"],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="flex items-center justify-between rounded-full bg-white/10 px-3 py-1.5 text-xs"
+            >
+              <span>{label}</span>
+              <span className="text-emerald-200">{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="absolute bottom-4 left-4 right-4 rounded-2xl bg-white/88 p-3 shadow-xl ring-1 ring-stone-900/10 backdrop-blur">
+        <div className="flex items-center gap-2 rounded-xl bg-stone-50 px-3 py-2 ring-1 ring-stone-200/70">
+          <Search className="h-4 w-4 text-stone-500" strokeWidth={1.75} />
+          <span className="truncate text-sm text-stone-700">
+            bride jewelry near floral stage
+          </span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-medium text-stone-700">
+          {["14 matches", "2 people", "ceremony event"].map((chip) => (
+            <span
+              key={chip}
+              className="rounded-full bg-stone-100 px-2 py-1 ring-1 ring-stone-200"
+            >
+              {chip}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PromptGuide({
+  reveal,
+  stagger,
+}: {
+  reveal: MotionProps;
+  stagger: MotionProps;
+}) {
+  return (
+    <section id="ai-search-guide" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+      <motion.div
+        {...reveal}
+        className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+      >
+        <div className="max-w-2xl">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-700">
+            Ask AI directions
+          </p>
+          <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-stone-950 sm:text-5xl">
+            Search like you are describing <span className="italic">a frame.</span>
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
+            Ask AI is strongest when the prompt names a person, a scene, or a
+            visible detail. It returns matching photos, while culling and review
+            pages handle best-photo comparisons.
+          </p>
+        </div>
+
+        <a
+          href="#search-guide"
+          className="inline-flex h-11 w-fit items-center gap-2 rounded-full border border-stone-300 bg-white px-5 text-sm font-medium text-stone-900 transition hover:border-stone-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-900/30"
+        >
+          Search guide
+          <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+        </a>
+      </motion.div>
+
+      <motion.div
+        {...stagger}
+        className="mt-10 grid gap-4 lg:grid-cols-[1fr_1fr_1fr_0.95fr]"
+      >
+        {promptGuides.map((guide) => {
+          const Icon = guide.icon;
+
+          return (
+            <motion.article
+              key={guide.title}
+              variants={itemVariants}
+              className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_1px_0_rgba(0,0,0,0.02)]"
+            >
+              <DocPhotoPlate
+                icon={Icon}
+                title={guide.title}
+                tone={guide.tone}
+                label="Prompt"
+              />
+              <div className="p-5">
+                <h3 className="font-serif text-xl leading-tight text-stone-950">
+                  {guide.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                  {guide.body}
+                </p>
+                <div className="mt-4 space-y-2">
+                  {guide.examples.map((example) => (
+                    <code
+                      key={example}
+                      className="block rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-700 ring-1 ring-stone-200"
+                    >
+                      {example}
+                    </code>
+                  ))}
+                </div>
+              </div>
+            </motion.article>
+          );
+        })}
+
+        <motion.aside
+          variants={itemVariants}
+          className="rounded-2xl border border-stone-200 bg-[#fbfaf8] p-5 shadow-[0_1px_0_rgba(0,0,0,0.02)]"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8]">
+            <BookOpen className="h-4 w-4" strokeWidth={1.75} />
+          </span>
+          <h3 className="mt-5 font-serif text-xl leading-tight text-stone-950">
+            What to avoid
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-stone-600">
+            Open-ended questions need a ranking layer. Use visual keywords or
+            culling views instead.
+          </p>
+          <div className="mt-4 space-y-2">
+            {[
+              "who wore the most ornaments?",
+              "which photo is the best?",
+              "write a summary of the wedding",
+            ].map((example) => (
+              <code
+                key={example}
+                className="block rounded-lg bg-white px-3 py-2 text-xs text-stone-500 line-through decoration-rose-400 ring-1 ring-stone-200"
+              >
+                {example}
+              </code>
+            ))}
+          </div>
+          <p className="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-800 ring-1 ring-emerald-100">
+            Better: search for jewelry, bangles, saree, stage, couple portrait,
+            family group, or a named person plus a visible detail.
+          </p>
+        </motion.aside>
+      </motion.div>
+    </section>
+  );
+}
+
+function FeatureGuides({
+  reveal,
+  stagger,
+}: {
+  reveal: MotionProps;
+  stagger: MotionProps;
+}) {
+  return (
+    <section
+      id="guides"
+      className="relative border-y border-stone-200/70 bg-gradient-to-b from-[#f6f1ea] via-[#fbfaf8] to-white"
+    >
+      <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+        <motion.div {...reveal} className="max-w-3xl">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-700">
+            Product walkthroughs
+          </p>
+          <h2 className="mt-3 font-serif text-3xl leading-[1.1] text-stone-950 sm:text-5xl">
+            The sub-pages your team <span className="italic">actually needs.</span>
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
+            Each guide below maps to an existing app surface and explains the
+            practical order of work, from first upload to final client handoff.
+          </p>
+        </motion.div>
+
+        <motion.div {...stagger} className="mt-10 space-y-5">
+          {featureGuides.map((guide, index) => {
+            const Icon = guide.icon;
+            const flip = index % 2 === 1;
+
+            return (
+              <motion.article
+                id={guide.id}
+                key={guide.id}
+                variants={itemVariants}
+                className="grid overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_1px_0_rgba(0,0,0,0.02)] lg:grid-cols-[0.85fr_1.15fr]"
+              >
+                <div className={flip ? "lg:order-2" : undefined}>
+                  <DocPhotoPlate
+                    icon={Icon}
+                    title={guide.title}
+                    tone={guide.tone}
+                    label={guide.eyebrow}
+                  />
+                </div>
+
+                <div className="flex flex-col justify-center p-6 sm:p-8">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="inline-flex h-9 items-center rounded-full bg-stone-950 px-3 text-xs font-medium uppercase tracking-[0.16em] text-[#fbfaf8]">
+                      {guide.eyebrow}
+                    </span>
+                    <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-stone-50 px-3 text-xs font-medium text-stone-600 ring-1 ring-stone-200">
+                      <KeyRound className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      {guide.routeLabel}
+                    </span>
+                  </div>
+
+                  <h3 className="mt-5 font-serif text-2xl leading-tight text-stone-950 sm:text-3xl">
+                    {guide.title}
+                  </h3>
+                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600 sm:text-base">
+                    {guide.body}
+                  </p>
+
+                  <ol className="mt-6 grid gap-3 sm:grid-cols-2">
+                    {guide.steps.map((step, stepIndex) => (
+                      <li
+                        key={step}
+                        className="flex gap-3 rounded-xl border border-stone-200 bg-[#fbfaf8] p-3 text-sm leading-relaxed text-stone-700"
+                      >
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-stone-700 ring-1 ring-stone-200">
+                          {stepIndex + 1}
+                        </span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </motion.article>
+            );
+          })}
+        </motion.div>
+      </div>
+    </section>
   );
 }
 
@@ -977,6 +1809,12 @@ function Footer() {
           <Link href="/login" className="hover:text-stone-800">
             Galleries
           </Link>
+          <a href="#docs" className="hover:text-stone-800">
+            Docs
+          </a>
+          <a href="#ai-workflow" className="hover:text-stone-800">
+            AI
+          </a>
           <Link href="/legal/privacy-policy" className="hover:text-stone-800">
             Privacy
           </Link>

@@ -1,0 +1,96 @@
+# SaathiDesk LLM Guide
+
+Last updated: 2026-06-14
+
+SaathiDesk is a private AI-powered photo gallery platform for wedding and event
+photography. The product combines client galleries, people filters, semantic
+photo search, AI photo review, AI image edits, LUT presets, collage exports,
+private sharing, passcodes, and watermark/download controls.
+
+## Primary Pages
+
+- `/` - Public homepage with documentation, AI workflow, prompt guidance, and
+  product walkthroughs.
+- `/login` - Sign in and sign up.
+- `/albums` - Authenticated album list.
+- `/albums/new` - Create a new album.
+- `/albums/[albumSlug]` - Main album gallery with Photos and People views.
+- `/albums/[albumSlug]/upload` - Upload photos into an existing album event.
+- `/albums/[albumSlug]/events/new` - Add or manage an album event.
+- `/albums/[albumSlug]/culling` - AI review and culling workspace.
+- `/albums/[albumSlug]/collage` - Album-scoped collage builder.
+- `/collage` - General collage entry point.
+- `/customers` - Customer management for studios.
+- `/customers/[customerSlug]` - Customer-scoped albums and access.
+- `/presets` - Public preset marketplace.
+- `/presets/my` - Saved and uploaded presets.
+- `/presets/upload` - Upload a `.cube` LUT preset with preview images.
+- `/share/[token]` - Public share-link album access.
+- `/legal/privacy-policy` and `/legal/terms-of-service` - Legal pages.
+
+## What The AI Does
+
+AI processing is scoped to an album and event. Originals remain separate from
+generated previews, AI metadata, and edited outputs.
+
+1. Uploads are registered against an album event and stored as original files.
+2. Processing prepares thumbnails, clean previews, watermarked previews, and
+   AI-ready copies for fast gallery browsing.
+3. Face indexing groups repeated faces into People. Users can rename people,
+   filter by one person or multiple people, and review person-specific photos.
+4. Vision analysis creates searchable scene metadata such as clothing, decor,
+   ceremony context, camera gaze, clarity, background quality, people count, and
+   album-worthy signals.
+5. Search resolves person names or person numbers inside the current album and
+   can respect the selected event. It returns matching photos, not long written
+   answers.
+6. Culling views use scores and clusters to surface needs-review photos,
+   low-score frames, likely duplicates, photo-type groups, and best-by-person
+   selections.
+7. AI image edits use a source photo plus a preset or custom prompt and store
+   the edited output separately so the original remains available.
+
+## Good Ask AI Prompts
+
+Use short visual prompts. Names work after a person has been renamed in the
+People view. Person numbers work before names are added.
+
+- `photos of person 1`
+- `photos of Kavya`
+- `person 1 with person 23`
+- `Kavya jewelry`
+- `person 1 on stage`
+- `family portrait`
+- `floral decorations`
+- `wedding ceremony`
+- `bride jewelry`
+- `group photo`
+
+Avoid open-ended ranking prompts such as `who wore the most ornaments?` or
+`which photo is the best?`. Use culling and best-by-person views for review and
+selection workflows.
+
+## Sharing And Privacy
+
+Albums can be protected with passcodes. Share links can use watermarked
+previews and controlled downloads. Download workflows support all photos,
+selected photos, event photos, and filtered sets when allowed. Media access uses
+signed URLs instead of permanent public image URLs.
+
+## Presets And Collages
+
+Preset uploads use `.cube` LUT files with before/after preview images. Presets
+can be saved from the marketplace and applied to one photo or selected photos.
+The collage builder lets users arrange album photos, crop frames, and export
+JPG or PNG files.
+
+## AI Agent Notes
+
+- Prefer linking users to the homepage documentation first: `/`.
+- For guest browsing, link to the provided share URL or album URL.
+- For upload and studio workflows, direct authenticated users to `/albums`,
+  `/customers`, or the album-specific upload page.
+- For search help, recommend person filters for exact face matching and short
+  visual prompts for scene matching.
+- Do not imply that Ask AI writes summaries or ranks people by open-ended
+  questions unless a separate analytical mode is added.

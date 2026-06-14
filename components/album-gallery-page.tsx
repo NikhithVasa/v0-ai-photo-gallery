@@ -1313,6 +1313,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverTouchStartYRef = useRef<number | null>(null);
   const coverGestureTriggeredRef = useRef(false);
   const coverSectionRef = useRef<HTMLElement | null>(null);
+  const hasNormalizedInitialEventRef = useRef(false);
   const isCoverDismissedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   const programmaticNavScrollRef = useRef(false);
@@ -1328,7 +1329,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [peopleMatchMode, setPeopleMatchMode] =
     useState<PeopleMatchMode>("all");
   const [selectedEventSlug, setSelectedEventSlug] = useState<string | null>(
-    searchParams.get("event") || null
+    null
   );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const {
@@ -2030,17 +2031,33 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   useEffect(() => {
     const eventFromUrl = searchParams.get("event") || null;
+
+    if (!hasNormalizedInitialEventRef.current) {
+      hasNormalizedInitialEventRef.current = true;
+      setSelectedEventSlug(null);
+
+      if (eventFromUrl) {
+        router.replace(`/albums/${albumSlug}${eventQuery(null, shareToken)}`, {
+          scroll: false,
+        });
+      }
+
+      return;
+    }
+
     setSelectedEventSlug(eventFromUrl);
-  }, [searchParams]);
+  }, [albumSlug, router, searchParams, shareToken]);
 
   useEffect(() => {
     if (!album || !selectedEventSlug) return;
 
     if (!album.events.some((event) => event.slug === selectedEventSlug)) {
       setSelectedEventSlug(null);
-      router.replace(`/albums/${albumSlug}`, { scroll: false });
+      router.replace(`/albums/${albumSlug}${eventQuery(null, shareToken)}`, {
+        scroll: false,
+      });
     }
-  }, [album, albumSlug, router, selectedEventSlug]);
+  }, [album, albumSlug, router, selectedEventSlug, shareToken]);
 
   useEffect(() => {
     if (selectedPeopleIds.length < 2 && peopleMatchMode !== "all") {
@@ -2060,25 +2077,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     });
 
     scrollToGalleryTop("instant");
-  };
-
-  const goToNextEvent = () => {
-    if (!album) return;
-    if (activeTab !== "photos") return;
-    if (selectedPerson) return;
-    if (!selectedEventSlug) return;
-    if (selectedPeopleIds.length > 0) return;
-
-    const currentIndex = album.events.findIndex(
-      (event) => event.slug === selectedEventSlug
-    );
-
-    if (currentIndex < 0) return;
-
-    const nextEvent = album.events[currentIndex + 1];
-    if (!nextEvent) return;
-
-    changeEvent(nextEvent.slug);
   };
 
   const openPerson = (
@@ -3225,7 +3223,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               onPhotoPersonClick={openPersonFromPhoto}
               openPhotoId={photoIdToReopen}
               onOpenPhotoHandled={() => setPhotoIdToReopen(null)}
-              onReachedEnd={goToNextEvent}
               isSelectionMode={isPhotoSelectionMode}
               selectedPhotoIds={selectedDownloadPhotoIds}
               onTogglePhoto={toggleSelectedDownloadPhotoId}
