@@ -7,8 +7,11 @@ function isAssetOrApiPath(pathname: string) {
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/opengraph-image" ||
     pathname.startsWith("/robots.txt") ||
     pathname.startsWith("/sitemap.xml") ||
+    pathname === "/twitter-image" ||
     pathname.match(/\.(png|jpg|jpeg|webp|gif|svg|ico|css|js|map|txt|xml)$/)
   );
 }
@@ -25,6 +28,36 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
     /^\/albums\/[^/]+(?:\/(?:culling|collage))?$/.test(pathname) &&
     Boolean(searchParams.get("share"))
   );
+}
+
+function shouldNoIndex(pathname: string, customerSlug: string | null) {
+  if (customerSlug) return true;
+
+  return (
+    pathname === "/login" ||
+    pathname === "/collage" ||
+    pathname === "/settings" ||
+    pathname === "/upload" ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/debug") ||
+    pathname.startsWith("/albums") ||
+    pathname.startsWith("/customers") ||
+    pathname.startsWith("/presets") ||
+    pathname.startsWith("/share")
+  );
+}
+
+function withRobotsHeader(
+  response: NextResponse,
+  pathname: string,
+  customerSlug: string | null,
+) {
+  if (shouldNoIndex(pathname, customerSlug)) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+
+  return response;
 }
 
 function rewriteWithCookies(url: URL, response: NextResponse) {
@@ -70,12 +103,16 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isAssetOrApiPath(pathname)) {
-    return NextResponse.next();
+    return withRobotsHeader(NextResponse.next(), pathname, null);
   }
 
   const host = request.headers.get("host") || "";
   const customerSlug = getCustomerSlugFromHost(host);
-  const response = NextResponse.next();
+  const response = withRobotsHeader(
+    NextResponse.next(),
+    pathname,
+    customerSlug,
+  );
 
   if (!isPublicPath(request, customerSlug)) {
     const isAuthenticated = await hasSupabaseUser(request, response);
@@ -88,7 +125,11 @@ export async function middleware(request: NextRequest) {
         "next",
         `${request.nextUrl.pathname}${request.nextUrl.search}`,
       );
-      return NextResponse.redirect(loginUrl);
+      return withRobotsHeader(
+        NextResponse.redirect(loginUrl),
+        pathname,
+        customerSlug,
+      );
     }
   }
 
@@ -98,12 +139,20 @@ export async function middleware(request: NextRequest) {
 
   if (pathname === "/") {
     url.pathname = `/customers/${customerSlug}`;
-    return rewriteWithCookies(url, response);
+    return withRobotsHeader(
+      rewriteWithCookies(url, response),
+      pathname,
+      customerSlug,
+    );
   }
 
   if (pathname === "/customers") {
     url.pathname = `/customers/${customerSlug}`;
-    return rewriteWithCookies(url, response);
+    return withRobotsHeader(
+      rewriteWithCookies(url, response),
+      pathname,
+      customerSlug,
+    );
   }
 
   return response;

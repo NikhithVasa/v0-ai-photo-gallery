@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal-page";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy | SaathiDesk",
+export const metadata: Metadata = createPageMetadata({
+  title: "Privacy Policy",
   description:
     "How SaathiDesk collects, uses, stores, and protects personal information and Google user data.",
-};
+  path: "/legal/privacy-policy",
+});
 
 export default function PrivacyPolicyPage() {
   return (

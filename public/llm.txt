@@ -7,6 +7,10 @@ photography. The product combines client galleries, people filters, semantic
 photo search, AI photo review, AI image edits, LUT presets, collage exports,
 private sharing, passcodes, and watermark/download controls.
 
+Canonical site: https://saathidesk.com
+Availability: Worldwide web service for photographers, wedding studios, event
+hosts, and private gallery guests.
+
 ## Primary Pages
 
 - `/` - Public homepage with documentation, AI workflow, prompt guidance, and

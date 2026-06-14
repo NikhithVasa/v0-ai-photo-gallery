@@ -1,0 +1,17 @@
+# SaathiDesk
+
+> SaathiDesk is an AI-powered private photo gallery platform for wedding and event photography.
+
+Canonical site: https://saathidesk.com
+
+SaathiDesk helps photographers, wedding studios, event hosts, and gallery guests organize, search, edit, review, and share private photo galleries. Core capabilities include private client galleries, album and event organization, face grouping, people filters, semantic photo search, AI photo culling, AI image edits, LUT presets, collage exports, passcode-protected sharing, watermarked previews, controlled downloads, Google Drive imports, and Google Photos imports.
+
+Public pages:
+
+- https://saathidesk.com/
+- https://saathidesk.com/legal/privacy-policy
+- https://saathidesk.com/legal/terms-of-service
+
+Private or tokenized pages such as albums, customers, uploads, presets, settings, and share links should not be indexed or summarized as public pages.
+
+Support: support@saathidesk.com

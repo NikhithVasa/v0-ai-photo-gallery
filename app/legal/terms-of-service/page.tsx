@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal-page";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Terms of Service | SaathiDesk",
+export const metadata: Metadata = createPageMetadata({
+  title: "Terms of Service",
   description: "Terms governing use of SaathiDesk.",
-};
+  path: "/legal/terms-of-service",
+});
 
 export default function TermsOfServicePage() {
   return (
