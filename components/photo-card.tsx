@@ -123,10 +123,6 @@ function uniqueUrls(urls: Array<string | null | undefined>) {
   return Array.from(new Set(urls.filter((url): url is string => Boolean(url))));
 }
 
-function mediaUrlForS3Key(key?: string | null) {
-  return key ? `/api/media?key=${encodeURIComponent(key)}` : null;
-}
-
 function mediaUrlForS3KeyWithShare(key?: string | null, shareToken = "") {
   if (!key) return null;
 
@@ -137,25 +133,37 @@ function mediaUrlForS3KeyWithShare(key?: string | null, shareToken = "") {
 
 function previewUrlsForPhoto(
   photo: Photo,
-  options: { includeMediaFallback?: boolean } = {},
+  options: {
+    includeCloudFront?: boolean;
+    includeMediaFallback?: boolean;
+    preferMediaFallback?: boolean;
+    shareToken?: string;
+  } = {},
 ) {
+  const includeCloudFront = options.includeCloudFront ?? true;
   const includeMediaFallback = options.includeMediaFallback ?? true;
+  const mediaFallbackUrls = includeMediaFallback
+    ? [
+        mediaUrlForS3KeyWithShare(photo.cleanPreviewS3Key, options.shareToken),
+        mediaUrlForS3KeyWithShare(photo.watermarkedPreviewS3Key, options.shareToken),
+        mediaUrlForS3KeyWithShare(photo.thumbnailS3Key, options.shareToken),
+        mediaUrlForS3KeyWithShare(photo.aiInputS3Key, options.shareToken),
+      ]
+    : [];
+  const cloudFrontUrls = includeCloudFront
+    ? [
+        cloudFrontImageUrl(photo.cleanPreviewS3Key),
+        cloudFrontImageUrl(photo.watermarkedPreviewS3Key),
+        cloudFrontImageUrl(photo.thumbnailS3Key),
+        cloudFrontImageUrl(photo.aiInputS3Key),
+      ]
+    : [];
 
   return uniqueUrls([
     photo.previewUrl,
     photo.thumbnailUrl,
-    cloudFrontImageUrl(photo.cleanPreviewS3Key),
-    cloudFrontImageUrl(photo.watermarkedPreviewS3Key),
-    cloudFrontImageUrl(photo.thumbnailS3Key),
-    cloudFrontImageUrl(photo.aiInputS3Key),
-    ...(includeMediaFallback
-      ? [
-          mediaUrlForS3Key(photo.cleanPreviewS3Key),
-          mediaUrlForS3Key(photo.watermarkedPreviewS3Key),
-          mediaUrlForS3Key(photo.thumbnailS3Key),
-          mediaUrlForS3Key(photo.aiInputS3Key),
-        ]
-      : []),
+    ...(options.preferMediaFallback ? mediaFallbackUrls : cloudFrontUrls),
+    ...(options.preferMediaFallback ? cloudFrontUrls : mediaFallbackUrls),
   ]);
 }
 
@@ -1095,16 +1103,27 @@ export const PhotoCard = memo(function PhotoCard({
     );
   const [hasFetchedSignedPreviewUrls, setHasFetchedSignedPreviewUrls] =
     useState(() => signedPhotoUrlCache.has(signedUrlCacheKey));
+  const isShareView = Boolean(shareToken);
   const imageCandidates = useMemo(
     () =>
       uniqueUrls([
-        signedPreviewUrls?.previewUrl,
-        signedPreviewUrls?.thumbnailUrl,
+        ...(isShareView
+          ? []
+          : [signedPreviewUrls?.previewUrl, signedPreviewUrls?.thumbnailUrl]),
         ...previewUrlsForPhoto(photo, {
-          includeMediaFallback: hasFetchedSignedPreviewUrls,
+          includeCloudFront: !isShareView,
+          includeMediaFallback: hasFetchedSignedPreviewUrls || isShareView,
+          preferMediaFallback: isShareView,
+          shareToken,
         }),
       ]),
-    [hasFetchedSignedPreviewUrls, photo, signedPreviewUrls],
+    [
+      hasFetchedSignedPreviewUrls,
+      isShareView,
+      photo,
+      shareToken,
+      signedPreviewUrls,
+    ],
   );
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
@@ -1114,7 +1133,6 @@ export const PhotoCard = memo(function PhotoCard({
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
-  const isShareView = Boolean(shareToken);
   const canDownload = isShareView
     ? Boolean(shareSettings?.allowDownloads)
     : shareSettings?.allowDownloads ?? true;
@@ -1170,7 +1188,7 @@ export const PhotoCard = memo(function PhotoCard({
   }, [debugScroll, index, photo.id, shouldLoadImage]);
 
   useEffect(() => {
-    if (!shouldLoadImage || hasFetchedSignedPreviewUrls) return;
+    if (!shouldLoadImage || hasFetchedSignedPreviewUrls || isShareView) return;
 
     let isCancelled = false;
 
@@ -1220,6 +1238,7 @@ export const PhotoCard = memo(function PhotoCard({
     debugScroll,
     hasFetchedSignedPreviewUrls,
     index,
+    isShareView,
     photo.id,
     shareToken,
     shouldLoadImage,
@@ -1529,9 +1548,14 @@ export function PhotoLightbox({
   const signedCurrentUrls = signedUrlsByPhotoId[photo.id];
   const previewImageCandidates = uniqueUrls([
     originRect?.imageUrl,
-    ...previewUrlsForPhoto(photo),
-    signedCurrentUrls?.previewUrl,
-    signedCurrentUrls?.thumbnailUrl,
+    ...previewUrlsForPhoto(photo, {
+      includeCloudFront: !shareToken,
+      preferMediaFallback: Boolean(shareToken),
+      shareToken,
+    }),
+    ...(shareToken
+      ? []
+      : [signedCurrentUrls?.previewUrl, signedCurrentUrls?.thumbnailUrl]),
   ]);
   const imageUrl = previewImageCandidates[activeImageIndex] ?? null;
   const originalImageUrl = loadedOriginalUrlsByPhotoId[photo.id] ?? null;
@@ -1612,8 +1636,14 @@ export function PhotoLightbox({
 
   const getPreviewUrl = useCallback((targetPhoto: Photo | undefined) => {
     if (!targetPhoto) return null;
-    return previewUrlsForPhoto(targetPhoto)[0] ?? null;
-  }, []);
+    return (
+      previewUrlsForPhoto(targetPhoto, {
+        includeCloudFront: !shareToken,
+        preferMediaFallback: Boolean(shareToken),
+        shareToken,
+      })[0] ?? null
+    );
+  }, [shareToken]);
 
   const getLightboxUrl = useCallback(
     (targetPhoto: Photo | undefined) => {
@@ -1681,9 +1711,12 @@ export function PhotoLightbox({
     for (const targetPhoto of preloadPhotos) {
       const signedUrls = signedUrlsByPhotoId[targetPhoto.id];
       const previewUrls = uniqueUrls([
-        signedUrls?.previewUrl,
-        signedUrls?.thumbnailUrl,
-        ...previewUrlsForPhoto(targetPhoto),
+        ...(shareToken ? [] : [signedUrls?.previewUrl, signedUrls?.thumbnailUrl]),
+        ...previewUrlsForPhoto(targetPhoto, {
+          includeCloudFront: !shareToken,
+          preferMediaFallback: Boolean(shareToken),
+          shareToken,
+        }),
       ]);
 
       for (const previewUrl of previewUrls) {
@@ -1695,7 +1728,7 @@ export function PhotoLightbox({
         image.src = previewUrl;
       }
     }
-  }, [preloadPhotos, signedUrlsByPhotoId]);
+  }, [preloadPhotos, shareToken, signedUrlsByPhotoId]);
 
   useEffect(() => {
     for (const targetPhoto of preloadPhotos) {
@@ -1703,9 +1736,9 @@ export function PhotoLightbox({
       if (loadedOriginalUrlsByPhotoId[photoId]) continue;
 
       const originalUrl = uniqueUrls([
-        signedUrlsByPhotoId[photoId]?.originalUrl,
-        cloudFrontImageUrl(targetPhoto?.originalS3Key),
-        mediaUrlForS3Key(targetPhoto?.originalS3Key),
+        mediaUrlForS3KeyWithShare(targetPhoto?.originalS3Key, shareToken),
+        shareToken ? null : signedUrlsByPhotoId[photoId]?.originalUrl,
+        shareToken ? null : cloudFrontImageUrl(targetPhoto?.originalS3Key),
       ]).find((url) => {
         if (failedOriginalUrlsByPhotoId[photoId] === url) return false;
         return originalPreloadRef.current.get(photoId) !== url;
@@ -1739,6 +1772,7 @@ export function PhotoLightbox({
     failedOriginalUrlsByPhotoId,
     loadedOriginalUrlsByPhotoId,
     preloadPhotos,
+    shareToken,
     signedUrlsByPhotoId,
   ]);
 
