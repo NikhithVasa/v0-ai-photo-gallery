@@ -150,6 +150,33 @@ function previewUrlsForPhoto(
   ]);
 }
 
+const LIGHTBOX_PRELOAD_RADIUS = 3;
+
+function lightboxPreloadIndices(
+  currentIndex: number,
+  total: number,
+  radius = LIGHTBOX_PRELOAD_RADIUS,
+) {
+  if (total <= 0) return [];
+
+  const indices: number[] = [];
+  const seen = new Set<number>();
+  const addIndex = (rawIndex: number) => {
+    const index = ((rawIndex % total) + total) % total;
+    if (seen.has(index)) return;
+    seen.add(index);
+    indices.push(index);
+  };
+
+  addIndex(currentIndex);
+  for (let offset = 1; offset <= radius; offset += 1) {
+    addIndex(currentIndex + offset);
+    addIndex(currentIndex - offset);
+  }
+
+  return indices;
+}
+
 const AI_EDIT_PRESETS = [
   {
     key: "remove_background",
@@ -898,6 +925,7 @@ export function PhotoLightbox({
   const isMountedRef = useRef(false);
   const hasPlayedEntryAnimationRef = useRef(false);
   const originalPreloadRef = useRef(new Map<string, string>());
+  const preloadedPreviewUrlsRef = useRef(new Set<string>());
   const { mutate } = useSWRConfig();
 
   const photo = photos[currentIndex];
@@ -907,18 +935,17 @@ export function PhotoLightbox({
 
   const previousPhoto = photos[previousIndex];
   const nextPhoto = photos[nextIndex];
-  const preloadPhotoIds = useMemo(
+  const preloadPhotos = useMemo(
     () =>
-      Array.from(
-        new Set(
-          [photo?.id, previousPhoto?.id, nextPhoto?.id].filter(
-            (id): id is string => Boolean(id),
-          ),
-        ),
-      ),
-    [nextPhoto?.id, photo?.id, previousPhoto?.id],
+      lightboxPreloadIndices(currentIndex, photos.length)
+        .map((index) => photos[index])
+        .filter((item): item is Photo => Boolean(item)),
+    [currentIndex, photos],
   );
-  const preloadPhotoIdsKey = preloadPhotoIds.join(":");
+  const preloadPhotoIds = useMemo(
+    () => Array.from(new Set(preloadPhotos.map((item) => item.id))),
+    [preloadPhotos],
+  );
 
   const signedCurrentUrls = signedUrlsByPhotoId[photo.id];
   const previewImageCandidates = uniqueUrls([
@@ -1060,11 +1087,31 @@ export function PhotoLightbox({
     return () => {
       isCancelled = true;
     };
-  }, [albumSlug, preloadPhotoIds, preloadPhotoIdsKey, shareToken, signedUrlsByPhotoId]);
+  }, [albumSlug, preloadPhotoIds, shareToken, signedUrlsByPhotoId]);
 
   useEffect(() => {
-    for (const photoId of preloadPhotoIds) {
-      const targetPhoto = photos.find((item) => item.id === photoId);
+    for (const targetPhoto of preloadPhotos) {
+      const signedUrls = signedUrlsByPhotoId[targetPhoto.id];
+      const previewUrls = uniqueUrls([
+        signedUrls?.previewUrl,
+        signedUrls?.thumbnailUrl,
+        ...previewUrlsForPhoto(targetPhoto),
+      ]);
+
+      for (const previewUrl of previewUrls) {
+        if (preloadedPreviewUrlsRef.current.has(previewUrl)) continue;
+
+        preloadedPreviewUrlsRef.current.add(previewUrl);
+        const image = new window.Image();
+        image.decoding = "async";
+        image.src = previewUrl;
+      }
+    }
+  }, [preloadPhotos, signedUrlsByPhotoId]);
+
+  useEffect(() => {
+    for (const targetPhoto of preloadPhotos) {
+      const photoId = targetPhoto.id;
       if (loadedOriginalUrlsByPhotoId[photoId]) continue;
 
       const originalUrl = uniqueUrls([
@@ -1103,9 +1150,7 @@ export function PhotoLightbox({
   }, [
     failedOriginalUrlsByPhotoId,
     loadedOriginalUrlsByPhotoId,
-    photos,
-    preloadPhotoIds,
-    preloadPhotoIdsKey,
+    preloadPhotos,
     signedUrlsByPhotoId,
   ]);
 

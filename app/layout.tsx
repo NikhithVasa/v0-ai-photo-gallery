@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from '@/components/ui/toaster'
 import { ClickLoadingIndicator } from '@/components/click-loading-indicator'
+import { PostHogAnalytics } from '@/components/posthog-analytics'
 import { AuthProvider } from '@/lib/auth-context'
 import { ScrollToTop } from '@/components/scroll-to-top'
 import './globals.css'
@@ -58,6 +59,7 @@ export default function RootLayout({
           {children}
           <Toaster />
         </AuthProvider>
+        <PostHogAnalytics />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
