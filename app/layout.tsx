@@ -1,11 +1,13 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono, Inter, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { DialRoot } from 'dialkit'
 import { Toaster } from '@/components/ui/toaster'
 import { ClickLoadingIndicator } from '@/components/click-loading-indicator'
 import { PostHogAnalytics } from '@/components/posthog-analytics'
 import { AuthProvider } from '@/lib/auth-context'
 import { ScrollToTop } from '@/components/scroll-to-top'
+import 'dialkit/styles.css'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -61,6 +63,7 @@ export default function RootLayout({
         </AuthProvider>
         <PostHogAnalytics />
         {process.env.NODE_ENV === 'production' && <Analytics />}
+        <DialRoot position="bottom-right" defaultOpen={false} theme="system" />
       </body>
     </html>
   )

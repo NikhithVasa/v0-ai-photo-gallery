@@ -33,6 +33,7 @@ import {
   type MotionProps,
   type Variants,
 } from "framer-motion";
+import { useDialKit } from "dialkit";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
@@ -580,6 +581,33 @@ function Header() {
 
 function Hero({ reveal }: { reveal: MotionProps }) {
   const prefersReducedMotion = useReducedMotion();
+  const heroControls = useDialKit("Landing Hero", {
+    glow: {
+      _collapsed: true,
+      warm: [0.45, 0, 0.8, 0.01],
+      side: [0.35, 0, 0.8, 0.01],
+      floor: [0.45, 0, 0.8, 0.01],
+    },
+    preview: {
+      radius: [24, 12, 40, 1],
+      saturation: [1, 0.7, 1.35, 0.01],
+      badgeOffset: [0, -16, 16, 1],
+    },
+    showBadges: true,
+    entrance: {
+      type: "spring",
+      visualDuration: 0.9,
+      bounce: 0.12,
+    },
+  });
+  const entranceTransition =
+    heroControls.entrance.type === "spring"
+      ? {
+          type: "spring" as const,
+          visualDuration: heroControls.entrance.visualDuration,
+          bounce: heroControls.entrance.bounce,
+        }
+      : { duration: 0.9, ease: EASE_OUT };
 
   return (
     <section className="relative overflow-hidden">
@@ -588,7 +616,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(60% 60% at 20% 10%, rgba(240,200,170,0.45) 0%, rgba(240,200,170,0) 60%), radial-gradient(50% 60% at 90% 20%, rgba(220,196,176,0.35) 0%, rgba(220,196,176,0) 65%), radial-gradient(70% 60% at 50% 100%, rgba(232,220,205,0.45) 0%, rgba(232,220,205,0) 70%)",
+            `radial-gradient(60% 60% at 20% 10%, rgba(240,200,170,${heroControls.glow.warm}) 0%, rgba(240,200,170,0) 60%), radial-gradient(50% 60% at 90% 20%, rgba(220,196,176,${heroControls.glow.side}) 0%, rgba(220,196,176,0) 65%), radial-gradient(70% 60% at 50% 100%, rgba(232,220,205,${heroControls.glow.floor}) 0%, rgba(232,220,205,0) 70%)`,
         }}
       />
 
@@ -658,10 +686,15 @@ function Hero({ reveal }: { reveal: MotionProps }) {
           <motion.div
             initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96 }}
             animate={prefersReducedMotion ? undefined : { opacity: 1, scale: 1 }}
-            transition={{ duration: 0.9, ease: EASE_OUT }}
+            transition={entranceTransition}
             className="relative mx-auto w-full max-w-xl"
           >
-            <HeroPreview />
+            <HeroPreview
+              badgeOffset={heroControls.preview.badgeOffset}
+              radius={heroControls.preview.radius}
+              saturation={heroControls.preview.saturation}
+              showBadges={heroControls.showBadges}
+            />
           </motion.div>
         </div>
       </div>
@@ -669,7 +702,17 @@ function Hero({ reveal }: { reveal: MotionProps }) {
   );
 }
 
-function HeroPreview() {
+function HeroPreview({
+  badgeOffset,
+  radius,
+  saturation,
+  showBadges,
+}: {
+  badgeOffset: number;
+  radius: number;
+  saturation: number;
+  showBadges: boolean;
+}) {
   return (
     <div className="relative">
       <div
@@ -677,7 +720,13 @@ function HeroPreview() {
         className="absolute -inset-x-4 -inset-y-6 -z-10 rounded-[2rem] bg-gradient-to-br from-white/70 via-white/30 to-transparent blur-2xl"
       />
 
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[1.5rem] border border-[#E8DED2]/80 bg-[#F3EDE4] shadow-[0_30px_80px_-30px_rgba(20,15,10,0.35)]">
+      <div
+        className="relative aspect-[4/5] w-full overflow-hidden border border-[#E8DED2]/80 bg-[#F3EDE4] shadow-[0_30px_80px_-30px_rgba(20,15,10,0.35)]"
+        style={{
+          borderRadius: radius,
+          filter: `saturate(${saturation})`,
+        }}
+      >
         <div
           className="absolute inset-0"
           style={{
@@ -695,10 +744,12 @@ function HeroPreview() {
           }}
         />
 
-        <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 text-xs font-medium text-[#3A2A22] shadow-sm ring-1 ring-[#1F1B16]/5 backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 text-[#A77C45]" strokeWidth={2} />
-          AI suggested
-        </div>
+        {showBadges ? (
+          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 text-xs font-medium text-[#3A2A22] shadow-sm ring-1 ring-[#1F1B16]/5 backdrop-blur">
+            <Sparkles className="h-3.5 w-3.5 text-[#A77C45]" strokeWidth={2} />
+            AI suggested
+          </div>
+        ) : null}
 
         <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
           <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-sm ring-1 ring-[#1F1B16]/5 backdrop-blur">
@@ -729,29 +780,39 @@ function HeroPreview() {
         </div>
       </div>
 
-      <div className="absolute -right-3 -top-3 hidden w-56 rounded-2xl border border-[#E8DED2] bg-white/90 p-3 shadow-lg shadow-[#1F1B16]/5 ring-1 ring-[#1F1B16]/5 backdrop-blur sm:block">
-        <div className="flex items-center gap-2 rounded-xl bg-[#F7F1E8] px-3 py-2 ring-1 ring-[#E8DED2]/70">
-          <Search className="h-4 w-4 text-[#8B8176]" strokeWidth={1.75} />
-          <span className="truncate text-sm text-[#4F473F]">
-            “Mum laughing at the toast”
-          </span>
-        </div>
-        <p className="mt-2 px-1 text-[11px] text-[#8B8176]">
-          12 matches · sorted by best moment
-        </p>
-      </div>
+      {showBadges ? (
+        <>
+          <div
+            className="absolute -right-3 -top-3 hidden w-56 rounded-2xl border border-[#E8DED2] bg-white/90 p-3 shadow-lg shadow-[#1F1B16]/5 ring-1 ring-[#1F1B16]/5 backdrop-blur sm:block"
+            style={{ transform: `translateY(${badgeOffset}px)` }}
+          >
+            <div className="flex items-center gap-2 rounded-xl bg-[#F7F1E8] px-3 py-2 ring-1 ring-[#E8DED2]/70">
+              <Search className="h-4 w-4 text-[#8B8176]" strokeWidth={1.75} />
+              <span className="truncate text-sm text-[#4F473F]">
+                “Mum laughing at the toast”
+              </span>
+            </div>
+            <p className="mt-2 px-1 text-[11px] text-[#8B8176]">
+              12 matches · sorted by best moment
+            </p>
+          </div>
 
-      <div className="absolute -bottom-4 -left-2 hidden items-center gap-3 rounded-2xl border border-[#E8DED2] bg-white/95 px-3 py-2.5 shadow-lg shadow-[#1F1B16]/5 ring-1 ring-[#1F1B16]/5 backdrop-blur sm:flex">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFF2EF] text-[#A85D50] ring-1 ring-[#E8CFC3]">
-          <Heart className="h-4 w-4" strokeWidth={2} />
-        </span>
-        <div>
-          <p className="text-xs font-semibold text-[#1F1B16]">
-            Saved to favourites
-          </p>
-          <p className="text-[11px] text-[#8B8176]">Synced to your album</p>
-        </div>
-      </div>
+          <div
+            className="absolute -bottom-4 -left-2 hidden items-center gap-3 rounded-2xl border border-[#E8DED2] bg-white/95 px-3 py-2.5 shadow-lg shadow-[#1F1B16]/5 ring-1 ring-[#1F1B16]/5 backdrop-blur sm:flex"
+            style={{ transform: `translateY(${-badgeOffset}px)` }}
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFF2EF] text-[#A85D50] ring-1 ring-[#E8CFC3]">
+              <Heart className="h-4 w-4" strokeWidth={2} />
+            </span>
+            <div>
+              <p className="text-xs font-semibold text-[#1F1B16]">
+                Saved to favourites
+              </p>
+              <p className="text-[11px] text-[#8B8176]">Synced to your album</p>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

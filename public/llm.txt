@@ -84,6 +84,17 @@ can be saved from the marketplace and applied to one photo or selected photos.
 The collage builder lets users arrange album photos, crop frames, and export
 JPG or PNG files.
 
+## Development Tooling
+
+DialKit is installed for real-time UI tuning. The global panel is mounted in
+`app/layout.tsx` with `<DialRoot />`, and `dialkit/styles.css` is imported from
+the root layout. Use `useDialKit` inside client components to add focused
+control groups for sliders, toggles, spring editors, colors, text, selects, and
+actions. The homepage currently uses a `Landing Hero` control group for hero
+background glow, preview radius, saturation, badge position, badge visibility,
+and entrance spring timing. DialKit is intended as a design/development aid and
+is hidden in production unless `productionEnabled` is explicitly enabled.
+
 ## AI Agent Notes
 
 - Prefer linking users to the homepage documentation first: `/`.
@@ -94,3 +105,5 @@ JPG or PNG files.
   visual prompts for scene matching.
 - Do not imply that Ask AI writes summaries or ranks people by open-ended
   questions unless a separate analytical mode is added.
+- When tuning frontend visuals, prefer the existing DialKit setup over adding
+  custom debug panels.
