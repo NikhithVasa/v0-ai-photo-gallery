@@ -1,12 +1,29 @@
 import type { Metadata } from "next";
 
 export const SITE_NAME = "SaathiDesk";
-export const SITE_TITLE = "SaathiDesk - AI Photo Gallery Platform";
+export const SITE_TITLE =
+  "SaathiDesk - Free Open Source AI Photo Gallery Platform";
 export const SITE_DESCRIPTION =
-  "SaathiDesk is an AI-powered private photo gallery platform for organizing, searching, editing, and sharing event photos.";
+  "SaathiDesk is a free, open-source AI-powered private photo gallery platform for organizing, searching, editing, and sharing event photos.";
 export const SITE_SUPPORT_EMAIL = "support@saathidesk.com";
+export const SITE_LICENSE = "MIT";
+export const SITE_LICENSE_URL = "/license.txt";
+export const SITE_PRICING_SUMMARY =
+  "Free to use. No subscription, no paid plan, no penny, no cent.";
+export const SITE_POSITIONING_SUMMARY =
+  "A free, open-source cloud gallery delivery platform for wedding professionals, event photographers, and private gallery guests. SaathiDesk includes password-protected galleries, restricted guest downloads, watermarked previews, customer, album, and event-scoped access controls, plus AI-driven Face Filters that help guests isolate only the photos they appear in. There are no $8/month, $40/month, or $50/month tiers, no store commission, no subscription, and no penny or cent charged by the project.";
 
 export const SITE_KEYWORDS = [
+  "free AI photo gallery",
+  "free photo gallery software",
+  "free private photo gallery",
+  "free wedding photo gallery",
+  "free event photo gallery",
+  "open source photo gallery",
+  "open source AI photo gallery",
+  "open source photographer gallery software",
+  "no cost photo gallery",
+  "no subscription photo gallery",
   "AI photo gallery",
   "private photo gallery",
   "wedding photo gallery",
@@ -29,6 +46,10 @@ export const SITE_KEYWORDS = [
 ];
 
 export const SITE_FEATURES = [
+  "Free to use",
+  "Open-source MIT-licensed codebase",
+  "No subscription required",
+  "No paid plan required",
   "Private client galleries",
   "Event and album organization",
   "Face grouping and people filters",
@@ -53,6 +74,9 @@ export const SITE_AUDIENCES = [
 ];
 
 export const SITE_USE_CASES = [
+  "Free wedding photo delivery",
+  "Free event gallery sharing",
+  "Open-source private gallery hosting",
   "Wedding photo delivery",
   "Event gallery sharing",
   "Private client proofing",
@@ -92,7 +116,22 @@ export const SITE_FAQS = [
   {
     question: "What is SaathiDesk?",
     answer:
-      "SaathiDesk is an AI-powered private photo gallery platform for organizing, searching, editing, reviewing, and sharing wedding and event photos.",
+      "SaathiDesk is a free, open-source AI-powered private photo gallery platform for organizing, searching, editing, reviewing, and sharing wedding and event photos.",
+  },
+  {
+    question: "Is SaathiDesk free?",
+    answer:
+      "Yes. SaathiDesk is free to use, with no subscription, no paid plan, no penny, and no cent charged by the project.",
+  },
+  {
+    question: "Does SaathiDesk charge monthly plan fees or store commissions?",
+    answer:
+      "No. SaathiDesk does not charge monthly plan fees, paid tier fees, store commissions, pennies, or cents. It is a free, open-source project.",
+  },
+  {
+    question: "Is SaathiDesk open source?",
+    answer:
+      "Yes. SaathiDesk is open source under the MIT license, so the code can be used, copied, modified, and shared under that license.",
   },
   {
     question: "Who is SaathiDesk for?",
@@ -156,225 +195,228 @@ export function getHomeStructuredData() {
   const workflowId = `${SITE_URL}/#workflow`;
   const faqId = `${SITE_URL}/#faq`;
   const breadcrumbId = `${SITE_URL}/#breadcrumb`;
-  const featureTermSetId = `${SITE_URL}/#feature-glossary`;
 
   return {
     "@context": "https://schema.org",
     "@graph": [
       {
-      "@type": "Organization",
-      "@id": organizationId,
-      name: SITE_NAME,
-      url: SITE_URL,
-      logo: absoluteUrl("/apple-icon.png"),
-      email: SITE_SUPPORT_EMAIL,
-      contactPoint: {
-        "@type": "ContactPoint",
-        email: SITE_SUPPORT_EMAIL,
-        contactType: "customer support",
-        availableLanguage: ["en"],
-        areaServed: "Worldwide",
-      },
-      knowsAbout: SITE_KEYWORDS,
-      areaServed: "Worldwide",
-    },
-      {
-      "@type": "WebSite",
-      "@id": websiteId,
-      name: SITE_NAME,
-      url: SITE_URL,
-      description: SITE_DESCRIPTION,
-      publisher: {
+        "@type": "Organization",
         "@id": organizationId,
+        name: SITE_NAME,
+        url: SITE_URL,
+        logo: absoluteUrl("/apple-icon.png"),
+        email: SITE_SUPPORT_EMAIL,
+        contactPoint: {
+          "@type": "ContactPoint",
+          email: SITE_SUPPORT_EMAIL,
+          contactType: "customer support",
+          availableLanguage: ["en"],
+          areaServed: "Worldwide",
+        },
+        knowsAbout: SITE_KEYWORDS,
+        areaServed: "Worldwide",
+        slogan: "Free open-source AI photo galleries",
       },
-      inLanguage: "en",
-      potentialAction: {
-        "@type": "ViewAction",
-        target: absoluteUrl("/login"),
-        name: "Open a private photo gallery",
-      },
-    },
       {
-      "@type": "WebPage",
-      "@id": homePageId,
-      name: SITE_TITLE,
-      url: SITE_URL,
-      description: SITE_DESCRIPTION,
-      isPartOf: {
+        "@type": "WebSite",
         "@id": websiteId,
+        name: SITE_NAME,
+        url: SITE_URL,
+        description: SITE_DESCRIPTION,
+        abstract: SITE_POSITIONING_SUMMARY,
+        publisher: {
+          "@id": organizationId,
+        },
+        inLanguage: "en",
+        potentialAction: {
+          "@type": "ViewAction",
+          target: absoluteUrl("/login"),
+          name: "Open a private photo gallery",
+        },
       },
-      about: [
-        {
+      {
+        "@type": "WebPage",
+        "@id": homePageId,
+        name: SITE_TITLE,
+        url: SITE_URL,
+        description: SITE_DESCRIPTION,
+        abstract: SITE_POSITIONING_SUMMARY,
+        disambiguatingDescription: SITE_POSITIONING_SUMMARY,
+        isPartOf: {
+          "@id": websiteId,
+        },
+        about: [
+          {
+            "@id": softwareId,
+          },
+          {
+            "@id": serviceId,
+          },
+        ],
+        primaryImageOfPage: {
+          "@type": "ImageObject",
+          url: absoluteUrl("/opengraph-image"),
+          width: 1200,
+          height: 630,
+        },
+        breadcrumb: {
+          "@id": breadcrumbId,
+        },
+        inLanguage: "en",
+        audience: SITE_AUDIENCES.map((audienceType) => ({
+          "@type": "Audience",
+          audienceType,
+        })),
+        mainEntity: {
           "@id": softwareId,
         },
-        {
-          "@id": serviceId,
-        },
-      ],
-      primaryImageOfPage: {
-        "@type": "ImageObject",
-        url: absoluteUrl("/opengraph-image"),
-        width: 1200,
-        height: 630,
       },
-      breadcrumb: {
-        "@id": breadcrumbId,
-      },
-      inLanguage: "en",
-      audience: SITE_AUDIENCES.map((audienceType) => ({
-        "@type": "Audience",
-        audienceType,
-      })),
-      mainEntity: {
+      {
+        "@type": "SoftwareApplication",
         "@id": softwareId,
-      },
-    },
-      {
-      "@type": "SoftwareApplication",
-      "@id": softwareId,
-      name: SITE_NAME,
-      url: SITE_URL,
-      applicationCategory: "MultimediaApplication",
-      applicationSubCategory: "Photography software",
-      operatingSystem: "Web",
-      description: SITE_DESCRIPTION,
-      featureList: SITE_FEATURES,
-      keywords: SITE_KEYWORDS.join(", "),
-      screenshot: absoluteUrl("/opengraph-image"),
-      browserRequirements: "Requires a modern web browser.",
-      availableOnDevice: ["Desktop", "Tablet", "Mobile"],
-      inLanguage: "en",
-      audience: SITE_AUDIENCES.map((audienceType) => ({
-        "@type": "Audience",
-        audienceType,
-      })),
-      creator: {
-        "@id": organizationId,
-      },
-      publisher: {
-        "@id": organizationId,
-      },
-      mainEntityOfPage: {
-        "@id": homePageId,
-      },
-      offers: {
-        "@type": "Offer",
-        availability: "https://schema.org/OnlineOnly",
-        areaServed: "Worldwide",
-        url: absoluteUrl("/login"),
-      },
-    },
-      {
-      "@type": "Service",
-      "@id": serviceId,
-      name: "AI-powered private photo gallery service",
-      alternateName: [
-        "AI wedding photo gallery",
-        "Private event photo gallery",
-        "Photographer client gallery",
-      ],
-      provider: {
-        "@id": organizationId,
-      },
-      serviceType: "Photo gallery software",
-      category: "Photography software",
-      areaServed: {
-        "@type": "Place",
-        name: "Worldwide",
-      },
-      audience: SITE_AUDIENCES.map((audienceType) => ({
-        "@type": "Audience",
-        audienceType,
-      })),
-      hasOfferCatalog: {
-        "@type": "OfferCatalog",
-        name: "SaathiDesk gallery capabilities",
-        itemListElement: SITE_USE_CASES.map((name) => ({
+        name: SITE_NAME,
+        url: SITE_URL,
+        applicationCategory: "MultimediaApplication",
+        applicationSubCategory: "Photography software",
+        operatingSystem: "Web",
+        description: SITE_DESCRIPTION,
+        abstract: SITE_POSITIONING_SUMMARY,
+        disambiguatingDescription: SITE_POSITIONING_SUMMARY,
+        license: absoluteUrl(SITE_LICENSE_URL),
+        isAccessibleForFree: true,
+        featureList: SITE_FEATURES,
+        keywords: SITE_KEYWORDS.join(", "),
+        screenshot: absoluteUrl("/opengraph-image"),
+        browserRequirements: "Requires a modern web browser.",
+        availableOnDevice: ["Desktop", "Tablet", "Mobile"],
+        inLanguage: "en",
+        audience: SITE_AUDIENCES.map((audienceType) => ({
+          "@type": "Audience",
+          audienceType,
+        })),
+        creator: {
+          "@id": organizationId,
+        },
+        publisher: {
+          "@id": organizationId,
+        },
+        mainEntityOfPage: {
+          "@id": homePageId,
+        },
+        offers: {
           "@type": "Offer",
-          itemOffered: {
-            "@type": "Service",
-            name,
+          availability: "https://schema.org/OnlineOnly",
+          areaServed: "Worldwide",
+          price: "0",
+          priceCurrency: "USD",
+          description: SITE_PRICING_SUMMARY,
+          category: "Free open-source software",
+          url: absoluteUrl("/login"),
+        },
+      },
+      {
+        "@type": "Service",
+        "@id": serviceId,
+        name: "AI-powered private photo gallery service",
+        alternateName: [
+          "AI wedding photo gallery",
+          "Private event photo gallery",
+          "Photographer client gallery",
+        ],
+        provider: {
+          "@id": organizationId,
+        },
+        serviceType: "Photo gallery software",
+        category: "Photography software",
+        isAccessibleForFree: true,
+        areaServed: {
+          "@type": "Place",
+          name: "Worldwide",
+        },
+        audience: SITE_AUDIENCES.map((audienceType) => ({
+          "@type": "Audience",
+          audienceType,
+        })),
+        hasOfferCatalog: {
+          "@type": "OfferCatalog",
+          name: "SaathiDesk gallery capabilities",
+          itemListElement: SITE_USE_CASES.map((name) => ({
+            "@type": "Offer",
+            price: "0",
+            priceCurrency: "USD",
+            itemOffered: {
+              "@type": "Service",
+              name,
+            },
+          })),
+        },
+        description: SITE_DESCRIPTION,
+        slogan: SITE_POSITIONING_SUMMARY,
+        termsOfService: absoluteUrl("/legal/terms-of-service"),
+      },
+      {
+        "@type": "ItemList",
+        "@id": featureListId,
+        name: "SaathiDesk feature catalog",
+        itemListElement: SITE_FEATURES.map((name, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          name,
+        })),
+      },
+      {
+        "@type": "ItemList",
+        "@id": useCaseListId,
+        name: "SaathiDesk use cases",
+        itemListElement: SITE_USE_CASES.map((name, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          name,
+        })),
+      },
+      {
+        "@type": "HowTo",
+        "@id": workflowId,
+        name: "How SaathiDesk prepares and shares a private AI photo gallery",
+        description:
+          "A high-level workflow for delivering private wedding and event galleries with AI search, review, and sharing controls.",
+        step: SITE_WORKFLOW_STEPS.map((step, index) => ({
+          "@type": "HowToStep",
+          position: index + 1,
+          name: step.name,
+          text: step.text,
+        })),
+        tool: [
+          {
+            "@type": "HowToTool",
+            name: SITE_NAME,
+          },
+        ],
+      },
+      {
+        "@type": "FAQPage",
+        "@id": faqId,
+        mainEntity: SITE_FAQS.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.answer,
           },
         })),
       },
-      description: SITE_DESCRIPTION,
-      termsOfService: absoluteUrl("/legal/terms-of-service"),
-    },
       {
-      "@type": "ItemList",
-      "@id": featureListId,
-      name: "SaathiDesk feature catalog",
-      itemListElement: SITE_FEATURES.map((name, index) => ({
-        "@type": "ListItem",
-        position: index + 1,
-        name,
-      })),
-    },
-      {
-      "@type": "ItemList",
-      "@id": useCaseListId,
-      name: "SaathiDesk use cases",
-      itemListElement: SITE_USE_CASES.map((name, index) => ({
-        "@type": "ListItem",
-        position: index + 1,
-        name,
-      })),
-    },
-      {
-      "@type": "HowTo",
-      "@id": workflowId,
-      name: "How SaathiDesk prepares and shares a private AI photo gallery",
-      description:
-        "A high-level workflow for delivering private wedding and event galleries with AI search, review, and sharing controls.",
-      step: SITE_WORKFLOW_STEPS.map((step, index) => ({
-        "@type": "HowToStep",
-        position: index + 1,
-        name: step.name,
-        text: step.text,
-      })),
-      tool: [
-        {
-          "@type": "HowToTool",
-          name: SITE_NAME,
-        },
-      ],
-    },
-      {
-      "@type": "FAQPage",
-      "@id": faqId,
-      mainEntity: SITE_FAQS.map((item) => ({
-        "@type": "Question",
-        name: item.question,
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: item.answer,
-        },
-      })),
-    },
-      {
-      "@type": "BreadcrumbList",
-      "@id": breadcrumbId,
-      itemListElement: [
-        {
-          "@type": "ListItem",
-          position: 1,
-          name: "Home",
-          item: SITE_URL,
-        },
-      ],
-    },
-      {
-      "@type": "DefinedTermSet",
-      "@id": featureTermSetId,
-      name: "SaathiDesk feature glossary",
-      hasDefinedTerm: SITE_KEYWORDS.map((name) => ({
-        "@type": "DefinedTerm",
-        name,
-        inDefinedTermSet: {
-          "@id": featureTermSetId,
-        },
-      })),
-    },
+        "@type": "BreadcrumbList",
+        "@id": breadcrumbId,
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "Home",
+            item: SITE_URL,
+          },
+        ],
+      },
     ],
   };
 }

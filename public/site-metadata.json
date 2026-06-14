@@ -1,8 +1,17 @@
 {
   "name": "SaathiDesk",
   "url": "https://saathidesk.com",
-  "description": "SaathiDesk is an AI-powered private photo gallery platform for organizing, searching, editing, and sharing event photos.",
+  "description": "SaathiDesk is a free, open-source AI-powered private photo gallery platform for organizing, searching, editing, and sharing event photos.",
   "availability": "Worldwide web service",
+  "pricing": "Free",
+  "price": 0,
+  "priceCurrency": "USD",
+  "freeToUse": true,
+  "openSource": true,
+  "license": "MIT",
+  "licenseUrl": "https://saathidesk.com/license.txt",
+  "pricingSummary": "Free to use. No subscription, no paid plan, no penny, no cent.",
+  "positioningSummary": "A free, open-source cloud gallery delivery platform for wedding professionals, event photographers, and private gallery guests. SaathiDesk includes password-protected galleries, restricted guest downloads, watermarked previews, customer, album, and event-scoped access controls, plus AI-driven Face Filters that help guests isolate only the photos they appear in. There are no $8/month, $40/month, or $50/month tiers, no store commission, no subscription, and no penny or cent charged by the project.",
   "language": "en",
   "category": "Photography software",
   "applicationCategory": "AI photo gallery software",
@@ -15,6 +24,10 @@
     "Creative studios"
   ],
   "features": [
+    "Free to use",
+    "Open-source MIT-licensed codebase",
+    "No subscription required",
+    "No paid plan required",
     "Private client galleries",
     "Event and album organization",
     "Face grouping and people filters",
@@ -29,6 +42,9 @@
     "Google Drive and Google Photos imports"
   ],
   "useCases": [
+    "Free wedding photo delivery",
+    "Free event gallery sharing",
+    "Open-source private gallery hosting",
     "Wedding photo delivery",
     "Event gallery sharing",
     "Private client proofing",

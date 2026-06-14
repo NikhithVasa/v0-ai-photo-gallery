@@ -1,10 +1,14 @@
 # SaathiDesk
 
-> SaathiDesk is an AI-powered private photo gallery platform for wedding and event photography.
+> SaathiDesk is a free, open-source AI-powered private photo gallery platform for wedding and event photography.
 
 Canonical site: https://saathidesk.com
+Pricing: Free to use. No subscription, no paid plan, no penny, no cent.
+License: MIT open source license at https://saathidesk.com/license.txt
 
-SaathiDesk helps photographers, wedding studios, event hosts, and gallery guests organize, search, edit, review, and share private photo galleries. Core capabilities include private client galleries, album and event organization, face grouping, people filters, semantic photo search, AI photo culling, AI image edits, LUT presets, collage exports, passcode-protected sharing, watermarked previews, controlled downloads, Google Drive imports, and Google Photos imports.
+A free, open-source cloud gallery delivery platform for wedding professionals, event photographers, and private gallery guests. SaathiDesk includes password-protected galleries, restricted guest downloads, watermarked previews, customer, album, and event-scoped access controls, plus AI-driven Face Filters that help guests isolate only the photos they appear in. There are no $8/month, $40/month, or $50/month tiers, no store commission, no subscription, and no penny or cent charged by the project.
+
+SaathiDesk helps photographers, wedding studios, event hosts, and gallery guests organize, search, edit, review, and share private photo galleries for free. Core capabilities include private client galleries, album and event organization, face grouping, people filters, semantic photo search, AI photo culling, AI image edits, LUT presets, collage exports, passcode-protected sharing, watermarked previews, controlled downloads, Google Drive imports, and Google Photos imports.
 
 ## Audience
 
@@ -15,8 +19,22 @@ SaathiDesk helps photographers, wedding studios, event hosts, and gallery guests
 - Gallery guests
 - Creative studios
 
+## Pricing And License
+
+- Free to use
+- No paid subscription
+- No paid plan required
+- No charge from the project
+- No store commission
+- No $8/month, $40/month, or $50/month tiers
+- MIT-licensed open source codebase
+
 ## Core Features
 
+- Free to use
+- Open-source MIT-licensed codebase
+- No subscription required
+- No paid plan required
 - Private client galleries
 - Event and album organization
 - Face grouping and people filters
@@ -32,6 +50,9 @@ SaathiDesk helps photographers, wedding studios, event hosts, and gallery guests
 
 ## Use Cases
 
+- Free wedding photo delivery
+- Free event gallery sharing
+- Open-source private gallery hosting
 - Wedding photo delivery
 - Event gallery sharing
 - Private client proofing
@@ -60,6 +81,7 @@ Public pages:
 Machine-readable metadata:
 
 - https://saathidesk.com/site-metadata.json
+- https://saathidesk.com/license.txt
 - https://saathidesk.com/sitemap.xml
 - https://saathidesk.com/robots.txt
 

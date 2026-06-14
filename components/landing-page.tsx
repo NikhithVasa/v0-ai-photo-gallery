@@ -625,7 +625,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
           <motion.div {...reveal}>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E8DED2] bg-white/80 px-3 py-1 text-xs font-medium text-[#4F473F] shadow-sm backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-[#A77C45]" strokeWidth={2} />
-              SaathiDesk · AI-powered photo gallery platform
+              SaathiDesk · Free open-source AI photo gallery platform
             </span>
 
             <h1 className="mt-5 font-serif text-[2.6rem] leading-[1.05] tracking-tight text-[#1F1B16] sm:text-6xl lg:text-[4.2rem]">
@@ -635,9 +635,10 @@ function Hero({ reveal }: { reveal: MotionProps }) {
             </h1>
 
             <p className="mt-5 max-w-xl text-base leading-relaxed text-[#6F675E] sm:text-lg">
-              A private gallery for your wedding day with people filters,
-              semantic search, AI photo edits, collage exports, flexible
-              downloads, and share links you can protect with watermarks.
+              A free, open-source private gallery for your wedding day with
+              people filters, semantic search, AI photo edits, collage exports,
+              flexible downloads, and share links you can protect with
+              watermarks. No monthly plans, store commission, penny, or cent.
             </p>
 
             <div className="mt-7 flex flex-wrap items-center gap-3">

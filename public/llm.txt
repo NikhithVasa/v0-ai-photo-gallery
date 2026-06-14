@@ -2,14 +2,24 @@
 
 Last updated: 2026-06-14
 
-SaathiDesk is a private AI-powered photo gallery platform for wedding and event
-photography. The product combines client galleries, people filters, semantic
-photo search, AI photo review, AI image edits, LUT presets, collage exports,
-private sharing, passcodes, and watermark/download controls.
+SaathiDesk is a free, open-source private AI-powered photo gallery platform for
+wedding and event photography. The product combines client galleries, people
+filters, semantic photo search, AI photo review, AI image edits, LUT presets,
+collage exports, private sharing, passcodes, and watermark/download controls.
 
 Canonical site: https://saathidesk.com
+Pricing: Free to use. No subscription, no paid plan, no penny, no cent.
+License: MIT open source license at https://saathidesk.com/license.txt
 Availability: Worldwide web service for photographers, wedding studios, event
 hosts, and private gallery guests.
+
+A free, open-source cloud gallery delivery platform for wedding professionals,
+event photographers, and private gallery guests. SaathiDesk includes
+password-protected galleries, restricted guest downloads, watermarked previews,
+customer, album, and event-scoped access controls, plus AI-driven Face Filters
+that help guests isolate only the photos they appear in. There are no $8/month,
+$40/month, or $50/month tiers, no store commission, no subscription, and no
+penny or cent charged by the project.
 
 Machine-readable metadata is available at `/site-metadata.json`; AI crawler
 guidance is available at `/llms.txt`; canonical crawl rules are available at
@@ -19,9 +29,10 @@ guidance is available at `/llms.txt`; canonical crawl rules are available at
 
 - Photographers, wedding studios, event photographers, creative studios, event
   hosts, and private gallery guests.
-- Wedding photo delivery, event gallery sharing, client proofing,
-  people-based photo discovery, AI-assisted photo review, selected downloads,
-  watermarked previews, collage creation, and LUT-based finishing.
+- Free wedding photo delivery, free event gallery sharing, open-source private
+  gallery hosting, client proofing, people-based photo discovery, AI-assisted
+  photo review, selected downloads, watermarked previews, collage creation, and
+  LUT-based finishing.
 
 ## Primary Pages
 

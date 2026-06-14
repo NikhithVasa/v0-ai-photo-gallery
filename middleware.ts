@@ -21,7 +21,8 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
 
   if (pathname === "/" && !customerSlug) return true;
   if (pathname === "/login" || pathname === "/auth/callback") return true;
-  if (pathname.startsWith("/legal/") || pathname.startsWith("/share/")) return true;
+  if (pathname.startsWith("/legal/") || pathname.startsWith("/share/"))
+    return true;
   if (/^\/albums\/[^/]+$/.test(pathname)) return true;
 
   return (
@@ -62,7 +63,9 @@ function withRobotsHeader(
 
 function rewriteWithCookies(url: URL, response: NextResponse) {
   const rewriteResponse = NextResponse.rewrite(url);
-  response.cookies.getAll().forEach((cookie) => rewriteResponse.cookies.set(cookie));
+  response.cookies
+    .getAll()
+    .forEach((cookie) => rewriteResponse.cookies.set(cookie));
   return rewriteResponse;
 }
 
@@ -83,7 +86,9 @@ async function hasSupabaseUser(request: NextRequest, response: NextResponse) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
           );
