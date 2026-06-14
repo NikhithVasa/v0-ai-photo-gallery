@@ -243,202 +243,322 @@ const INSTAGRAM_FILTERS = [
   {
     key: "clarendon",
     label: "Clarendon",
-    cssFilter: "brightness(108%) contrast(118%) saturate(135%)",
+    cssFilter: "sepia(.15) contrast(1.25) brightness(1.25) hue-rotate(5deg)",
+    overlay: {
+      background: "rgba(127, 187, 227, .4)",
+      mixBlendMode: "overlay",
+    },
   },
   {
     key: "gingham",
     label: "Gingham",
-    cssFilter: "brightness(105%) contrast(92%) saturate(85%) sepia(8%)",
+    cssFilter: "contrast(1.1) brightness(1.1)",
+    overlay: {
+      background: "#e6e6e6",
+      mixBlendMode: "soft-light",
+    },
   },
   {
     key: "moon",
     label: "Moon",
-    cssFilter: "grayscale(100%) brightness(112%) contrast(105%)",
+    cssFilter: "brightness(1.4) contrast(.95) saturate(0) sepia(.35)",
   },
   {
     key: "lark",
     label: "Lark",
-    cssFilter: "brightness(108%) contrast(92%) saturate(128%)",
+    cssFilter: "sepia(.25) contrast(1.2) brightness(1.3) saturate(1.25)",
   },
   {
     key: "reyes",
     label: "Reyes",
-    cssFilter: "brightness(112%) contrast(86%) saturate(78%) sepia(22%)",
+    cssFilter: "sepia(.75) contrast(.75) brightness(1.25) saturate(1.4)",
   },
   {
     key: "juno",
     label: "Juno",
-    cssFilter: "brightness(104%) contrast(110%) saturate(150%) hue-rotate(-4deg)",
+    cssFilter: "sepia(.35) contrast(1.15) brightness(1.15) saturate(1.8)",
+    overlay: {
+      background: "rgba(127, 187, 227, .2)",
+      mixBlendMode: "overlay",
+    },
   },
   {
     key: "slumber",
     label: "Slumber",
-    cssFilter: "brightness(106%) contrast(88%) saturate(80%) sepia(18%)",
+    cssFilter: "sepia(.35) contrast(1.25) saturate(1.25)",
+    overlay: {
+      background: "rgba(125, 105, 24, .2)",
+      mixBlendMode: "darken",
+    },
   },
   {
     key: "crema",
     label: "Crema",
-    cssFilter: "brightness(108%) contrast(92%) saturate(86%) sepia(14%)",
+    cssFilter: "sepia(.5) contrast(1.25) brightness(1.15) saturate(.9) hue-rotate(-2deg)",
+    overlay: {
+      background: "rgba(125, 105, 24, .2)",
+      mixBlendMode: "multiply",
+    },
   },
   {
     key: "ludwig",
     label: "Ludwig",
-    cssFilter: "brightness(106%) contrast(106%) saturate(112%)",
+    cssFilter: "sepia(.25) contrast(1.05) brightness(1.05) saturate(2)",
+    overlay: {
+      background: "rgba(125, 105, 24, .1)",
+      mixBlendMode: "overlay",
+    },
   },
   {
     key: "aden",
     label: "Aden",
-    cssFilter: "brightness(112%) contrast(86%) saturate(82%) sepia(18%) hue-rotate(-8deg)",
+    cssFilter: "sepia(.2) brightness(1.15) saturate(1.4)",
+    overlay: {
+      background: "rgba(125, 105, 24, .1)",
+      mixBlendMode: "multiply",
+    },
   },
   {
     key: "perpetua",
     label: "Perpetua",
-    cssFilter: "brightness(110%) contrast(96%) saturate(116%) hue-rotate(8deg)",
+    cssFilter: "contrast(1.1) brightness(1.25) saturate(1.1)",
+    overlay: {
+      background: "linear-gradient(to bottom, rgba(0, 91, 154, .25), rgba(230, 193, 61, .25))",
+      mixBlendMode: "multiply",
+    },
   },
   {
     key: "amaro",
     label: "Amaro",
-    cssFilter: "brightness(116%) contrast(102%) saturate(120%)",
+    cssFilter: "sepia(.35) contrast(1.1) brightness(1.2) saturate(1.3)",
+    overlay: {
+      background: "rgba(125, 105, 24, .2)",
+      mixBlendMode: "overlay",
+    },
   },
   {
     key: "mayfair",
     label: "Mayfair",
-    cssFilter: "brightness(108%) contrast(108%) saturate(118%) sepia(8%)",
+    cssFilter: "contrast(1.1) brightness(1.15) saturate(1.1)",
+    overlay: {
+      background: "radial-gradient(circle closest-corner, transparent 0, rgba(175, 105, 24, .4) 100%)",
+      mixBlendMode: "multiply",
+    },
   },
   {
     key: "rise",
     label: "Rise",
-    cssFilter: "brightness(112%) contrast(90%) saturate(90%) sepia(18%)",
+    cssFilter: "sepia(.25) contrast(1.25) brightness(1.2) saturate(.9)",
+    overlay: {
+      background: "radial-gradient(circle closest-corner, transparent 0, rgba(230, 193, 61, .25) 100%)",
+      mixBlendMode: "lighten",
+    },
   },
   {
     key: "hudson",
     label: "Hudson",
-    cssFilter: "brightness(108%) contrast(110%) saturate(112%) hue-rotate(12deg)",
+    cssFilter: "sepia(.25) contrast(1.2) brightness(1.2) saturate(1.05) hue-rotate(-15deg)",
+    overlay: {
+      background: "radial-gradient(circle closest-corner, transparent 25%, rgba(25, 62, 167, .25) 100%)",
+      mixBlendMode: "multiply",
+    },
   },
   {
     key: "valencia",
     label: "Valencia",
-    cssFilter: "brightness(108%) contrast(94%) saturate(108%) sepia(22%)",
+    cssFilter: "sepia(.25) contrast(1.1) brightness(1.1)",
+    overlay: {
+      background: "rgba(230, 193, 61, .1)",
+      mixBlendMode: "lighten",
+    },
   },
   {
     key: "xpro2",
     label: "X-Pro II",
-    cssFilter: "brightness(92%) contrast(128%) saturate(142%) sepia(18%)",
+    cssFilter: "sepia(.45) contrast(1.25) brightness(1.75) saturate(1.3) hue-rotate(-5deg)",
+    overlay: {
+      background: "radial-gradient(circle closest-corner, rgba(0, 91, 154, .35) 0, rgba(0, 0, 0, .65) 100%)",
+      mixBlendMode: "multiply",
+    },
   },
   {
     key: "sierra",
     label: "Sierra",
-    cssFilter: "brightness(110%) contrast(86%) saturate(82%) sepia(16%)",
+    cssFilter: "sepia(.25) contrast(1.5) brightness(.9) hue-rotate(-15deg)",
+    overlay: {
+      background: "radial-gradient(circle closest-corner, rgba(128, 78, 15, .5) 0, rgba(0, 0, 0, .65) 100%)",
+      mixBlendMode: "screen",
+    },
   },
   {
     key: "willow",
     label: "Willow",
-    cssFilter: "grayscale(100%) brightness(106%) contrast(92%) sepia(10%)",
+    cssFilter: "brightness(1.2) contrast(.85) saturate(.05) sepia(.2)",
   },
   {
     key: "lofi",
     label: "Lo-Fi",
-    cssFilter: "brightness(95%) contrast(132%) saturate(150%)",
+    cssFilter: "saturate(1.1) contrast(1.5)",
   },
   {
     key: "inkwell",
     label: "Inkwell",
-    cssFilter: "grayscale(100%) contrast(112%) brightness(104%)",
+    cssFilter: "brightness(1.25) contrast(.85) grayscale(1)",
   },
   {
     key: "hefe",
     label: "Hefe",
-    cssFilter: "brightness(96%) contrast(124%) saturate(145%) sepia(18%)",
+    cssFilter: "sepia(.4) contrast(1.5) brightness(1.2) saturate(1.4) hue-rotate(-10deg)",
+    overlay: {
+      background: "radial-gradient(circle closest-corner, transparent 0, rgba(0, 0, 0, .25) 100%)",
+      mixBlendMode: "multiply",
+    },
   },
   {
     key: "nashville",
     label: "Nashville",
-    cssFilter: "brightness(112%) contrast(92%) saturate(116%) sepia(28%) hue-rotate(-8deg)",
+    cssFilter: "sepia(.25) contrast(1.5) brightness(.9) hue-rotate(-15deg)",
+    overlay: {
+      background: "radial-gradient(circle closest-corner, rgba(128, 78, 15, .5) 0, rgba(128, 78, 15, .65) 100%)",
+      mixBlendMode: "screen",
+    },
   },
   {
     key: "stinson",
     label: "Stinson",
-    cssFilter: "brightness(112%) contrast(88%) saturate(82%) sepia(12%)",
+    cssFilter: "sepia(.35) contrast(1.25) brightness(1.1) saturate(1.25)",
+    overlay: {
+      background: "rgba(125, 105, 24, .45)",
+      mixBlendMode: "lighten",
+    },
   },
   {
     key: "vesper",
     label: "Vesper",
-    cssFilter: "brightness(110%) contrast(104%) saturate(130%) sepia(10%)",
+    cssFilter: "sepia(.35) contrast(1.15) brightness(1.2) saturate(1.3)",
+    overlay: {
+      background: "rgba(125, 105, 24, .25)",
+      mixBlendMode: "overlay",
+    },
   },
   {
     key: "earlybird",
     label: "Earlybird",
-    cssFilter: "brightness(106%) contrast(92%) saturate(92%) sepia(30%)",
+    cssFilter: "sepia(.25) contrast(1.25) brightness(1.15) saturate(.9) hue-rotate(-5deg)",
+    overlay: {
+      background: "radial-gradient(circle closest-corner, transparent 0, rgba(125, 105, 24, .2) 100%)",
+      mixBlendMode: "multiply",
+    },
   },
   {
     key: "brannan",
     label: "Brannan",
-    cssFilter: "brightness(104%) contrast(120%) saturate(92%) sepia(22%)",
+    cssFilter: "sepia(.4) contrast(1.25) brightness(1.1) saturate(.9) hue-rotate(-2deg)",
   },
   {
     key: "sutro",
     label: "Sutro",
-    cssFilter: "brightness(92%) contrast(118%) saturate(118%) sepia(22%)",
+    cssFilter: "sepia(.4) contrast(1.2) brightness(.9) saturate(1.4) hue-rotate(-10deg)",
+    overlay: {
+      background: "radial-gradient(circle closest-corner, transparent 50%, rgba(0, 0, 0, .5) 90%)",
+      mixBlendMode: "darken",
+    },
   },
   {
     key: "toaster",
     label: "Toaster",
-    cssFilter: "brightness(108%) contrast(112%) saturate(145%) sepia(28%)",
+    cssFilter: "sepia(.25) contrast(1.5) brightness(.95) hue-rotate(-15deg)",
+    overlay: {
+      background: "radial-gradient(circle, #804e0f, rgba(0, 0, 0, .25))",
+      mixBlendMode: "screen",
+    },
   },
   {
     key: "walden",
     label: "Walden",
-    cssFilter: "brightness(112%) contrast(90%) saturate(96%) sepia(12%) hue-rotate(8deg)",
+    cssFilter: "sepia(.35) contrast(.8) brightness(1.25) saturate(1.4)",
+    overlay: {
+      background: "rgba(229, 240, 128, .5)",
+      mixBlendMode: "darken",
+    },
   },
   {
     key: "1977",
     label: "1977",
-    cssFilter: "brightness(110%) contrast(105%) saturate(128%) sepia(24%) hue-rotate(-10deg)",
+    cssFilter: "sepia(.5) hue-rotate(-30deg) saturate(1.4)",
   },
   {
     key: "kelvin",
     label: "Kelvin",
-    cssFilter: "brightness(110%) contrast(108%) saturate(150%) sepia(30%) hue-rotate(-10deg)",
+    cssFilter: "sepia(.15) contrast(1.5) brightness(1.1) hue-rotate(-10deg)",
+    overlay: {
+      background: "radial-gradient(circle closest-corner, rgba(128, 78, 15, .25) 0, rgba(128, 78, 15, .5) 100%)",
+      mixBlendMode: "overlay",
+    },
   },
   {
     key: "maven",
     label: "Maven",
-    cssFilter: "brightness(104%) contrast(108%) saturate(132%) sepia(18%) hue-rotate(8deg)",
+    cssFilter: "sepia(.35) contrast(1.05) brightness(1.05) saturate(1.75)",
+    overlay: {
+      background: "rgba(158, 175, 30, .25)",
+      mixBlendMode: "darken",
+    },
   },
   {
     key: "ginza",
     label: "Ginza",
-    cssFilter: "brightness(106%) contrast(104%) saturate(128%) sepia(8%)",
+    cssFilter: "sepia(.25) contrast(1.15) brightness(1.2) saturate(1.35) hue-rotate(-5deg)",
+    overlay: {
+      background: "rgba(125, 105, 24, .15)",
+      mixBlendMode: "darken",
+    },
   },
   {
     key: "skyline",
     label: "Skyline",
-    cssFilter: "brightness(104%) contrast(118%) saturate(122%)",
+    cssFilter: "sepia(.15) contrast(1.25) brightness(1.25) saturate(1.2)",
   },
   {
     key: "dogpatch",
     label: "Dogpatch",
-    cssFilter: "brightness(96%) contrast(122%) saturate(116%) sepia(12%)",
+    cssFilter: "sepia(.35) saturate(1.1) contrast(1.5)",
   },
   {
     key: "brooklyn",
     label: "Brooklyn",
-    cssFilter: "brightness(108%) contrast(96%) saturate(90%) sepia(14%)",
+    cssFilter: "sepia(.25) contrast(1.25) brightness(1.25) hue-rotate(5deg)",
+    overlay: {
+      background: "rgba(127, 187, 227, .2)",
+      mixBlendMode: "overlay",
+    },
   },
   {
     key: "helena",
     label: "Helena",
-    cssFilter: "brightness(106%) contrast(108%) saturate(120%) sepia(16%)",
+    cssFilter: "sepia(.5) contrast(1.05) brightness(1.05) saturate(1.35)",
+    overlay: {
+      background: "rgba(158, 175, 30, .25)",
+      mixBlendMode: "overlay",
+    },
   },
   {
     key: "ashby",
     label: "Ashby",
-    cssFilter: "brightness(108%) contrast(88%) saturate(82%) sepia(22%)",
+    cssFilter: "sepia(.5) contrast(1.2) saturate(1.8)",
+    overlay: {
+      background: "rgba(125, 105, 24, .35)",
+      mixBlendMode: "lighten",
+    },
   },
   {
     key: "charmes",
     label: "Charmes",
-    cssFilter: "brightness(108%) contrast(112%) saturate(128%) sepia(12%) hue-rotate(-6deg)",
+    cssFilter: "sepia(.25) contrast(1.25) brightness(1.25) saturate(1.35) hue-rotate(-5deg)",
+    overlay: {
+      background: "rgba(125, 105, 24, .25)",
+      mixBlendMode: "darken",
+    },
   },
 ] as const;
 
@@ -449,6 +569,36 @@ function instagramFilterByKey(key: InstagramFilterKey) {
   return (
     INSTAGRAM_FILTERS.find((filter) => filter.key === key) ??
     INSTAGRAM_FILTERS[0]
+  );
+}
+
+function instagramFilterImageStyle(filter: InstagramFilter): CSSProperties | undefined {
+  return filter.cssFilter === "none" ? undefined : { filter: filter.cssFilter };
+}
+
+function instagramFilterOverlayStyle(filter: InstagramFilter): CSSProperties | undefined {
+  if (!("overlay" in filter)) return undefined;
+
+  return {
+    background: filter.overlay.background,
+    mixBlendMode: filter.overlay.mixBlendMode,
+  };
+}
+
+function InstagramFilterOverlay({
+  filter,
+}: {
+  filter: InstagramFilter;
+}) {
+  const style = instagramFilterOverlayStyle(filter);
+  if (!style) return null;
+
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-10"
+      style={style}
+    />
   );
 }
 
@@ -490,6 +640,126 @@ function loadCanvasImage(src: string) {
   });
 }
 
+function closestCornerRadius(width: number, height: number) {
+  return Math.hypot(width / 2, height / 2);
+}
+
+function radialOverlay(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  stops: Array<[number, string]>,
+) {
+  const radius = closestCornerRadius(width, height);
+  const gradient = ctx.createRadialGradient(
+    width / 2,
+    height / 2,
+    0,
+    width / 2,
+    height / 2,
+    radius,
+  );
+
+  for (const [offset, color] of stops) {
+    gradient.addColorStop(offset, color);
+  }
+
+  return gradient;
+}
+
+function instagramCanvasOverlayFill(
+  ctx: CanvasRenderingContext2D,
+  filter: InstagramFilter,
+  width: number,
+  height: number,
+) {
+  switch (filter.key) {
+    case "earlybird":
+      return radialOverlay(ctx, width, height, [
+        [0, "rgba(0, 0, 0, 0)"],
+        [1, "rgba(125, 105, 24, .2)"],
+      ]);
+    case "hefe":
+      return radialOverlay(ctx, width, height, [
+        [0, "rgba(0, 0, 0, 0)"],
+        [1, "rgba(0, 0, 0, .25)"],
+      ]);
+    case "hudson":
+      return radialOverlay(ctx, width, height, [
+        [0.25, "rgba(0, 0, 0, 0)"],
+        [1, "rgba(25, 62, 167, .25)"],
+      ]);
+    case "kelvin":
+      return radialOverlay(ctx, width, height, [
+        [0, "rgba(128, 78, 15, .25)"],
+        [1, "rgba(128, 78, 15, .5)"],
+      ]);
+    case "mayfair":
+      return radialOverlay(ctx, width, height, [
+        [0, "rgba(0, 0, 0, 0)"],
+        [1, "rgba(175, 105, 24, .4)"],
+      ]);
+    case "nashville":
+      return radialOverlay(ctx, width, height, [
+        [0, "rgba(128, 78, 15, .5)"],
+        [1, "rgba(128, 78, 15, .65)"],
+      ]);
+    case "perpetua": {
+      const gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, "rgba(0, 91, 154, .25)");
+      gradient.addColorStop(1, "rgba(230, 193, 61, .25)");
+      return gradient;
+    }
+    case "rise":
+      return radialOverlay(ctx, width, height, [
+        [0, "rgba(0, 0, 0, 0)"],
+        [1, "rgba(230, 193, 61, .25)"],
+      ]);
+    case "sierra":
+      return radialOverlay(ctx, width, height, [
+        [0, "rgba(128, 78, 15, .5)"],
+        [1, "rgba(0, 0, 0, .65)"],
+      ]);
+    case "sutro":
+      return radialOverlay(ctx, width, height, [
+        [0.5, "rgba(0, 0, 0, 0)"],
+        [0.9, "rgba(0, 0, 0, .5)"],
+      ]);
+    case "toaster":
+      return radialOverlay(ctx, width, height, [
+        [0, "#804e0f"],
+        [1, "rgba(0, 0, 0, .25)"],
+      ]);
+    case "xpro2":
+      return radialOverlay(ctx, width, height, [
+        [0, "rgba(0, 91, 154, .35)"],
+        [1, "rgba(0, 0, 0, .65)"],
+      ]);
+    default:
+      if (!("overlay" in filter)) return null;
+      return filter.overlay.background;
+  }
+}
+
+function drawInstagramCanvasOverlay(
+  ctx: CanvasRenderingContext2D,
+  filter: InstagramFilter,
+  width: number,
+  height: number,
+) {
+  if (!("overlay" in filter)) return;
+
+  const fillStyle = instagramCanvasOverlayFill(ctx, filter, width, height);
+  if (!fillStyle) return;
+
+  ctx.save();
+  ctx.globalCompositeOperation =
+    filter.overlay.mixBlendMode as GlobalCompositeOperation;
+  ctx.fillStyle = fillStyle;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
 async function downloadFilteredImage(
   sourceUrl: string,
   filter: InstagramFilter,
@@ -513,6 +783,7 @@ async function downloadFilteredImage(
   ctx.filter = filter.cssFilter;
   ctx.drawImage(image, 0, 0, width, height);
   ctx.filter = "none";
+  drawInstagramCanvasOverlay(ctx, filter, width, height);
 
   const blob = await canvasToBlob(canvas, "image/jpeg", 0.95);
   const objectUrl = URL.createObjectURL(blob);
@@ -1282,10 +1553,8 @@ export function PhotoLightbox({
     () => instagramFilterByKey(selectedInstagramFilterKey),
     [selectedInstagramFilterKey],
   );
-  const selectedInstagramFilterStyle: CSSProperties | undefined =
-    selectedInstagramFilter.cssFilter === "none"
-      ? undefined
-      : { filter: selectedInstagramFilter.cssFilter };
+  const selectedInstagramFilterImageStyle =
+    instagramFilterImageStyle(selectedInstagramFilter);
   const hasAppliedInstagramFilter = selectedInstagramFilter.key !== "normal";
   const getPersonDisplayName = useCallback(
     (person: Person | PhotoPerson) =>
@@ -2457,7 +2726,7 @@ export function PhotoLightbox({
                 onError={handleImageError}
                 settings={shareSettings}
                 fit="contain"
-                style={selectedInstagramFilterStyle}
+                style={selectedInstagramFilterImageStyle}
               />
 
               <div className="absolute inset-0 overflow-hidden">
@@ -2492,7 +2761,7 @@ export function PhotoLightbox({
                         onError={handleImageError}
                         settings={shareSettings}
                         fit="contain"
-                        style={selectedInstagramFilterStyle}
+                        style={selectedInstagramFilterImageStyle}
                       />
                     ) : null}
 
@@ -2506,9 +2775,10 @@ export function PhotoLightbox({
                         draggable={false}
                         settings={shareSettings}
                         fit="contain"
-                        style={selectedInstagramFilterStyle}
+                        style={selectedInstagramFilterImageStyle}
                       />
                     ) : null}
+                    <InstagramFilterOverlay filter={selectedInstagramFilter} />
                   </div>
 
                   <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
@@ -3009,12 +3279,15 @@ export function PhotoLightbox({
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-zinc-100">
               {instagramFilterPreviewUrl ? (
-                <img
-                  src={instagramFilterPreviewUrl}
-                  alt={photo.fileName || "Selected photo"}
-                  className="h-full w-full object-cover"
-                  style={selectedInstagramFilterStyle}
-                />
+                <>
+                  <img
+                    src={instagramFilterPreviewUrl}
+                    alt={photo.fileName || "Selected photo"}
+                    className="h-full w-full object-cover"
+                    style={selectedInstagramFilterImageStyle}
+                  />
+                  <InstagramFilterOverlay filter={selectedInstagramFilter} />
+                </>
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-sm text-zinc-400">
                   No preview
@@ -3025,10 +3298,7 @@ export function PhotoLightbox({
             <div className="mt-4 grid grid-cols-2 gap-2">
               {INSTAGRAM_FILTERS.map((filter) => {
                 const isSelected = selectedInstagramFilter.key === filter.key;
-                const filterStyle =
-                  filter.cssFilter === "none"
-                    ? undefined
-                    : { filter: filter.cssFilter };
+                const filterImageStyle = instagramFilterImageStyle(filter);
 
                 return (
                   <button
@@ -3048,13 +3318,16 @@ export function PhotoLightbox({
                   >
                     <span className="relative block aspect-[4/3] overflow-hidden rounded-md bg-zinc-100">
                       {instagramFilterPreviewUrl ? (
-                        <img
-                          src={instagramFilterPreviewUrl}
-                          alt=""
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                          style={filterStyle}
-                        />
+                        <>
+                          <img
+                            src={instagramFilterPreviewUrl}
+                            alt=""
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                            style={filterImageStyle}
+                          />
+                          <InstagramFilterOverlay filter={filter} />
+                        </>
                       ) : (
                         <span className="flex h-full w-full items-center justify-center text-xs text-zinc-400">
                           Preview
