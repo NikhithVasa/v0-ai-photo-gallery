@@ -26,6 +26,7 @@ import {
   Pencil,
   Play,
   Share2,
+  SlidersHorizontal,
   Sparkles,
   User,
   Users,
@@ -126,6 +127,14 @@ function mediaUrlForS3Key(key?: string | null) {
   return key ? `/api/media?key=${encodeURIComponent(key)}` : null;
 }
 
+function mediaUrlForS3KeyWithShare(key?: string | null, shareToken = "") {
+  if (!key) return null;
+
+  const params = new URLSearchParams({ key });
+  if (shareToken) params.set("share", shareToken);
+  return `/api/media?${params.toString()}`;
+}
+
 function previewUrlsForPhoto(
   photo: Photo,
   options: { includeMediaFallback?: boolean } = {},
@@ -224,6 +233,296 @@ const AI_EDIT_PRESETS = [
     prompt: "Remove extra people in the background while keeping the main subject unchanged.",
   },
 ];
+
+const INSTAGRAM_FILTERS = [
+  {
+    key: "normal",
+    label: "Original / Normal",
+    cssFilter: "none",
+  },
+  {
+    key: "clarendon",
+    label: "Clarendon",
+    cssFilter: "brightness(108%) contrast(118%) saturate(135%)",
+  },
+  {
+    key: "gingham",
+    label: "Gingham",
+    cssFilter: "brightness(105%) contrast(92%) saturate(85%) sepia(8%)",
+  },
+  {
+    key: "moon",
+    label: "Moon",
+    cssFilter: "grayscale(100%) brightness(112%) contrast(105%)",
+  },
+  {
+    key: "lark",
+    label: "Lark",
+    cssFilter: "brightness(108%) contrast(92%) saturate(128%)",
+  },
+  {
+    key: "reyes",
+    label: "Reyes",
+    cssFilter: "brightness(112%) contrast(86%) saturate(78%) sepia(22%)",
+  },
+  {
+    key: "juno",
+    label: "Juno",
+    cssFilter: "brightness(104%) contrast(110%) saturate(150%) hue-rotate(-4deg)",
+  },
+  {
+    key: "slumber",
+    label: "Slumber",
+    cssFilter: "brightness(106%) contrast(88%) saturate(80%) sepia(18%)",
+  },
+  {
+    key: "crema",
+    label: "Crema",
+    cssFilter: "brightness(108%) contrast(92%) saturate(86%) sepia(14%)",
+  },
+  {
+    key: "ludwig",
+    label: "Ludwig",
+    cssFilter: "brightness(106%) contrast(106%) saturate(112%)",
+  },
+  {
+    key: "aden",
+    label: "Aden",
+    cssFilter: "brightness(112%) contrast(86%) saturate(82%) sepia(18%) hue-rotate(-8deg)",
+  },
+  {
+    key: "perpetua",
+    label: "Perpetua",
+    cssFilter: "brightness(110%) contrast(96%) saturate(116%) hue-rotate(8deg)",
+  },
+  {
+    key: "amaro",
+    label: "Amaro",
+    cssFilter: "brightness(116%) contrast(102%) saturate(120%)",
+  },
+  {
+    key: "mayfair",
+    label: "Mayfair",
+    cssFilter: "brightness(108%) contrast(108%) saturate(118%) sepia(8%)",
+  },
+  {
+    key: "rise",
+    label: "Rise",
+    cssFilter: "brightness(112%) contrast(90%) saturate(90%) sepia(18%)",
+  },
+  {
+    key: "hudson",
+    label: "Hudson",
+    cssFilter: "brightness(108%) contrast(110%) saturate(112%) hue-rotate(12deg)",
+  },
+  {
+    key: "valencia",
+    label: "Valencia",
+    cssFilter: "brightness(108%) contrast(94%) saturate(108%) sepia(22%)",
+  },
+  {
+    key: "xpro2",
+    label: "X-Pro II",
+    cssFilter: "brightness(92%) contrast(128%) saturate(142%) sepia(18%)",
+  },
+  {
+    key: "sierra",
+    label: "Sierra",
+    cssFilter: "brightness(110%) contrast(86%) saturate(82%) sepia(16%)",
+  },
+  {
+    key: "willow",
+    label: "Willow",
+    cssFilter: "grayscale(100%) brightness(106%) contrast(92%) sepia(10%)",
+  },
+  {
+    key: "lofi",
+    label: "Lo-Fi",
+    cssFilter: "brightness(95%) contrast(132%) saturate(150%)",
+  },
+  {
+    key: "inkwell",
+    label: "Inkwell",
+    cssFilter: "grayscale(100%) contrast(112%) brightness(104%)",
+  },
+  {
+    key: "hefe",
+    label: "Hefe",
+    cssFilter: "brightness(96%) contrast(124%) saturate(145%) sepia(18%)",
+  },
+  {
+    key: "nashville",
+    label: "Nashville",
+    cssFilter: "brightness(112%) contrast(92%) saturate(116%) sepia(28%) hue-rotate(-8deg)",
+  },
+  {
+    key: "stinson",
+    label: "Stinson",
+    cssFilter: "brightness(112%) contrast(88%) saturate(82%) sepia(12%)",
+  },
+  {
+    key: "vesper",
+    label: "Vesper",
+    cssFilter: "brightness(110%) contrast(104%) saturate(130%) sepia(10%)",
+  },
+  {
+    key: "earlybird",
+    label: "Earlybird",
+    cssFilter: "brightness(106%) contrast(92%) saturate(92%) sepia(30%)",
+  },
+  {
+    key: "brannan",
+    label: "Brannan",
+    cssFilter: "brightness(104%) contrast(120%) saturate(92%) sepia(22%)",
+  },
+  {
+    key: "sutro",
+    label: "Sutro",
+    cssFilter: "brightness(92%) contrast(118%) saturate(118%) sepia(22%)",
+  },
+  {
+    key: "toaster",
+    label: "Toaster",
+    cssFilter: "brightness(108%) contrast(112%) saturate(145%) sepia(28%)",
+  },
+  {
+    key: "walden",
+    label: "Walden",
+    cssFilter: "brightness(112%) contrast(90%) saturate(96%) sepia(12%) hue-rotate(8deg)",
+  },
+  {
+    key: "1977",
+    label: "1977",
+    cssFilter: "brightness(110%) contrast(105%) saturate(128%) sepia(24%) hue-rotate(-10deg)",
+  },
+  {
+    key: "kelvin",
+    label: "Kelvin",
+    cssFilter: "brightness(110%) contrast(108%) saturate(150%) sepia(30%) hue-rotate(-10deg)",
+  },
+  {
+    key: "maven",
+    label: "Maven",
+    cssFilter: "brightness(104%) contrast(108%) saturate(132%) sepia(18%) hue-rotate(8deg)",
+  },
+  {
+    key: "ginza",
+    label: "Ginza",
+    cssFilter: "brightness(106%) contrast(104%) saturate(128%) sepia(8%)",
+  },
+  {
+    key: "skyline",
+    label: "Skyline",
+    cssFilter: "brightness(104%) contrast(118%) saturate(122%)",
+  },
+  {
+    key: "dogpatch",
+    label: "Dogpatch",
+    cssFilter: "brightness(96%) contrast(122%) saturate(116%) sepia(12%)",
+  },
+  {
+    key: "brooklyn",
+    label: "Brooklyn",
+    cssFilter: "brightness(108%) contrast(96%) saturate(90%) sepia(14%)",
+  },
+  {
+    key: "helena",
+    label: "Helena",
+    cssFilter: "brightness(106%) contrast(108%) saturate(120%) sepia(16%)",
+  },
+  {
+    key: "ashby",
+    label: "Ashby",
+    cssFilter: "brightness(108%) contrast(88%) saturate(82%) sepia(22%)",
+  },
+  {
+    key: "charmes",
+    label: "Charmes",
+    cssFilter: "brightness(108%) contrast(112%) saturate(128%) sepia(12%) hue-rotate(-6deg)",
+  },
+] as const;
+
+type InstagramFilter = (typeof INSTAGRAM_FILTERS)[number];
+type InstagramFilterKey = InstagramFilter["key"];
+
+function instagramFilterByKey(key: InstagramFilterKey) {
+  return (
+    INSTAGRAM_FILTERS.find((filter) => filter.key === key) ??
+    INSTAGRAM_FILTERS[0]
+  );
+}
+
+function filteredDownloadFileName(photo: Photo, filter: InstagramFilter) {
+  const originalName = photo.fileName?.trim() || `photo-${photo.id}.jpg`;
+  const stem = originalName.replace(/\.[^.]+$/, "") || `photo-${photo.id}`;
+  return `${stem}-${filter.key}.jpg`;
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality?: number,
+) {
+  return new Promise<Blob>((resolve, reject) => {
+    try {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Could not create filtered image"));
+        },
+        type,
+        quality,
+      );
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+function loadCanvasImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new window.Image();
+    image.crossOrigin = "anonymous";
+    image.decoding = "async";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not load image for export"));
+    image.src = src;
+  });
+}
+
+async function downloadFilteredImage(
+  sourceUrl: string,
+  filter: InstagramFilter,
+  fileName: string,
+) {
+  const image = await loadCanvasImage(sourceUrl);
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+
+  if (!width || !height) {
+    throw new Error("Image dimensions are unavailable");
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas is unavailable");
+
+  ctx.filter = filter.cssFilter;
+  ctx.drawImage(image, 0, 0, width, height);
+  ctx.filter = "none";
+
+  const blob = await canvasToBlob(canvas, "image/jpeg", 0.95);
+  const objectUrl = URL.createObjectURL(blob);
+
+  try {
+    triggerDownload(objectUrl, fileName);
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  }
+}
 
 function absoluteBrowserUrl(url: string) {
   if (typeof window === "undefined") return url;
@@ -362,6 +661,7 @@ type WatermarkedImageProps = {
   draggable?: boolean;
   onLoad?: () => void;
   onError?: () => void;
+  style?: CSSProperties;
 };
 
 function WatermarkedImage({
@@ -376,6 +676,7 @@ function WatermarkedImage({
   draggable,
   onLoad,
   onError,
+  style,
 }: WatermarkedImageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hasLoadedRef = useRef(false);
@@ -452,6 +753,7 @@ function WatermarkedImage({
         draggable={draggable}
         onLoad={onLoad}
         onError={onError}
+        style={style}
       />
     );
   }
@@ -463,6 +765,7 @@ function WatermarkedImage({
       role="img"
       className={className}
       draggable={draggable}
+      style={style}
     />
   );
 }
@@ -856,6 +1159,10 @@ export function PhotoLightbox({
   const [isPeopleOpen, setIsPeopleOpen] = useState(false);
   const [isAiEditOpen, setIsAiEditOpen] = useState(false);
   const [isPresetPanelOpen, setIsPresetPanelOpen] = useState(false);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [selectedInstagramFilterKey, setSelectedInstagramFilterKey] =
+    useState<InstagramFilterKey>("normal");
+  const [filterDownloadError, setFilterDownloadError] = useState("");
   const [selectedAiPreset, setSelectedAiPreset] = useState("");
   const [aiEditPrompt, setAiEditPrompt] = useState("");
   const [isSubmittingAiEdit, setIsSubmittingAiEdit] = useState(false);
@@ -920,6 +1227,7 @@ export function PhotoLightbox({
   const swipeCommitTimerRef = useRef<number | null>(null);
   const isMobilePointerRef = useRef(isMobilePointer);
   const isPeopleOpenRef = useRef(isPeopleOpen);
+  const isFilterPanelOpenRef = useRef(isFilterPanelOpen);
   const isDownloadHoveringRef = useRef(isDownloadHovering);
   const isAnimatingSwipeRef = useRef(isAnimatingSwipe);
   const isMountedRef = useRef(false);
@@ -959,6 +1267,7 @@ export function PhotoLightbox({
   const upgradedImageUrl =
     originalImageUrl && originalImageUrl !== imageUrl ? originalImageUrl : null;
   const currentDisplayBaseUrl = imageUrl ?? upgradedImageUrl;
+  const instagramFilterPreviewUrl = upgradedImageUrl || currentDisplayBaseUrl;
   const downloadUrl = signedUrlsByPhotoId[photo.id]?.downloadUrl ?? photo.downloadUrl;
   const isShareView = Boolean(shareToken);
   const canDownload = isShareView
@@ -969,6 +1278,15 @@ export function PhotoLightbox({
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
   const photoPeople = photo.people ?? [];
   const canManageLightboxPeople = canManagePeople && !shareToken;
+  const selectedInstagramFilter = useMemo(
+    () => instagramFilterByKey(selectedInstagramFilterKey),
+    [selectedInstagramFilterKey],
+  );
+  const selectedInstagramFilterStyle: CSSProperties | undefined =
+    selectedInstagramFilter.cssFilter === "none"
+      ? undefined
+      : { filter: selectedInstagramFilter.cssFilter };
+  const hasAppliedInstagramFilter = selectedInstagramFilter.key !== "normal";
   const getPersonDisplayName = useCallback(
     (person: Person | PhotoPerson) =>
       personNameOverrides[person.id] || person.displayName || person.defaultName,
@@ -1050,6 +1368,7 @@ export function PhotoLightbox({
 
   isMobilePointerRef.current = isMobilePointer;
   isPeopleOpenRef.current = isPeopleOpen;
+  isFilterPanelOpenRef.current = isFilterPanelOpen;
   isDownloadHoveringRef.current = isDownloadHovering;
   isAnimatingSwipeRef.current = isAnimatingSwipe;
 
@@ -1185,6 +1504,9 @@ export function PhotoLightbox({
     setSelectedMergePersonIds([]);
     setMergeQuery("");
     setMergeError("");
+    setIsFilterPanelOpen(false);
+    setSelectedInstagramFilterKey("normal");
+    setFilterDownloadError("");
   }, [photo.id]);
 
   const startControlsTimer = useCallback(() => {
@@ -1197,7 +1519,11 @@ export function PhotoLightbox({
 
       if (isMobilePointerRef.current) return;
 
-      if (!isPeopleOpenRef.current && !isDownloadHoveringRef.current) {
+      if (
+        !isPeopleOpenRef.current &&
+        !isFilterPanelOpenRef.current &&
+        !isDownloadHoveringRef.current
+      ) {
         setAreControlsVisible(false);
       }
     }, 2000);
@@ -1212,6 +1538,7 @@ export function PhotoLightbox({
     (index: number) => {
       showControlsBriefly();
       setIsPeopleOpen(false);
+      setIsFilterPanelOpen(false);
       setIsDownloadHovering(false);
       onNavigate(index);
     },
@@ -1244,6 +1571,9 @@ export function PhotoLightbox({
     setIsPeopleOpen(false);
     setIsAiEditOpen(false);
     setIsPresetPanelOpen(false);
+    setIsFilterPanelOpen(false);
+    setSelectedInstagramFilterKey("normal");
+    setFilterDownloadError("");
     setSelectedAiPreset("");
     setAiEditPrompt("");
     setAiEditError("");
@@ -1409,6 +1739,7 @@ export function PhotoLightbox({
 
       if (event.key === "Escape") {
         if (isPresetPanelOpen) setIsPresetPanelOpen(false);
+        else if (isFilterPanelOpen) setIsFilterPanelOpen(false);
         else if (isAiEditOpen) setIsAiEditOpen(false);
         else closeWithAnimation();
       }
@@ -1416,24 +1747,106 @@ export function PhotoLightbox({
 
     window.addEventListener("keydown", handleWindowKeyDown);
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
-  }, [closeWithAnimation, handlePrev, handleNext, isAiEditOpen, isPresetPanelOpen]);
+  }, [
+    closeWithAnimation,
+    handlePrev,
+    handleNext,
+    isAiEditOpen,
+    isFilterPanelOpen,
+    isPresetPanelOpen,
+  ]);
 
-  const handleDownload = async () => {
+  const resolveOriginalDownloadUrl = async () => {
+    let url = downloadUrl;
+
+    if (!url) {
+      const urlsById = await fetchSignedPhotoUrls(albumSlug, [photo.id], shareToken);
+      const urls = urlsById[photo.id];
+      if (urls) {
+        setSignedUrlsByPhotoId((current) => ({
+          ...current,
+          [photo.id]: urls,
+        }));
+      }
+      url = urls?.downloadUrl;
+    }
+
+    return url ?? null;
+  };
+
+  const downloadOriginalPhoto = async () => {
+    const url = await resolveOriginalDownloadUrl();
+    if (!url) throw new Error("No downloadable original photo was found.");
+
+    triggerDownload(url, photo.fileName || `photo-${photo.id}.jpg`);
+  };
+
+  const downloadInstagramFilteredPhoto = async () => {
+    let fetchedUrls: SignedPhotoUrls | undefined;
+
+    if (!signedCurrentUrls?.originalUrl && !downloadUrl) {
+      const urlsById = await fetchSignedPhotoUrls(albumSlug, [photo.id], shareToken);
+      const nextFetchedUrls = urlsById[photo.id];
+      if (nextFetchedUrls) {
+        fetchedUrls = nextFetchedUrls;
+        setSignedUrlsByPhotoId((current) => ({
+          ...current,
+          [photo.id]: nextFetchedUrls,
+        }));
+      }
+    }
+
+    const sourceCandidates = uniqueUrls([
+      mediaUrlForS3KeyWithShare(photo.originalS3Key, shareToken),
+      signedCurrentUrls?.originalUrl,
+      fetchedUrls?.originalUrl,
+      originalImageUrl,
+      downloadUrl,
+      fetchedUrls?.downloadUrl,
+      currentImageUrl,
+    ]);
+
+    if (!sourceCandidates.length) {
+      throw new Error("No image source was found for filtered export.");
+    }
+
+    let lastError: unknown = null;
+
+    for (const sourceUrl of sourceCandidates) {
+      try {
+        await downloadFilteredImage(
+          sourceUrl,
+          selectedInstagramFilter,
+          filteredDownloadFileName(photo, selectedInstagramFilter),
+        );
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Could not export the filtered photo.");
+  };
+
+  const handleDownload = async (mode: "selected" | "original" = "selected") => {
     setIsDownloading(true);
+    setFilterDownloadError("");
 
     try {
-      let url = downloadUrl;
-
-      if (!url) {
-        const urlsById = await fetchSignedPhotoUrls(albumSlug, [photo.id], shareToken);
-        url = urlsById[photo.id]?.downloadUrl;
+      if (mode === "original" || !hasAppliedInstagramFilter) {
+        await downloadOriginalPhoto();
+      } else {
+        await downloadInstagramFilteredPhoto();
       }
-
-      if (!url) return;
-
-      triggerDownload(url, photo.fileName || `photo-${photo.id}.jpg`);
     } catch (error) {
       console.error("Download failed:", error);
+      setFilterDownloadError(
+        error instanceof Error
+          ? error.message
+          : "Could not download this photo.",
+      );
     } finally {
       setIsDownloading(false);
     }
@@ -1632,6 +2045,7 @@ export function PhotoLightbox({
     setIsPeopleOpen(false);
     setIsAiEditOpen(false);
     setIsPresetPanelOpen(false);
+    setIsFilterPanelOpen(false);
     setEntryStyle({
       opacity: 0.78,
       transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`,
@@ -1873,6 +2287,7 @@ export function PhotoLightbox({
     isMobilePointer ||
     areControlsVisible ||
     isPeopleOpen ||
+    isFilterPanelOpen ||
     Boolean(mergeTargetPerson) ||
     isDownloadHovering;
 
@@ -1912,6 +2327,7 @@ export function PhotoLightbox({
       }}
       onClick={() => {
         if (isPresetPanelOpen) setIsPresetPanelOpen(false);
+        else if (isFilterPanelOpen) setIsFilterPanelOpen(false);
         else if (isAiEditOpen) setIsAiEditOpen(false);
         else if (isPeopleOpen) setIsPeopleOpen(false);
         else closeWithAnimation();
@@ -1993,6 +2409,10 @@ export function PhotoLightbox({
           if (isPeopleOpen) {
             setIsPeopleOpen(false);
           }
+
+          if (isFilterPanelOpen) {
+            setIsFilterPanelOpen(false);
+          }
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -2037,6 +2457,7 @@ export function PhotoLightbox({
                 onError={handleImageError}
                 settings={shareSettings}
                 fit="contain"
+                style={selectedInstagramFilterStyle}
               />
 
               <div className="absolute inset-0 overflow-hidden">
@@ -2071,6 +2492,7 @@ export function PhotoLightbox({
                         onError={handleImageError}
                         settings={shareSettings}
                         fit="contain"
+                        style={selectedInstagramFilterStyle}
                       />
                     ) : null}
 
@@ -2084,6 +2506,7 @@ export function PhotoLightbox({
                         draggable={false}
                         settings={shareSettings}
                         fit="contain"
+                        style={selectedInstagramFilterStyle}
                       />
                     ) : null}
                   </div>
@@ -2126,6 +2549,27 @@ export function PhotoLightbox({
                   <Heart className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAreControlsVisible(true);
+                    setIsPeopleOpen(false);
+                    setIsAiEditOpen(false);
+                    setIsPresetPanelOpen(false);
+                    setFilterDownloadError("");
+                    setIsFilterPanelOpen((current) => !current);
+                  }}
+                  className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40 ${
+                    isFilterPanelOpen || hasAppliedInstagramFilter
+                      ? "bg-white/20"
+                      : ""
+                  }`}
+                  aria-label="Apply Instagram filter"
+                  aria-pressed={isFilterPanelOpen}
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </button>
+
                 {canApplyPreset && (
                   <button
                     type="button"
@@ -2133,6 +2577,7 @@ export function PhotoLightbox({
                       setAreControlsVisible(true);
                       setIsPeopleOpen(false);
                       setIsAiEditOpen(false);
+                      setIsFilterPanelOpen(false);
                       setIsPresetPanelOpen(true);
                     }}
                     className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40"
@@ -2149,6 +2594,7 @@ export function PhotoLightbox({
                       setAreControlsVisible(true);
                       setIsPeopleOpen(false);
                       setIsPresetPanelOpen(false);
+                      setIsFilterPanelOpen(false);
                       setIsAiEditOpen(true);
                     }}
                     className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/40"
@@ -2534,6 +2980,134 @@ export function PhotoLightbox({
           photo={photo}
           onClose={() => setIsPresetPanelOpen(false)}
         />
+      )}
+
+      {isFilterPanelOpen && (
+        <aside
+          className="absolute bottom-0 right-0 top-0 z-50 flex w-full max-w-sm cursor-default flex-col border-l border-zinc-200 bg-white text-zinc-950 shadow-2xl sm:w-[360px]"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500">
+                Instagram filters
+              </p>
+              <h2 className="truncate text-lg font-semibold">
+                {selectedInstagramFilter.label}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsFilterPanelOpen(false)}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950"
+              aria-label="Close filters"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-zinc-100">
+              {instagramFilterPreviewUrl ? (
+                <img
+                  src={instagramFilterPreviewUrl}
+                  alt={photo.fileName || "Selected photo"}
+                  className="h-full w-full object-cover"
+                  style={selectedInstagramFilterStyle}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm text-zinc-400">
+                  No preview
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {INSTAGRAM_FILTERS.map((filter) => {
+                const isSelected = selectedInstagramFilter.key === filter.key;
+                const filterStyle =
+                  filter.cssFilter === "none"
+                    ? undefined
+                    : { filter: filter.cssFilter };
+
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedInstagramFilterKey(filter.key);
+                      setFilterDownloadError("");
+                      setAreControlsVisible(true);
+                    }}
+                    aria-pressed={isSelected}
+                    className={`cursor-pointer rounded-lg border p-2 text-left transition focus:outline-none focus:ring-2 focus:ring-zinc-300 ${
+                      isSelected
+                        ? "border-zinc-950 bg-zinc-50"
+                        : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50"
+                    }`}
+                  >
+                    <span className="relative block aspect-[4/3] overflow-hidden rounded-md bg-zinc-100">
+                      {instagramFilterPreviewUrl ? (
+                        <img
+                          src={instagramFilterPreviewUrl}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                          style={filterStyle}
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-xs text-zinc-400">
+                          Preview
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-1.5 block truncate text-xs font-semibold text-zinc-800">
+                      {filter.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {canDownload && (
+            <div className="space-y-2 border-t border-zinc-200 p-5">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {hasAppliedInstagramFilter && (
+                  <button
+                    type="button"
+                    onClick={() => handleDownload("original")}
+                    disabled={isDownloading}
+                    className="flex h-10 items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Download className="h-4 w-4" />
+                    Original / Normal
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleDownload()}
+                  disabled={isDownloading}
+                  className={`flex h-10 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-3 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 ${
+                    hasAppliedInstagramFilter ? "" : "sm:col-span-2"
+                  }`}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Download {selectedInstagramFilter.label}
+                </button>
+              </div>
+              {filterDownloadError && (
+                <p className="text-xs font-medium text-rose-600">
+                  {filterDownloadError}
+                </p>
+              )}
+            </div>
+          )}
+        </aside>
       )}
 
       {isAiEditOpen && (
