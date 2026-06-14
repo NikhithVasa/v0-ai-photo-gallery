@@ -11,6 +11,18 @@ Canonical site: https://saathidesk.com
 Availability: Worldwide web service for photographers, wedding studios, event
 hosts, and private gallery guests.
 
+Machine-readable metadata is available at `/site-metadata.json`; AI crawler
+guidance is available at `/llms.txt`; canonical crawl rules are available at
+`/robots.txt` and `/sitemap.xml`.
+
+## Audience And Use Cases
+
+- Photographers, wedding studios, event photographers, creative studios, event
+  hosts, and private gallery guests.
+- Wedding photo delivery, event gallery sharing, client proofing,
+  people-based photo discovery, AI-assisted photo review, selected downloads,
+  watermarked previews, collage creation, and LUT-based finishing.
+
 ## Primary Pages
 
 - `/` - Public homepage with documentation, AI workflow, prompt guidance, and

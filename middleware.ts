@@ -12,7 +12,7 @@ function isAssetOrApiPath(pathname: string) {
     pathname.startsWith("/robots.txt") ||
     pathname.startsWith("/sitemap.xml") ||
     pathname === "/twitter-image" ||
-    pathname.match(/\.(png|jpg|jpeg|webp|gif|svg|ico|css|js|map|txt|xml)$/)
+    pathname.match(/\.(json|png|jpg|jpeg|webp|gif|svg|ico|css|js|map|txt|xml)$/)
   );
 }
 

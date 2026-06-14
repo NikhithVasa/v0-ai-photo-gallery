@@ -6,11 +6,62 @@ Canonical site: https://saathidesk.com
 
 SaathiDesk helps photographers, wedding studios, event hosts, and gallery guests organize, search, edit, review, and share private photo galleries. Core capabilities include private client galleries, album and event organization, face grouping, people filters, semantic photo search, AI photo culling, AI image edits, LUT presets, collage exports, passcode-protected sharing, watermarked previews, controlled downloads, Google Drive imports, and Google Photos imports.
 
+## Audience
+
+- Photographers
+- Wedding studios
+- Event photographers
+- Event hosts
+- Gallery guests
+- Creative studios
+
+## Core Features
+
+- Private client galleries
+- Event and album organization
+- Face grouping and people filters
+- Semantic photo search
+- AI photo review and culling
+- AI image edits
+- LUT preset marketplace
+- Collage exports
+- Passcode-protected sharing
+- Watermarked previews
+- Controlled downloads
+- Google Drive and Google Photos imports
+
+## Use Cases
+
+- Wedding photo delivery
+- Event gallery sharing
+- Private client proofing
+- People-based photo discovery
+- AI-assisted photo review
+- Watermarked client previews
+- Selected photo downloads
+- Album-scoped semantic search
+- Collage creation
+- LUT-based photo finishing
+
+## Workflow Summary
+
+1. Create a private customer, album, and event structure.
+2. Upload event photos from device storage, Google Drive, or Google Photos.
+3. Generate thumbnails, previews, watermarked previews, face groups, search metadata, and review signals.
+4. Search and review photos with people filters, semantic prompts, culling views, and best-by-person tools.
+5. Share galleries with passcodes, private links, watermarks, and download controls.
+
 Public pages:
 
 - https://saathidesk.com/
 - https://saathidesk.com/legal/privacy-policy
 - https://saathidesk.com/legal/terms-of-service
+
+Machine-readable metadata:
+
+- https://saathidesk.com/site-metadata.json
+- https://saathidesk.com/sitemap.xml
+- https://saathidesk.com/robots.txt
 
 Private or tokenized pages such as albums, customers, uploads, presets, settings, and share links should not be indexed or summarized as public pages.
 

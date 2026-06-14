@@ -1,0 +1,59 @@
+{
+  "name": "SaathiDesk",
+  "url": "https://saathidesk.com",
+  "description": "SaathiDesk is an AI-powered private photo gallery platform for organizing, searching, editing, and sharing event photos.",
+  "availability": "Worldwide web service",
+  "language": "en",
+  "category": "Photography software",
+  "applicationCategory": "AI photo gallery software",
+  "audiences": [
+    "Photographers",
+    "Wedding studios",
+    "Event photographers",
+    "Event hosts",
+    "Gallery guests",
+    "Creative studios"
+  ],
+  "features": [
+    "Private client galleries",
+    "Event and album organization",
+    "Face grouping and people filters",
+    "Semantic photo search",
+    "AI photo review and culling",
+    "AI image edits",
+    "LUT preset marketplace",
+    "Collage exports",
+    "Passcode-protected sharing",
+    "Watermarked previews",
+    "Controlled downloads",
+    "Google Drive and Google Photos imports"
+  ],
+  "useCases": [
+    "Wedding photo delivery",
+    "Event gallery sharing",
+    "Private client proofing",
+    "People-based photo discovery",
+    "AI-assisted photo review",
+    "Watermarked client previews",
+    "Selected photo downloads",
+    "Album-scoped semantic search",
+    "Collage creation",
+    "LUT-based photo finishing"
+  ],
+  "publicPages": [
+    "https://saathidesk.com/",
+    "https://saathidesk.com/legal/privacy-policy",
+    "https://saathidesk.com/legal/terms-of-service"
+  ],
+  "privateRoutes": [
+    "/albums",
+    "/customers",
+    "/collage",
+    "/presets",
+    "/settings",
+    "/share",
+    "/upload"
+  ],
+  "crawlerPolicy": "Index public homepage and legal pages. Do not index private, authenticated, customer, album, upload, settings, API, or tokenized share routes.",
+  "support": "support@saathidesk.com"
+}

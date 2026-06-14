@@ -8,10 +8,13 @@ import { PostHogAnalytics } from '@/components/posthog-analytics'
 import { AuthProvider } from '@/lib/auth-context'
 import { ScrollToTop } from '@/components/scroll-to-top'
 import {
+  SITE_AUDIENCES,
   SITE_DESCRIPTION,
+  SITE_FEATURES,
   SITE_KEYWORDS,
   SITE_NAME,
   SITE_TITLE,
+  SITE_USE_CASES,
   SITE_URL,
 } from '@/lib/seo'
 import 'dialkit/styles.css'
@@ -78,6 +81,20 @@ export const metadata: Metadata = {
     email: false,
     address: false,
     telephone: false,
+  },
+  other: {
+    classification: 'Photography software',
+    coverage: 'Worldwide',
+    distribution: 'Global',
+    rating: 'General',
+    'target-audience': SITE_AUDIENCES.join(', '),
+    'application-category': 'AI photo gallery software',
+    'product-features': SITE_FEATURES.join(', '),
+    'product-use-cases': SITE_USE_CASES.join(', '),
+    'ai-search-summary':
+      'AI-powered private photo gallery platform for photographers, wedding studios, event hosts, and gallery guests.',
+    'llms-txt': `${SITE_URL}/llms.txt`,
+    'machine-readable-metadata': `${SITE_URL}/site-metadata.json`,
   },
   robots: {
     index: true,
