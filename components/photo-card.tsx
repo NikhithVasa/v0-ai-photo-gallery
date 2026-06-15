@@ -42,6 +42,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PhotoPresetPanel } from "@/components/photo-preset-panel";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
+import {
+  imageRetryDelay,
+  RetryingImage,
+  retryingImageSrc,
+} from "@/components/retrying-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 import { rememberLoadedPhotoImage } from "@/lib/photo-image-cache";
@@ -943,7 +948,6 @@ type WatermarkedImageProps = {
   fetchPriority?: "high" | "low" | "auto";
   draggable?: boolean;
   onLoad?: () => void;
-  onError?: () => void;
   style?: CSSProperties;
 };
 
@@ -958,18 +962,43 @@ function WatermarkedImage({
   fetchPriority,
   draggable,
   onLoad,
-  onError,
   style,
 }: WatermarkedImageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hasLoadedRef = useRef(false);
+  const retryTimerRef = useRef<number | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [fallback, setFallback] = useState(false);
   const watermarkEnabled = Boolean(settings?.watermarkEnabled && settings.watermarkText);
+  const retrySrc = useMemo(
+    () => retryingImageSrc(src, retryAttempt),
+    [retryAttempt, src],
+  );
 
   useEffect(() => {
     hasLoadedRef.current = false;
+    setRetryAttempt(0);
     setFallback(false);
   }, [src]);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const retryCanvasImage = useCallback(() => {
+    if (retryTimerRef.current !== null) return;
+
+    const nextAttempt = retryAttempt + 1;
+    retryTimerRef.current = window.setTimeout(() => {
+      retryTimerRef.current = null;
+      setRetryAttempt(nextAttempt);
+    }, imageRetryDelay(nextAttempt));
+  }, [retryAttempt]);
 
   useEffect(() => {
     if (!watermarkEnabled || !settings) return;
@@ -1011,9 +1040,9 @@ function WatermarkedImage({
     image.onload = draw;
     image.onerror = () => {
       setFallback(true);
-      onError?.();
+      retryCanvasImage();
     };
-    image.src = src;
+    image.src = retrySrc;
 
     const resizeObserver = new ResizeObserver(draw);
     resizeObserver.observe(canvas);
@@ -1022,11 +1051,19 @@ function WatermarkedImage({
       isCancelled = true;
       resizeObserver.disconnect();
     };
-  }, [decoding, fit, onError, onLoad, settings, src, watermarkEnabled]);
+  }, [
+    decoding,
+    fit,
+    onLoad,
+    retryCanvasImage,
+    retrySrc,
+    settings,
+    watermarkEnabled,
+  ]);
 
   if (!watermarkEnabled || fallback) {
     return (
-      <img
+      <RetryingImage
         src={src}
         alt={alt}
         className={className}
@@ -1035,7 +1072,6 @@ function WatermarkedImage({
         fetchPriority={fetchPriority}
         draggable={draggable}
         onLoad={onLoad}
-        onError={onError}
         style={style}
       />
     );
@@ -1160,15 +1196,6 @@ export const PhotoCard = memo(function PhotoCard({
     rememberLoadedPhotoImage(albumSlug, shareToken, photo.id, imageUrl);
     setIsImageLoaded(true);
   }, [albumSlug, imageUrl, photo.id, shareToken]);
-
-  const handleImageError = useCallback(() => {
-    setActiveImageIndex((current) => {
-      if (current < imageCandidates.length - 1) return current + 1;
-
-      setIsImageLoaded(true);
-      return current;
-    });
-  }, [imageCandidates.length]);
 
   useEffect(() => {
     if (shouldLoadImage) return;
@@ -1350,7 +1377,6 @@ export const PhotoCard = memo(function PhotoCard({
             settings={shareSettings}
             fit={imageFit}
             onLoad={handleImageLoad}
-            onError={handleImageError}
           />
         ) : !shouldLoadImage || !hasFetchedSignedPreviewUrls ? (
           <Skeleton className="absolute inset-0 rounded-md bg-zinc-200/80" />
@@ -2345,12 +2371,6 @@ export function PhotoLightbox({
     }
   };
 
-  const handleImageError = () => {
-    setActiveImageIndex((current) =>
-      current < previewImageCandidates.length - 1 ? current + 1 : current,
-    );
-  };
-
   function closeWithAnimation() {
     if (isClosing) return;
 
@@ -2793,7 +2813,6 @@ export function PhotoLightbox({
                 decoding="async"
                 fetchPriority="high"
                 draggable={false}
-                onError={handleImageError}
                 settings={shareSettings}
                 fit="contain"
                 style={selectedInstagramFilterImageStyle}
@@ -2828,7 +2847,6 @@ export function PhotoLightbox({
                         decoding="async"
                         fetchPriority="high"
                         draggable={false}
-                        onError={handleImageError}
                         settings={shareSettings}
                         fit="contain"
                         style={selectedInstagramFilterImageStyle}
@@ -3350,7 +3368,7 @@ export function PhotoLightbox({
             <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-zinc-100">
               {instagramFilterPreviewUrl ? (
                 <>
-                  <img
+                  <RetryingImage
                     src={instagramFilterPreviewUrl}
                     alt={photo.fileName || "Selected photo"}
                     className="h-full w-full object-cover"
@@ -3389,7 +3407,7 @@ export function PhotoLightbox({
                     <span className="relative block aspect-[4/3] overflow-hidden rounded-md bg-zinc-100">
                       {instagramFilterPreviewUrl ? (
                         <>
-                          <img
+                          <RetryingImage
                             src={instagramFilterPreviewUrl}
                             alt=""
                             loading="lazy"
@@ -3483,7 +3501,7 @@ export function PhotoLightbox({
           >
             <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-zinc-100">
               {currentImageUrl ? (
-                <img
+                <RetryingImage
                   src={currentImageUrl}
                   alt={photo.fileName || "Selected photo"}
                   className="h-full w-full object-cover"
@@ -3552,7 +3570,7 @@ export function PhotoLightbox({
                 </div>
                 {aiEditResult.editedUrl ? (
                   <>
-                    <img
+                    <RetryingImage
                       src={aiEditResult.editedUrl}
                       alt="AI edited result"
                       onLoad={() => scrollAiEditToBottom()}

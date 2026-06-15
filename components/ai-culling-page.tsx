@@ -18,6 +18,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { RetryingImage } from "@/components/retrying-image";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
@@ -281,7 +282,7 @@ function PhotoTile({
         className="relative block aspect-[4/5] w-full cursor-pointer overflow-hidden bg-zinc-100 text-left"
       >
         {imageUrl ? (
-          <img
+          <RetryingImage
             src={imageUrl}
             alt={photo.caption || photo.fileName || "Photo"}
             className="h-full w-full object-cover"
@@ -437,7 +438,7 @@ function ClusterCard({
         className="relative block aspect-[4/5] w-full cursor-pointer overflow-hidden bg-zinc-100 text-left"
       >
         {imageUrl ? (
-          <img
+          <RetryingImage
             src={imageUrl}
             alt={photo?.fileName || "Best photo"}
             className="h-full w-full object-cover"
@@ -540,7 +541,7 @@ function ClusterCard({
                     >
                       <div className="relative aspect-[4/5] bg-zinc-100">
                         {itemImage ? (
-                          <img
+                          <RetryingImage
                             src={itemImage}
                             alt={item.photo.fileName || "Alternate photo"}
                             className="h-full w-full object-cover"
@@ -645,7 +646,7 @@ function CullingLightbox({
         onClick={(e) => e.stopPropagation()}
       >
         {imageUrl ? (
-          <img
+          <RetryingImage
             src={imageUrl}
             alt={item.photo.fileName || "Photo"}
             className="max-h-full max-w-full rounded-lg object-contain shadow-2xl transition-all sm:max-h-[85vh]"
@@ -1077,7 +1078,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                   <div className="flex items-center gap-3">
                     <span className="relative h-11 w-11 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200">
                       {group.person.coverFaceUrl ? (
-                        <img
+                        <RetryingImage
                           src={group.person.coverFaceUrl}
                           alt={group.person.displayName || group.person.defaultName}
                           className="h-full w-full object-cover"
