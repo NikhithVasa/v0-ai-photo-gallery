@@ -137,8 +137,9 @@ function previewUrlsForPhoto(
     shareToken?: string;
   } = {},
 ) {
-  const includeCloudFront = options.includeCloudFront ?? true;
+  const includeCloudFront = options.includeCloudFront ?? false;
   const includeMediaFallback = options.includeMediaFallback ?? true;
+  const preferMediaFallback = options.preferMediaFallback ?? true;
   const mediaFallbackUrls = includeMediaFallback
     ? [
         mediaUrlForS3KeyWithShare(photo.cleanPreviewS3Key, options.shareToken),
@@ -161,9 +162,9 @@ function previewUrlsForPhoto(
   ];
 
   return uniqueUrls([
-    ...providedUrls,
-    ...(options.preferMediaFallback ? mediaFallbackUrls : cloudFrontUrls),
-    ...(options.preferMediaFallback ? cloudFrontUrls : mediaFallbackUrls),
+    ...(preferMediaFallback ? mediaFallbackUrls : providedUrls),
+    ...(preferMediaFallback ? providedUrls : mediaFallbackUrls),
+    ...cloudFrontUrls,
   ]);
 }
 
@@ -1116,23 +1117,17 @@ export const PhotoCard = memo(function PhotoCard({
   const imageCandidates = useMemo(
     () =>
       uniqueUrls([
+        ...previewUrlsForPhoto(photo, {
+          includeCloudFront: false,
+          includeMediaFallback: true,
+          preferMediaFallback: true,
+          shareToken,
+        }),
         ...(isShareView
           ? []
           : [signedPreviewUrls?.previewUrl, signedPreviewUrls?.thumbnailUrl]),
-        ...previewUrlsForPhoto(photo, {
-          includeCloudFront: !isShareView,
-          includeMediaFallback: hasFetchedSignedPreviewUrls || isShareView,
-          preferMediaFallback: isShareView,
-          shareToken,
-        }),
       ]),
-    [
-      hasFetchedSignedPreviewUrls,
-      isShareView,
-      photo,
-      shareToken,
-      signedPreviewUrls,
-    ],
+    [isShareView, photo, shareToken, signedPreviewUrls],
   );
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
@@ -1576,8 +1571,8 @@ export function PhotoLightbox({
   const previewImageCandidates = uniqueUrls([
     originRect?.imageUrl,
     ...previewUrlsForPhoto(photo, {
-      includeCloudFront: !shareToken,
-      preferMediaFallback: Boolean(shareToken),
+      includeCloudFront: false,
+      preferMediaFallback: true,
       shareToken,
     }),
     ...(shareToken
@@ -1665,8 +1660,8 @@ export function PhotoLightbox({
     if (!targetPhoto) return null;
     return (
       previewUrlsForPhoto(targetPhoto, {
-        includeCloudFront: !shareToken,
-        preferMediaFallback: Boolean(shareToken),
+        includeCloudFront: false,
+        preferMediaFallback: true,
         shareToken,
       })[0] ?? null
     );
@@ -1740,8 +1735,8 @@ export function PhotoLightbox({
       const previewUrls = uniqueUrls([
         ...(shareToken ? [] : [signedUrls?.previewUrl, signedUrls?.thumbnailUrl]),
         ...previewUrlsForPhoto(targetPhoto, {
-          includeCloudFront: !shareToken,
-          preferMediaFallback: Boolean(shareToken),
+          includeCloudFront: false,
+          preferMediaFallback: true,
           shareToken,
         }),
       ]);

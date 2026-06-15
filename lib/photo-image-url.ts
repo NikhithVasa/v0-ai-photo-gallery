@@ -26,10 +26,21 @@ export function imageUrlWithShare(url?: string | null, shareToken = "") {
 }
 
 export function photoPreviewImageUrl(
-  photo: { previewUrl?: string | null; thumbnailUrl?: string | null },
+  photo: {
+    previewUrl?: string | null;
+    thumbnailUrl?: string | null;
+    cleanPreviewS3Key?: string | null;
+    watermarkedPreviewS3Key?: string | null;
+    thumbnailS3Key?: string | null;
+    aiInputS3Key?: string | null;
+  },
   shareToken = "",
 ) {
   return (
+    mediaUrlForS3KeyWithShare(photo.cleanPreviewS3Key, shareToken) ||
+    mediaUrlForS3KeyWithShare(photo.watermarkedPreviewS3Key, shareToken) ||
+    mediaUrlForS3KeyWithShare(photo.thumbnailS3Key, shareToken) ||
+    mediaUrlForS3KeyWithShare(photo.aiInputS3Key, shareToken) ||
     imageUrlWithShare(photo.previewUrl, shareToken) ||
     imageUrlWithShare(photo.thumbnailUrl, shareToken) ||
     null
