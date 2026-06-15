@@ -42,14 +42,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PhotoPresetPanel } from "@/components/photo-preset-panel";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
-import {
-  imageRetryDelay,
-  RetryingImage,
-  retryingImageSrc,
-} from "@/components/retrying-image";
+import { RetryingImage } from "@/components/retrying-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
-import { rememberLoadedPhotoImage } from "@/lib/photo-image-cache";
+import {
+  imageUrlWithShare,
+  mediaUrlForS3KeyWithShare,
+} from "@/lib/photo-image-url";
 import { photoAspectRatio } from "@/lib/photo-layout";
 import type {
   AlbumEvent,
@@ -129,14 +128,6 @@ function uniqueUrls(urls: Array<string | null | undefined>) {
   return Array.from(new Set(urls.filter((url): url is string => Boolean(url))));
 }
 
-function mediaUrlForS3KeyWithShare(key?: string | null, shareToken = "") {
-  if (!key) return null;
-
-  const params = new URLSearchParams({ key });
-  if (shareToken) params.set("share", shareToken);
-  return `/api/media?${params.toString()}`;
-}
-
 function previewUrlsForPhoto(
   photo: Photo,
   options: {
@@ -164,10 +155,13 @@ function previewUrlsForPhoto(
         cloudFrontImageUrl(photo.aiInputS3Key),
       ]
     : [];
+  const providedUrls = [
+    imageUrlWithShare(photo.previewUrl, options.shareToken),
+    imageUrlWithShare(photo.thumbnailUrl, options.shareToken),
+  ];
 
   return uniqueUrls([
-    photo.previewUrl,
-    photo.thumbnailUrl,
+    ...providedUrls,
     ...(options.preferMediaFallback ? mediaFallbackUrls : cloudFrontUrls),
     ...(options.preferMediaFallback ? cloudFrontUrls : mediaFallbackUrls),
   ]);
@@ -966,39 +960,13 @@ function WatermarkedImage({
 }: WatermarkedImageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hasLoadedRef = useRef(false);
-  const retryTimerRef = useRef<number | null>(null);
-  const [retryAttempt, setRetryAttempt] = useState(0);
   const [fallback, setFallback] = useState(false);
   const watermarkEnabled = Boolean(settings?.watermarkEnabled && settings.watermarkText);
-  const retrySrc = useMemo(
-    () => retryingImageSrc(src, retryAttempt),
-    [retryAttempt, src],
-  );
 
   useEffect(() => {
     hasLoadedRef.current = false;
-    setRetryAttempt(0);
     setFallback(false);
   }, [src]);
-
-  useEffect(() => {
-    return () => {
-      if (retryTimerRef.current !== null) {
-        window.clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  const retryCanvasImage = useCallback(() => {
-    if (retryTimerRef.current !== null) return;
-
-    const nextAttempt = retryAttempt + 1;
-    retryTimerRef.current = window.setTimeout(() => {
-      retryTimerRef.current = null;
-      setRetryAttempt(nextAttempt);
-    }, imageRetryDelay(nextAttempt));
-  }, [retryAttempt]);
 
   useEffect(() => {
     if (!watermarkEnabled || !settings) return;
@@ -1040,9 +1008,8 @@ function WatermarkedImage({
     image.onload = draw;
     image.onerror = () => {
       setFallback(true);
-      retryCanvasImage();
     };
-    image.src = retrySrc;
+    image.src = src;
 
     const resizeObserver = new ResizeObserver(draw);
     resizeObserver.observe(canvas);
@@ -1055,9 +1022,8 @@ function WatermarkedImage({
     decoding,
     fit,
     onLoad,
-    retryCanvasImage,
-    retrySrc,
     settings,
+    src,
     watermarkEnabled,
   ]);
 
@@ -1193,9 +1159,8 @@ export const PhotoCard = memo(function PhotoCard({
   }, [imageUrl]);
 
   const handleImageLoad = useCallback(() => {
-    rememberLoadedPhotoImage(albumSlug, shareToken, photo.id, imageUrl);
     setIsImageLoaded(true);
-  }, [albumSlug, imageUrl, photo.id, shareToken]);
+  }, []);
 
   useEffect(() => {
     if (shouldLoadImage) return;

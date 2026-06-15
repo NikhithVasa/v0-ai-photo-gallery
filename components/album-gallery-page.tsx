@@ -1347,6 +1347,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [isCoverDismissed, setIsCoverDismissed] = useState(false);
   const [isCoverTransitioning, setIsCoverTransitioning] = useState(false);
   const [isCoverSliding, setIsCoverSliding] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isScrollDebugEnabled, setIsScrollDebugEnabled] = useState(false);
   const [isPhotoSelectionMode, setIsPhotoSelectionMode] = useState(false);
   const [selectedDownloadPhotoIds, setSelectedDownloadPhotoIds] = useState<string[]>([]);
@@ -1509,6 +1510,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   useEffect(() => {
     setIsScrollDebugEnabled(isPhotosScrollDebugEnabled());
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(mobileCoverMediaQuery);
+    const syncMobileViewport = () => setIsMobileViewport(mediaQuery.matches);
+
+    syncMobileViewport();
+    mediaQuery.addEventListener("change", syncMobileViewport);
+    return () => mediaQuery.removeEventListener("change", syncMobileViewport);
   }, []);
 
   const isEventFromCover = (event: Event) => {
@@ -2478,7 +2488,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f]"
       style={{ backgroundColor: galleryBackgroundColor }}
     >
-      {!isCoverDismissed && (
+      {!isMobileViewport && !isCoverDismissed && (
         <section
           ref={coverSectionRef}
           onWheel={handleCoverWheel}
@@ -2605,7 +2615,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       <header
         id="album-gallery-shell"
         className={`sticky top-0 z-30 px-0 pt-0 transition-transform duration-300 ease-out will-change-transform sm:px-5 sm:pt-2 ${
-          !isCoverDismissed ? "md:hidden" : ""
+          !isMobileViewport && !isCoverDismissed ? "md:hidden" : ""
         } ${
           isNavHidden ? "sm:-translate-y-[calc(100%+0.75rem)]" : "translate-y-0"
         }`}

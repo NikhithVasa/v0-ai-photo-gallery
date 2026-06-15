@@ -13,7 +13,6 @@ import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { Skeleton } from "@/components/ui/skeleton";
-import { rememberPhotoImages } from "@/lib/photo-image-cache";
 import { photoAspectRatio } from "@/lib/photo-layout";
 import type {
   AlbumEvent,
@@ -492,11 +491,6 @@ export function PhotosGrid({
   useEffect(() => {
     setIsScrollDebugEnabled(isPhotosScrollDebugEnabled());
   }, []);
-
-  useEffect(() => {
-    if (!photos.length) return;
-    rememberPhotoImages(albumSlug, shareToken, photos);
-  }, [albumSlug, photos, shareToken]);
 
   const logGridScrollDebug = useCallback(
     (label: string, extra: Record<string, unknown> = {}) => {
@@ -1074,16 +1068,6 @@ export function PhotosGrid({
               transform: `translate3d(${item.x}px, ${item.y}px, 0)`,
             }}
           >
-            {canEditSort && isCustomOrderEditing && (
-              <CustomPositionControl
-                position={item.index + 1}
-                disabled={isSavingSort}
-                onCommit={(position) => {
-                  void moveCustomPosition(item.photo.id, position);
-                }}
-              />
-            )}
-
             <PhotoCard
               albumSlug={albumSlug}
               shareToken={shareToken}
@@ -1098,6 +1082,16 @@ export function PhotosGrid({
               isSelected={selectedPhotoIdSet.has(item.photo.id)}
               onToggleSelect={onTogglePhoto}
             />
+
+            {canEditSort && isCustomOrderEditing && (
+              <CustomPositionControl
+                position={item.index + 1}
+                disabled={isSavingSort}
+                onCommit={(position) => {
+                  void moveCustomPosition(item.photo.id, position);
+                }}
+              />
+            )}
           </div>
         ))}
       </div>
