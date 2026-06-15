@@ -2,7 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const AI_PRIVACY_MESSAGE =
-  "AI runs on your local machine. Photos, prompts, and metadata are not used for training or any other activities.";
+  "AI runs on our local machine. Photos, prompts, and metadata are not used for training or any other activities.";
 
 interface AiPrivacyNoticeProps {
   className?: string;
