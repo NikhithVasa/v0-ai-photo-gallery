@@ -21,6 +21,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import {
+  cachedPhotoImageUrl,
+  readCachedPhotoImages,
+  type CachedPhotoImageMap,
+} from "@/lib/photo-image-cache";
 import { cn } from "@/lib/utils";
 import type {
   AiReviewPersonGroup,
@@ -248,6 +253,7 @@ function PhotoTile({
   onSelect,
   onKeep,
   onReject,
+  cachedPhotoImages,
 }: {
   item: AiReviewPhoto;
   state: "kept" | "rejected" | null;
@@ -255,9 +261,10 @@ function PhotoTile({
   onSelect: () => void;
   onKeep: () => void;
   onReject: () => void;
+  cachedPhotoImages: CachedPhotoImageMap;
 }) {
   const { photo, ai } = item;
-  const imageUrl = photo.thumbnailUrl || photo.previewUrl;
+  const imageUrl = cachedPhotoImageUrl(photo, cachedPhotoImages);
 
   return (
     <article
@@ -359,6 +366,7 @@ function ClusterCard({
   onReject,
   onBestChanged,
   shareToken = "",
+  cachedPhotoImages,
 }: {
   cluster: CullingCluster;
   state: "kept" | "rejected" | null;
@@ -368,6 +376,7 @@ function ClusterCard({
   onReject: () => void;
   onBestChanged: () => void;
   shareToken?: string;
+  cachedPhotoImages: CachedPhotoImageMap;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isUpdatingBest, setIsUpdatingBest] = useState(false);
@@ -382,7 +391,9 @@ function ClusterCard({
     fetcher,
   );
   const photo = cluster.photo;
-  const imageUrl = photo?.thumbnailUrl || photo?.previewUrl;
+  const imageUrl = photo
+    ? cachedPhotoImageUrl(photo, cachedPhotoImages)
+    : null;
   const alternateCount = Math.max(cluster.similarCount - 1, 0);
 
   const setAsBest = async (photoId: string) => {
@@ -514,8 +525,10 @@ function ClusterCard({
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {(data?.items ?? []).map((item) => {
-                  const itemImage =
-                    item.photo.thumbnailUrl || item.photo.previewUrl;
+                  const itemImage = cachedPhotoImageUrl(
+                    item.photo,
+                    cachedPhotoImages,
+                  );
 
                   return (
                     <div
@@ -579,6 +592,7 @@ function CullingLightbox({
   onClose,
   onPrev,
   onNext,
+  cachedPhotoImages,
 }: {
   item: AiReviewPhoto;
   photos: AiReviewPhoto[];
@@ -588,10 +602,11 @@ function CullingLightbox({
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
+  cachedPhotoImages: CachedPhotoImageMap;
 }) {
   useBodyScrollLock(true);
 
-  const imageUrl = item.photo.previewUrl || item.photo.thumbnailUrl;
+  const imageUrl = cachedPhotoImageUrl(item.photo, cachedPhotoImages);
   const index = photos.findIndex((p) => p.photo.id === item.photo.id);
   const hasPrev = index > 0;
   const hasNext = index < photos.length - 1;
@@ -810,6 +825,10 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
   const searchParams = useSearchParams();
   const shareToken = searchParams.get("share") || "";
   const { mutate } = useSWRConfig();
+  const [cachedPhotoImages, setCachedPhotoImages] =
+    useState<CachedPhotoImageMap>(() =>
+      readCachedPhotoImages(albumSlug, shareToken),
+    );
   const [mode, setMode] = useState<ReviewMode>(() =>
     initialMode(searchParams.get("mode")),
   );
@@ -817,6 +836,10 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [keptPhotoIds, setKeptPhotoIds] = useState<string[]>([]);
   const [rejectedPhotoIds, setRejectedPhotoIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setCachedPhotoImages(readCachedPhotoImages(albumSlug, shareToken));
+  }, [albumSlug, shareToken]);
 
   const { data: albumData, isLoading: isAlbumLoading } = useSWR<{
     album: AlbumDetail;
@@ -1085,6 +1108,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                         onSelect={() => setSelectedPhotoId(item.photo.id)}
                         onKeep={() => markKept(item.photo.id)}
                         onReject={() => markRejected(item.photo.id)}
+                        cachedPhotoImages={cachedPhotoImages}
                       />
                     ))}
                   </div>
@@ -1120,6 +1144,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                           setSelectedPhotoId(null);
                         }}
                         shareToken={shareToken}
+                        cachedPhotoImages={cachedPhotoImages}
                       />
                     </div>
                   );
@@ -1141,6 +1166,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                     onSelect={() => setSelectedPhotoId(item.photo.id)}
                     onKeep={() => markKept(item.photo.id)}
                     onReject={() => markRejected(item.photo.id)}
+                    cachedPhotoImages={cachedPhotoImages}
                   />
                 </div>
               ))}
@@ -1173,6 +1199,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
               setSelectedPhotoId(photos[index + 1].photo.id);
             }
           }}
+          cachedPhotoImages={cachedPhotoImages}
         />
       )}
     </main>

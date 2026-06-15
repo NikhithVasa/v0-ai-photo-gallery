@@ -13,7 +13,7 @@ import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
+import { rememberPhotoImages } from "@/lib/photo-image-cache";
 import { photoAspectRatio } from "@/lib/photo-layout";
 import type {
   AlbumEvent,
@@ -355,110 +355,6 @@ function photosUrl(
   return query ? `${base}?${query}` : base;
 }
 
-function SelectionPhotoCell({
-  photo,
-  index,
-  isSelected,
-  onTogglePhoto,
-}: {
-  photo: Photo;
-  index: number;
-  isSelected: boolean;
-  onTogglePhoto?: (photoId: string) => void;
-}) {
-  const imageCandidates = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          [
-            photo.previewUrl,
-            photo.thumbnailUrl,
-            cloudFrontImageUrl(photo.cleanPreviewS3Key),
-            cloudFrontImageUrl(photo.watermarkedPreviewS3Key),
-            cloudFrontImageUrl(photo.thumbnailS3Key),
-            cloudFrontImageUrl(photo.aiInputS3Key),
-            photo.cleanPreviewS3Key
-              ? `/api/media?key=${encodeURIComponent(photo.cleanPreviewS3Key)}`
-              : null,
-            photo.watermarkedPreviewS3Key
-              ? `/api/media?key=${encodeURIComponent(photo.watermarkedPreviewS3Key)}`
-              : null,
-            photo.thumbnailS3Key
-              ? `/api/media?key=${encodeURIComponent(photo.thumbnailS3Key)}`
-              : null,
-            photo.aiInputS3Key
-              ? `/api/media?key=${encodeURIComponent(photo.aiInputS3Key)}`
-              : null,
-          ].filter((url): url is string => Boolean(url)),
-        ),
-      ),
-    [photo],
-  );
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const imageUrl = imageCandidates[activeImageIndex] || "";
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
-
-  useEffect(() => {
-    setActiveImageIndex(0);
-  }, [photo.id]);
-
-  useEffect(() => {
-    setIsImageLoaded(false);
-  }, [imageUrl]);
-
-  return (
-    <button
-      type="button"
-      onClick={() => onTogglePhoto?.(photo.id)}
-      aria-pressed={isSelected}
-      className={`group relative w-full cursor-pointer overflow-hidden rounded-[22px] bg-white text-left ring-1 transition focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
-        isSelected
-          ? "ring-2 ring-zinc-950"
-          : "ring-border hover:ring-zinc-400"
-      }`}
-      style={{ aspectRatio: photoAspectRatio(photo) }}
-    >
-      {imageUrl ? (
-        <>
-          <img
-            src={imageUrl}
-            alt={photo.caption || photo.fileName || "Photo"}
-            className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-300 ${
-              isImageLoaded ? "opacity-100" : "opacity-0"
-            }`}
-            loading={index < 12 ? "eager" : "lazy"}
-            decoding="async"
-            onLoad={() => setIsImageLoaded(true)}
-            onError={() => {
-              setActiveImageIndex((current) => {
-                if (current < imageCandidates.length - 1) return current + 1;
-
-                setIsImageLoaded(true);
-                return current;
-              });
-            }}
-          />
-          {!isImageLoaded && (
-            <Skeleton className="absolute inset-0 rounded-[22px] bg-zinc-200/80" />
-          )}
-        </>
-      ) : (
-        <span className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-          No preview
-        </span>
-      )}
-
-      <span
-        className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full shadow-sm ${
-          isSelected ? "bg-zinc-950 text-white" : "bg-white/90 text-zinc-400"
-        }`}
-      >
-        <Check className="h-4 w-4" />
-      </span>
-    </button>
-  );
-}
-
 function CustomPositionControl({
   position,
   onCommit,
@@ -574,8 +470,6 @@ export function PhotosGrid({
     setVirtualGridElement(node);
   }, []);
   const photos = data?.photos ?? [];
-  const shouldVirtualizeGrid =
-    photos.length > 0 && !isCustomOrderEditing;
   const virtualLayout = useMemo(
     () =>
       createVirtualMasonryLayout(
@@ -598,6 +492,11 @@ export function PhotosGrid({
   useEffect(() => {
     setIsScrollDebugEnabled(isPhotosScrollDebugEnabled());
   }, []);
+
+  useEffect(() => {
+    if (!photos.length) return;
+    rememberPhotoImages(albumSlug, shareToken, photos);
+  }, [albumSlug, photos, shareToken]);
 
   const logGridScrollDebug = useCallback(
     (label: string, extra: Record<string, unknown> = {}) => {
@@ -1160,86 +1059,48 @@ export function PhotosGrid({
         </div>
       )}
 
-      {shouldVirtualizeGrid ? (
-        <div
-          ref={setVirtualGridRef}
-          className="relative w-full"
-          style={{ height: virtualLayout.totalHeight }}
-        >
-          {visibleVirtualItems.map((item) => (
-            <div
-              key={item.photo.id}
-              className="absolute left-0 top-0 overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
-              style={{
-                width: item.width,
-                height: item.height,
-                transform: `translate3d(${item.x}px, ${item.y}px, 0)`,
-              }}
-            >
-              {isSelectionMode ? (
-                <SelectionPhotoCell
-                  photo={item.photo}
-                  index={item.index}
-                  isSelected={selectedPhotoIdSet.has(item.photo.id)}
-                  onTogglePhoto={onTogglePhoto}
-                />
-              ) : (
-                <PhotoCard
-                  albumSlug={albumSlug}
-                  shareToken={shareToken}
-                  photo={item.photo}
-                  index={item.index}
-                  onOpen={handleOpen}
-                  forceFill
-                  imageFit="contain"
-                  shareSettings={shareSettings}
-                  debugScroll={isScrollDebugEnabled}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 items-start gap-2 sm:gap-3 lg:grid-cols-3">
-          {data.photos.map((photo, index) => (
-            <div
-              key={photo.id}
-              className="relative aspect-square overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
-            >
-              {canEditSort && isCustomOrderEditing && (
-                <CustomPositionControl
-                  position={index + 1}
-                  disabled={isSavingSort}
-                  onCommit={(position) => {
-                    void moveCustomPosition(photo.id, position);
-                  }}
-                />
-              )}
+      <div
+        ref={setVirtualGridRef}
+        className="relative w-full"
+        style={{ height: virtualLayout.totalHeight }}
+      >
+        {visibleVirtualItems.map((item) => (
+          <div
+            key={item.photo.id}
+            className="absolute left-0 top-0 overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
+            style={{
+              width: item.width,
+              height: item.height,
+              transform: `translate3d(${item.x}px, ${item.y}px, 0)`,
+            }}
+          >
+            {canEditSort && isCustomOrderEditing && (
+              <CustomPositionControl
+                position={item.index + 1}
+                disabled={isSavingSort}
+                onCommit={(position) => {
+                  void moveCustomPosition(item.photo.id, position);
+                }}
+              />
+            )}
 
-              {isSelectionMode ? (
-                <SelectionPhotoCell
-                  photo={photo}
-                  index={index}
-                  isSelected={selectedPhotoIdSet.has(photo.id)}
-                  onTogglePhoto={onTogglePhoto}
-                />
-              ) : (
-                <PhotoCard
-                  albumSlug={albumSlug}
-                  shareToken={shareToken}
-                  photo={photo}
-                  index={index}
-                  onOpen={handleOpen}
-                  forceFill
-                  imageFit="cover"
-                  shareSettings={shareSettings}
-                  debugScroll={isScrollDebugEnabled}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+            <PhotoCard
+              albumSlug={albumSlug}
+              shareToken={shareToken}
+              photo={item.photo}
+              index={item.index}
+              onOpen={handleOpen}
+              forceFill
+              imageFit="contain"
+              shareSettings={shareSettings}
+              debugScroll={isScrollDebugEnabled}
+              isSelectionMode={isSelectionMode}
+              isSelected={selectedPhotoIdSet.has(item.photo.id)}
+              onToggleSelect={onTogglePhoto}
+            />
+          </div>
+        ))}
+      </div>
 
       <div ref={endSentinelRef} data-photos-grid-end className="h-px w-full" />
 

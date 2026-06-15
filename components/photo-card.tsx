@@ -44,6 +44,7 @@ import { PhotoPresetPanel } from "@/components/photo-preset-panel";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
+import { rememberLoadedPhotoImage } from "@/lib/photo-image-cache";
 import { photoAspectRatio } from "@/lib/photo-layout";
 import type {
   AlbumEvent,
@@ -818,6 +819,9 @@ interface PhotoCardProps {
   imageFit?: "contain" | "cover";
   shareSettings?: AlbumShareSettings | null;
   debugScroll?: boolean;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (photoId: string) => void;
 }
 
 export interface PhotoOpenRect {
@@ -1091,6 +1095,9 @@ export const PhotoCard = memo(function PhotoCard({
   imageFit = "contain",
   shareSettings,
   debugScroll = false,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: PhotoCardProps) {
   const signedUrlCacheKey = signedPhotoUrlCacheKey(
     albumSlug,
@@ -1150,8 +1157,9 @@ export const PhotoCard = memo(function PhotoCard({
   }, [imageUrl]);
 
   const handleImageLoad = useCallback(() => {
+    rememberLoadedPhotoImage(albumSlug, shareToken, photo.id, imageUrl);
     setIsImageLoaded(true);
-  }, []);
+  }, [albumSlug, imageUrl, photo.id, shareToken]);
 
   const handleImageError = useCallback(() => {
     setActiveImageIndex((current) => {
@@ -1291,15 +1299,22 @@ export const PhotoCard = memo(function PhotoCard({
   return (
     <div
       ref={cardRef}
-      className={`group relative w-full overflow-hidden rounded-md bg-muted text-left shadow-sm ring-1 ring-border transition-shadow duration-200 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background ${
-        forceFill ? "h-full" : ""
-      }`}
+      className={`group relative w-full overflow-hidden rounded-md bg-muted text-left shadow-sm ring-1 transition-shadow duration-200 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background ${
+        isSelectionMode && isSelected
+          ? "ring-2 ring-zinc-950"
+          : "ring-border"
+      } ${forceFill ? "h-full" : ""}`}
       style={forceFill ? undefined : { aspectRatio }}
     >
       <button
         type="button"
         data-click-loading-skip="true"
         onClick={(event) => {
+          if (isSelectionMode) {
+            onToggleSelect?.(photo.id);
+            return;
+          }
+
           const rect = event.currentTarget.getBoundingClientRect();
 
           onOpen(index, {
@@ -1310,8 +1325,17 @@ export const PhotoCard = memo(function PhotoCard({
             imageUrl: imageUrl ?? undefined,
           });
         }}
+        aria-pressed={isSelectionMode ? isSelected : undefined}
         className="absolute inset-0 cursor-pointer focus:outline-none"
-        aria-label={photo.caption ? `Open ${photo.caption}` : "Open photo"}
+        aria-label={
+          isSelectionMode
+            ? isSelected
+              ? "Deselect photo"
+              : "Select photo"
+            : photo.caption
+              ? `Open ${photo.caption}`
+              : "Open photo"
+        }
       >
         {imageUrl && shouldLoadImage ? (
           <WatermarkedImage
@@ -1357,57 +1381,69 @@ export const PhotoCard = memo(function PhotoCard({
         }`}
       />
 
-      <div className="pointer-events-none absolute bottom-2 left-2 z-40 flex items-center gap-1 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 sm:bottom-3 sm:left-3">
-        <button
-          type="button"
-          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80 sm:h-7 sm:w-7"
-          aria-label="Favorite photo"
+      {isSelectionMode && (
+        <span
+          className={`pointer-events-none absolute right-2 top-2 z-40 flex h-7 w-7 items-center justify-center rounded-full shadow-sm ${
+            isSelected ? "bg-zinc-950 text-white" : "bg-white/90 text-zinc-400"
+          }`}
         >
-          <Heart className="h-4 w-4" strokeWidth={1.5} />
-        </button>
+          <Check className="h-4 w-4" />
+        </span>
+      )}
 
-        <a
-          href={`mailto:?subject=Photo&body=${encodeURIComponent(
-            imageUrl ? absoluteBrowserUrl(imageUrl) : "",
-          )}`}
-          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80 sm:h-7 sm:w-7"
-          aria-label="Email photo"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <Mail className="h-4 w-4" strokeWidth={1.5} />
-        </a>
-
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            handleShare();
-          }}
-          className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80 sm:h-7 sm:w-7"
-          aria-label="Share photo"
-        >
-          <Share2 className="h-4 w-4" strokeWidth={1.5} />
-        </button>
-
-        {canDownload && (
+      {!isSelectionMode && (
+        <div className="pointer-events-none absolute bottom-2 left-2 z-40 flex items-center gap-1 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 sm:bottom-3 sm:left-3">
           <button
             type="button"
-            onMouseEnter={() => setIsDownloadHovering(true)}
-            onMouseLeave={() => setIsDownloadHovering(false)}
-            onFocus={() => setIsDownloadHovering(true)}
-            onBlur={() => setIsDownloadHovering(false)}
+            className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80 sm:h-7 sm:w-7"
+            aria-label="Favorite photo"
+          >
+            <Heart className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+
+          <a
+            href={`mailto:?subject=Photo&body=${encodeURIComponent(
+              imageUrl ? absoluteBrowserUrl(imageUrl) : "",
+            )}`}
+            className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80 sm:h-7 sm:w-7"
+            aria-label="Email photo"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Mail className="h-4 w-4" strokeWidth={1.5} />
+          </a>
+
+          <button
+            type="button"
             onClick={(event) => {
               event.stopPropagation();
-              handleDownload();
+              handleShare();
             }}
-            disabled={isDownloading}
-            className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:bg-white/15 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/80 disabled:cursor-not-allowed disabled:opacity-45 sm:h-7 sm:w-7"
-            aria-label="Download photo"
+            className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-white/80 sm:h-7 sm:w-7"
+            aria-label="Share photo"
           >
-            <Download className="h-4 w-4" strokeWidth={1.5} />
+            <Share2 className="h-4 w-4" strokeWidth={1.5} />
           </button>
-        )}
-      </div>
+
+          {canDownload && (
+            <button
+              type="button"
+              onMouseEnter={() => setIsDownloadHovering(true)}
+              onMouseLeave={() => setIsDownloadHovering(false)}
+              onFocus={() => setIsDownloadHovering(true)}
+              onBlur={() => setIsDownloadHovering(false)}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleDownload();
+              }}
+              disabled={isDownloading}
+              className="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white drop-shadow-md transition hover:bg-white/15 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/80 disabled:cursor-not-allowed disabled:opacity-45 sm:h-7 sm:w-7"
+              aria-label="Download photo"
+            >
+              <Download className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          )}
+        </div>
+      )}
 
     </div>
   );
