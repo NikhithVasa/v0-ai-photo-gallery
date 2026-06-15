@@ -12,6 +12,7 @@ import {
   Loader2,
   Upload,
 } from "lucide-react";
+import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
@@ -819,6 +820,7 @@ export function UploadPage() {
               <p className="mt-1 text-xs text-zinc-500">
                 Originals upload into the album event originals folder.
               </p>
+              <AiPrivacyNotice className="mt-3 bg-zinc-50/80" />
             </div>
 
             <div className="grid grid-cols-2 gap-2 rounded-full bg-zinc-100 p-1">

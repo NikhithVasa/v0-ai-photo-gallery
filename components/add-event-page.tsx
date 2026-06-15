@@ -20,6 +20,10 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import {
+  AiPrivacyNotice,
+  AI_PRIVACY_MESSAGE,
+} from "@/components/ai-privacy-notice";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1274,6 +1278,7 @@ export function AddEventPage({
               <p className="mt-1 text-sm text-zinc-500">
                 {album.customer?.name || "Album"} · {destinationEventName}
               </p>
+              <AiPrivacyNotice className="mt-4 max-w-2xl bg-zinc-50/80" />
             </div>
 
             <div className="grid gap-3 sm:grid-cols-[220px_minmax(260px,420px)] lg:min-w-[640px]">
@@ -1501,8 +1506,7 @@ export function AddEventPage({
                 <span className="group relative inline-flex">
                   <Info className="h-4 w-4 text-zinc-400" />
                   <span className="pointer-events-none absolute right-0 top-6 z-30 w-72 rounded-2xl border border-zinc-200 bg-white p-3 text-left text-xs leading-5 text-zinc-600 opacity-0 shadow-xl transition group-hover:opacity-100">
-                    AI runs on local servers. It is not used to train models,
-                    data is not shared, and it is never sold to a third party.
+                    {AI_PRIVACY_MESSAGE}
                   </span>
                 </span>
               </div>

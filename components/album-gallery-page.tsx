@@ -39,6 +39,7 @@ import { PhotosGrid, type PeopleMatchMode } from "@/components/photos-grid";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { ApsaraMomentsRoot } from "@/components/apsara-moments";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
+import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { ApplyPresetSelectionDialog } from "@/components/apply-preset-selection-dialog";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { usePasscodeVerification } from "@/hooks/use-passcode-verification";
@@ -113,6 +114,8 @@ const navCollapsedLabelClass =
 
 const navIconButtonClass =
   "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-zinc-500 ring-1 ring-inset ring-black/10 transition hover:bg-white/55 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
+
+const mobileCoverMediaQuery = "(max-width: 767px)";
 
 function NavCollapsedLabel({ children }: { children: ReactNode }) {
   return (
@@ -314,7 +317,7 @@ function PasswordGate({
           alt={albumName}
           fill
           sizes="100vw"
-          className="object-cover"
+          className="hidden object-cover md:block"
           priority
           unoptimized
         />
@@ -1142,6 +1145,8 @@ function AlbumShareDialog({
         </DialogHeader>
 
         <div className="space-y-5">
+          <AiPrivacyNotice className="bg-zinc-50/80" />
+
           <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
             <Label htmlFor="share-allow-downloads" className="text-sm font-medium">
               Allow downloads
@@ -1942,7 +1947,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     autoCoverScrollDoneRef.current = false;
     coverGestureTriggeredRef.current = false;
     coverTouchStartYRef.current = null;
-    setIsCoverDismissed(false);
+    const shouldSkipCover = window.matchMedia(mobileCoverMediaQuery).matches;
+    isCoverDismissedRef.current = shouldSkipCover;
+    setIsCoverDismissed(shouldSkipCover);
     setIsCoverTransitioning(false);
     setIsCoverSliding(false);
     setSelectedPerson(null);
@@ -1950,6 +1957,18 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setPhotoIdToReopen(null);
     setIsPhotoSelectionMode(false);
     setSelectedDownloadPhotoIds([]);
+  }, [albumSlug]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(mobileCoverMediaQuery);
+    const dismissMobileCover = () => {
+      if (!mediaQuery.matches || isCoverDismissedRef.current) return;
+      enterLockedGalleryView("mobile viewport");
+    };
+
+    dismissMobileCover();
+    mediaQuery.addEventListener("change", dismissMobileCover);
+    return () => mediaQuery.removeEventListener("change", dismissMobileCover);
   }, [albumSlug]);
 
   useEffect(() => {
@@ -2467,7 +2486,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           onTouchMove={handleCoverTouchMove}
           className={`${
             isCoverTransitioning ? "fixed inset-0 z-50" : "relative"
-          } flex flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 py-8 text-center transition-transform duration-[920ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform sm:py-10 ${
+          } hidden flex-col items-center justify-center overflow-hidden bg-[#f5f5f7] px-5 py-8 text-center transition-transform duration-[920ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform md:flex sm:py-10 ${
             isCoverSliding ? "-translate-y-full" : "translate-y-0"
           }`}
           style={{
@@ -2481,7 +2500,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               alt={album.name}
               fill
               sizes="100vw"
-              className="object-cover object-[center_35%] opacity-100 saturate-[1.08] contrast-[1.03] sm:opacity-35"
+              className="hidden object-cover object-[center_35%] saturate-[1.08] contrast-[1.03] md:block sm:opacity-35"
               priority
               unoptimized
             />
@@ -2552,6 +2571,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </div>
             )}
 
+            {isShareView && (
+              <AiPrivacyNotice className="mt-5 max-w-xl border-white/70 bg-white/80 text-zinc-700" />
+            )}
+
             {!isShareView && (
               <Link
                 href={addPhotosHref}
@@ -2582,7 +2605,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       <header
         id="album-gallery-shell"
         className={`sticky top-0 z-30 px-0 pt-0 transition-transform duration-300 ease-out will-change-transform sm:px-5 sm:pt-2 ${
-          !isCoverDismissed ? "hidden" : ""
+          !isCoverDismissed ? "md:hidden" : ""
         } ${
           isNavHidden ? "sm:-translate-y-[calc(100%+0.75rem)]" : "translate-y-0"
         }`}

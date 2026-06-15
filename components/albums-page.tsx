@@ -124,15 +124,20 @@ const visibleAlbums =
                   >
                     <div className="relative aspect-[4/3] bg-zinc-100">
                       {album.coverPhotoUrl ? (
-                        <Image
-                          src={album.coverPhotoUrl}
-                          alt={album.name}
-                          fill
-                          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                          className="object-cover"
-                          unoptimized
-                          priority
-                        />
+                        <>
+                          <Image
+                            src={album.coverPhotoUrl}
+                            alt={album.name}
+                            fill
+                            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                            className="hidden object-cover md:block"
+                            unoptimized
+                            priority
+                          />
+                          <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-400 md:hidden">
+                            <Images className="h-10 w-10" strokeWidth={1.5} />
+                          </div>
+                        </>
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-400">
                           <Images className="h-10 w-10" strokeWidth={1.5} />

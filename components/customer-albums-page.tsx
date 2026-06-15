@@ -288,7 +288,7 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
       <main className="flex min-h-screen items-center justify-center bg-[#fbfaf8] px-5 text-zinc-950">
         <div className="w-full max-w-sm text-center">
           {data.customer.coverPhotoUrl && (
-            <div className="relative mx-auto mb-6 aspect-[4/3] w-full overflow-hidden rounded-lg bg-zinc-100">
+            <div className="relative mx-auto mb-6 hidden aspect-[4/3] w-full overflow-hidden rounded-lg bg-zinc-100 md:block">
               <Image
                 src={data.customer.coverPhotoUrl}
                 alt={customerName}
@@ -349,14 +349,19 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
               aria-label="Edit customer cover"
             >
               {data?.customer?.coverPhotoUrl ? (
-                <Image
-                  src={data.customer.coverPhotoUrl}
-                  alt={customerName}
-                  fill
-                  sizes="112px"
-                  className="object-cover"
-                  unoptimized
-                />
+                <>
+                  <Image
+                    src={data.customer.coverPhotoUrl}
+                    alt={customerName}
+                    fill
+                    sizes="112px"
+                    className="hidden object-cover md:block"
+                    unoptimized
+                  />
+                  <span className="flex h-full w-full items-center justify-center md:hidden">
+                    <Users className="h-8 w-8" strokeWidth={1.5} />
+                  </span>
+                </>
               ) : (
                 <span className="flex h-full w-full items-center justify-center">
                   <Users className="h-8 w-8" strokeWidth={1.5} />
@@ -518,15 +523,20 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
                   })()}
 
                   {album.coverPhotoUrl ? (
-                    <Image
-                      src={album.coverPhotoUrl}
-                      alt={album.name}
-                      fill
-                      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                      className="object-cover transition duration-300 group-hover:scale-[1.02]"
-                      unoptimized
-                      priority={album.photoCount > 0}
-                    />
+                    <>
+                      <Image
+                        src={album.coverPhotoUrl}
+                        alt={album.name}
+                        fill
+                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        className="hidden object-cover transition duration-300 group-hover:scale-[1.02] md:block"
+                        unoptimized
+                        priority={album.photoCount > 0}
+                      />
+                      <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-400 md:hidden">
+                        <Images className="h-10 w-10" strokeWidth={1.5} />
+                      </div>
+                    </>
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-400">
                       <Images className="h-10 w-10" strokeWidth={1.5} />

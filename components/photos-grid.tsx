@@ -11,6 +11,7 @@ import Link from "next/link";
 import { ArrowUpDown, Check, Loader2, Pencil } from "lucide-react";
 import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
+import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 import { photoAspectRatio } from "@/lib/photo-layout";
@@ -1035,6 +1036,7 @@ export function PhotosGrid({
         className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center text-zinc-500 shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl"
         style={{ touchAction: "pan-y" }}
       >
+        <AiPrivacyNotice className="mx-auto mb-4 max-w-xl text-left" />
         <p>{emptyMessage}</p>
         {shouldShowUploadCta && (
           <Link
@@ -1055,6 +1057,8 @@ export function PhotosGrid({
       className="min-w-0"
       style={{ touchAction: "pan-y" }}
     >
+      <AiPrivacyNotice className="mb-3" />
+
       {canEditSort && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-2 sm:px-0">
           <label className="flex h-10 max-w-full items-center gap-2 rounded-full bg-white/85 px-3 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 backdrop-blur">

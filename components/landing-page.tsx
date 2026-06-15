@@ -35,6 +35,7 @@ import {
 } from "framer-motion";
 import { useDialKit } from "dialkit";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -640,6 +641,11 @@ function Hero({ reveal }: { reveal: MotionProps }) {
               flexible downloads, and share links you can protect with
               watermarks. No monthly plans, store commission, penny, or cent.
             </p>
+
+            <AiPrivacyNotice
+              className="mt-5 max-w-xl border-[#E8DED2] bg-white/75 text-[#5F564D]"
+              iconClassName="text-[#A77C45]"
+            />
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
