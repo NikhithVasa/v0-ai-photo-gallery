@@ -150,9 +150,21 @@ export async function requireAlbumAccess(request: Request, albumSlug: string) {
     return null;
   }
 
+  const customerSlug = getCustomerSlugFromHost(
+    request.headers.get("host") || "",
+  );
+  if (!customerSlug) {
+    console.info("[share-debug] requireAlbumAccess allowed: root host", {
+      albumSlug,
+      email: access.email,
+    });
+    return null;
+  }
+
   console.info("[share-debug] checking authenticated album access", {
     albumSlug,
     email: access.email,
+    customerSlug,
     customerIds: access.customerIds.length,
   });
 

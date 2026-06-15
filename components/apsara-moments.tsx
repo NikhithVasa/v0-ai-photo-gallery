@@ -27,11 +27,11 @@ export function ApsaraFloatingTrigger({ onClick }: ApsaraFloatingTriggerProps) {
     <button
       type="button"
       onClick={onClick}
-      className="fixed bottom-5 right-5 z-40 flex h-11 items-center gap-2 rounded-full border border-zinc-200 bg-white/90 px-4 text-sm font-medium text-zinc-900 shadow-sm backdrop-blur transition hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7 sm:right-7"
+      className="fixed bottom-20 left-5 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200 bg-white/90 text-sm font-medium text-zinc-900 shadow-sm backdrop-blur transition hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7 sm:left-auto sm:right-7 sm:w-auto sm:gap-2 sm:px-4"
       aria-label="Open SaathiDesk AI photo search"
     >
       <MessageCircle className="h-4 w-4" />
-      <span>SaathiDesk AI</span>
+      <span className="hidden sm:inline">SaathiDesk AI</span>
     </button>
   );
 }

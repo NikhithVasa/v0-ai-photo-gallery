@@ -1248,14 +1248,14 @@ export function AddEventPage({
                   href={`/albums/${encodeURIComponent(albumSlug)}?event=${encodeURIComponent(
                     completedUpload.eventSlug,
                   )}`}
-                  className="h-9 rounded-full bg-emerald-900 px-3 text-sm font-semibold text-white transition hover:bg-emerald-950"
+                  className="inline-flex h-9 items-center justify-center rounded-full bg-emerald-900 px-3 text-sm font-semibold text-white transition hover:bg-emerald-950"
                 >
                   View event
                 </Link>
                 <button
                   type="button"
                   onClick={clearUploadQueue}
-                  className="h-9 rounded-full bg-white px-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition hover:bg-emerald-100"
+                  className="inline-flex h-9 items-center justify-center rounded-full bg-white px-3 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition hover:bg-emerald-100"
                 >
                   Upload more
                 </button>
