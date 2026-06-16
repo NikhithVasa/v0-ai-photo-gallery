@@ -19,6 +19,7 @@ import {
 } from "@/lib/google-photos-picker";
 
 const GOOGLE_DRIVE_DOWNLOAD_CONCURRENCY = 4;
+const MAX_IMPORT_ERROR_MESSAGES = 5;
 
 export interface GoogleImportedImage {
   file: File;
@@ -34,6 +35,16 @@ interface UseGoogleImageImportOptions {
 type GoogleDriveDownloadResult =
   | { image: GoogleImportedImage; error?: never }
   | { image?: never; error: string };
+
+function summarizeImportErrors(errors: string[]) {
+  if (!errors.length) return "";
+
+  const visibleErrors = errors.slice(0, MAX_IMPORT_ERROR_MESSAGES);
+  const remainingCount = errors.length - visibleErrors.length;
+  return `${errors.length} could not be read: ${visibleErrors.join("; ")}${
+    remainingCount > 0 ? `; and ${remainingCount} more.` : ""
+  }`;
+}
 
 async function mapConcurrent<T, R>(
   items: T[],
@@ -145,11 +156,14 @@ export function useGoogleImageImport({
               },
             };
           } catch (error) {
+            const errorMessage =
+              error instanceof Error
+                ? error.message
+                : `${selectedFile.name} failed`;
             return {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : `${selectedFile.name} failed`,
+              error: errorMessage.includes(selectedFile.name)
+                ? errorMessage
+                : `${selectedFile.name}: ${errorMessage}`,
             };
           } finally {
             completedFiles += 1;
@@ -180,9 +194,7 @@ export function useGoogleImageImport({
               selection.summary.folderCount === 1 ? "" : "s"
             }.`
           : "",
-        failedFiles.length
-          ? `${failedFiles.length} could not be read: ${failedFiles.join("; ")}`
-          : "",
+        summarizeImportErrors(failedFiles),
       ].filter(Boolean);
       setMessage(notes.join(" "));
     } catch (error) {
@@ -274,9 +286,7 @@ export function useGoogleImageImport({
         skippedVideos
           ? `${skippedVideos} video${skippedVideos === 1 ? " was" : "s were"} skipped.`
           : "",
-        failedFiles.length
-          ? `${failedFiles.length} could not be read: ${failedFiles.join("; ")}`
-          : "",
+        summarizeImportErrors(failedFiles),
       ].filter(Boolean);
       setMessage(notes.join(" "));
     } catch (error) {

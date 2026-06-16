@@ -7,7 +7,6 @@ const GOOGLE_DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 const DRIVE_API_RETRY_DELAYS_MS = [500, 1_000, 2_000];
 const DRIVE_FOLDER_LIST_CONCURRENCY = 4;
 const DRIVE_API_RETRYABLE_STATUSES = new Set([
-  404,
   408,
   409,
   425,
@@ -34,6 +33,7 @@ interface PickerDocument {
   id?: string;
   name?: string;
   mimeType?: string;
+  resourceKey?: string;
   sizeBytes?: number;
   url?: string;
 }
@@ -122,6 +122,7 @@ export interface GoogleDriveFileMetadata {
   id: string;
   name: string;
   mimeType: string;
+  resourceKey?: string;
   size?: number;
   modifiedTime?: string;
   webViewLink?: string;
@@ -149,6 +150,7 @@ interface DriveApiFileResponse {
   mimeType?: string;
   size?: string;
   modifiedTime?: string;
+  resourceKey?: string;
   webViewLink?: string;
   capabilities?: {
     canDownload?: boolean;
@@ -353,6 +355,7 @@ function openDrivePicker(
                   ? "Google Drive folder"
                   : "Google Drive image"),
               mimeType: document.mimeType || "application/octet-stream",
+              resourceKey: document.resourceKey || undefined,
               size: document.sizeBytes,
               webViewLink: document.url,
             }));
@@ -392,11 +395,28 @@ function isRetryableDriveError(error: unknown) {
   );
 }
 
-async function fetchDriveApiOnce(url: string, accessToken: string) {
+function driveResourceKeyHeader(
+  fileId?: string,
+  resourceKey?: string,
+) {
+  if (!fileId || !resourceKey) return null;
+  return `${fileId}/${resourceKey}`;
+}
+
+async function fetchDriveApiOnce(
+  url: string,
+  accessToken: string,
+  resourceKeyHeader?: string | null,
+) {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+  };
+  if (resourceKeyHeader) {
+    headers["X-Goog-Drive-Resource-Keys"] = resourceKeyHeader;
+  }
+
   const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -420,13 +440,17 @@ async function fetchDriveApiOnce(url: string, accessToken: string) {
   return response;
 }
 
-async function driveApiFetch(url: string, accessToken: string) {
+async function driveApiFetch(
+  url: string,
+  accessToken: string,
+  resourceKeyHeader?: string | null,
+) {
   let lastError: unknown;
   const maxAttempts = DRIVE_API_RETRY_DELAYS_MS.length + 1;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
-      return await fetchDriveApiOnce(url, accessToken);
+      return await fetchDriveApiOnce(url, accessToken, resourceKeyHeader);
     } catch (error) {
       lastError = error;
       const retryDelay = DRIVE_API_RETRY_DELAYS_MS[attempt];
@@ -464,6 +488,7 @@ function driveApiMetadataFromResponse(
     id: file.id || fallback?.id || "",
     name: file.name || fallback?.name || "Google Drive file",
     mimeType: file.mimeType || fallback?.mimeType || "application/octet-stream",
+    resourceKey: file.resourceKey || fallback?.resourceKey,
     size: file.size ? Number(file.size) : fallback?.size,
     modifiedTime: file.modifiedTime || fallback?.modifiedTime,
     webViewLink: file.webViewLink || fallback?.webViewLink,
@@ -475,7 +500,7 @@ function escapeDriveQueryValue(value: string) {
 }
 
 async function listGoogleDriveFolderChildren(
-  folderId: string,
+  folder: GoogleDriveFileMetadata,
   accessToken: string,
 ) {
   const files: GoogleDriveFileMetadata[] = [];
@@ -484,9 +509,9 @@ async function listGoogleDriveFolderChildren(
   do {
     const params = new URLSearchParams({
       fields:
-        "nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,capabilities(canDownload))",
+        "nextPageToken,files(id,name,mimeType,resourceKey,size,modifiedTime,webViewLink,capabilities(canDownload))",
       pageSize: "1000",
-      q: `'${escapeDriveQueryValue(folderId)}' in parents and trashed = false`,
+      q: `'${escapeDriveQueryValue(folder.id)}' in parents and trashed = false`,
       supportsAllDrives: "true",
       includeItemsFromAllDrives: "true",
     });
@@ -495,6 +520,7 @@ async function listGoogleDriveFolderChildren(
     const response = await driveApiFetch(
       `https://www.googleapis.com/drive/v3/files?${params}`,
       accessToken,
+      driveResourceKeyHeader(folder.id, folder.resourceKey),
     );
     const payload = (await response.json()) as DriveApiFileListResponse;
 
@@ -541,7 +567,7 @@ async function expandGoogleDriveSelection(
       folderBatch.map(async (folder) => {
         if (seenFolders.has(folder.id)) return [];
         seenFolders.add(folder.id);
-        return listGoogleDriveFolderChildren(folder.id, accessToken);
+        return listGoogleDriveFolderChildren(folder, accessToken);
       }),
     );
 
@@ -602,19 +628,21 @@ export async function downloadGoogleDriveImage(
 ): Promise<DownloadedGoogleDriveFile> {
   const metadataParams = new URLSearchParams({
     fields:
-      "id,name,mimeType,size,modifiedTime,webViewLink,capabilities(canDownload)",
+      "id,name,mimeType,resourceKey,size,modifiedTime,webViewLink,capabilities(canDownload)",
   });
   const metadataResponse = await driveApiFetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
       selectedFile.id,
     )}?${metadataParams}`,
     accessToken,
+    driveResourceKeyHeader(selectedFile.id, selectedFile.resourceKey),
   );
   const metadataPayload = (await metadataResponse.json()) as DriveApiFileResponse;
   const metadata: GoogleDriveFileMetadata = {
     id: metadataPayload.id || selectedFile.id,
     name: metadataPayload.name || selectedFile.name,
     mimeType: metadataPayload.mimeType || selectedFile.mimeType,
+    resourceKey: metadataPayload.resourceKey || selectedFile.resourceKey,
     size: metadataPayload.size ? Number(metadataPayload.size) : selectedFile.size,
     modifiedTime: metadataPayload.modifiedTime,
     webViewLink: metadataPayload.webViewLink || selectedFile.webViewLink,
@@ -633,6 +661,7 @@ export async function downloadGoogleDriveImage(
       metadata.id,
     )}?alt=media`,
     accessToken,
+    driveResourceKeyHeader(metadata.id, metadata.resourceKey),
   );
   const blob = await contentResponse.blob();
   const lastModified = metadata.modifiedTime
