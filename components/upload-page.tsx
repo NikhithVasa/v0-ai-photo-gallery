@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   CloudDownload,
   FileImage,
-  FolderOpen,
   Images,
   Loader2,
   Upload,
@@ -983,6 +982,7 @@ export function UploadPage() {
                 void importFromGoogleDrive();
               }}
               disabled={isImportingDrive || isImportingPhotos || isUploading}
+              title="Select images, or select one folder to import every image inside it."
             >
               {isImportingDrive ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -990,24 +990,6 @@ export function UploadPage() {
                 <CloudDownload className="h-4 w-4" />
               )}
               Upload from Google Drive
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setMessage("");
-                void importFromGoogleDrive({ foldersOnly: true });
-              }}
-              disabled={isImportingDrive || isImportingPhotos || isUploading}
-            >
-              {isImportingDrive ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FolderOpen className="h-4 w-4" />
-              )}
-              Select All from Drive Folder
             </Button>
 
             <Button

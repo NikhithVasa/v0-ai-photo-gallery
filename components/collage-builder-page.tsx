@@ -20,7 +20,6 @@ import {
   ChevronDown,
   CloudDownload,
   Download,
-  FolderOpen,
   ImagePlus,
   Images,
   LayoutTemplate,
@@ -1707,6 +1706,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 className="w-full"
                 onClick={() => void importFromGoogleDrive()}
                 disabled={isGoogleImporting}
+                title="Select images, or select one folder to import every image inside it."
               >
                 {isImportingDrive ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1714,19 +1714,6 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                   <CloudDownload className="h-4 w-4" />
                 )}
                 Upload from Google Drive
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => void importFromGoogleDrive({ foldersOnly: true })}
-                disabled={isGoogleImporting}
-              >
-                {isImportingDrive ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <FolderOpen className="h-4 w-4" />
-                )}
-                Select All from Drive Folder
               </Button>
               <Button
                 variant="outline"

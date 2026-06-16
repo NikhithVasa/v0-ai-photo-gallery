@@ -45,7 +45,6 @@ interface PickerCallbackData {
 
 interface PickerView {
   setIncludeFolders: (included: boolean) => PickerView;
-  setMimeTypes: (mimeTypes: string) => PickerView;
   setMode: (mode: string) => PickerView;
   setSelectFolderEnabled: (enabled: boolean) => PickerView;
 }
@@ -96,7 +95,6 @@ interface GoogleBrowserApi {
     PickerBuilder: new () => PickerBuilder;
     ViewId: {
       DOCS_IMAGES: string;
-      FOLDERS: string;
     };
   };
 }
@@ -320,21 +318,14 @@ function openDrivePicker(
   accessToken: string,
   apiKey: string,
   appId: string,
-  options: { foldersOnly?: boolean } = {},
 ) {
   return new Promise<GoogleDriveFileMetadata[]>((resolve, reject) => {
-    const imageView = options.foldersOnly
-      ? new googleApi.picker.DocsView(googleApi.picker.ViewId.FOLDERS)
-          .setIncludeFolders(true)
-          .setMimeTypes(GOOGLE_DRIVE_FOLDER_MIME_TYPE)
-          .setSelectFolderEnabled(true)
-          .setMode(googleApi.picker.DocsViewMode.LIST)
-      : new googleApi.picker.DocsView(
-          googleApi.picker.ViewId.DOCS_IMAGES,
-        )
-          .setIncludeFolders(true)
-          .setSelectFolderEnabled(true)
-          .setMode(googleApi.picker.DocsViewMode.LIST);
+    const imageView = new googleApi.picker.DocsView(
+      googleApi.picker.ViewId.DOCS_IMAGES,
+    )
+      .setIncludeFolders(true)
+      .setSelectFolderEnabled(true)
+      .setMode(googleApi.picker.DocsViewMode.LIST);
 
     try {
       const picker = new googleApi.picker.PickerBuilder()
@@ -608,9 +599,7 @@ async function expandGoogleDriveSelection(
   };
 }
 
-export async function pickGoogleDriveImages(
-  options: { foldersOnly?: boolean } = {},
-): Promise<GoogleDrivePickerResult> {
+export async function pickGoogleDriveImages(): Promise<GoogleDrivePickerResult> {
   const config = getGoogleDriveConfig();
   const googleApi = await loadGoogleLibraries();
   const accessToken = await requestDriveAccessToken(googleApi, config.clientId);
@@ -619,7 +608,6 @@ export async function pickGoogleDriveImages(
     accessToken,
     config.apiKey,
     config.appId,
-    options,
   );
   const expandedSelection = await expandGoogleDriveSelection(
     selectedFiles,
