@@ -13,7 +13,6 @@ interface StartAiWorkerBody {
 
 interface AlbumAccessRow {
   slug: string;
-  event_exists: boolean;
 }
 
 function isUuid(value: unknown): value is string {
@@ -44,38 +43,47 @@ export async function POST(request: Request) {
         ? body.mode.trim()
         : "new_photos_only";
 
-    if (!albumId || !eventId) {
+    const requiresEventId = mode !== "full_album_reset";
+
+    if (!albumId || (requiresEventId && !eventId)) {
       return NextResponse.json(
-        { error: "albumId and eventId are required" },
+        { error: requiresEventId ? "albumId and eventId are required" : "albumId is required" },
         { status: 400 },
       );
     }
 
     const album = await queryOne<AlbumAccessRow>(
       `
-      SELECT
-        a.slug,
-        EXISTS (
-          SELECT 1
-          FROM album_events e
-          WHERE e.id = $2::uuid
-            AND e.album_id = a.id
-            AND COALESCE(e.is_deleted, false) = false
-        ) AS event_exists
+      SELECT a.slug
       FROM albums a
       WHERE a.id = $1::uuid
         AND COALESCE(a.is_deleted, false) = false
       LIMIT 1
       `,
-      [albumId, eventId],
+      [albumId],
     );
 
     if (!album) {
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
 
-    if (!album.event_exists) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    if (requiresEventId) {
+      const event = await queryOne<{ exists: boolean }>(
+        `
+        SELECT EXISTS (
+          SELECT 1
+          FROM album_events e
+          WHERE e.id = $2::uuid
+            AND e.album_id = $1::uuid
+            AND COALESCE(e.is_deleted, false) = false
+        ) AS exists
+        `,
+        [albumId, eventId],
+      );
+
+      if (!event?.exists) {
+        return NextResponse.json({ error: "Event not found" }, { status: 404 });
+      }
     }
 
     const accessDenied = await requireAlbumCustomerAccess(album.slug);
@@ -99,7 +107,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         albumId,
-        eventId,
+        eventId: eventId || null,
         mode,
       }),
     });

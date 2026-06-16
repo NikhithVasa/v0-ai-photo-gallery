@@ -3,6 +3,9 @@ import { query, queryOne, withTransaction } from "@/lib/db";
 import { checkRunpodEndpoint, submitRunpodJob } from "@/lib/runpod";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 
+const DEFAULT_AI_WORKER_LAMBDA_URL =
+  "https://ytwjenx44g62fzjrrb2wdad6gi0pnbrt.lambda-url.us-east-1.on.aws/";
+
 interface Props {
   params: Promise<{ albumSlug: string }>;
 }
@@ -33,6 +36,51 @@ interface DbQueryResult {
 
 interface DbQueryClient {
   query: (text: string, params?: unknown[]) => Promise<DbQueryResult>;
+}
+
+function aiWorkerAdminKey() {
+  return (
+    process.env.ADMIN_KEY ||
+    process.env.AI_WORKER_ADMIN_KEY ||
+    process.env.RUNPOD_ADMIN_KEY ||
+    ""
+  ).trim();
+}
+
+async function startAiWorker(albumId: string) {
+  const adminKey = aiWorkerAdminKey();
+  if (!adminKey) {
+    throw new Error("AI worker admin key is not configured");
+  }
+
+  const lambdaUrl =
+    process.env.AI_WORKER_LAMBDA_URL?.trim() || DEFAULT_AI_WORKER_LAMBDA_URL;
+  const response = await fetch(lambdaUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-key": adminKey,
+    },
+    body: JSON.stringify({
+      albumId,
+      mode: "full_album_reset",
+    }),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+
+  if (!response.ok || payload.ok === false) {
+    throw new Error(
+      typeof payload.error === "string"
+        ? payload.error
+        : "AI worker failed to start"
+    );
+  }
+
+  return payload;
 }
 
 function slugList(value: unknown) {
@@ -475,6 +523,11 @@ export async function POST(request: Request, { params }: Props) {
       }));
     }
 
+    const lambda =
+      action === "reset_album_ai"
+        ? await startAiWorker(album.id)
+        : null;
+
     if (action === "reset_album_ai") {
       await checkRunpodEndpoint();
     }
@@ -483,7 +536,7 @@ export async function POST(request: Request, { params }: Props) {
       action === "reset_album_ai" ? await resetAlbumAiData(album.id) : null;
 
     const runpod = await submitRunpodJob(input);
-    return NextResponse.json({ ok: true, input, runpod, reset });
+    return NextResponse.json({ ok: true, input, runpod, reset, lambda });
   } catch (error) {
     console.error("Error submitting AI job:", error);
     return NextResponse.json(
