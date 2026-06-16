@@ -37,7 +37,8 @@ function personPhotosUrl(
   albumSlug: string,
   shareToken: string,
   personId: string,
-  selectedEventSlug: string | null
+  selectedEventSlug: string | null,
+  onlyPerson: boolean,
 ) {
   const base = `/api/albums/${encodeURIComponent(
     albumSlug
@@ -46,6 +47,7 @@ function personPhotosUrl(
 
   if (selectedEventSlug) params.set("event", selectedEventSlug);
   if (shareToken) params.set("share", shareToken);
+  if (onlyPerson) params.set("peopleMode", "only");
 
   const query = params.toString();
   return query ? `${base}?${query}` : base;
@@ -63,9 +65,10 @@ export function PersonView({
   const [activeEventSlug, setActiveEventSlug] = useState<string | null>(
     selectedEventSlug
   );
+  const [onlyPerson, setOnlyPerson] = useState(false);
 
   const { data, error, isLoading } = useSWR<{ photos: Photo[] }>(
-    personPhotosUrl(albumSlug, shareToken, person.id, activeEventSlug),
+    personPhotosUrl(albumSlug, shareToken, person.id, activeEventSlug, onlyPerson),
     fetcher,
     swrOptions
   );
@@ -138,6 +141,27 @@ export function PersonView({
           </div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOnlyPerson((current) => !current)}
+            aria-pressed={onlyPerson}
+            className={`h-10 rounded-full px-4 text-sm font-medium ring-1 transition ${
+              onlyPerson
+                ? "bg-zinc-950 text-white ring-zinc-950"
+                : "bg-white text-zinc-700 ring-zinc-200 hover:text-zinc-950"
+            }`}
+          >
+            Only them
+          </button>
+          {data?.photos ? (
+            <span className="text-sm text-muted-foreground">
+              Showing {data.photos.length}{" "}
+              {data.photos.length === 1 ? "photo" : "photos"}
+            </span>
+          ) : null}
+        </div>
+
         {!!events.length && (
           <div className="flex max-w-full flex-wrap gap-2 pb-1">
             <button
@@ -207,7 +231,9 @@ export function PersonView({
         <>
           {data.photos.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
-              No photos found for this person.
+              {onlyPerson
+                ? "No photos found with only this person."
+                : "No photos found for this person."}
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">

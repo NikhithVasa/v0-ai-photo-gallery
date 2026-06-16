@@ -28,10 +28,12 @@ export async function GET(request: Request, { params }: Props) {
     const { searchParams } = new URL(request.url);
     const shareToken = searchParams.get("share");
     const eventSlug = searchParams.get("event") || null;
+    const onlyPerson = searchParams.get("peopleMode") === "only";
     console.log("[share-debug] person photos API start", {
       albumSlug,
       personId,
       eventSlug,
+      onlyPerson,
       hasShareToken: Boolean(shareToken),
       shareToken: shortToken(shareToken),
     });
@@ -60,6 +62,7 @@ export async function GET(request: Request, { params }: Props) {
       albumSlug,
       personId,
       eventSlug,
+      onlyPerson,
       sortMode,
     });
 
@@ -131,11 +134,22 @@ export async function GET(request: Request, { params }: Props) {
       ) photo_people_summary ON true
       WHERE lower(a.slug) = lower($1)
         AND ($3::text IS NULL OR e.slug = $3)
+        AND (
+          $4::boolean = false
+          OR (
+            SELECT COUNT(DISTINCT pp.person_id)
+            FROM photo_people pp
+            JOIN people pe
+              ON pe.id = pp.person_id
+             AND COALESCE(pe.is_hidden, false) = false
+            WHERE pp.photo_id = p.id
+          ) = 1
+        )
         AND COALESCE(p.is_deleted, false) = false
         AND p.upload_status = 'completed'
       ORDER BY ${orderBy}
       `,
-      [albumSlug, personId, eventSlug]
+      [albumSlug, personId, eventSlug, onlyPerson]
     );
 
     const photos: Photo[] = await Promise.all(rows.map(toPhoto));
