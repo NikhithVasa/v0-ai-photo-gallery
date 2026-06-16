@@ -23,7 +23,7 @@ import type {
   PhotoSortMode,
 } from "@/lib/types";
 
-export type PeopleMatchMode = "all" | "any";
+export type PeopleMatchMode = "all" | "any" | "only";
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -346,7 +346,7 @@ function photosUrl(
     params.set("people", selectedPeopleIds.join(","));
   }
 
-  if (selectedPeopleIds.length > 1) {
+  if (selectedPeopleIds.length > 1 || peopleMatchMode === "only") {
     params.set("peopleMode", peopleMatchMode);
   }
 
@@ -913,7 +913,9 @@ export function PhotosGrid({
 
   if (!data?.photos?.length) {
     const emptyMessage = selectedPeopleIds.length
-      ? peopleMatchMode === "any" && selectedPeopleIds.length > 1
+      ? peopleMatchMode === "only"
+        ? "No photos found with only this person."
+        : peopleMatchMode === "any" && selectedPeopleIds.length > 1
         ? "No photos found for any of the selected people."
         : "No photos found with all selected people."
       : selectedEventSlug

@@ -295,7 +295,7 @@ async function fetchDownloadRows(
   albumSlug: string,
   eventSlug: string | null,
   personIds: string[],
-  peopleMode: "all" | "any",
+  peopleMode: "all" | "any" | "only",
   photoIds: string[],
 ) {
   return query<DownloadPhotoRow>(
@@ -318,7 +318,21 @@ async function fetchDownloadRows(
       AND (
         $3::uuid[] IS NULL
         OR CASE
-          WHEN $4::boolean THEN (
+          WHEN $4::text = 'only' THEN (
+            SELECT COUNT(DISTINCT pp.person_id)
+            FROM photo_people pp
+            WHERE pp.photo_id = p.id
+              AND pp.person_id = ANY($3::uuid[])
+          ) = cardinality($3::uuid[])
+          AND (
+            SELECT COUNT(DISTINCT pp.person_id)
+            FROM photo_people pp
+            JOIN people pe
+              ON pe.id = pp.person_id
+             AND COALESCE(pe.is_hidden, false) = false
+            WHERE pp.photo_id = p.id
+          ) = cardinality($3::uuid[])
+          WHEN $4::text = 'all' THEN (
             SELECT COUNT(DISTINCT pp.person_id)
             FROM photo_people pp
             WHERE pp.photo_id = p.id
@@ -342,7 +356,7 @@ async function fetchDownloadRows(
       albumSlug,
       eventSlug,
       personIds.length ? personIds : null,
-      peopleMode === "all",
+      peopleMode,
       photoIds.length ? photoIds : null,
     ],
   );
@@ -355,7 +369,11 @@ export async function GET(request: Request, { params }: Props) {
     const shareToken = searchParams.get("share");
     const eventSlug = searchParams.get("event") || null;
     const format = parseDownloadFormat(searchParams.get("format"));
-    const peopleMode = searchParams.get("peopleMode") === "any" ? "any" : "all";
+    const rawPeopleMode = searchParams.get("peopleMode");
+    const peopleMode =
+      rawPeopleMode === "any" || rawPeopleMode === "only"
+        ? rawPeopleMode
+        : "all";
     const personIds = (searchParams.get("people") ?? "")
       .split(",")
       .map((id) => id.trim())

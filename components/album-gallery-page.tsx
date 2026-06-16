@@ -842,7 +842,7 @@ function AlbumDownloadMenu({
 
     if (options?.people && selectedPeopleIds.length) {
       params.set("people", selectedPeopleIds.join(","));
-      if (selectedPeopleIds.length > 1) {
+      if (selectedPeopleIds.length > 1 || peopleMatchMode === "only") {
         params.set("peopleMode", peopleMatchMode);
       }
     }
@@ -2091,7 +2091,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }, [album, albumSlug, router, selectedEventSlug, shareToken]);
 
   useEffect(() => {
-    if (selectedPeopleIds.length < 2 && peopleMatchMode !== "all") {
+    if (selectedPeopleIds.length === 0 && peopleMatchMode !== "all") {
+      setPeopleMatchMode("all");
+    }
+    if (selectedPeopleIds.length > 1 && peopleMatchMode === "only") {
       setPeopleMatchMode("all");
     }
   }, [peopleMatchMode, selectedPeopleIds.length]);
@@ -2802,6 +2805,25 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                       value={peopleMatchMode}
                       onChange={setPeopleMatchMode}
                     />
+                  )}
+
+                  {selectedPeopleIds.length === 1 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPeopleMatchMode((current) =>
+                          current === "only" ? "all" : "only"
+                        )
+                      }
+                      aria-pressed={peopleMatchMode === "only"}
+                      className={`h-10 shrink-0 cursor-pointer rounded-full px-4 text-sm font-medium shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
+                        peopleMatchMode === "only"
+                          ? "bg-[#1d1d1f] text-white ring-[#1d1d1f]"
+                          : "bg-white/80 text-zinc-700 ring-black/10 hover:bg-white hover:text-zinc-950"
+                      }`}
+                    >
+                      Only them
+                    </button>
                   )}
                 </div>
               )}

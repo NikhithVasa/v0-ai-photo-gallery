@@ -48,7 +48,11 @@ export async function GET(request: Request, { params }: Props) {
       .split(",")
       .map((id) => id.trim())
       .filter((id) => id && isUuid(id));
-    const peopleMode = searchParams.get("peopleMode") === "any" ? "any" : "all";
+    const rawPeopleMode = searchParams.get("peopleMode");
+    const peopleMode =
+      rawPeopleMode === "any" || rawPeopleMode === "only"
+        ? rawPeopleMode
+        : "all";
     await ensurePhotoSortSchema();
     const sortMode = eventSlug
       ? await eventSortMode(albumSlug, eventSlug)
@@ -126,7 +130,21 @@ export async function GET(request: Request, { params }: Props) {
         AND (
           $3::uuid[] IS NULL
           OR CASE
-            WHEN $4::boolean THEN (
+            WHEN $4::text = 'only' THEN (
+              SELECT COUNT(DISTINCT pp.person_id)
+              FROM photo_people pp
+              WHERE pp.photo_id = p.id
+                AND pp.person_id = ANY($3::uuid[])
+            ) = cardinality($3::uuid[])
+            AND (
+              SELECT COUNT(DISTINCT pp.person_id)
+              FROM photo_people pp
+              JOIN people pe
+                ON pe.id = pp.person_id
+               AND COALESCE(pe.is_hidden, false) = false
+              WHERE pp.photo_id = p.id
+            ) = cardinality($3::uuid[])
+            WHEN $4::text = 'all' THEN (
               SELECT COUNT(DISTINCT pp.person_id)
               FROM photo_people pp
               WHERE pp.photo_id = p.id
@@ -148,7 +166,7 @@ export async function GET(request: Request, { params }: Props) {
         albumSlug,
         eventSlug,
         personIds.length ? personIds : null,
-        peopleMode === "all",
+        peopleMode,
       ]
     );
 
