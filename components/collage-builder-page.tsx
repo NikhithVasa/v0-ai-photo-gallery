@@ -130,6 +130,9 @@ const defaultAdjustment: CellAdjustment = {
   offsetY: 0,
 };
 
+const MIN_CELL_ZOOM = 0.25;
+const MAX_CELL_ZOOM = 2.4;
+
 const fetcher = async (url: string) => {
   const response = await fetch(url);
   const data = await response.json();
@@ -327,12 +330,46 @@ function normalizeAdjustment(adjustment?: Partial<CellAdjustment>): CellAdjustme
   };
 }
 
-function objectPositionForAdjustment(position: ImagePosition) {
-  if (position === "top") return "50% 0%";
-  if (position === "bottom") return "50% 100%";
-  if (position === "left") return "0% 50%";
-  if (position === "right") return "100% 50%";
-  return "50% 50%";
+function imageRectForCell(
+  imageWidth: number,
+  imageHeight: number,
+  cellWidth: number,
+  cellHeight: number,
+  fit: FitMode,
+  position: ImagePosition,
+) {
+  const imageRatio = imageWidth / imageHeight;
+  const cellRatio = cellWidth / cellHeight;
+  let width = cellWidth;
+  let height = cellHeight;
+
+  if (fit === "cover") {
+    if (imageRatio > cellRatio) {
+      height = cellHeight;
+      width = cellHeight * imageRatio;
+    } else {
+      width = cellWidth;
+      height = cellWidth / imageRatio;
+    }
+  } else if (fit === "contain") {
+    if (imageRatio > cellRatio) {
+      width = cellWidth;
+      height = cellWidth / imageRatio;
+    } else {
+      height = cellHeight;
+      width = cellHeight * imageRatio;
+    }
+  }
+
+  let left = (cellWidth - width) / 2;
+  let top = (cellHeight - height) / 2;
+
+  if (position === "top") top = 0;
+  if (position === "bottom") top = cellHeight - height;
+  if (position === "left") left = 0;
+  if (position === "right") left = cellWidth - width;
+
+  return { left, top, width, height };
 }
 
 function downloadBlob(blob: Blob, fileName: string) {
@@ -569,6 +606,7 @@ function CollageCell({
   onAdjustChange: (partial: Partial<CellAdjustment>) => void;
   onMovePointerDown: (event: ReactPointerEvent<HTMLButtonElement>, photoIndex: number) => void;
 }) {
+  const cellContentRef = useRef<HTMLDivElement>(null);
   const panStateRef = useRef({
     active: false,
     startX: 0,
@@ -582,6 +620,30 @@ function CollageCell({
     initialDistance: 0,
     initialZoom: 1,
   });
+  const [cellSize, setCellSize] = useState({ width: 0, height: 0 });
+  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const node = cellContentRef.current;
+    if (!node) return;
+
+    const updateSize = () => {
+      const rect = node.getBoundingClientRect();
+      setCellSize({
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      });
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    setImageSize({ width: 0, height: 0 });
+  }, [src]);
 
   const distanceBetweenPointers = () => {
     const values = Array.from(pinchStateRef.current.pointers.values());
@@ -628,7 +690,7 @@ function CollageCell({
       const nextDistance = distanceBetweenPointers();
       const startDistance = pinchStateRef.current.initialDistance || nextDistance;
       if (startDistance > 0) {
-        const nextZoom = Math.max(0.6, Math.min(2.4, pinchStateRef.current.initialZoom * (nextDistance / startDistance)));
+        const nextZoom = Math.max(MIN_CELL_ZOOM, Math.min(MAX_CELL_ZOOM, pinchStateRef.current.initialZoom * (nextDistance / startDistance)));
         onAdjustChange({ zoom: Number(nextZoom.toFixed(3)) });
       }
       return;
@@ -669,7 +731,7 @@ function CollageCell({
     event.stopPropagation();
     onSelect();
     const direction = event.deltaY > 0 ? -1 : 1;
-    const nextZoom = Math.max(0.6, Math.min(2.4, adjustment.zoom + direction * 0.06));
+    const nextZoom = Math.max(MIN_CELL_ZOOM, Math.min(MAX_CELL_ZOOM, adjustment.zoom + direction * 0.06));
     onAdjustChange({ zoom: Number(nextZoom.toFixed(2)) });
   };
 
@@ -683,9 +745,16 @@ function CollageCell({
   const isDraggingForSwap = Boolean(moveDragState?.active);
   const isDropCandidate = isDraggingForSwap && moveDragState?.fromIndex !== index;
   const isDropTarget = dropTargetIndex === index && moveDragState?.fromIndex !== index;
+  const fittedRect =
+    imageSize.width > 0 && imageSize.height > 0 && cellSize.width > 0 && cellSize.height > 0
+      ? imageRectForCell(imageSize.width, imageSize.height, cellSize.width, cellSize.height, fitMode, imagePosition)
+      : { left: 0, top: 0, width: cellSize.width || 1, height: cellSize.height || 1 };
   const imageStyle = {
-    objectFit: fitMode,
-    objectPosition: objectPositionForAdjustment(imagePosition),
+    left: `${fittedRect.left}px`,
+    top: `${fittedRect.top}px`,
+    width: `${fittedRect.width}px`,
+    height: `${fittedRect.height}px`,
+    objectFit: "fill",
     transform: `translate3d(${adjustment.offsetX}px, ${adjustment.offsetY}px, 0) scale(${adjustment.zoom}) rotate(${adjustment.rotate}deg)`,
     transformOrigin: "center center",
     touchAction: "none",
@@ -726,6 +795,7 @@ function CollageCell({
       aria-label={`Collage cell ${index + 1}`}
     >
       <div
+        ref={cellContentRef}
         className="relative block h-full w-full overflow-hidden bg-zinc-100"
         onTouchStart={preventPagePinchZoom}
         onTouchMove={preventPagePinchZoom}
@@ -743,36 +813,24 @@ function CollageCell({
         )}
         {photo && src ? (
           <>
-            {isLocalImageUrl(src) ? (
-              <img
-                src={src}
-                alt={photo.fileName || `Photo ${index + 1}`}
-                className="absolute inset-0 h-full w-full"
-                style={imageStyle}
-                draggable={false}
-                onWheel={handleWheelZoom}
-                onPointerDown={beginPan}
-                onPointerMove={updatePan}
-                onPointerUp={endPan}
-                onPointerCancel={endPan}
-              />
-            ) : (
-              <Image
-                src={src}
-                alt={photo.fileName || `Photo ${index + 1}`}
-                fill
-                sizes="(min-width: 1024px) 640px, 96vw"
-                className="h-full w-full"
-                style={imageStyle}
-                draggable={false}
-                onWheel={handleWheelZoom}
-                onPointerDown={beginPan}
-                onPointerMove={updatePan}
-                onPointerUp={endPan}
-                onPointerCancel={endPan}
-                unoptimized
-              />
-            )}
+            <img
+              src={src}
+              alt={photo.fileName || `Photo ${index + 1}`}
+              className="absolute max-w-none"
+              style={imageStyle}
+              draggable={false}
+              onLoad={(event) =>
+                setImageSize({
+                  width: event.currentTarget.naturalWidth,
+                  height: event.currentTarget.naturalHeight,
+                })
+              }
+              onWheel={handleWheelZoom}
+              onPointerDown={beginPan}
+              onPointerMove={updatePan}
+              onPointerUp={endPan}
+              onPointerCancel={endPan}
+            />
             <button
               type="button"
               draggable
@@ -1998,8 +2056,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 </div>
                 <Slider
                   value={[selectedAdjustment.zoom]}
-                  min={0.6}
-                  max={2.4}
+                  min={MIN_CELL_ZOOM}
+                  max={MAX_CELL_ZOOM}
                   step={0.05}
                   onValueChange={([value]) => updateSelectedAdjustment({ zoom: value })}
                   disabled={!selectedCellPhoto}
