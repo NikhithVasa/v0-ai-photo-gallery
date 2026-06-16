@@ -89,11 +89,19 @@ export async function GET(request: Request, { params }: Props) {
         COALESCE(pso.position, p.custom_sort_order) AS custom_sort_order,
         e.slug AS event_slug,
         e.name AS event_name,
-        pp.qwen_description,
-        pp.search_text AS person_search_text,
+        selected_pp.qwen_description,
+        selected_pp.search_text AS person_search_text,
         COALESCE(photo_people_summary.people, '[]'::jsonb) AS people
-      FROM photo_people pp
-      JOIN photos p ON p.id = pp.photo_id
+      FROM (
+        SELECT
+          photo_id,
+          MIN(qwen_description) AS qwen_description,
+          MIN(search_text) AS search_text
+        FROM photo_people
+        WHERE person_id = $2
+        GROUP BY photo_id
+      ) selected_pp
+      JOIN photos p ON p.id = selected_pp.photo_id
       JOIN albums a ON a.id = p.album_id
       JOIN album_events e ON e.id = p.album_event_id
       LEFT JOIN photo_sort_positions pso
@@ -122,7 +130,6 @@ export async function GET(request: Request, { params }: Props) {
           AND COALESCE(pe.is_hidden, false) = false
       ) photo_people_summary ON true
       WHERE lower(a.slug) = lower($1)
-        AND pp.person_id = $2
         AND ($3::text IS NULL OR e.slug = $3)
         AND COALESCE(p.is_deleted, false) = false
         AND p.upload_status = 'completed'

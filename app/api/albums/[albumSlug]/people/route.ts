@@ -68,9 +68,9 @@ export async function GET(request: Request, { params }: Props) {
             pe.default_name,
             pe.display_name,
             pe.cover_face_s3_key,
-            COUNT(DISTINCT pp.photo_id)::int AS photo_count,
-            COUNT(*)::int AS face_count,
-            COUNT(*)::int AS occurrence_count
+            COUNT(DISTINCT p.id)::int AS photo_count,
+            COUNT(p.id)::int AS face_count,
+            COUNT(p.id)::int AS occurrence_count
           FROM people pe
           JOIN albums a
             ON a.id = pe.album_id
@@ -81,6 +81,11 @@ export async function GET(request: Request, { params }: Props) {
           JOIN photo_people pp
             ON pp.person_id = pe.id
            AND pp.album_event_id = e.id
+          JOIN photos p
+            ON p.id = pp.photo_id
+           AND p.album_event_id = e.id
+           AND COALESCE(p.is_deleted, false) = false
+           AND p.upload_status = 'completed'
           WHERE lower(a.slug) = lower($1)
             AND COALESCE(a.is_deleted, false) = false
             AND COALESCE(pe.is_hidden, false) = false
@@ -91,7 +96,7 @@ export async function GET(request: Request, { params }: Props) {
             pe.default_name,
             pe.display_name,
             pe.cover_face_s3_key
-          ORDER BY COUNT(DISTINCT pp.photo_id) DESC, pe.person_number ASC
+          ORDER BY COUNT(DISTINCT p.id) DESC, pe.person_number ASC
           `,
           [albumSlug, eventSlug]
         )
@@ -104,16 +109,29 @@ export async function GET(request: Request, { params }: Props) {
             pe.default_name,
             pe.display_name,
             pe.cover_face_s3_key,
-            pe.face_count,
-            pe.photo_count,
-            pe.occurrence_count
+            COUNT(p.id)::int AS face_count,
+            COUNT(DISTINCT p.id)::int AS photo_count,
+            COUNT(p.id)::int AS occurrence_count
           FROM people pe
           JOIN albums a
             ON a.id = pe.album_id
+          LEFT JOIN photo_people pp
+            ON pp.person_id = pe.id
+          LEFT JOIN photos p
+            ON p.id = pp.photo_id
+           AND COALESCE(p.is_deleted, false) = false
+           AND p.upload_status = 'completed'
           WHERE lower(a.slug) = lower($1)
             AND COALESCE(a.is_deleted, false) = false
             AND COALESCE(pe.is_hidden, false) = false
-          ORDER BY pe.photo_count DESC NULLS LAST, pe.person_number ASC
+          GROUP BY
+            pe.id,
+            pe.album_id,
+            pe.person_number,
+            pe.default_name,
+            pe.display_name,
+            pe.cover_face_s3_key
+          ORDER BY COUNT(DISTINCT p.id) DESC, pe.person_number ASC
           `,
           [albumSlug]
         );
@@ -139,11 +157,16 @@ export async function GET(request: Request, { params }: Props) {
         e.id AS event_id,
         e.slug AS event_slug,
         e.name AS event_name,
-        COUNT(DISTINCT pp.photo_id)::int AS photo_count,
-        COUNT(*)::int AS face_count
+        COUNT(DISTINCT p.id)::int AS photo_count,
+        COUNT(p.id)::int AS face_count
       FROM photo_people pp
+      JOIN photos p
+        ON p.id = pp.photo_id
+       AND COALESCE(p.is_deleted, false) = false
+       AND p.upload_status = 'completed'
       JOIN album_events e
         ON e.id = pp.album_event_id
+       AND e.id = p.album_event_id
        AND COALESCE(e.is_deleted, false) = false
       JOIN albums a
         ON a.id = e.album_id
@@ -156,7 +179,7 @@ export async function GET(request: Request, { params }: Props) {
         e.slug,
         e.name,
         e.sort_order
-      HAVING COUNT(DISTINCT pp.photo_id) > 0
+      HAVING COUNT(DISTINCT p.id) > 0
       ORDER BY e.sort_order ASC NULLS LAST, e.name ASC
       `,
       [albumSlug, personIds]
