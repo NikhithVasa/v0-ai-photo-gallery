@@ -102,14 +102,18 @@ export function useGoogleImageImport({
     };
   }, []);
 
-  const importFromGoogleDrive = async () => {
+  const importFromGoogleDrive = async (options: { foldersOnly?: boolean } = {}) => {
     if (isImportingDrive || isImportingPhotos) return;
 
     setIsImportingDrive(true);
-    setMessage("");
+    setMessage(
+      options.foldersOnly
+        ? "Choose a Google Drive folder..."
+        : "Choose Google Drive images or a folder...",
+    );
 
     try {
-      const selection = await pickGoogleDriveImages();
+      const selection = await pickGoogleDriveImages(options);
       if (!selection.files.length) {
         setMessage(
           selection.summary.folderCount
@@ -128,9 +132,9 @@ export function useGoogleImageImport({
       );
 
       setMessage(
-        `Reading ${selection.files.length} Google Drive image${
+        `Found ${selection.files.length} Google Drive image${
           selection.files.length === 1 ? "" : "s"
-        } with ${concurrentDownloads} concurrent download${
+        }. Reading with ${concurrentDownloads} concurrent download${
           concurrentDownloads === 1 ? "" : "s"
         }...`,
       );

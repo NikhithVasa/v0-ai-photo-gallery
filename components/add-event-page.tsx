@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   CloudDownload,
   FileImage,
+  FolderOpen,
   ImageUp,
   Images,
   Info,
@@ -972,6 +973,19 @@ export function AddEventPage({
               <CloudDownload className="h-4 w-4" />
             )}
             Upload from Google Drive
+          </button>
+          <button
+            type="button"
+            onClick={() => void importFromGoogleDrive({ foldersOnly: true })}
+            disabled={isUploading || isGoogleImporting}
+            className="flex h-10 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isImportingDrive ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FolderOpen className="h-4 w-4" />
+            )}
+            Select All from Drive Folder
           </button>
           <button
             type="button"
