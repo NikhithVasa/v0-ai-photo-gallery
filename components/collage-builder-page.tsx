@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useGoogleImageImport } from "@/hooks/use-google-image-import";
 import { usePasscodeVerification } from "@/hooks/use-passcode-verification";
+import { photoPreviewImageUrl } from "@/lib/photo-image-url";
 import type { AlbumDetail, AlbumSummary, Photo } from "@/lib/types";
 
 type CollageTemplate =
@@ -303,8 +304,8 @@ function photoSearchText(photo: Photo) {
     .toLowerCase();
 }
 
-function resolvePhotoUrl(photo: Photo, originalUrls: Record<string, string>) {
-  return originalUrls[photo.id] || photo.previewUrl || photo.thumbnailUrl || "";
+function resolvePhotoUrl(photo: Photo, originalUrls: Record<string, string>, shareToken = "") {
+  return originalUrls[photo.id] || photoPreviewImageUrl(photo, shareToken) || photo.downloadUrl || "";
 }
 
 function isLocalImageUrl(src: string) {
@@ -467,16 +468,18 @@ function PhotoTile({
   photo,
   selected,
   active,
+  shareToken,
   onToggle,
   onDragStart,
 }: {
   photo: CollagePhoto;
   selected: boolean;
   active?: boolean;
+  shareToken?: string;
   onToggle: () => void;
   onDragStart?: () => void;
 }) {
-  const src = photo.thumbnailUrl || photo.previewUrl || "";
+  const src = photoPreviewImageUrl(photo, shareToken) || "";
 
   return (
     <button
@@ -1268,7 +1271,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
     }
 
     if (backgroundMode === "blur" && assignedPhotos[0]) {
-      const firstUrl = resolvePhotoUrl(assignedPhotos[0], originalUrls);
+      const firstUrl = resolvePhotoUrl(assignedPhotos[0], originalUrls, shareToken);
       if (firstUrl) {
         try {
           const image = await loadCanvasImage(firstUrl);
@@ -1304,7 +1307,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
       const imageCache = new Map<string, HTMLImageElement>();
       for (const photo of assignedPhotos) {
         if (!photo) continue;
-        const src = resolvePhotoUrl(photo, originalUrls);
+        const src = resolvePhotoUrl(photo, originalUrls, shareToken);
         if (!src) continue;
         imageCache.set(photo.id, await loadCanvasImage(src));
       }
@@ -1460,7 +1463,8 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   }, [backgroundColor, backgroundMode, borderColor]);
 
   const draggingPhoto = moveDragState ? assignedPhotos[moveDragState.fromIndex] : undefined;
-  const draggingPhotoSrc = draggingPhoto ? resolvePhotoUrl(draggingPhoto, originalUrls) : "";
+  const draggingPhotoSrc = draggingPhoto ? resolvePhotoUrl(draggingPhoto, originalUrls, shareToken) : "";
+  const backgroundPhotoUrl = assignedPhotos[0] ? resolvePhotoUrl(assignedPhotos[0], originalUrls, shareToken) : "";
 
   if (selectedAlbum?.passwordRequired && !isPasswordVerified && !isShareView) {
     return (
@@ -1699,6 +1703,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                       photo={photo}
                       selected={selectedPhotoIds.includes(photo.id)}
                       active={activeSourcePhotoId === photo.id}
+                      shareToken={shareToken}
                       onToggle={() => togglePhoto(photo.id)}
                       onDragStart={() => handleSourceDragStart(photo.id)}
                     />
@@ -1745,6 +1750,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                     photo={photo}
                     selected={selectedPhotoIds.includes(photo.id)}
                     active={activeSourcePhotoId === photo.id}
+                    shareToken={shareToken}
                     onToggle={() => togglePhoto(photo.id)}
                     onDragStart={() => handleSourceDragStart(photo.id)}
                   />
@@ -1789,12 +1795,12 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
               className="relative mx-auto max-h-[68svh] w-full max-w-[960px] overflow-hidden shadow-2xl ring-1 ring-black/10 sm:max-h-[calc(100svh-170px)]"
               style={{ aspectRatio: `${output.width} / ${output.height}`, ...previewBackgroundStyle }}
             >
-              {backgroundMode === "blur" && assignedPhotos[0] && resolvePhotoUrl(assignedPhotos[0], originalUrls) &&
-                (isLocalImageUrl(resolvePhotoUrl(assignedPhotos[0], originalUrls)) ? (
-                  <img src={resolvePhotoUrl(assignedPhotos[0], originalUrls)} alt="" className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl" />
+              {backgroundMode === "blur" && backgroundPhotoUrl &&
+                (isLocalImageUrl(backgroundPhotoUrl) ? (
+                  <img src={backgroundPhotoUrl} alt="" className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl" />
                 ) : (
                   <Image
-                    src={resolvePhotoUrl(assignedPhotos[0], originalUrls)}
+                    src={backgroundPhotoUrl}
                     alt=""
                     fill
                     sizes="960px"
@@ -1811,7 +1817,7 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                     <CollageCell
                       key={`${template}-${frameIndex}`}
                       photo={photo}
-                      src={photo ? resolvePhotoUrl(photo, originalUrls) : ""}
+                      src={photo ? resolvePhotoUrl(photo, originalUrls, shareToken) : ""}
                       frame={frame}
                       index={photoIndex}
                       selected={selectedCellIndex === photoIndex}
