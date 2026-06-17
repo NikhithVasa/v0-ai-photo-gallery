@@ -225,7 +225,7 @@ export function UploadPage() {
   const albums = albumsData?.albums ?? [];
   const events = albumData?.album.events ?? [];
   const uploadedCount = queuedFiles.filter((file) =>
-    ["uploaded", "processing", "ready"].includes(file.status),
+    ["uploaded", "processing", "ready", "uploading", "retrying"].includes(file.status),
   ).length;
   const processingCount = queuedFiles.filter((file) => file.status === "processing").length;
   const batchReadyCount = queuedFiles.filter((file) => file.status === "ready").length;
@@ -233,7 +233,14 @@ export function UploadPage() {
   const queuedCount = queuedFiles.filter((file) => file.status === "queued").length;
   const failedFiles = queuedFiles.filter((file) => file.status === "failed");
   const uploadPercent = queuedFiles.length
-    ? Math.round((uploadedCount / queuedFiles.length) * 100)
+    ? Math.round(
+        (queuedFiles.reduce((acc, file) => {
+          if (["uploaded", "processing", "ready"].includes(file.status)) return acc + 100;
+          if (["uploading", "retrying"].includes(file.status)) return acc + (file.progress ?? 0);
+          return acc + 0;
+        }, 0) /
+          queuedFiles.length),
+      )
     : 0;
   const canUpload = Boolean(
     queuedFiles.some((file) => file.status === "queued" || file.status === "failed") &&
