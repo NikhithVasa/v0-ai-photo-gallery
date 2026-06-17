@@ -253,8 +253,7 @@ function validateFiles(files: unknown) {
         typeof item.size === "number" &&
         item.size > 0
       );
-    })
-    .slice(0, 100);
+    });
 }
 
 export async function POST(request: Request) {
