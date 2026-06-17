@@ -821,6 +821,14 @@ export function UploadPage() {
                 Originals upload into the album event originals folder.
               </p>
               <AiPrivacyNotice className="mt-3 bg-zinc-50/80" />
+              {queuedFiles.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-sm font-medium">Upload progress</p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {uploadedCount} / {queuedFiles.length} uploaded · {uploadPercent}%
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2 rounded-full bg-zinc-100 p-1">
