@@ -42,8 +42,10 @@ export function AddAlbumPage() {
   const searchParams = useSearchParams();
   const coverInputRef = useRef<HTMLInputElement>(null);
 
-  const [customerName, setCustomerName] = useState(
-    searchParams.get("customerName") || "",
+  const initialCustomerName = searchParams.get("customerName") || "";
+  const [customerName, setCustomerName] = useState(initialCustomerName);
+  const [isEditingCustomer, setIsEditingCustomer] = useState(
+    !initialCustomerName,
   );
   const [albumName, setAlbumName] = useState("");
   const [description, setDescription] = useState("");
@@ -277,13 +279,28 @@ export function AddAlbumPage() {
         <div className="space-y-5">
           <div className="rounded-[26px] border border-zinc-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-zinc-950">Customer</p>
-            <input
-              value={customerName}
-              onChange={(event) => setCustomerName(event.target.value)}
-              placeholder="New customer name"
-              aria-label="New customer name"
-              className="mt-3 h-12 w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 text-base font-medium outline-none transition focus:border-zinc-400 focus:bg-white focus:ring-2 focus:ring-zinc-200"
-            />
+            {initialCustomerName && !isEditingCustomer ? (
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="min-w-0 truncate text-base font-medium text-zinc-900">
+                  {customerName}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingCustomer(true)}
+                  className="ml-2 h-9 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <input
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value)}
+                placeholder="New customer name"
+                aria-label="New customer name"
+                className="mt-3 h-12 w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 text-base font-medium outline-none transition focus:border-zinc-400 focus:bg-white focus:ring-2 focus:ring-zinc-200"
+              />
+            )}
           </div>
 
           <div className="rounded-[26px] border border-zinc-200 bg-white p-5 shadow-sm">
