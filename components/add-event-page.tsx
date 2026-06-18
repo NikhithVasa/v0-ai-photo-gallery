@@ -212,11 +212,16 @@ export function AddEventPage({
 
   const uploadButtonLabel =
     uploadTarget === "new" ? "Create event and upload" : "Start upload";
+  const uploadStarted = queuedFiles.some((file) => file.status !== "ready");
   const mediaSummary = useMemo(() => {
     if (!queuedFiles.length) return "No photos selected";
-    if (uploadedCount === queuedFiles.length) return "All photos uploaded";
+    if (uploadStarted) {
+      return `${uploadedCount}/${queuedFiles.length} photo${
+        queuedFiles.length === 1 ? "" : "s"
+      } uploaded`;
+    }
     return `${queuedFiles.length} photo${queuedFiles.length === 1 ? "" : "s"} selected`;
-  }, [queuedFiles.length, uploadedCount]);
+  }, [queuedFiles.length, uploadedCount, uploadStarted]);
 
   useEffect(() => {
     coverPreviewUrlRef.current = coverPreviewUrl;
