@@ -20,6 +20,7 @@ import {
   Download,
   Loader2,
   LayoutTemplate,
+  Lock,
   Pencil,
   Images,
   Plus,
@@ -43,6 +44,12 @@ import { ApplyPresetSelectionDialog } from "@/components/apply-preset-selection-
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { usePasscodeVerification } from "@/hooks/use-passcode-verification";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -1005,6 +1012,7 @@ function AlbumShareDialog({
   const [backgroundColor, setBackgroundColor] = useState(
     DEFAULT_SHARE_BACKGROUND_COLOR,
   );
+  const [passcode, setPasscode] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -1036,6 +1044,7 @@ function AlbumShareDialog({
     );
     setExpiresAt(source.expiresAt ?? "");
     setBackgroundColor(normalizeShareBackgroundColor(source.backgroundColor));
+    setPasscode(source.passcode ?? "");
 
     setShareUrl(data.share?.url ?? "");
   }, [data, defaultWatermarkText, isOpen]);
@@ -1050,6 +1059,12 @@ function AlbumShareDialog({
   };
 
   const save = async () => {
+    const nextPasscode = passcode.trim();
+    if (nextPasscode && nextPasscode.length < 4) {
+      setStatus("Passcode must be at least 4 characters");
+      return;
+    }
+
     setIsSaving(true);
     setStatus("");
 
@@ -1067,6 +1082,7 @@ function AlbumShareDialog({
             watermarkPositions,
             expiresAt: expiresAt || null,
             backgroundColor,
+            passcode: nextPasscode || null,
           }),
         },
       );
@@ -1077,6 +1093,7 @@ function AlbumShareDialog({
       }
 
       setShareUrl(payload.share.url);
+      setPasscode(payload.share.passcode ?? "");
       setStatus("Saved");
       await mutate(payload as AlbumShareResponse, { revalidate: false });
     } catch (error) {
@@ -1151,6 +1168,44 @@ function AlbumShareDialog({
 
         <div className="space-y-5">
           <AiPrivacyNotice className="bg-zinc-50/80" />
+
+          <Accordion
+            type="single"
+            collapsible
+            className="rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 px-3"
+          >
+            <AccordionItem value="passcode" className="border-none">
+              <AccordionTrigger className="py-3 hover:no-underline">
+                <span className="flex min-w-0 items-center gap-2">
+                  <Lock className="h-4 w-4 shrink-0 text-zinc-500" />
+                  <span>Passcode</span>
+                  <span className="truncate font-mono text-xs font-normal text-zinc-500">
+                    {passcode || "No passcode set"}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <Label htmlFor="share-passcode">Share link passcode</Label>
+                <Input
+                  id="share-passcode"
+                  type="text"
+                  value={passcode}
+                  onChange={(event) => {
+                    setPasscode(event.target.value);
+                    if (status) setStatus("");
+                  }}
+                  placeholder="Add a passcode"
+                  maxLength={64}
+                  autoComplete="off"
+                  className="font-mono"
+                />
+                <p className="text-xs leading-5 text-zinc-500">
+                  Visitors must enter this passcode before viewing the gallery.
+                  Clear the field to remove it.
+                </p>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
 
           <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
             <Label htmlFor="share-allow-downloads" className="text-sm font-medium">

@@ -205,6 +205,8 @@ export interface AlbumShareSettings {
   customerName?: string | null;
   expiresAt?: string | null;
   backgroundColor?: string;
+  passcode?: string | null;
+  passcodeRequired?: boolean;
   allowDownloads: boolean;
   watermarkEnabled: boolean;
   watermarkText: string | null;

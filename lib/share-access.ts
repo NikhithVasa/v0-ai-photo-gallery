@@ -1,6 +1,7 @@
 import { queryOne } from "@/lib/db";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 import { shareTokenFromRequest } from "@/lib/auth-access";
+import { hasValidSharePasscodeAccess } from "@/lib/share-passcode";
 
 export interface ShareLinkAccess {
   token: string;
@@ -20,6 +21,7 @@ interface ShareAccessRow {
   watermark_text: string | null;
   watermark_mode: "full" | "corners";
   watermark_positions: string[] | null;
+  passcode: string | null;
 }
 
 export async function getShareLinkAccess(
@@ -40,7 +42,8 @@ export async function getShareLinkAccess(
       s.watermark_enabled,
       s.watermark_text,
       s.watermark_mode,
-      s.watermark_positions
+      s.watermark_positions,
+      s.passcode
     FROM album_share_links s
     JOIN albums a
       ON a.id = s.album_id
@@ -54,6 +57,7 @@ export async function getShareLinkAccess(
   ).catch(() => null);
 
   if (!row) return null;
+  if (!hasValidSharePasscodeAccess(request, token, row.passcode)) return null;
 
   return {
     token: row.token,

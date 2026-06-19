@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 import { normalizeShareBackgroundColor } from "@/lib/share-theme";
+import { hasValidSharePasscodeAccess } from "@/lib/share-passcode";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,6 +23,7 @@ interface ShareTokenRow {
   watermark_positions: string[] | null;
   expires_at: Date | string | null;
   background_color: string | null;
+  passcode: string | null;
 }
 
 function dateValue(value: Date | string | null) {
@@ -38,6 +40,7 @@ function serialize(row: ShareTokenRow) {
     customerName: row.customer_name,
     expiresAt: dateValue(row.expires_at),
     backgroundColor: normalizeShareBackgroundColor(row.background_color),
+    passcodeRequired: Boolean(row.passcode),
     allowDownloads: row.allow_downloads,
     watermarkEnabled: row.watermark_enabled,
     watermarkText: row.watermark_text,
@@ -72,7 +75,8 @@ export async function GET(_request: Request, { params }: Props) {
         s.watermark_mode,
         s.watermark_positions,
         s.expires_at,
-        s.background_color
+        s.background_color,
+        s.passcode
       FROM album_share_links s
       JOIN albums a
         ON a.id = s.album_id
@@ -89,6 +93,17 @@ export async function GET(_request: Request, { params }: Props) {
         token: shortToken(token),
       });
       return NextResponse.json({ error: "Share link not found" }, { status: 404 });
+    }
+
+    if (!hasValidSharePasscodeAccess(_request, token, share.passcode)) {
+      return NextResponse.json(
+        {
+          error: "Share passcode required",
+          code: "SHARE_PASSCODE_REQUIRED",
+          passcodeRequired: true,
+        },
+        { status: 401 },
+      );
     }
 
     console.info("[share-debug] public share API token found", {

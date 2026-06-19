@@ -47,6 +47,7 @@ interface ShareLinkRow {
   watermark_positions: WatermarkPosition[] | null;
   expires_at: Date | string | null;
   background_color: string | null;
+  passcode: string | null;
   updated_at: Date | string;
 }
 
@@ -107,7 +108,30 @@ function parseBackgroundColor(value: unknown) {
   return normalizeShareBackgroundColor(value);
 }
 
-function sanitizeSettings(body: unknown, fallbackText: string) {
+function parsePasscode(value: unknown, fallback: string | null) {
+  if (value === undefined) return fallback;
+  if (value === null || value === "") return null;
+  if (typeof value !== "string") {
+    throw new Error("Passcode must be text");
+  }
+
+  const passcode = value.trim();
+  if (!passcode) return null;
+  if (passcode.length < 4) {
+    throw new Error("Passcode must be at least 4 characters");
+  }
+  if (passcode.length > 64) {
+    throw new Error("Passcode must be 64 characters or fewer");
+  }
+
+  return passcode;
+}
+
+function sanitizeSettings(
+  body: unknown,
+  fallbackText: string,
+  fallbackPasscode: string | null,
+) {
   const source = typeof body === "object" && body ? body as Record<string, unknown> : {};
   const mode = watermarkModes.has(source.watermarkMode as WatermarkMode)
     ? (source.watermarkMode as WatermarkMode)
@@ -134,6 +158,7 @@ function sanitizeSettings(body: unknown, fallbackText: string) {
           : ["bottom_right"] as WatermarkPosition[],
     expiresAt: parseExpirationDate(source.expiresAt),
     backgroundColor: parseBackgroundColor(source.backgroundColor),
+    passcode: parsePasscode(source.passcode, fallbackPasscode),
   };
 }
 
@@ -148,6 +173,7 @@ function serialize(row: ShareLinkRow, request: Request, customerSlug: string | n
     customerName: row.customer_name,
     expiresAt: dateValue(row.expires_at),
     backgroundColor: normalizeShareBackgroundColor(row.background_color),
+    passcode: row.passcode,
     allowDownloads: row.allow_downloads,
     watermarkEnabled: row.watermark_enabled,
     watermarkText: row.watermark_text,
@@ -199,6 +225,7 @@ async function fetchShareLink(albumId: string) {
       watermark_positions,
       expires_at,
       background_color,
+      passcode,
       updated_at
     FROM album_share_links
     WHERE album_id = $1
@@ -238,6 +265,7 @@ export async function GET(request: Request, { params }: Props) {
         watermarkEnabled: false,
         watermarkMode: "corners",
         watermarkPositions: ["bottom_right"],
+        passcode: null,
       },
     });
   } catch (error) {
@@ -264,7 +292,11 @@ export async function POST(request: Request, { params }: Props) {
 
     const existing = await fetchShareLink(album.id);
     const body = await request.json().catch(() => ({}));
-    const settings = sanitizeSettings(body, album.customer_name || album.name);
+    const settings = sanitizeSettings(
+      body,
+      album.customer_name || album.name,
+      existing?.passcode ?? null,
+    );
     const token = existing?.token ?? randomUUID().replace(/-/g, "");
     const id = existing?.id ?? randomUUID();
 
@@ -284,6 +316,7 @@ export async function POST(request: Request, { params }: Props) {
         watermark_positions,
         expires_at,
         background_color,
+        passcode,
         created_at,
         updated_at
       )
@@ -301,6 +334,7 @@ export async function POST(request: Request, { params }: Props) {
         $11::text[],
         $12::date,
         $13,
+        $14,
         now(),
         now()
       )
@@ -315,6 +349,7 @@ export async function POST(request: Request, { params }: Props) {
         watermark_positions = EXCLUDED.watermark_positions,
         expires_at = EXCLUDED.expires_at,
         background_color = EXCLUDED.background_color,
+        passcode = EXCLUDED.passcode,
         updated_at = now()
       RETURNING
         id,
@@ -330,6 +365,7 @@ export async function POST(request: Request, { params }: Props) {
         watermark_positions,
         expires_at,
         background_color,
+        passcode,
         updated_at
       `,
       [
@@ -346,6 +382,7 @@ export async function POST(request: Request, { params }: Props) {
         settings.watermarkPositions,
         settings.expiresAt,
         settings.backgroundColor,
+        settings.passcode,
       ],
     );
 
@@ -361,7 +398,8 @@ export async function POST(request: Request, { params }: Props) {
     if (
       error instanceof Error &&
       (error.message.startsWith("Expiration date") ||
-        error.message.startsWith("Background color"))
+        error.message.startsWith("Background color") ||
+        error.message.startsWith("Passcode"))
     ) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

@@ -1,4 +1,4 @@
-export type PasscodeEntity = "album" | "customer";
+export type PasscodeEntity = "album" | "customer" | "share";
 
 export const PASSCODE_VERIFICATION_TTL_MS = 30 * 60 * 1000;
 
@@ -68,7 +68,7 @@ export function clearAllPasscodeVerifications() {
   const keysToRemove: string[] = [];
   for (let index = 0; index < window.sessionStorage.length; index += 1) {
     const key = window.sessionStorage.key(index);
-    if (key && /^(album|customer):.+:verified$/.test(key)) {
+    if (key && /^(album|customer|share):.+:verified$/.test(key)) {
       keysToRemove.push(key);
     }
   }

@@ -1,8 +1,11 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { SharePasscodeGate } from "@/components/share-passcode-gate";
 import { queryOne } from "@/lib/db";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 import { customerPublicUrl, getCustomerSlugFromHost } from "@/lib/customer-host";
+import { passcodeAccessCookieName } from "@/lib/passcode-access-cookie";
+import { verifySharePasscodeAccessToken } from "@/lib/share-passcode";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -13,7 +16,9 @@ interface PageProps {
 
 interface ShareLinkRow {
   album_slug: string;
+  album_name: string;
   customer_slug: string | null;
+  passcode: string | null;
 }
 
 function shortToken(value: string) {
@@ -35,7 +40,9 @@ export default async function SharedAlbumPage({ params }: PageProps) {
       `
       SELECT
         a.slug AS album_slug,
-        c.slug AS customer_slug
+        s.album_name,
+        c.slug AS customer_slug,
+        s.passcode
       FROM album_share_links s
       JOIN albums a
         ON a.id = s.album_id
@@ -76,6 +83,31 @@ export default async function SharedAlbumPage({ params }: PageProps) {
     );
   }
 
+  const host = (await headers()).get("host") || "";
+  const customerSlugFromHost = getCustomerSlugFromHost(host);
+
+  if (share.customer_slug && !customerSlugFromHost) {
+    redirect(
+      `${customerPublicUrl(share.customer_slug)}/share/${encodeURIComponent(token)}`,
+    );
+  }
+
+  if (share.passcode) {
+    const cookieStore = await cookies();
+    const accessToken =
+      cookieStore.get(passcodeAccessCookieName("share", token))?.value || "";
+
+    if (
+      !verifySharePasscodeAccessToken(
+        accessToken,
+        token,
+        share.passcode,
+      )
+    ) {
+      return <SharePasscodeGate token={token} albumName={share.album_name} />;
+    }
+  }
+
   console.info("[share-debug] /share page redirecting to album", {
     token: shortToken(token),
     albumSlug: share.album_slug,
@@ -83,12 +115,6 @@ export default async function SharedAlbumPage({ params }: PageProps) {
   });
 
   const albumPath = `/albums/${encodeURIComponent(share.album_slug)}?share=${encodeURIComponent(token)}`;
-  const host = (await headers()).get("host") || "";
-  const customerSlugFromHost = getCustomerSlugFromHost(host);
-
-  if (share.customer_slug && !customerSlugFromHost) {
-    redirect(`${customerPublicUrl(share.customer_slug)}${albumPath}`);
-  }
 
   redirect(albumPath);
 }

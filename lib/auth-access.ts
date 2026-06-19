@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { query, queryOne } from "@/lib/db";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
+import { hasValidSharePasscodeAccess } from "@/lib/share-passcode";
 
 let authAccessSchemaPromise: Promise<void> | null = null;
 
@@ -324,9 +325,9 @@ export async function canAccessAlbumByShareToken(
     });
   });
 
-  const row = await queryOne<{ id: string }>(
+  const row = await queryOne<{ id: string; passcode: string | null }>(
     `
-    SELECT a.id
+    SELECT a.id, s.passcode
     FROM album_share_links s
     JOIN albums a
       ON a.id = s.album_id
@@ -346,13 +347,17 @@ export async function canAccessAlbumByShareToken(
     return null;
   });
 
+  const allowed = Boolean(
+    row && hasValidSharePasscodeAccess(request, token, row.passcode),
+  );
+
   console.info("[share-debug] album share access result", {
     albumSlug,
     token: shortToken(token),
-    allowed: Boolean(row),
+    allowed,
   });
 
-  return Boolean(row);
+  return allowed;
 }
 
 export async function requireCustomerAccessBySlug(

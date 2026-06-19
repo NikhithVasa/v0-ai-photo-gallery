@@ -117,6 +117,7 @@ export function ensureAlbumShareLinkSchema() {
         watermark_positions text[] NOT NULL DEFAULT ARRAY['bottom_right']::text[],
         expires_at date,
         background_color text NOT NULL DEFAULT '#f5f5f7',
+        passcode text,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
@@ -128,7 +129,8 @@ export function ensureAlbumShareLinkSchema() {
       `
       ALTER TABLE album_share_links
         ADD COLUMN IF NOT EXISTS expires_at date,
-        ADD COLUMN IF NOT EXISTS background_color text NOT NULL DEFAULT '#f5f5f7'
+        ADD COLUMN IF NOT EXISTS background_color text NOT NULL DEFAULT '#f5f5f7',
+        ADD COLUMN IF NOT EXISTS passcode text
       `,
       []
     );
