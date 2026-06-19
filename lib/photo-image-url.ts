@@ -1,16 +1,5 @@
 import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 
-const MEDIA_PROXY_FALLBACK_ENABLED =
-  process.env.NEXT_PUBLIC_ALLOW_MEDIA_PROXY_FALLBACK === "true";
-
-function mediaProxyUrlForS3Key(key: string, shareToken = "") {
-  if (!MEDIA_PROXY_FALLBACK_ENABLED) return null;
-
-  const params = new URLSearchParams({ key });
-  if (shareToken) params.set("share", shareToken);
-  return `/api/media?${params.toString()}`;
-}
-
 export function mediaUrlForS3KeyWithShare(
   key?: string | null,
   shareToken = "",
@@ -18,25 +7,23 @@ export function mediaUrlForS3KeyWithShare(
   if (!key) return null;
 
   const cloudFrontUrl = cloudFrontImageUrl(key);
-  if (cloudFrontUrl) return cloudFrontUrl;
+  if (cloudFrontUrl && process.env.NEXT_PUBLIC_FORCE_CLOUDFRONT_IMAGES === "true") {
+    return cloudFrontUrl;
+  }
 
-  return mediaProxyUrlForS3Key(key, shareToken);
+  const params = new URLSearchParams({ key });
+  if (shareToken) params.set("share", shareToken);
+  return `/api/media?${params.toString()}`;
 }
 
 export function imageUrlWithShare(url?: string | null, shareToken = "") {
-  if (!url) return null;
+  if (!url || !shareToken) return url ?? null;
 
   try {
     const parsed = new URL(url, "https://saathidesk.local");
     if (parsed.pathname !== "/api/media") return url;
 
-    const key = parsed.searchParams.get("key");
-    const cloudFrontUrl = cloudFrontImageUrl(key);
-    if (cloudFrontUrl) return cloudFrontUrl;
-
-    if (!MEDIA_PROXY_FALLBACK_ENABLED) return null;
-
-    if (shareToken) parsed.searchParams.set("share", shareToken);
+    parsed.searchParams.set("share", shareToken);
     return url.startsWith("/")
       ? `${parsed.pathname}${parsed.search}${parsed.hash}`
       : parsed.toString();
