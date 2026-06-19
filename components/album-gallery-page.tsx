@@ -2644,10 +2644,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </div>
             )}
 
-            {isShareView && (
-              <AiPrivacyNotice className="mt-5 max-w-xl border-white/70 bg-white/80 text-zinc-700" />
-            )}
-
             {!isShareView && (
               <Link
                 href={addPhotosHref}
