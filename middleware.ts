@@ -20,7 +20,12 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
   const { pathname, searchParams } = request.nextUrl;
 
   if (pathname === "/" && !customerSlug) return true;
-  if (pathname === "/login" || pathname === "/auth/callback") return true;
+  if (
+    pathname === "/login" ||
+    pathname === "/contact" ||
+    pathname === "/auth/callback"
+  )
+    return true;
   if (pathname.startsWith("/legal/") || pathname.startsWith("/share/"))
     return true;
   if (/^\/albums\/[^/]+$/.test(pathname)) return true;

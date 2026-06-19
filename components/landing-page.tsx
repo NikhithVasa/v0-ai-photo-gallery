@@ -1850,12 +1850,12 @@ function FinalCTA({ reveal }: { reveal: MotionProps }) {
             />
           </Link>
 
-          <a
-            href="mailto:support@saathidesk.com"
+          <Link
+            href="/contact"
             className="inline-flex h-12 items-center rounded-full border border-white/20 px-6 text-sm font-medium text-[#FAF7F2] transition hover:border-white/40 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 cursor-pointer"
           >
             Talk to us
-          </a>
+          </Link>
         </div>
       </motion.div>
     </section>
@@ -1891,9 +1891,9 @@ function Footer() {
           <Link href="/legal/terms-of-service" className="hover:text-[#3A2A22]">
             Terms
           </Link>
-          <a href="mailto:support@saathidesk.com" className="hover:text-[#3A2A22]">
+          <Link href="/contact" className="hover:text-[#3A2A22]">
             Contact
-          </a>
+          </Link>
         </div>
       </div>
     </footer>

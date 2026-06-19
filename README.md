@@ -30,6 +30,19 @@ To enable Google login and imports from Google Drive and Google Photos, follow
 To create, upload, and apply `.cube` LUT presets, follow
 [the Preset Marketplace and LUT guide](docs/preset-marketplace-lut-guide.md).
 
+## Contact form email
+
+The `/contact` form sends messages through Resend. Copy the variables from
+`.env.example` into your local environment and set:
+
+- `RESEND_API_KEY` to your Resend API key.
+- Optionally, set `RESEND_FROM_EMAIL` to a sender on a domain verified in
+  Resend, for example `SaathiDesk <contact@updates.saathidesk.com>`. Until then,
+  the form uses `SaathiDesk <onboarding@resend.dev>`.
+
+Messages are delivered to `brunoboy0102@gmail.com`, with the visitor's email
+set as the reply-to address.
+
 ## Learn More
 
 To learn more, take a look at the following resources:
