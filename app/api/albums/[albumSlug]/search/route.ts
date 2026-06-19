@@ -17,6 +17,9 @@ interface Props {
 
 interface PersonMatch {
   id: string;
+  person_number: number | null;
+  default_name: string;
+  display_name: string | null;
 }
 
 function isUuid(value: string) {
@@ -33,6 +36,14 @@ function shortToken(value: string | null) {
   if (!value) return "";
   if (value.length <= 12) return `${value.slice(0, 4)}...`;
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
+function personName(person: PersonMatch) {
+  return (
+    person.display_name?.trim() ||
+    person.default_name.trim() ||
+    `Person ${person.person_number ?? ""}`.trim()
+  );
 }
 
 function extractSearchTerms(query: string) {
@@ -98,7 +109,7 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
   if (isUuid(value)) {
     const person = await queryOne<PersonMatch>(
       `
-      SELECT pe.id
+      SELECT pe.id, pe.person_number, pe.default_name, pe.display_name
       FROM people pe
       JOIN albums a ON a.id = pe.album_id
       WHERE lower(a.slug) = lower($1)
@@ -107,14 +118,14 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
       `,
       [albumSlug, value]
     );
-    return person?.id ?? null;
+    return person;
   }
 
   const numberMatch = value.match(/^person\s*(\d+)$/i);
   if (numberMatch) {
     const person = await queryOne<PersonMatch>(
       `
-      SELECT pe.id
+      SELECT pe.id, pe.person_number, pe.default_name, pe.display_name
       FROM people pe
       JOIN albums a ON a.id = pe.album_id
       WHERE lower(a.slug) = lower($1)
@@ -123,12 +134,12 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
       `,
       [albumSlug, Number.parseInt(numberMatch[1], 10)]
     );
-    if (person) return person.id;
+    if (person) return person;
   }
 
   let person = await queryOne<PersonMatch>(
     `
-    SELECT pe.id
+    SELECT pe.id, pe.person_number, pe.default_name, pe.display_name
     FROM people pe
     JOIN albums a ON a.id = pe.album_id
     WHERE lower(a.slug) = lower($1)
@@ -140,12 +151,12 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
     `,
     [albumSlug, value]
   );
-  if (person) return person.id;
+  if (person) return person;
 
   try {
     person = await queryOne<PersonMatch>(
       `
-      SELECT pe.id
+      SELECT pe.id, pe.person_number, pe.default_name, pe.display_name
       FROM person_aliases pa
       JOIN people pe ON pe.id = pa.person_id
       JOIN albums a ON a.id = pe.album_id
@@ -155,14 +166,14 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
       `,
       [albumSlug, value]
     );
-    if (person) return person.id;
+    if (person) return person;
   } catch {
     // Some album deployments may not carry the optional aliases table yet.
   }
 
   person = await queryOne<PersonMatch>(
     `
-    SELECT pe.id
+    SELECT pe.id, pe.person_number, pe.default_name, pe.display_name
     FROM people pe
     JOIN albums a ON a.id = pe.album_id
     WHERE lower(a.slug) = lower($1)
@@ -176,7 +187,7 @@ async function resolvePerson(albumSlug: string, nameOrId: string) {
     [albumSlug, value]
   );
 
-  return person?.id ?? null;
+  return person;
 }
 
 async function fetchResolvedPeople(albumSlug: string, personIds: string[]) {
@@ -210,6 +221,10 @@ async function fetchResolvedPeople(albumSlug: string, personIds: string[]) {
 }
 
 export async function POST(request: Request, { params }: Props) {
+  let pendingQueryLog: Record<string, unknown> | null = null;
+  let selectedPersonNamesForLog: string[] = [];
+  let queryLogged = false;
+
   try {
     const { albumSlug } = await params;
     const url = new URL(request.url);
@@ -275,34 +290,52 @@ export async function POST(request: Request, { params }: Props) {
       return NextResponse.json({ error: "query is required" }, { status: 400 });
     }
 
-    console.info(
-      JSON.stringify({
-        level: "info",
-        event: "saathidesk_ai_user_query",
-        route: "/api/albums/[albumSlug]/search",
-        requestId: request.headers.get("x-vercel-id"),
-        albumSlug,
-        query: searchQuery,
-        queryLength: searchQuery.length,
-        eventSlug,
-        requestedPeopleCount: requestedPeople.length,
-        together,
-        limit,
-      }),
-    );
+    pendingQueryLog = {
+      level: "info",
+      event: "saathidesk_ai_user_query",
+      route: "/api/albums/[albumSlug]/search",
+      requestId: request.headers.get("x-vercel-id"),
+      albumSlug,
+      query: searchQuery,
+      queryLength: searchQuery.length,
+      eventSlug,
+      requestedPeopleCount: requestedPeople.length,
+      together,
+      limit,
+    };
 
     const { personNames, keywords } = extractSearchTerms(searchQuery);
     const resolvedIds = new Set<string>();
     const unresolvedTerms = new Set<string>();
+    const selectedPersonNames = new Set<string>();
 
-    for (const value of [...requestedPeople, ...personNames]) {
-      const personId = await resolvePerson(albumSlug, value);
-      if (personId) {
-        resolvedIds.add(personId);
+    for (const value of requestedPeople) {
+      const person = await resolvePerson(albumSlug, value);
+      if (person) {
+        resolvedIds.add(person.id);
+        selectedPersonNames.add(personName(person));
+        selectedPersonNamesForLog = Array.from(selectedPersonNames);
       } else if (!isUuid(value) && !/^person\s*\d+$/i.test(value)) {
         unresolvedTerms.add(value);
       }
     }
+
+    for (const value of personNames) {
+      const person = await resolvePerson(albumSlug, value);
+      if (person) {
+        resolvedIds.add(person.id);
+      } else if (!isUuid(value) && !/^person\s*\d+$/i.test(value)) {
+        unresolvedTerms.add(value);
+      }
+    }
+
+    console.info(
+      JSON.stringify({
+        ...pendingQueryLog,
+        selectedPersonNames: selectedPersonNamesForLog,
+      }),
+    );
+    queryLogged = true;
 
     const personIds = Array.from(resolvedIds);
 const keywordTerms =
@@ -456,6 +489,15 @@ const keywordTerms =
       results,
     });
   } catch (error) {
+    if (pendingQueryLog && !queryLogged) {
+      console.info(
+        JSON.stringify({
+          ...pendingQueryLog,
+          selectedPersonNames: selectedPersonNamesForLog,
+          personNameResolutionFailed: true,
+        }),
+      );
+    }
     console.error("[share-debug] album search API failed", error);
     return NextResponse.json(
       { error: "Failed to search photos" },
