@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { ArrowLeft, Copy, Loader2, Share2, User } from "lucide-react";
+import { ArrowLeft, Copy, Loader2, Lock, Share2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +20,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
+import {
+  DEFAULT_SHARE_BACKGROUND_COLOR,
+  SHARE_BACKGROUND_COLORS,
+} from "@/lib/share-theme";
 import type { AlbumEvent, AlbumShareSettings, Person, Photo } from "@/lib/types";
 
 const fetcher = async (url: string) => {
@@ -43,6 +54,14 @@ interface PersonViewProps {
   shareSettings?: AlbumShareSettings | null;
 }
 
+function todayIsoDate() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function PersonShareDialog({
   albumSlug,
   person,
@@ -56,6 +75,14 @@ function PersonShareDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [personName, setPersonName] = useState(defaultPersonName);
   const [linkName, setLinkName] = useState(`${defaultPersonName}'s photos`);
+  const [backgroundColor, setBackgroundColor] = useState(
+    DEFAULT_SHARE_BACKGROUND_COLOR,
+  );
+  const [allowDownloads, setAllowDownloads] = useState(false);
+  const [watermarkEnabled, setWatermarkEnabled] = useState(false);
+  const [allowEventTabs, setAllowEventTabs] = useState(true);
+  const [passcode, setPasscode] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -64,12 +91,23 @@ function PersonShareDialog({
     if (!isOpen) return;
     setPersonName(defaultPersonName);
     setLinkName(`${defaultPersonName}'s photos`);
+    setBackgroundColor(DEFAULT_SHARE_BACKGROUND_COLOR);
+    setAllowDownloads(false);
+    setWatermarkEnabled(false);
+    setAllowEventTabs(true);
+    setPasscode("");
+    setExpiresAt("");
     setShareUrl("");
     setStatus("");
   }, [defaultPersonName, isOpen]);
 
   const createLink = async () => {
     if (!personName.trim() || !linkName.trim() || isSaving) return;
+    const nextPasscode = passcode.trim();
+    if (nextPasscode && nextPasscode.length < 4) {
+      setStatus("Passcode must be at least 4 characters");
+      return;
+    }
 
     setIsSaving(true);
     setStatus("");
@@ -85,6 +123,12 @@ function PersonShareDialog({
             personName,
             linkName,
             onlyPerson,
+            backgroundColor,
+            allowDownloads,
+            watermarkEnabled,
+            allowEventTabs,
+            passcode: nextPasscode || null,
+            expiresAt: expiresAt || null,
           }),
         },
       );
@@ -122,7 +166,7 @@ function PersonShareDialog({
           Share person
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share person photos</DialogTitle>
         </DialogHeader>
@@ -155,6 +199,108 @@ function PersonShareDialog({
               ? "This link includes photos where this person appears alone."
               : "This link includes photos containing this person."}
           </p>
+
+          <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+            <Label className="text-sm font-medium">Background</Label>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-9">
+              {SHARE_BACKGROUND_COLORS.map((color) => {
+                const isSelected = backgroundColor === color.value;
+
+                return (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => setBackgroundColor(color.value)}
+                    aria-label={`${color.label} background`}
+                    aria-pressed={isSelected}
+                    className={`flex aspect-square min-h-8 cursor-pointer items-center justify-center rounded-full shadow-sm ring-offset-2 transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
+                      isSelected
+                        ? "ring-2 ring-zinc-950"
+                        : "ring-1 ring-black/10 hover:ring-zinc-400"
+                    }`}
+                    style={{ backgroundColor: color.value }}
+                  >
+                    {isSelected && (
+                      <span className="h-2 w-2 rounded-full bg-zinc-950" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+              <Label htmlFor="person-share-downloads">Allow downloads</Label>
+              <Switch
+                id="person-share-downloads"
+                checked={allowDownloads}
+                onCheckedChange={setAllowDownloads}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+              <Label htmlFor="person-share-watermark">Watermark</Label>
+              <Switch
+                id="person-share-watermark"
+                checked={watermarkEnabled}
+                onCheckedChange={setWatermarkEnabled}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+              <Label htmlFor="person-share-event-tabs">Allow event tabs</Label>
+              <Switch
+                id="person-share-event-tabs"
+                checked={allowEventTabs}
+                onCheckedChange={setAllowEventTabs}
+              />
+            </div>
+          </div>
+
+          <Accordion
+            type="single"
+            collapsible
+            className="rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 px-3"
+          >
+            <AccordionItem value="passcode" className="border-none">
+              <AccordionTrigger className="py-3 hover:no-underline">
+                <span className="flex min-w-0 items-center gap-2">
+                  <Lock className="h-4 w-4 shrink-0 text-zinc-500" />
+                  <span>Passcode</span>
+                  <span className="truncate font-mono text-xs font-normal text-zinc-500">
+                    {passcode || "No passcode set"}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <Label htmlFor="person-share-passcode">Share link passcode</Label>
+                <Input
+                  id="person-share-passcode"
+                  value={passcode}
+                  onChange={(event) => {
+                    setPasscode(event.target.value);
+                    if (status) setStatus("");
+                  }}
+                  placeholder="Add a passcode"
+                  maxLength={64}
+                  autoComplete="off"
+                  className="font-mono"
+                />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="person-share-expires-at">Expires on</Label>
+            <Input
+              id="person-share-expires-at"
+              type="date"
+              min={todayIsoDate()}
+              value={expiresAt}
+              onChange={(event) => setExpiresAt(event.target.value)}
+            />
+          </div>
 
           {shareUrl && (
             <div className="flex min-w-0 gap-2">

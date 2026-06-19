@@ -1556,6 +1556,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   );
   const shareSettings = publicShareData?.share ?? null;
   const isPersonShare = Boolean(shareSettings?.personId);
+  const showPersonShareEventTabs =
+    isPersonShare && Boolean(shareSettings?.allowEventTabs);
   const scopedPeopleIds = useMemo(
     () =>
       isPersonShare && shareSettings?.personId
@@ -2766,7 +2768,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             </div>
           )}
 
-          {!selectedPerson && activeTab === "photos" && !isPersonShare && (
+          {!selectedPerson &&
+            activeTab === "photos" &&
+            (!isPersonShare || showPersonShareEventTabs) && (
             <div className="-mx-3 mt-2 overflow-x-auto scroll-smooth px-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex h-9 w-max items-center gap-2 whitespace-nowrap">
                 <button
@@ -3060,7 +3064,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             </div>
           </div>
 
-          {!selectedPerson && activeTab === "photos" && !isPersonShare && (
+          {!selectedPerson &&
+            activeTab === "photos" &&
+            (!isPersonShare || showPersonShareEventTabs) && (
             <div className="flex max-w-full gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <button
                 type="button"

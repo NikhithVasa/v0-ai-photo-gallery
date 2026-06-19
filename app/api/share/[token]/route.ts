@@ -28,6 +28,7 @@ interface ShareTokenRow {
   person_name: string | null;
   link_name: string | null;
   only_person: boolean;
+  allow_event_tabs: boolean;
 }
 
 function dateValue(value: Date | string | null) {
@@ -49,6 +50,7 @@ function serialize(row: ShareTokenRow) {
     personName: row.person_name,
     linkName: row.link_name,
     onlyPerson: row.only_person,
+    allowEventTabs: row.allow_event_tabs,
     allowDownloads: row.allow_downloads,
     watermarkEnabled: row.watermark_enabled,
     watermarkText: row.watermark_text,
@@ -88,7 +90,8 @@ export async function GET(_request: Request, { params }: Props) {
         s.person_id,
         s.person_name,
         s.link_name,
-        s.only_person
+        s.only_person,
+        s.allow_event_tabs
       FROM album_share_links s
       JOIN albums a
         ON a.id = s.album_id

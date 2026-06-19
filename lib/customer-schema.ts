@@ -122,6 +122,7 @@ export function ensureAlbumShareLinkSchema() {
         person_name text,
         link_name text,
         only_person boolean NOT NULL DEFAULT false,
+        allow_event_tabs boolean NOT NULL DEFAULT false,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
@@ -138,7 +139,8 @@ export function ensureAlbumShareLinkSchema() {
         ADD COLUMN IF NOT EXISTS person_id uuid,
         ADD COLUMN IF NOT EXISTS person_name text,
         ADD COLUMN IF NOT EXISTS link_name text,
-        ADD COLUMN IF NOT EXISTS only_person boolean NOT NULL DEFAULT false
+        ADD COLUMN IF NOT EXISTS only_person boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS allow_event_tabs boolean NOT NULL DEFAULT false
       `,
       []
     );

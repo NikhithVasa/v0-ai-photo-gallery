@@ -15,6 +15,7 @@ export interface ShareLinkAccess {
   personName: string | null;
   linkName: string | null;
   onlyPerson: boolean;
+  allowEventTabs: boolean;
 }
 
 interface ShareAccessRow {
@@ -30,6 +31,7 @@ interface ShareAccessRow {
   person_name: string | null;
   link_name: string | null;
   only_person: boolean;
+  allow_event_tabs: boolean;
 }
 
 export async function getShareLinkAccess(
@@ -55,7 +57,8 @@ export async function getShareLinkAccess(
       s.person_id,
       s.person_name,
       s.link_name,
-      s.only_person
+      s.only_person,
+      s.allow_event_tabs
     FROM album_share_links s
     JOIN albums a
       ON a.id = s.album_id
@@ -83,5 +86,6 @@ export async function getShareLinkAccess(
     personName: row.person_name,
     linkName: row.link_name,
     onlyPerson: row.only_person,
+    allowEventTabs: row.allow_event_tabs,
   };
 }
