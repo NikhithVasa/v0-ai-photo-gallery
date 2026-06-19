@@ -103,6 +103,8 @@ export function AlbumCoverEditor({
         throw new Error(`Upload failed (${uploadResponse.status})`);
       }
 
+      const updatedCoverUrl = cloudFrontImageUrl(uploadRequest.upload.key);
+
       // Clear preview and file input
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setSelectedFile(null);
@@ -114,10 +116,9 @@ export function AlbumCoverEditor({
         description: `${albumName} cover photo has been updated.`,
       });
 
-      onCoverUpdated(
-        cloudFrontImageUrl(uploadRequest.upload.key) ??
-          `/api/media?key=${encodeURIComponent(uploadRequest.upload.key)}`,
-      );
+      if (updatedCoverUrl) {
+        onCoverUpdated(updatedCoverUrl);
+      }
       onClose();
     } catch (err) {
       const errorMsg =
