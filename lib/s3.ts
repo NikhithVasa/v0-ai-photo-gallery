@@ -166,8 +166,10 @@ export async function signedUploadUrl(
 export async function signedObjectUrl(key?: string | null): Promise<string | null> {
   if (!key) return null;
 
-  const cloudFrontUrl = cloudFrontImageUrl(key);
-  if (cloudFrontUrl) return cloudFrontUrl;
+  if (FORCE_CLOUDFRONT_IMAGES) {
+    const cloudFrontUrl = cloudFrontImageUrl(key);
+    if (cloudFrontUrl) return cloudFrontUrl;
+  }
 
   return cachedSignedUrl(`object:${key}`, () => {
     const command = new GetObjectCommand({
