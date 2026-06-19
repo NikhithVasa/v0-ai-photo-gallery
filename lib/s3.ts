@@ -151,7 +151,7 @@ export async function signedDownloadUrl(
       Bucket: process.env.S3_BUCKET!,
       Key: key,
       ResponseContentDisposition: filename
-        ? `attachment; filename=\"${filename}\"`
+        ? `attachment; filename="${filename}"`
         : "attachment",
     });
 
