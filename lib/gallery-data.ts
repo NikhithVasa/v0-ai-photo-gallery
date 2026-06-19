@@ -95,12 +95,22 @@ export function toAlbumEvent(row: AlbumEventRow): AlbumEvent {
   };
 }
 
+function displayKey(row: PhotoRow) {
+  return (
+    row.ai_input_s3_key ??
+    row.original_s3_key ??
+    row.clean_preview_s3_key ??
+    row.watermarked_preview_s3_key ??
+    row.thumbnail_s3_key
+  );
+}
+
 function gridKey(row: PhotoRow) {
-  return row.ai_input_s3_key;
+  return displayKey(row);
 }
 
 function previewKey(row: PhotoRow) {
-  return row.ai_input_s3_key;
+  return displayKey(row);
 }
 
 interface PhotoPersonRow {
@@ -165,6 +175,7 @@ export async function toPhoto(
   const photoOptions = typeof options === "number" ? {} : options;
   const signMediaUrls = photoOptions.signMediaUrls ?? true;
   const signPersonCoverUrls = photoOptions.signPersonCoverUrls ?? true;
+  const displayS3Key = displayKey(row);
   const [thumbnailUrl, previewUrl, people] = await Promise.all([
     signMediaUrls ? signedUrl(gridKey(row)) : null,
     signMediaUrls ? signedUrl(previewKey(row)) : null,
@@ -199,9 +210,9 @@ export async function toPhoto(
     qwenDescription: row.qwen_description,
     originalS3Key: row.original_s3_key,
     aiInputS3Key: row.ai_input_s3_key,
-    cleanPreviewS3Key: row.clean_preview_s3_key,
+    cleanPreviewS3Key: displayS3Key,
     watermarkedPreviewS3Key: row.watermarked_preview_s3_key,
-    thumbnailS3Key: row.thumbnail_s3_key,
+    thumbnailS3Key: displayS3Key,
     annotatedS3Key: row.annotated_s3_key,
     customSortOrder: nullableNumberValue(row.custom_sort_order),
     people,
