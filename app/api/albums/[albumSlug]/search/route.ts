@@ -275,6 +275,22 @@ export async function POST(request: Request, { params }: Props) {
       return NextResponse.json({ error: "query is required" }, { status: 400 });
     }
 
+    console.info(
+      JSON.stringify({
+        level: "info",
+        event: "saathidesk_ai_user_query",
+        route: "/api/albums/[albumSlug]/search",
+        requestId: request.headers.get("x-vercel-id"),
+        albumSlug,
+        query: searchQuery,
+        queryLength: searchQuery.length,
+        eventSlug,
+        requestedPeopleCount: requestedPeople.length,
+        together,
+        limit,
+      }),
+    );
+
     const { personNames, keywords } = extractSearchTerms(searchQuery);
     const resolvedIds = new Set<string>();
     const unresolvedTerms = new Set<string>();
