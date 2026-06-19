@@ -36,6 +36,9 @@ import {
 import { useDialKit } from "dialkit";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
+import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
+import { BentoGrid } from "@/components/ui/bento-grid";
+import { BorderBeam } from "@/components/ui/border-beam";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -154,39 +157,32 @@ const toneStyles: Record<
   { background: string; grainOpacity: number }
 > = {
   blush: {
-    background:
-      "linear-gradient(150deg, #FFF8ED 0%, #E8CFC3 55%, #B88366 100%)",
-    grainOpacity: 0.16,
+    background: "#BFA092",
+    grainOpacity: 0.11,
   },
   champagne: {
-    background:
-      "linear-gradient(160deg, #FAF7F2 0%, #E7D6B5 55%, #C6A15B 100%)",
-    grainOpacity: 0.14,
+    background: "#BCA679",
+    grainOpacity: 0.1,
   },
   rose: {
-    background:
-      "linear-gradient(145deg, #FFF2EF 0%, #E8CFC3 55%, #8E4A40 100%)",
-    grainOpacity: 0.17,
+    background: "#9A655C",
+    grainOpacity: 0.12,
   },
   sand: {
-    background:
-      "linear-gradient(155deg, #F3EDE4 0%, #D6C8B8 55%, #8A7252 100%)",
-    grainOpacity: 0.14,
+    background: "#A18E79",
+    grainOpacity: 0.1,
   },
   sage: {
-    background:
-      "linear-gradient(145deg, #EEF3EA 0%, #B7C4AA 55%, #5F755C 100%)",
-    grainOpacity: 0.14,
+    background: "#71806D",
+    grainOpacity: 0.1,
   },
   sky: {
-    background:
-      "linear-gradient(150deg, #EEF6F7 0%, #B8CDD3 55%, #506F7A 100%)",
-    grainOpacity: 0.13,
+    background: "#687F86",
+    grainOpacity: 0.09,
   },
   ink: {
-    background:
-      "linear-gradient(150deg, #3A2A22 0%, #241C17 58%, #171411 100%)",
-    grainOpacity: 0.18,
+    background: "#26231F",
+    grainOpacity: 0.12,
   },
 };
 
@@ -199,44 +195,38 @@ const galleryTiles: Array<{
 }> = [
   {
     className: "row-span-2",
-    gradient:
-      "linear-gradient(135deg, #FFF8ED 0%, #E8CFC3 45%, #B88366 100%)",
+    gradient: "#B88F7C",
     label: "Golden hour",
     badge: { icon: Heart, tone: "rose" },
     people: 2,
   },
   {
     className: "",
-    gradient:
-      "linear-gradient(135deg, #FAF7F2 0%, #D6C8B8 60%, #8A7252 100%)",
+    gradient: "#9E8E7A",
     label: "First look",
     people: 3,
   },
   {
     className: "",
-    gradient:
-      "linear-gradient(160deg, #FFF8ED 0%, #E7D6B5 70%, #A77C45 100%)",
+    gradient: "#B69B68",
     label: "Ceremony",
     badge: { icon: Sparkles, tone: "amber" },
   },
   {
     className: "row-span-2",
-    gradient:
-      "linear-gradient(135deg, #F3EDE4 0%, #B7C4AA 55%, #5F755C 100%)",
+    gradient: "#71806D",
     label: "Vows",
     people: 4,
   },
   {
     className: "",
-    gradient:
-      "linear-gradient(150deg, #FFF2EF 0%, #E8CFC3 50%, #8E4A40 100%)",
+    gradient: "#98685F",
     label: "Reception",
     badge: { icon: Heart, tone: "rose" },
   },
   {
     className: "",
-    gradient:
-      "linear-gradient(145deg, #FAF7F2 0%, #E7D6B5 55%, #8A7252 100%)",
+    gradient: "#A48A64",
     label: "Toast",
     people: 5,
   },
@@ -469,7 +459,7 @@ export function LandingPage() {
   const stagger = useStagger();
 
   return (
-    <main className="min-h-screen bg-[#FAF7F2] text-[#1F1B16] antialiased">
+    <main className="min-h-screen bg-[#F7F5F0] text-[#1C1B18] antialiased">
       <Header />
 
       <Hero reveal={reveal} />
@@ -533,14 +523,14 @@ export function LandingPage() {
 
 function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-[#E8DED2]/60 bg-[#FAF7F2]/85 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
+    <header className="sticky top-0 z-40 border-b border-black/[0.06] bg-[#F7F5F0]/90 backdrop-blur-xl">
+      <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-5 sm:px-8">
         <Link
           href="/"
           className="group inline-flex items-center gap-2 text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 rounded-md"
           aria-label="SaathiDesk home"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#171411] text-[#FAF7F2] transition-transform duration-300 group-hover:scale-105">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1C1B18] text-[#F7F5F0] transition-transform duration-300 group-hover:scale-[1.03]">
             <Camera className="h-4 w-4" strokeWidth={1.75} />
           </span>
           <span className="font-serif text-lg leading-none tracking-tight">
@@ -569,7 +559,7 @@ function Header() {
           </Link>
           <Link
             href="/login"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#171411] px-4 text-sm font-medium text-[#FAF7F2] shadow-sm transition hover:bg-[#241C17] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#1C1B18] px-4 text-sm font-medium text-[#F7F5F0] shadow-sm transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
           >
             Open album
             <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
@@ -611,31 +601,38 @@ function Hero({ reveal }: { reveal: MotionProps }) {
       : { duration: 0.9, ease: EASE_OUT };
 
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative isolate overflow-hidden border-b border-black/[0.06]">
+      {!prefersReducedMotion ? (
+        <AnimatedGridPattern
+          width={64}
+          height={64}
+          numSquares={14}
+          maxOpacity={0.07}
+          duration={5}
+          repeatDelay={2}
+          className="inset-x-0 inset-y-[-25%] h-[150%] fill-[#7C6B55]/10 stroke-[#7C6B55]/15 [mask-image:linear-gradient(to_bottom,black,transparent_82%)]"
+        />
+      ) : null}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            `radial-gradient(60% 60% at 20% 10%, rgba(240,200,170,${heroControls.glow.warm}) 0%, rgba(240,200,170,0) 60%), radial-gradient(50% 60% at 90% 20%, rgba(220,196,176,${heroControls.glow.side}) 0%, rgba(220,196,176,0) 65%), radial-gradient(70% 60% at 50% 100%, rgba(232,220,205,${heroControls.glow.floor}) 0%, rgba(232,220,205,0) 70%)`,
-        }}
+        className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-1/2 bg-[#EDE8DE]/60"
       />
 
-      <div className="mx-auto max-w-7xl px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16 lg:pt-24">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+      <div className="relative mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:py-28">
+        <div className="grid items-center gap-14 lg:grid-cols-[0.92fr_1.08fr] lg:gap-20">
           <motion.div {...reveal}>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E8DED2] bg-white/80 px-3 py-1 text-xs font-medium text-[#4F473F] shadow-sm backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5 text-[#A77C45]" strokeWidth={2} />
+            <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3.5 py-1.5 text-xs font-medium text-[#514B43] shadow-sm backdrop-blur">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#7B8A71]" />
               SaathiDesk · Free open-source AI photo gallery platform
             </span>
 
-            <h1 className="mt-5 font-serif text-[2.6rem] leading-[1.05] tracking-tight text-[#1F1B16] sm:text-6xl lg:text-[4.2rem]">
+            <h1 className="mt-7 max-w-2xl font-serif text-[2.8rem] leading-[0.98] tracking-[-0.035em] text-[#1C1B18] sm:text-6xl lg:text-[4.6rem]">
               Every moment,
               <br />
-              <span className="italic text-[#3A2A22]">beautifully</span> findable.
+              <span className="italic text-[#655443]">beautifully</span> findable.
             </h1>
 
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-[#6F675E] sm:text-lg">
+            <p className="mt-6 max-w-xl text-base leading-7 text-[#625D55] sm:text-lg">
               A free, open-source private gallery for your wedding day with
               people filters, semantic search, AI photo edits, collage exports,
               flexible downloads, and share links you can protect with
@@ -647,10 +644,10 @@ function Hero({ reveal }: { reveal: MotionProps }) {
               iconClassName="text-[#A77C45]"
             />
 
-            <div className="mt-7 flex flex-wrap items-center gap-3">
+            <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/login"
-                className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#171411] px-6 text-sm font-medium text-[#FAF7F2] shadow-md shadow-[#1F1B16]/10 transition hover:bg-[#241C17] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
+                className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#1C1B18] px-6 text-sm font-medium text-[#F7F5F0] shadow-md shadow-black/10 transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
               >
                 Open your album
                 <ArrowRight
@@ -674,7 +671,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
               </a>
             </div>
 
-            <dl className="mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-[#E8DED2]/80 pt-6">
+            <dl className="mt-12 grid max-w-md grid-cols-3 gap-6 border-t border-black/10 pt-6">
               {[
                 { value: "People", label: "Face filters" },
                 { value: "Ask AI", label: "Search prompts" },
@@ -701,6 +698,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
               radius={heroControls.preview.radius}
               saturation={heroControls.preview.saturation}
               showBadges={heroControls.showBadges}
+              animateBorder={!prefersReducedMotion}
             />
           </motion.div>
         </div>
@@ -714,86 +712,137 @@ function HeroPreview({
   radius,
   saturation,
   showBadges,
+  animateBorder,
 }: {
   badgeOffset: number;
   radius: number;
   saturation: number;
   showBadges: boolean;
+  animateBorder: boolean;
 }) {
+  const previewTiles = [
+    { label: "Ceremony", color: "#9A7666", className: "row-span-2" },
+    { label: "Portraits", color: "#7A806D", className: "" },
+    { label: "Details", color: "#AA936E", className: "" },
+    { label: "Reception", color: "#725E55", className: "col-span-2" },
+  ];
+
   return (
     <div className="relative">
       <div
         aria-hidden
-        className="absolute -inset-x-4 -inset-y-6 -z-10 rounded-[2rem] bg-gradient-to-br from-white/70 via-white/30 to-transparent blur-2xl"
+        className="absolute -inset-8 -z-10 rounded-[2.5rem] bg-[#CFC7B9]/45 blur-3xl"
       />
 
       <div
-        className="relative aspect-[4/5] w-full overflow-hidden border border-[#E8DED2]/80 bg-[#F3EDE4] shadow-[0_30px_80px_-30px_rgba(20,15,10,0.35)]"
+        className="relative w-full overflow-hidden border border-white/10 bg-[#1C1B18] p-2 shadow-[0_32px_80px_-36px_rgba(20,18,15,0.55)]"
         style={{
           borderRadius: radius,
           filter: `saturate(${saturation})`,
         }}
       >
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(160deg, #FFF8ED 0%, #E8CFC3 38%, #B88366 78%, #3A2A22 100%)",
-          }}
-        />
-
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-70 mix-blend-soft-light"
-          style={{
-            background:
-              "radial-gradient(40% 30% at 30% 25%, rgba(255,236,210,0.85) 0%, rgba(255,236,210,0) 70%), radial-gradient(50% 40% at 75% 70%, rgba(80,40,20,0.45) 0%, rgba(80,40,20,0) 70%)",
-          }}
-        />
-
-        {showBadges ? (
-          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 text-xs font-medium text-[#3A2A22] shadow-sm ring-1 ring-[#1F1B16]/5 backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5 text-[#A77C45]" strokeWidth={2} />
-            AI suggested
-          </div>
-        ) : null}
-
-        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
-          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-sm ring-1 ring-[#1F1B16]/5 backdrop-blur">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-[#8B8176]">
-              Golden hour
-            </p>
-            <p className="font-serif text-base leading-tight text-[#1F1B16]">
-              First dance
-            </p>
+        <div className="overflow-hidden rounded-[calc(1.5rem-2px)] bg-[#F4F1EB]">
+          <div className="flex h-12 items-center justify-between border-b border-black/[0.07] bg-white/70 px-4">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#1C1B18] text-white">
+                <Camera className="h-3 w-3" strokeWidth={1.8} />
+              </span>
+              <span className="text-xs font-semibold text-[#292722]">
+                Anika & Dev
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[#6F675E]">
+              <Search className="h-3.5 w-3.5" strokeWidth={1.7} />
+              <Share2 className="h-3.5 w-3.5" strokeWidth={1.7} />
+              <span className="h-6 w-6 rounded-full bg-[#A47B6C] ring-2 ring-white" />
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-full bg-white/80 px-2 py-1.5 shadow-sm ring-1 ring-[#1F1B16]/5 backdrop-blur">
-            {[0, 1, 2].map((idx) => (
-              <span
-                key={idx}
-                className="relative h-6 w-6 overflow-hidden rounded-full ring-2 ring-white"
-                style={{
-                  background: [
-                    "linear-gradient(135deg,#E8CFC3,#8E4A40)",
-                    "linear-gradient(135deg,#D6C8B8,#5F755C)",
-                    "linear-gradient(135deg,#FFF2EF,#B88366)",
-                  ][idx],
-                }}
-              />
-            ))}
-            <Users className="ml-1 h-3.5 w-3.5 text-[#4F473F]" strokeWidth={1.75} />
+          <div className="grid min-h-[30rem] grid-cols-[4.25rem_1fr] sm:min-h-[34rem] sm:grid-cols-[5.5rem_1fr]">
+            <aside className="border-r border-black/[0.07] bg-[#ECE8E0] px-2 py-4">
+              <div className="space-y-2">
+                {[
+                  { icon: Camera, label: "Photos", active: true },
+                  { icon: Users, label: "People" },
+                  { icon: Sparkles, label: "Search" },
+                  { icon: Download, label: "Save" },
+                ].map(({ icon: Icon, label, active }) => (
+                  <div
+                    key={label}
+                    className={`flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-[9px] font-medium ${
+                      active
+                        ? "bg-white text-[#25231F] shadow-sm"
+                        : "text-[#7A746B]"
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" strokeWidth={1.7} />
+                    <span>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </aside>
+
+            <div className="p-3 sm:p-5">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-[#8B8176]">
+                    Wedding album
+                  </p>
+                  <h2 className="mt-1 font-serif text-xl text-[#25231F] sm:text-2xl">
+                    The whole day
+                  </h2>
+                </div>
+                <span className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[9px] font-medium text-[#5C574F]">
+                  428 photos
+                </span>
+              </div>
+
+              <div className="mt-4 grid auto-rows-[7.2rem] grid-cols-2 gap-2 sm:auto-rows-[8.5rem] sm:gap-3">
+                {previewTiles.map((tile) => (
+                  <div
+                    key={tile.label}
+                    className={`group relative overflow-hidden rounded-xl ${tile.className}`}
+                    style={{ backgroundColor: tile.color }}
+                  >
+                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-black/20 px-3 py-2 text-white">
+                      <span className="font-serif text-sm">{tile.label}</span>
+                      <Heart className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 shadow-sm">
+                <Search className="h-3.5 w-3.5 text-[#817A70]" strokeWidth={1.7} />
+                <span className="truncate text-[11px] text-[#5D574F]">
+                  Mum laughing during the toast
+                </span>
+                <span className="ml-auto rounded-full bg-[#ECE8E0] px-2 py-1 text-[9px] font-medium text-[#6F675E]">
+                  12 results
+                </span>
+              </div>
+            </div>
           </div>
         </div>
+
+        {animateBorder ? (
+          <BorderBeam
+            size={120}
+            duration={12}
+            colorFrom="#D8C7A4"
+            colorTo="#7E8B73"
+            borderWidth={1}
+          />
+        ) : null}
       </div>
 
       {showBadges ? (
         <>
           <div
-            className="absolute -right-3 -top-3 hidden w-56 rounded-2xl border border-[#E8DED2] bg-white/90 p-3 shadow-lg shadow-[#1F1B16]/5 ring-1 ring-[#1F1B16]/5 backdrop-blur sm:block"
+            className="absolute -right-3 -top-4 hidden w-56 rounded-2xl border border-black/10 bg-white/95 p-3 shadow-xl shadow-black/5 backdrop-blur sm:block"
             style={{ transform: `translateY(${badgeOffset}px)` }}
           >
-            <div className="flex items-center gap-2 rounded-xl bg-[#F7F1E8] px-3 py-2 ring-1 ring-[#E8DED2]/70">
+            <div className="flex items-center gap-2 rounded-xl bg-[#F2EFE9] px-3 py-2 ring-1 ring-black/[0.06]">
               <Search className="h-4 w-4 text-[#8B8176]" strokeWidth={1.75} />
               <span className="truncate text-sm text-[#4F473F]">
                 “Mum laughing at the toast”
@@ -805,7 +854,7 @@ function HeroPreview({
           </div>
 
           <div
-            className="absolute -bottom-4 -left-2 hidden items-center gap-3 rounded-2xl border border-[#E8DED2] bg-white/95 px-3 py-2.5 shadow-lg shadow-[#1F1B16]/5 ring-1 ring-[#1F1B16]/5 backdrop-blur sm:flex"
+            className="absolute -bottom-4 -left-2 hidden items-center gap-3 rounded-2xl border border-black/10 bg-white/95 px-3 py-2.5 shadow-xl shadow-black/5 backdrop-blur sm:flex"
             style={{ transform: `translateY(${-badgeOffset}px)` }}
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFF2EF] text-[#A85D50] ring-1 ring-[#E8CFC3]">
@@ -861,66 +910,65 @@ function DocsHub({
           </a>
         </motion.div>
 
-        <motion.div
-          {...stagger}
-          className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {docPages.map((page) => {
-            const Icon = page.icon;
+        <motion.div {...stagger} className="mt-10">
+          <BentoGrid className="auto-rows-auto grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {docPages.map((page) => {
+              const Icon = page.icon;
 
-            return (
-              <motion.article
-                key={page.title}
-                variants={itemVariants}
-                className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#E8DED2] bg-[#FAF7F2] shadow-[0_1px_0_rgba(0,0,0,0.02)] transition duration-500 hover:-translate-y-1 hover:border-[#D6C8B8] hover:shadow-xl"
-              >
-                <DocPhotoPlate
-                  icon={Icon}
-                  title={page.title}
-                  tone={page.tone}
-                  label={page.eyebrow}
-                />
+              return (
+                <motion.article
+                  key={page.title}
+                  variants={itemVariants}
+                  className="group col-span-1 flex h-full flex-col overflow-hidden rounded-2xl border border-black/[0.08] bg-[#F7F5F0] shadow-[0_1px_0_rgba(0,0,0,0.02),0_18px_50px_-38px_rgba(0,0,0,0.3)] transition duration-500 hover:-translate-y-1 hover:border-black/15 hover:shadow-xl"
+                >
+                  <DocPhotoPlate
+                    icon={Icon}
+                    title={page.title}
+                    tone={page.tone}
+                    label={page.eyebrow}
+                  />
 
-                <div className="flex flex-1 flex-col p-5">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#171411] text-[#FAF7F2] transition group-hover:bg-[#C6A15B]">
-                      <Icon className="h-4 w-4" strokeWidth={1.75} />
-                    </span>
-                    <h3 className="font-serif text-xl leading-tight text-[#1F1B16]">
-                      {page.title}
-                    </h3>
+                  <div className="flex flex-1 flex-col p-5">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1C1B18] text-[#F7F5F0] transition group-hover:bg-[#6F795F]">
+                        <Icon className="h-4 w-4" strokeWidth={1.75} />
+                      </span>
+                      <h3 className="font-serif text-xl leading-tight text-[#1F1B16]">
+                        {page.title}
+                      </h3>
+                    </div>
+
+                    <p className="mt-3 text-sm leading-relaxed text-[#6F675E]">
+                      {page.body}
+                    </p>
+
+                    <ul className="mt-4 space-y-2 text-sm text-[#4F473F]">
+                      {page.highlights.map((highlight) => (
+                        <li key={highlight} className="flex gap-2">
+                          <CheckCircle2
+                            className="mt-0.5 h-4 w-4 shrink-0 text-[#66735F]"
+                            strokeWidth={2}
+                          />
+                          <span>{highlight}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <a
+                      href={page.href}
+                      className="mt-5 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[#1F1B16] transition hover:text-[#6F795F]"
+                    >
+                      Open guide
+                      <ArrowRight
+                        className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5"
+                        strokeWidth={1.75}
+                      />
+                    </a>
                   </div>
-
-                  <p className="mt-3 text-sm leading-relaxed text-[#6F675E]">
-                    {page.body}
-                  </p>
-
-                  <ul className="mt-4 space-y-2 text-sm text-[#4F473F]">
-                    {page.highlights.map((highlight) => (
-                      <li key={highlight} className="flex gap-2">
-                        <CheckCircle2
-                          className="mt-0.5 h-4 w-4 shrink-0 text-[#5F755C]"
-                          strokeWidth={2}
-                        />
-                        <span>{highlight}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <a
-                    href={page.href}
-                    className="mt-5 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[#1F1B16] transition hover:text-[#8A6434]"
-                  >
-                    Open guide
-                    <ArrowRight
-                      className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5"
-                      strokeWidth={1.75}
-                    />
-                  </a>
-                </div>
-              </motion.article>
-            );
-          })}
+                </motion.article>
+              );
+            })}
+          </BentoGrid>
         </motion.div>
       </div>
     </section>
@@ -1305,7 +1353,7 @@ function FeatureGuides({
   return (
     <section
       id="guides"
-      className="relative border-y border-[#E8DED2]/70 bg-gradient-to-b from-[#F3EDE4] via-[#FAF7F2] to-white"
+      className="relative border-y border-[#E8DED2]/70 bg-[#EFEBE4]"
     >
       <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
         <motion.div {...reveal} className="max-w-3xl">
@@ -1704,7 +1752,7 @@ function GalleryPreview({
   stagger: MotionProps;
 }) {
   return (
-    <section className="relative border-y border-[#E8DED2]/70 bg-gradient-to-b from-[#F3EDE4] via-[#FAF7F2] to-[#FAF7F2]">
+    <section className="relative border-y border-[#E8DED2]/70 bg-[#EEEAE2]">
       <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
         <motion.div
           {...reveal}
@@ -1813,20 +1861,25 @@ function GalleryPreview({
 }
 
 function FinalCTA({ reveal }: { reveal: MotionProps }) {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
     <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
       <motion.div
         {...reveal}
-        className="relative overflow-hidden rounded-3xl bg-[#171411] px-6 py-14 text-center text-[#FAF7F2] sm:px-12 sm:py-20"
+        className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#171411] px-6 py-14 text-center text-[#FAF7F2] shadow-[0_30px_80px_-45px_rgba(0,0,0,0.8)] sm:px-12 sm:py-20"
       >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(50% 60% at 50% 0%, rgba(252,217,177,0.18) 0%, rgba(252,217,177,0) 70%), radial-gradient(60% 60% at 100% 100%, rgba(180,120,80,0.22) 0%, rgba(180,120,80,0) 70%)",
-          }}
-        />
+        {!prefersReducedMotion ? (
+          <AnimatedGridPattern
+            width={56}
+            height={56}
+            numSquares={10}
+            maxOpacity={0.08}
+            duration={6}
+            repeatDelay={2}
+            className="fill-[#E7D6B5]/10 stroke-white/[0.06] [mask-image:radial-gradient(500px_circle_at_center,black,transparent)]"
+          />
+        ) : null}
 
         <p className="relative text-xs font-medium uppercase tracking-[0.18em] text-[#E7D6B5]/90">
           Ready when you are
@@ -1857,6 +1910,16 @@ function FinalCTA({ reveal }: { reveal: MotionProps }) {
             Talk to us
           </Link>
         </div>
+
+        {!prefersReducedMotion ? (
+          <BorderBeam
+            size={160}
+            duration={16}
+            colorFrom="#D8C7A4"
+            colorTo="#78846F"
+            borderWidth={1}
+          />
+        ) : null}
       </motion.div>
     </section>
   );
