@@ -6,6 +6,7 @@ import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 import { customerPublicUrl, getCustomerSlugFromHost } from "@/lib/customer-host";
 import { passcodeAccessCookieName } from "@/lib/passcode-access-cookie";
 import { verifySharePasscodeAccessToken } from "@/lib/share-passcode";
+import { signedUrl } from "@/lib/s3";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -20,6 +21,7 @@ interface ShareLinkRow {
   link_name: string | null;
   customer_slug: string | null;
   passcode: string | null;
+  cover_photo_s3_key: string | null;
 }
 
 function shortToken(value: string) {
@@ -44,7 +46,8 @@ export default async function SharedAlbumPage({ params }: PageProps) {
         s.album_name,
         s.link_name,
         c.slug AS customer_slug,
-        s.passcode
+        s.passcode,
+        a.cover_photo_s3_key
       FROM album_share_links s
       JOIN albums a
         ON a.id = s.album_id
@@ -106,10 +109,12 @@ export default async function SharedAlbumPage({ params }: PageProps) {
         share.passcode,
       )
     ) {
+      const coverPhotoUrl = await signedUrl(share.cover_photo_s3_key);
       return (
         <SharePasscodeGate
           token={token}
           albumName={share.link_name || share.album_name}
+          coverPhotoUrl={coverPhotoUrl}
         />
       );
     }
