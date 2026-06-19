@@ -64,6 +64,16 @@ function withTrailingSlash(value: string) {
   return value.endsWith("/") ? value : `${value}/`;
 }
 
+function clearS3CachesForKey(key: string) {
+  signedUrlCache.delete(`object:${key}`);
+  for (const cacheKey of signedUrlCache.keys()) {
+    if (cacheKey.includes(`:${key}:`) || cacheKey.endsWith(`:${key}`)) {
+      signedUrlCache.delete(cacheKey);
+    }
+  }
+  s3ListCache.clear();
+}
+
 export function derivedThumbnailKey(
   originalKey?: string | null,
   thumbnailKey?: string | null
@@ -179,6 +189,49 @@ export async function signedObjectUrl(key?: string | null): Promise<string | nul
 
     return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
   });
+}
+
+export async function uploadS3Object({
+  key,
+  body,
+  contentType,
+  cacheControl,
+}: {
+  key: string;
+  body: Uint8Array | Buffer | string;
+  contentType?: string | null;
+  cacheControl?: string | null;
+}) {
+  if (!key) {
+    throw new Error("S3 object key is required");
+  }
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+      Body: body,
+      ContentType: contentType ?? undefined,
+      CacheControl: cacheControl ?? undefined,
+    })
+  );
+
+  clearS3CachesForKey(key);
+  return key;
+}
+
+export async function deleteS3Object(key?: string | null) {
+  if (!key) return false;
+
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+    })
+  );
+
+  clearS3CachesForKey(key);
+  return true;
 }
 
 export async function getS3ObjectBytes(key?: string | null) {
