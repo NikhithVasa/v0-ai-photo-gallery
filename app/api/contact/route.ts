@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { z } from "zod";
 
-const CONTACT_EMAIL = "brunoboy0102@gmail.com";
+const CONTACT_EMAIL = "support@saathidesk.com";
 
 const contactSchema = z.object({
   name: z.string().trim().min(2).max(100),
