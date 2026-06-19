@@ -15,6 +15,8 @@ const OPENROUTER_EMBEDDING_MODEL =
   process.env.OPENROUTER_EMBEDDING_MODEL ||
   "sentence-transformers/all-minilm-l6-v2";
 const OPENROUTER_EMBEDDING_DIMENSION = 384;
+const SEARCH_DEBUG_TOP_RESULTS = 10;
+const SEARCH_DEBUG_SNIPPET_LENGTH = 180;
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -25,6 +27,39 @@ interface PersonMatch {
   person_number: number | null;
   default_name: string;
   display_name: string | null;
+}
+
+type SearchRow = PhotoRow & {
+  semantic_score?: number | string | null;
+  vector_distance?: number | string | null;
+  person_search_text?: string | null;
+  qwen_description?: string | null;
+  people?: unknown;
+};
+
+interface EmbeddingCoverageRow {
+  completed_photos: string | number | null;
+  photos_with_search_embedding: string | number | null;
+  photos_missing_search_embedding: string | number | null;
+  event_completed_photos: string | number | null;
+  event_photos_with_search_embedding: string | number | null;
+  event_photos_missing_search_embedding: string | number | null;
+}
+
+interface EmbeddingDebug {
+  provider: "openrouter";
+  model: string;
+  configured: boolean;
+  attempted: boolean;
+  ok: boolean;
+  durationMs: number | null;
+  httpStatus: number | null;
+  dimension: number | null;
+  expectedDimension: number;
+  normBefore: number | null;
+  normAfter: number | null;
+  vectorPreview: number[] | null;
+  error: string | null;
 }
 
 function isUuid(value: string) {
@@ -51,8 +86,40 @@ function personName(person: PersonMatch) {
   );
 }
 
+function nowMs() {
+  return Date.now();
+}
+
+function durationSince(startedAt: number) {
+  return Math.max(0, Date.now() - startedAt);
+}
+
+function toNumber(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function roundMetric(value: unknown, digits = 6) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Number(parsed.toFixed(digits));
+}
+
+function textSnippet(value: unknown, maxLength = SEARCH_DEBUG_SNIPPET_LENGTH) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (!normalized) return null;
+  return normalized.length > maxLength
+    ? `${normalized.slice(0, maxLength)}...`
+    : normalized;
+}
+
+function vectorNorm(values: number[]) {
+  return Math.sqrt(values.reduce((sum, value) => sum + value * value, 0));
+}
+
 function normalizeEmbedding(values: number[]) {
-  const norm = Math.sqrt(values.reduce((sum, value) => sum + value * value, 0));
+  const norm = vectorNorm(values);
   if (!Number.isFinite(norm) || norm === 0) return values;
   return values.map((value) => value / norm);
 }
@@ -77,9 +144,17 @@ function openRouterReferer(request: Request) {
   return `${protocol}://${host}`;
 }
 
-async function embedSearchQueryWithOpenRouter(searchQuery: string, request: Request) {
+async function embedSearchQueryWithOpenRouter(
+  searchQuery: string,
+  request: Request,
+  embeddingDebug: EmbeddingDebug
+) {
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  embeddingDebug.configured = Boolean(apiKey);
   if (!apiKey || !searchQuery) return null;
+
+  const startedAt = nowMs();
+  embeddingDebug.attempted = true;
 
   const response = await fetch("https://openrouter.ai/api/v1/embeddings", {
     method: "POST",
@@ -96,6 +171,9 @@ async function embedSearchQueryWithOpenRouter(searchQuery: string, request: Requ
     }),
   });
 
+  embeddingDebug.httpStatus = response.status;
+  embeddingDebug.durationMs = durationSince(startedAt);
+
   if (!response.ok) {
     throw new Error(`OpenRouter embedding failed: ${await response.text()}`);
   }
@@ -110,6 +188,11 @@ async function embedSearchQueryWithOpenRouter(searchQuery: string, request: Requ
   }
 
   const numericEmbedding = embedding.map((value) => Number(value));
+  embeddingDebug.dimension = numericEmbedding.length;
+  embeddingDebug.vectorPreview = numericEmbedding
+    .slice(0, 8)
+    .map((value) => Number(value.toFixed(6)));
+
   if (
     numericEmbedding.length !== OPENROUTER_EMBEDDING_DIMENSION ||
     numericEmbedding.some((value) => !Number.isFinite(value))
@@ -119,7 +202,15 @@ async function embedSearchQueryWithOpenRouter(searchQuery: string, request: Requ
     );
   }
 
-  return embeddingToPgVector(normalizeEmbedding(numericEmbedding));
+  const normBefore = vectorNorm(numericEmbedding);
+  const normalizedEmbedding = normalizeEmbedding(numericEmbedding);
+  const normAfter = vectorNorm(normalizedEmbedding);
+
+  embeddingDebug.normBefore = roundMetric(normBefore);
+  embeddingDebug.normAfter = roundMetric(normAfter);
+  embeddingDebug.ok = true;
+
+  return embeddingToPgVector(normalizedEmbedding);
 }
 
 function extractSearchTerms(query: string) {
@@ -135,12 +226,22 @@ function extractSearchTerms(query: string) {
     .toLowerCase()
     .replace(/\bphotos?\b/g, " ")
     .replace(
-      /\b(give|show|find|get|search|look|looking|want|need|please|pls|me|my|of|with|and|being|is|are|in|the|a|an|for|from)\b/g,
+      /\b(give|show|find|get|search|look|looking|want|need|please|pls|me|my|of|with|and|being|is|are|in|the|a|an|for|from|simple)\b/g,
       " "
     )
     .replace(/\bperson\s*\d+\b/gi, " ");
 
   const actionWords = new Set([
+    "wedding",
+    "bride",
+    "bridal",
+    "groom",
+    "dress",
+    "gown",
+    "lehenga",
+    "saree",
+    "sari",
+    "sherwani",
     "dancing",
     "eating",
     "smiling",
@@ -169,6 +270,7 @@ function extractSearchTerms(query: string) {
     "portrait",
     "couple",
     "jewelry",
+    "jewellery",
     "rich",
     "heavy",
     "bright",
@@ -318,6 +420,59 @@ async function fetchResolvedPeople(albumSlug: string, personIds: string[]) {
   );
 }
 
+async function fetchEmbeddingCoverage(albumSlug: string, eventSlug: string | null) {
+  const row = await queryOne<EmbeddingCoverageRow>(
+    `
+    SELECT
+      COUNT(*) FILTER (
+        WHERE COALESCE(p.is_deleted, false) = false
+          AND p.upload_status = 'completed'
+      ) AS completed_photos,
+      COUNT(*) FILTER (
+        WHERE COALESCE(p.is_deleted, false) = false
+          AND p.upload_status = 'completed'
+          AND p.search_embedding IS NOT NULL
+      ) AS photos_with_search_embedding,
+      COUNT(*) FILTER (
+        WHERE COALESCE(p.is_deleted, false) = false
+          AND p.upload_status = 'completed'
+          AND p.search_embedding IS NULL
+      ) AS photos_missing_search_embedding,
+      COUNT(*) FILTER (
+        WHERE ($2::text IS NULL OR e.slug = $2)
+          AND COALESCE(p.is_deleted, false) = false
+          AND p.upload_status = 'completed'
+      ) AS event_completed_photos,
+      COUNT(*) FILTER (
+        WHERE ($2::text IS NULL OR e.slug = $2)
+          AND COALESCE(p.is_deleted, false) = false
+          AND p.upload_status = 'completed'
+          AND p.search_embedding IS NOT NULL
+      ) AS event_photos_with_search_embedding,
+      COUNT(*) FILTER (
+        WHERE ($2::text IS NULL OR e.slug = $2)
+          AND COALESCE(p.is_deleted, false) = false
+          AND p.upload_status = 'completed'
+          AND p.search_embedding IS NULL
+      ) AS event_photos_missing_search_embedding
+    FROM photos p
+    JOIN albums a ON a.id = p.album_id
+    JOIN album_events e ON e.id = p.album_event_id
+    WHERE lower(a.slug) = lower($1)
+    `,
+    [albumSlug, eventSlug]
+  );
+
+  return {
+    completedPhotos: toNumber(row?.completed_photos),
+    photosWithSearchEmbedding: toNumber(row?.photos_with_search_embedding),
+    photosMissingSearchEmbedding: toNumber(row?.photos_missing_search_embedding),
+    eventCompletedPhotos: toNumber(row?.event_completed_photos),
+    eventPhotosWithSearchEmbedding: toNumber(row?.event_photos_with_search_embedding),
+    eventPhotosMissingSearchEmbedding: toNumber(row?.event_photos_missing_search_embedding),
+  };
+}
+
 function photoSearchSelectSql(includeSemanticScore: boolean) {
   return `
       SELECT
@@ -342,7 +497,7 @@ function photoSearchSelectSql(includeSemanticScore: boolean) {
         e.name AS event_name,
         MIN(pp_text.search_text) AS person_search_text,
         MIN(pp_text.qwen_description) AS qwen_description,
-        COALESCE(photo_people_summary.people, '[]'::jsonb) AS people${includeSemanticScore ? ",\n        1 - (p.search_embedding <=> $3::vector) AS semantic_score" : ""}
+        COALESCE(photo_people_summary.people, '[]'::jsonb) AS people${includeSemanticScore ? ",\n        p.search_embedding <=> $3::vector AS vector_distance,\n        1 - (p.search_embedding <=> $3::vector) AS semantic_score" : ""}
       FROM photos p
       JOIN albums a ON a.id = p.album_id
       JOIN album_events e ON e.id = p.album_event_id
@@ -405,7 +560,7 @@ async function runKeywordSearch({
   together: boolean;
   limit: number;
 }) {
-  return query<PhotoRow>(
+  return query<SearchRow>(
     `
 ${photoSearchSelectSql(false)}
       WHERE lower(a.slug) = lower($1)
@@ -466,7 +621,7 @@ async function runSemanticSearch({
   together: boolean;
   limit: number;
 }) {
-  return query<PhotoRow & { semantic_score?: number }>(
+  return query<SearchRow>(
     `
 ${photoSearchSelectSql(true)}
       WHERE lower(a.slug) = lower($1)
@@ -507,7 +662,43 @@ ${photoSearchGroupBySql},
   );
 }
 
+function peopleForDebug(row: SearchRow) {
+  if (!Array.isArray(row.people)) return [];
+  return row.people.slice(0, 8).map((person) => {
+    if (!person || typeof person !== "object") return person;
+    const value = person as Record<string, unknown>;
+    return {
+      id: value.id,
+      person_number: value.person_number,
+      default_name: value.default_name,
+      display_name: value.display_name,
+    };
+  });
+}
+
+function topRowsForDebug(rows: SearchRow[]) {
+  return rows.slice(0, SEARCH_DEBUG_TOP_RESULTS).map((row, index) => ({
+    rank: index + 1,
+    photoId: row.id,
+    fileName: row.file_name,
+    eventSlug: row.event_slug,
+    semanticScore: roundMetric(row.semantic_score),
+    vectorDistance: roundMetric(row.vector_distance),
+    captionSnippet: textSnippet(row.caption),
+    searchTextSnippet: textSnippet(row.search_text),
+    personSearchTextSnippet: textSnippet(row.person_search_text),
+    qwenDescriptionSnippet: textSnippet(row.qwen_description),
+    people: peopleForDebug(row),
+  }));
+}
+
 export async function POST(request: Request, { params }: Props) {
+  const totalStartedAt = nowMs();
+  const requestId =
+    request.headers.get("x-vercel-id") ||
+    request.headers.get("x-request-id") ||
+    globalThis.crypto?.randomUUID?.() ||
+    `${Date.now()}`;
   let pendingQueryLog: Record<string, unknown> | null = null;
   let selectedPersonNamesForLog: string[] = [];
   let queryLogged = false;
@@ -581,7 +772,7 @@ export async function POST(request: Request, { params }: Props) {
       level: "info",
       event: "saathidesk_ai_user_query",
       route: "/api/albums/[albumSlug]/search",
-      requestId: request.headers.get("x-vercel-id"),
+      requestId,
       albumSlug,
       query: searchQuery,
       queryLength: searchQuery.length,
@@ -649,14 +840,54 @@ export async function POST(request: Request, { params }: Props) {
       limit,
     });
 
-    let rows: PhotoRow[] = [];
+    const embeddingDebug: EmbeddingDebug = {
+      provider: "openrouter",
+      model: OPENROUTER_EMBEDDING_MODEL,
+      configured: Boolean(process.env.OPENROUTER_API_KEY?.trim()),
+      attempted: false,
+      ok: false,
+      durationMs: null,
+      httpStatus: null,
+      dimension: null,
+      expectedDimension: OPENROUTER_EMBEDDING_DIMENSION,
+      normBefore: null,
+      normAfter: null,
+      vectorPreview: null,
+      error: null,
+    };
+    const semanticSearchDebug = {
+      attempted: false,
+      durationMs: null as number | null,
+      rowsReturned: 0,
+      topResults: [] as ReturnType<typeof topRowsForDebug>,
+      fallbackReason: null as string | null,
+    };
+    const keywordFallbackDebug = {
+      attempted: false,
+      durationMs: null as number | null,
+      keyword,
+      rowsReturned: 0,
+      topResults: [] as ReturnType<typeof topRowsForDebug>,
+    };
+
+    const coverageStartedAt = nowMs();
+    const embeddingCoverage = await fetchEmbeddingCoverage(albumSlug, eventSlug);
+    const embeddingCoverageDurationMs = durationSince(coverageStartedAt);
+
+    let rows: SearchRow[] = [];
     let searchMode: "semantic" | "keyword" | "person_filter" = "keyword";
     let semanticError: string | null = null;
 
     if (searchQuery) {
       try {
-        const queryVector = await embedSearchQueryWithOpenRouter(searchQuery, request);
+        const queryVector = await embedSearchQueryWithOpenRouter(
+          searchQuery,
+          request,
+          embeddingDebug
+        );
         if (queryVector) {
+          const semanticStartedAt = nowMs();
+          semanticSearchDebug.attempted = true;
           rows = await runSemanticSearch({
             albumSlug,
             eventSlug,
@@ -665,18 +896,39 @@ export async function POST(request: Request, { params }: Props) {
             together,
             limit,
           });
-          searchMode = "semantic";
+          semanticSearchDebug.durationMs = durationSince(semanticStartedAt);
+          semanticSearchDebug.rowsReturned = rows.length;
+          semanticSearchDebug.topResults = topRowsForDebug(rows);
+
+          if (rows.length) {
+            searchMode = "semantic";
+          } else {
+            semanticSearchDebug.fallbackReason =
+              embeddingCoverage.eventPhotosWithSearchEmbedding === 0
+                ? "semantic_returned_zero_rows_no_event_embeddings"
+                : "semantic_returned_zero_rows";
+          }
+        } else {
+          semanticSearchDebug.fallbackReason = embeddingDebug.configured
+            ? "embedding_not_returned"
+            : "openrouter_api_key_missing";
         }
       } catch (error) {
         semanticError = error instanceof Error ? error.message : String(error);
+        embeddingDebug.error = semanticError;
+        semanticSearchDebug.fallbackReason = "semantic_error";
         console.warn("[share-debug] semantic search failed; falling back to keyword", {
           albumSlug,
           error: semanticError,
         });
       }
+    } else {
+      semanticSearchDebug.fallbackReason = "empty_query_person_filter_only";
     }
 
-    if (!rows.length && searchMode !== "semantic") {
+    if (!rows.length) {
+      const keywordStartedAt = nowMs();
+      keywordFallbackDebug.attempted = true;
       rows = await runKeywordSearch({
         albumSlug,
         eventSlug,
@@ -685,6 +937,9 @@ export async function POST(request: Request, { params }: Props) {
         together,
         limit,
       });
+      keywordFallbackDebug.durationMs = durationSince(keywordStartedAt);
+      keywordFallbackDebug.rowsReturned = rows.length;
+      keywordFallbackDebug.topResults = topRowsForDebug(rows);
       searchMode = keyword ? "keyword" : "person_filter";
     }
 
@@ -693,6 +948,46 @@ export async function POST(request: Request, { params }: Props) {
       Promise.all(rows.map(toPhoto)),
     ]);
 
+    const totalDurationMs = durationSince(totalStartedAt);
+    const oneShotDebugLog = {
+      level: "info",
+      event: "saathidesk_ai_search_debug_v1",
+      requestId,
+      route: "/api/albums/[albumSlug]/search",
+      albumSlug,
+      query: searchQuery,
+      queryLength: searchQuery.length,
+      eventSlug,
+      limit,
+      together,
+      parsedQuery: {
+        personNames,
+        keywords,
+        unresolvedTerms: Array.from(unresolvedTerms),
+        resolvedPersonIds: personIds,
+        selectedPersonNames: selectedPersonNamesForLog,
+        keyword,
+      },
+      embedding: embeddingDebug,
+      database: {
+        embeddingCoverage: {
+          ...embeddingCoverage,
+          durationMs: embeddingCoverageDurationMs,
+        },
+        semanticSearch: semanticSearchDebug,
+        keywordFallback: keywordFallbackDebug,
+      },
+      final: {
+        searchMode,
+        returnedResults: results.length,
+        resolvedPeople: resolvedPeople.length,
+        totalDurationMs,
+        semanticError,
+      },
+    };
+
+    console.info(JSON.stringify(oneShotDebugLog));
+
     console.log("[share-debug] album search API results loaded", {
       albumSlug,
       dbRows: rows.length,
@@ -700,6 +995,7 @@ export async function POST(request: Request, { params }: Props) {
       resolvedPeople: resolvedPeople.length,
       searchMode,
       semanticError,
+      totalDurationMs,
     });
 
     return NextResponse.json({
@@ -707,6 +1003,7 @@ export async function POST(request: Request, { params }: Props) {
       searchMode,
       semanticModel: searchMode === "semantic" ? OPENROUTER_EMBEDDING_MODEL : null,
       semanticError,
+      debugRequestId: requestId,
       resolvedPeople,
       results,
     });
