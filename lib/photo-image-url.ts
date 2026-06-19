@@ -1,8 +1,13 @@
+import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
+
 export function mediaUrlForS3KeyWithShare(
   key?: string | null,
   shareToken = "",
 ) {
   if (!key) return null;
+
+  const cloudFrontUrl = cloudFrontImageUrl(key);
+  if (cloudFrontUrl) return cloudFrontUrl;
 
   const params = new URLSearchParams({ key });
   if (shareToken) params.set("share", shareToken);
