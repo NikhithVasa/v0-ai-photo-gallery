@@ -8,6 +8,7 @@ import {
   type PhotoRow,
 } from "@/lib/gallery-data";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { getShareLinkAccess } from "@/lib/share-access";
 import type { Person } from "@/lib/types";
 
 interface Props {
@@ -227,6 +228,14 @@ export async function POST(request: Request, { params }: Props) {
         hasShareToken: Boolean(shareToken),
       });
       return accessDenied;
+    }
+
+    const shareAccess = await getShareLinkAccess(request, albumSlug);
+    if (shareAccess?.personId) {
+      return NextResponse.json(
+        { error: "Search is unavailable for this shared link" },
+        { status: 403 },
+      );
     }
 
     const body = (await request.json()) as {

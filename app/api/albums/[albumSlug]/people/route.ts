@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { toPerson, type PersonRow } from "@/lib/gallery-data";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { getShareLinkAccess } from "@/lib/share-access";
 import type { Person } from "@/lib/types";
 
 interface Props {
@@ -53,6 +54,8 @@ export async function GET(request: Request, { params }: Props) {
       return accessDenied;
     }
 
+    const shareAccess = await getShareLinkAccess(request, albumSlug);
+
     console.log("[share-debug] album people API querying people", {
       albumSlug,
       eventSlug,
@@ -97,6 +100,7 @@ export async function GET(request: Request, { params }: Props) {
            AND COALESCE(p.is_deleted, false) = false
            AND p.upload_status = 'completed'
           WHERE lower(a.slug) = lower($1)
+            AND ($3::uuid IS NULL OR pe.id = $3::uuid)
             AND COALESCE(a.is_deleted, false) = false
             AND COALESCE(pe.is_hidden, false) = false
           GROUP BY
@@ -108,7 +112,7 @@ export async function GET(request: Request, { params }: Props) {
             pe.cover_face_s3_key
           ORDER BY COUNT(DISTINCT p.id) DESC, pe.person_number ASC
           `,
-          [albumSlug, eventSlug]
+          [albumSlug, eventSlug, shareAccess?.personId ?? null]
         )
       : await query<PersonRow>(
           `
@@ -142,6 +146,7 @@ export async function GET(request: Request, { params }: Props) {
            AND COALESCE(p.is_deleted, false) = false
            AND p.upload_status = 'completed'
           WHERE lower(a.slug) = lower($1)
+            AND ($2::uuid IS NULL OR pe.id = $2::uuid)
             AND COALESCE(a.is_deleted, false) = false
             AND COALESCE(pe.is_hidden, false) = false
           GROUP BY
@@ -153,7 +158,7 @@ export async function GET(request: Request, { params }: Props) {
             pe.cover_face_s3_key
           ORDER BY COUNT(DISTINCT p.id) DESC, pe.person_number ASC
           `,
-          [albumSlug]
+          [albumSlug, shareAccess?.personId ?? null]
         );
 
     const peopleBase = (await Promise.all(rows.map(toPerson))) satisfies Person[];

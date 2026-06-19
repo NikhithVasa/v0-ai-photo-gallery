@@ -1,9 +1,19 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { ArrowLeft, User } from "lucide-react";
+import { ArrowLeft, Copy, Loader2, Share2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +41,152 @@ interface PersonViewProps {
   person: Person;
   onBack: () => void;
   shareSettings?: AlbumShareSettings | null;
+}
+
+function PersonShareDialog({
+  albumSlug,
+  person,
+  onlyPerson,
+}: {
+  albumSlug: string;
+  person: Person;
+  onlyPerson: boolean;
+}) {
+  const defaultPersonName = person.displayName || person.defaultName;
+  const [isOpen, setIsOpen] = useState(false);
+  const [personName, setPersonName] = useState(defaultPersonName);
+  const [linkName, setLinkName] = useState(`${defaultPersonName}'s photos`);
+  const [shareUrl, setShareUrl] = useState("");
+  const [status, setStatus] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setPersonName(defaultPersonName);
+    setLinkName(`${defaultPersonName}'s photos`);
+    setShareUrl("");
+    setStatus("");
+  }, [defaultPersonName, isOpen]);
+
+  const createLink = async () => {
+    if (!personName.trim() || !linkName.trim() || isSaving) return;
+
+    setIsSaving(true);
+    setStatus("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/share/person`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            personId: person.id,
+            personName,
+            linkName,
+            onlyPerson,
+          }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        share?: { url?: string };
+        error?: string;
+      };
+
+      if (!response.ok || !payload.share?.url) {
+        throw new Error(payload.error || "Failed to create share link");
+      }
+
+      setShareUrl(payload.share.url);
+      setStatus("Link created");
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Failed to create share link",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const copyLink = async () => {
+    if (!shareUrl) return;
+    await navigator.clipboard?.writeText(shareUrl);
+    setStatus("Copied");
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" className="rounded-full">
+          <Share2 className="h-4 w-4" />
+          Share person
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share person photos</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="person-share-name">Person name</Label>
+            <Input
+              id="person-share-name"
+              value={personName}
+              onChange={(event) => setPersonName(event.target.value)}
+              placeholder="Person name"
+              maxLength={120}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="person-share-link-name">Shared link name</Label>
+            <Input
+              id="person-share-link-name"
+              value={linkName}
+              onChange={(event) => setLinkName(event.target.value)}
+              placeholder="Gallery name shown to visitors"
+              maxLength={120}
+            />
+          </div>
+
+          <p className="text-xs leading-5 text-zinc-500">
+            {onlyPerson
+              ? "This link includes photos where this person appears alone."
+              : "This link includes photos containing this person."}
+          </p>
+
+          {shareUrl && (
+            <div className="flex min-w-0 gap-2">
+              <Input value={shareUrl} readOnly className="font-mono text-xs" />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={copyLink}
+                aria-label="Copy person share link"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {status && <p className="text-sm text-zinc-500">{status}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            onClick={createLink}
+            disabled={!personName.trim() || !linkName.trim() || isSaving}
+          >
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Create link
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function personPhotosUrl(
@@ -154,6 +310,13 @@ export function PersonView({
           >
             Only them
           </button>
+          {!shareToken && (
+            <PersonShareDialog
+              albumSlug={albumSlug}
+              person={person}
+              onlyPerson={onlyPerson}
+            />
+          )}
           {data?.photos ? (
             <span className="text-sm text-muted-foreground">
               Showing {data.photos.length}{" "}

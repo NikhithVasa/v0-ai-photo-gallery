@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { toPhoto, type PhotoRow } from "@/lib/gallery-data";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { getShareLinkAccess } from "@/lib/share-access";
 import {
   albumSortMode,
   ensurePhotoSortSchema,
@@ -28,12 +29,12 @@ export async function GET(request: Request, { params }: Props) {
     const { searchParams } = new URL(request.url);
     const shareToken = searchParams.get("share");
     const eventSlug = searchParams.get("event") || null;
-    const onlyPerson = searchParams.get("peopleMode") === "only";
+    const requestedOnlyPerson = searchParams.get("peopleMode") === "only";
     console.log("[share-debug] person photos API start", {
       albumSlug,
       personId,
       eventSlug,
-      onlyPerson,
+      onlyPerson: requestedOnlyPerson,
       hasShareToken: Boolean(shareToken),
       shareToken: shortToken(shareToken),
     });
@@ -49,6 +50,14 @@ export async function GET(request: Request, { params }: Props) {
       });
       return accessDenied;
     }
+
+    const shareAccess = await getShareLinkAccess(request, albumSlug);
+    if (shareAccess?.personId && shareAccess.personId !== personId) {
+      return NextResponse.json({ error: "Person not available" }, { status: 403 });
+    }
+    const onlyPerson = shareAccess?.personId
+      ? shareAccess.onlyPerson
+      : requestedOnlyPerson;
 
     await ensurePhotoSortSchema();
     const sortMode = eventSlug
@@ -131,6 +140,7 @@ export async function GET(request: Request, { params }: Props) {
         JOIN people pe ON pe.id = selected_pp.person_id
         WHERE selected_pp.photo_id = p.id
           AND COALESCE(pe.is_hidden, false) = false
+          AND ($5::uuid IS NULL OR pe.id = $5::uuid)
       ) photo_people_summary ON true
       WHERE lower(a.slug) = lower($1)
         AND ($3::text IS NULL OR e.slug = $3)
@@ -149,7 +159,7 @@ export async function GET(request: Request, { params }: Props) {
         AND p.upload_status = 'completed'
       ORDER BY ${orderBy}
       `,
-      [albumSlug, personId, eventSlug, onlyPerson]
+      [albumSlug, personId, eventSlug, onlyPerson, shareAccess?.personId ?? null]
     );
 
     const photos: Photo[] = await Promise.all(rows.map(toPhoto));

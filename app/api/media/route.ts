@@ -8,6 +8,7 @@ import {
   requireCustomerAccessBySlug,
 } from "@/lib/auth-access";
 import { ensurePhotoEditSchema } from "@/lib/customer-schema";
+import { getShareLinkAccess } from "@/lib/share-access";
 
 function isAllowedMediaKey(value: string) {
   if (!value || value.includes("..") || value.startsWith("/") || value.endsWith("/")) {
@@ -114,7 +115,69 @@ async function requireMediaAccess(request: Request, key: string) {
     [key],
   );
 
-  if (album) return requireAlbumAccess(request, album.slug);
+  if (album) {
+    const accessDenied = await requireAlbumAccess(request, album.slug);
+    if (accessDenied) return accessDenied;
+
+    const shareAccess = await getShareLinkAccess(request, album.slug);
+    if (!shareAccess?.personId) return null;
+
+    const scopedMedia = await queryOne<{ allowed: boolean }>(
+      `
+      SELECT true AS allowed
+      FROM albums a
+      WHERE lower(a.slug) = lower($1)
+        AND a.cover_photo_s3_key = $2
+
+      UNION ALL
+
+      SELECT true AS allowed
+      FROM people pe
+      JOIN albums a ON a.id = pe.album_id
+      WHERE lower(a.slug) = lower($1)
+        AND pe.id = $3::uuid
+        AND pe.cover_face_s3_key = $2
+
+      UNION ALL
+
+      SELECT true AS allowed
+      FROM photos p
+      JOIN albums a ON a.id = p.album_id
+      WHERE lower(a.slug) = lower($1)
+        AND $2 = ANY(ARRAY[
+          p.original_s3_key,
+          p.ai_input_s3_key,
+          p.clean_preview_s3_key,
+          p.watermarked_preview_s3_key,
+          p.thumbnail_s3_key,
+          p.annotated_s3_key
+        ]::text[])
+        AND EXISTS (
+          SELECT 1
+          FROM photo_people scoped_pp
+          WHERE scoped_pp.photo_id = p.id
+            AND scoped_pp.person_id = $3::uuid
+        )
+        AND (
+          $4::boolean = false
+          OR (
+            SELECT COUNT(DISTINCT scoped_pp.person_id)
+            FROM photo_people scoped_pp
+            JOIN people scoped_pe
+              ON scoped_pe.id = scoped_pp.person_id
+             AND COALESCE(scoped_pe.is_hidden, false) = false
+            WHERE scoped_pp.photo_id = p.id
+          ) = 1
+        )
+      LIMIT 1
+      `,
+      [album.slug, key, shareAccess.personId, shareAccess.onlyPerson],
+    );
+
+    return scopedMedia
+      ? null
+      : NextResponse.json({ error: "Media not available" }, { status: 403 });
+  }
 
   const fallbackKey = await fallbackOriginalKey(key).catch(() => null);
   if (fallbackKey && fallbackKey !== key) {

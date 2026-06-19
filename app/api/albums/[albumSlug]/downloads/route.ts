@@ -370,11 +370,11 @@ export async function GET(request: Request, { params }: Props) {
     const eventSlug = searchParams.get("event") || null;
     const format = parseDownloadFormat(searchParams.get("format"));
     const rawPeopleMode = searchParams.get("peopleMode");
-    const peopleMode =
+    let peopleMode: "all" | "any" | "only" =
       rawPeopleMode === "any" || rawPeopleMode === "only"
         ? rawPeopleMode
         : "all";
-    const personIds = (searchParams.get("people") ?? "")
+    let personIds = (searchParams.get("people") ?? "")
       .split(",")
       .map((id) => id.trim())
       .filter((id) => id && isUuid(id));
@@ -412,6 +412,10 @@ export async function GET(request: Request, { params }: Props) {
         { error: "Downloads are disabled for this share link" },
         { status: 403 },
       );
+    }
+    if (shareAccess?.personId) {
+      personIds = [shareAccess.personId];
+      peopleMode = shareAccess.onlyPerson ? "only" : "all";
     }
 
     const rows = await fetchDownloadRows(

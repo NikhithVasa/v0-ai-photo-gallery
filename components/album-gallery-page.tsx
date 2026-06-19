@@ -1544,17 +1544,29 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }, [album?.events, moveTargetEventSlug, selectedEventSlug]);
 
   const albumDateLabel = formatAlbumDate(album?.albumDate);
-  const coverTitle = album?.name || "";
   const coverCreditName = album?.customer?.name || album?.name || "";
-  const { data: publicShareData } = useSWR<PublicShareResponse>(
-    shareToken ? `/api/share/${encodeURIComponent(shareToken)}` : null,
-    fetcher,
-    {
-      dedupingInterval: 60 * 1000,
-      revalidateOnFocus: false,
-    },
+  const { data: publicShareData, isLoading: isLoadingPublicShare } =
+    useSWR<PublicShareResponse>(
+      shareToken ? `/api/share/${encodeURIComponent(shareToken)}` : null,
+      fetcher,
+      {
+        dedupingInterval: 60 * 1000,
+        revalidateOnFocus: false,
+      },
   );
   const shareSettings = publicShareData?.share ?? null;
+  const isPersonShare = Boolean(shareSettings?.personId);
+  const scopedPeopleIds = useMemo(
+    () =>
+      isPersonShare && shareSettings?.personId
+        ? [shareSettings.personId]
+        : selectedPeopleIds,
+    [isPersonShare, selectedPeopleIds, shareSettings?.personId],
+  );
+  const scopedPeopleMode =
+    isPersonShare && shareSettings?.onlyPerson ? "only" : peopleMatchMode;
+  const pageName = shareSettings?.linkName || album?.name || "";
+  const coverTitle = pageName;
   const downloadsEnabled = isShareView
     ? Boolean(shareSettings?.allowDownloads)
     : shareSettings?.allowDownloads ?? true;
@@ -1565,6 +1577,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const galleryNavColor = isShareView
     ? shareBackgroundRgba(galleryBackgroundColor, 0.86)
     : "rgba(255, 255, 255, 0.82)";
+
+  useEffect(() => {
+    if (!shareSettings?.personId) return;
+    setSelectedPerson(null);
+    setApsaraTextSearch(null);
+    setActiveTab("photos");
+  }, [shareSettings?.personId]);
 
   isCoverDismissedRef.current = isCoverDismissed;
 
@@ -2502,7 +2521,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     <p className="text-sm font-medium text-zinc-500">{eventLabel}</p>
   );
 
-  if (isLoading || isLoadingVerifiedAlbum) {
+  if (
+    isLoading ||
+    isLoadingVerifiedAlbum ||
+    (isShareView && isLoadingPublicShare)
+  ) {
     return (
       <main className="min-h-screen bg-[#f5f5f7]">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -2638,6 +2661,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </p>
             )}
 
+            {isPersonShare && shareSettings?.personName && (
+              <p className="mt-4 text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700">
+                Photos of {shareSettings.personName}
+              </p>
+            )}
+
             {album.isExpired && (
               <div className="mt-5 hidden rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-rose-700 sm:block">
                 Album expired
@@ -2685,55 +2714,59 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         >
           <div className="min-w-0">
             <h1 className="truncate text-base font-semibold tracking-normal text-[#1d1d1f]">
-              {album.name}
+              {pageName}
             </h1>
             <p className="truncate text-xs font-medium text-zinc-500">
-              {album.customer?.name || coverCreditName} · {album.peopleCount} People
+              {isPersonShare
+                ? shareSettings?.personName
+                : `${album.customer?.name || coverCreditName} · ${album.peopleCount} People`}
             </p>
           </div>
 
-          <div
-            className="mt-2 grid h-9 grid-cols-2 gap-1 rounded-full bg-black/5 p-1"
-            role="tablist"
-          >
-            <button
-              role="tab"
-              aria-selected={activeTab === "photos" && !selectedPerson}
-              onClick={() => {
-                setSelectedPerson(null);
-                setApsaraTextSearch(null);
-                setActiveTab("photos");
-                scrollToGalleryTop();
-              }}
-              className={`flex h-7 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition ${
-                activeTab === "photos" && !selectedPerson
-                  ? "bg-[#1d1d1f] text-white shadow-sm"
-                  : "text-zinc-600"
-              }`}
+          {!isPersonShare && (
+            <div
+              className="mt-2 grid h-9 grid-cols-2 gap-1 rounded-full bg-black/5 p-1"
+              role="tablist"
             >
-              Photos
-            </button>
+              <button
+                role="tab"
+                aria-selected={activeTab === "photos" && !selectedPerson}
+                onClick={() => {
+                  setSelectedPerson(null);
+                  setApsaraTextSearch(null);
+                  setActiveTab("photos");
+                  scrollToGalleryTop();
+                }}
+                className={`flex h-7 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition ${
+                  activeTab === "photos" && !selectedPerson
+                    ? "bg-[#1d1d1f] text-white shadow-sm"
+                    : "text-zinc-600"
+                }`}
+              >
+                Photos
+              </button>
 
-            <button
-              role="tab"
-              aria-selected={activeTab === "people" || Boolean(selectedPerson)}
-              onClick={() => {
-                setSelectedPerson(null);
-                setApsaraTextSearch(null);
-                setActiveTab("people");
-                scrollToGalleryTop();
-              }}
-              className={`flex h-7 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition ${
-                activeTab === "people" || selectedPerson
-                  ? "bg-[#1d1d1f] text-white shadow-sm"
-                  : "text-zinc-600"
-              }`}
-            >
-              People
-            </button>
-          </div>
+              <button
+                role="tab"
+                aria-selected={activeTab === "people" || Boolean(selectedPerson)}
+                onClick={() => {
+                  setSelectedPerson(null);
+                  setApsaraTextSearch(null);
+                  setActiveTab("people");
+                  scrollToGalleryTop();
+                }}
+                className={`flex h-7 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition ${
+                  activeTab === "people" || selectedPerson
+                    ? "bg-[#1d1d1f] text-white shadow-sm"
+                    : "text-zinc-600"
+                }`}
+              >
+                People
+              </button>
+            </div>
+          )}
 
-          {!selectedPerson && activeTab === "photos" && (
+          {!selectedPerson && activeTab === "photos" && !isPersonShare && (
             <div className="-mx-3 mt-2 overflow-x-auto scroll-smooth px-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex h-9 w-max items-center gap-2 whitespace-nowrap">
                 <button
@@ -2793,11 +2826,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     {album.customer?.name || coverCreditName}
                   </h1>
                   <p className="truncate text-xs font-medium text-zinc-500">
-                    {album.name} · {album.peopleCount} people
+                    {isPersonShare
+                      ? `${pageName} · ${shareSettings?.personName || "Person"}`
+                      : `${album.name} · ${album.peopleCount} people`}
                   </p>
                 </div>
 
-                {!selectedPerson && (
+                {!selectedPerson && !isPersonShare && (
                   <div
                     className="grid shrink-0 grid-cols-2 gap-1 rounded-full bg-transparent p-1 ring-1 ring-black/5 sm:hidden"
                     role="tablist"
@@ -2843,7 +2878,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 )}
               </div>
 
-              {!selectedPerson && activeTab === "photos" && (
+              {!selectedPerson && activeTab === "photos" && !isPersonShare && (
                 <div className="flex max-w-full flex-wrap gap-2 sm:flex-nowrap">
                   <PeopleFilterButton
                     people={filterPeople}
@@ -2959,13 +2994,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 shareToken={shareToken}
                 events={album.events}
                 selectedEventSlug={selectedEventSlug}
-                selectedPeopleIds={selectedPeopleIds}
+                selectedPeopleIds={scopedPeopleIds}
                 selectedPeople={selectedFilterPeople}
-                peopleMatchMode={peopleMatchMode}
+                peopleMatchMode={scopedPeopleMode}
                 selectedDownloadPhotoIds={selectedDownloadPhotoIds}
                 downloadsEnabled={downloadsEnabled}
               />
-              {!selectedPerson && (
+              {!selectedPerson && !isPersonShare && (
                 <div
                   className="hidden shrink-0 items-center gap-1 rounded-full bg-transparent p-1 ring-1 ring-black/5 sm:flex"
                   role="tablist"
@@ -3010,20 +3045,22 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => setIsSearchOpen(true)}
-                className={navIconButtonClass}
-                aria-label="Search"
-              >
-                <Search className="h-5 w-5" />
-              </button>
+              {!isPersonShare && (
+                <button
+                  type="button"
+                  onClick={() => setIsSearchOpen(true)}
+                  className={navIconButtonClass}
+                  aria-label="Search"
+                >
+                  <Search className="h-5 w-5" />
+                </button>
+              )}
 
               {!isShareView && <AuthAvatarMenu />}
             </div>
           </div>
 
-          {!selectedPerson && activeTab === "photos" && (
+          {!selectedPerson && activeTab === "photos" && !isPersonShare && (
             <div className="flex max-w-full gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <button
                 type="button"
@@ -3085,7 +3122,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             onBack={handlePersonBack}
             shareSettings={shareSettings}
           />
-        ) : activeTab === "people" ? (
+        ) : !isPersonShare && activeTab === "people" ? (
           <section className="space-y-5 px-2 sm:px-0">
             <div>
               <p className="text-sm font-medium text-zinc-500">All people</p>
@@ -3119,9 +3156,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           />
         ) : (
           <section className="space-y-3 sm:space-y-5">
-            {selectedPeopleIds.length > 0 && (
+            {scopedPeopleIds.length > 0 && (
               <div className="flex items-center justify-between gap-3 px-2 sm:px-0">
-                <button
+                {!isPersonShare && <button
                   type="button"
                   onClick={() => {
                     setSelectedPeopleIds([]);
@@ -3132,14 +3169,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back
-                </button>
+                </button>}
 
                 <div className="min-w-0 flex-1 text-right">
                   <p className="truncate text-sm font-medium text-zinc-500">
-                    Photos of
+                    {isPersonShare ? pageName : "Photos of"}
                   </p>
                   <h2 className="truncate text-xl font-semibold tracking-normal text-zinc-950 sm:text-2xl">
-                    {selectedPeopleLabel}
+                    {isPersonShare
+                      ? shareSettings?.personName
+                      : selectedPeopleLabel}
                   </h2>
                 </div>
               </div>
@@ -3334,10 +3373,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               albumSlug={albumSlug}
               shareToken={shareToken}
               selectedEventSlug={selectedEventSlug}
-              selectedPeopleIds={selectedPeopleIds}
-              peopleMatchMode={peopleMatchMode}
-              onPersonClick={filterByPerson}
-              onPhotoPersonClick={openPersonFromPhoto}
+              selectedPeopleIds={scopedPeopleIds}
+              peopleMatchMode={scopedPeopleMode}
+              onPersonClick={isPersonShare ? undefined : filterByPerson}
+              onPhotoPersonClick={isPersonShare ? undefined : openPersonFromPhoto}
               openPhotoId={photoIdToReopen}
               onOpenPhotoHandled={() => setPhotoIdToReopen(null)}
               isSelectionMode={isPhotoSelectionMode}
@@ -3356,7 +3395,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         )}
       </div>
 
-      {isCoverDismissed && activeTab === "photos" && !selectedPerson && (
+      {isCoverDismissed &&
+        activeTab === "photos" &&
+        !selectedPerson &&
+        !isPersonShare && (
         <div
           className={`fixed bottom-4 left-1/2 z-40 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 gap-1 rounded-full bg-zinc-950/92 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 sm:hidden ${
             isShareView ? "grid-cols-2" : "grid-cols-4"
@@ -3415,19 +3457,21 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         </div>
       )}
 
-      <ApsaraMomentsRoot
-        albumSlug={albumSlug}
-        shareToken={shareToken}
-        downloadsEnabled={downloadsEnabled}
-        selectedEventSlug={selectedEventSlug}
-        selectedPeopleIds={selectedPeopleIds}
-        peopleMatchMode={peopleMatchMode}
-        isOpen={isSearchOpen}
-        onOpenChange={setIsSearchOpen}
-        onPersonOpen={openPerson}
-        onPeopleSelectionApply={filterByPeopleSelection}
-        onTextSearch={runApsaraTextSearch}
-      />
+      {!isPersonShare && (
+        <ApsaraMomentsRoot
+          albumSlug={albumSlug}
+          shareToken={shareToken}
+          downloadsEnabled={downloadsEnabled}
+          selectedEventSlug={selectedEventSlug}
+          selectedPeopleIds={scopedPeopleIds}
+          peopleMatchMode={scopedPeopleMode}
+          isOpen={isSearchOpen}
+          onOpenChange={setIsSearchOpen}
+          onPersonOpen={openPerson}
+          onPeopleSelectionApply={filterByPeopleSelection}
+          onTextSearch={runApsaraTextSearch}
+        />
+      )}
     </main>
   );
 }

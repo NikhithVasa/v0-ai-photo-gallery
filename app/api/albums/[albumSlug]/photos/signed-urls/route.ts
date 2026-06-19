@@ -62,6 +62,8 @@ export async function POST(request: Request, { params }: Props) {
       return NextResponse.json({ urls: {}, photos: [] });
     }
 
+    const shareAccess = await getShareLinkAccess(request, albumSlug);
+
     console.log("[share-debug] signed photo urls API querying photos", {
       albumSlug,
       requested: rawIds.length,
@@ -95,13 +97,37 @@ export async function POST(request: Request, { params }: Props) {
       JOIN album_events e ON e.id = p.album_event_id
       WHERE lower(a.slug) = lower($1)
         AND p.id = ANY($2::uuid[])
+        AND (
+          $3::uuid IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM photo_people scoped_pp
+            WHERE scoped_pp.photo_id = p.id
+              AND scoped_pp.person_id = $3::uuid
+          )
+        )
+        AND (
+          $4::boolean = false
+          OR (
+            SELECT COUNT(DISTINCT scoped_pp.person_id)
+            FROM photo_people scoped_pp
+            JOIN people scoped_pe
+              ON scoped_pe.id = scoped_pp.person_id
+             AND COALESCE(scoped_pe.is_hidden, false) = false
+            WHERE scoped_pp.photo_id = p.id
+          ) = 1
+        )
         AND COALESCE(p.is_deleted, false) = false
         AND p.upload_status = 'completed'
       `,
-      [albumSlug, photoIds]
+      [
+        albumSlug,
+        photoIds,
+        shareAccess?.personId ?? null,
+        Boolean(shareAccess?.personId && shareAccess.onlyPerson),
+      ]
     );
 
-    const shareAccess = await getShareLinkAccess(request, albumSlug);
     const allowOriginalAccess = shareAccess ? shareAccess.allowDownloads : true;
 
     const photos = await Promise.all(

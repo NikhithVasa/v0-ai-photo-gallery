@@ -17,6 +17,7 @@ interface PageProps {
 interface ShareLinkRow {
   album_slug: string;
   album_name: string;
+  link_name: string | null;
   customer_slug: string | null;
   passcode: string | null;
 }
@@ -41,6 +42,7 @@ export default async function SharedAlbumPage({ params }: PageProps) {
       SELECT
         a.slug AS album_slug,
         s.album_name,
+        s.link_name,
         c.slug AS customer_slug,
         s.passcode
       FROM album_share_links s
@@ -104,7 +106,12 @@ export default async function SharedAlbumPage({ params }: PageProps) {
         share.passcode,
       )
     ) {
-      return <SharePasscodeGate token={token} albumName={share.album_name} />;
+      return (
+        <SharePasscodeGate
+          token={token}
+          albumName={share.link_name || share.album_name}
+        />
+      );
     }
   }
 

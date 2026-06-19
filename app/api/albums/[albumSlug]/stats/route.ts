@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { handleDbRouteError } from "@/lib/db-response";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { getShareLinkAccess } from "@/lib/share-access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -73,6 +74,7 @@ export async function GET(request: Request, { params }: Props) {
       });
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
+    const shareAccess = await getShareLinkAccess(request, albumSlug);
 
     console.info("[share-debug] album stats API album found", {
       albumSlug,
@@ -86,6 +88,26 @@ export async function GET(request: Request, { params }: Props) {
           SELECT COUNT(*)::int
           FROM photos p
           WHERE p.album_id = $1::uuid
+            AND (
+              $2::uuid IS NULL
+              OR EXISTS (
+                SELECT 1
+                FROM photo_people scoped_pp
+                WHERE scoped_pp.photo_id = p.id
+                  AND scoped_pp.person_id = $2::uuid
+              )
+            )
+            AND (
+              $3::boolean = false
+              OR (
+                SELECT COUNT(DISTINCT scoped_pp.person_id)
+                FROM photo_people scoped_pp
+                JOIN people scoped_pe
+                  ON scoped_pe.id = scoped_pp.person_id
+                 AND COALESCE(scoped_pe.is_hidden, false) = false
+                WHERE scoped_pp.photo_id = p.id
+              ) = 1
+            )
             AND COALESCE(p.is_deleted, false) = false
             AND p.upload_status = 'completed'
         ) AS photo_count,
@@ -93,10 +115,15 @@ export async function GET(request: Request, { params }: Props) {
           SELECT COUNT(*)::int
           FROM people pe
           WHERE pe.album_id = $1::uuid
+            AND ($2::uuid IS NULL OR pe.id = $2::uuid)
             AND COALESCE(pe.is_hidden, false) = false
         ) AS people_count
       `,
-      [album.id],
+      [
+        album.id,
+        shareAccess?.personId ?? null,
+        Boolean(shareAccess?.personId && shareAccess.onlyPerson),
+      ],
     );
 
     const eventStats = await query<EventStatsRow>(
@@ -139,8 +166,28 @@ export async function GET(request: Request, { params }: Props) {
                  OR lower(COALESCE(qwen_status, '')) IN ('failed', 'error')
                  OR lower(COALESCE(search_index_status, '')) IN ('failed', 'error')
             )::int AS failed_ai_count
-          FROM photos
+          FROM photos p
           WHERE album_id = $1::uuid
+            AND (
+              $2::uuid IS NULL
+              OR EXISTS (
+                SELECT 1
+                FROM photo_people scoped_pp
+                WHERE scoped_pp.photo_id = p.id
+                  AND scoped_pp.person_id = $2::uuid
+              )
+            )
+            AND (
+              $3::boolean = false
+              OR (
+                SELECT COUNT(DISTINCT scoped_pp.person_id)
+                FROM photo_people scoped_pp
+                JOIN people scoped_pe
+                  ON scoped_pe.id = scoped_pp.person_id
+                 AND COALESCE(scoped_pe.is_hidden, false) = false
+                WHERE scoped_pp.photo_id = p.id
+              ) = 1
+            )
             AND COALESCE(is_deleted, false) = false
             AND upload_status = 'completed'
           GROUP BY album_event_id
@@ -152,6 +199,7 @@ export async function GET(request: Request, { params }: Props) {
           FROM person_event_stats pes
           JOIN people pe ON pe.id = pes.person_id
           WHERE pes.photo_count > 0
+            AND ($2::uuid IS NULL OR pes.person_id = $2::uuid)
             AND COALESCE(pe.is_hidden, false) = false
           GROUP BY pes.album_event_id
         )
@@ -168,7 +216,11 @@ export async function GET(request: Request, { params }: Props) {
           AND COALESCE(e.is_deleted, false) = false
         ORDER BY e.sort_order ASC NULLS LAST, e.name ASC
         `,
-        [album.id],
+        [
+          album.id,
+          shareAccess?.personId ?? null,
+          Boolean(shareAccess?.personId && shareAccess.onlyPerson),
+        ],
       );
 
     return NextResponse.json(

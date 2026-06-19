@@ -24,6 +24,10 @@ interface ShareTokenRow {
   expires_at: Date | string | null;
   background_color: string | null;
   passcode: string | null;
+  person_id: string | null;
+  person_name: string | null;
+  link_name: string | null;
+  only_person: boolean;
 }
 
 function dateValue(value: Date | string | null) {
@@ -41,6 +45,10 @@ function serialize(row: ShareTokenRow) {
     expiresAt: dateValue(row.expires_at),
     backgroundColor: normalizeShareBackgroundColor(row.background_color),
     passcodeRequired: Boolean(row.passcode),
+    personId: row.person_id,
+    personName: row.person_name,
+    linkName: row.link_name,
+    onlyPerson: row.only_person,
     allowDownloads: row.allow_downloads,
     watermarkEnabled: row.watermark_enabled,
     watermarkText: row.watermark_text,
@@ -76,7 +84,11 @@ export async function GET(_request: Request, { params }: Props) {
         s.watermark_positions,
         s.expires_at,
         s.background_color,
-        s.passcode
+        s.passcode,
+        s.person_id,
+        s.person_name,
+        s.link_name,
+        s.only_person
       FROM album_share_links s
       JOIN albums a
         ON a.id = s.album_id

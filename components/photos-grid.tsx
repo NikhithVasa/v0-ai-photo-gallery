@@ -1112,15 +1112,19 @@ export function PhotosGrid({
           originRect={lightboxState.originRect}
           onClose={() => setLightboxState(null)}
           onNavigate={handleNavigate}
-          onPersonClick={(person) => {
-            const sourcePhoto = data.photos[lightboxState.index];
-            if (onPhotoPersonClick && sourcePhoto) {
-              onPhotoPersonClick(person, sourcePhoto.id);
-              return;
-            }
+          onPersonClick={
+            onPhotoPersonClick || onPersonClick
+              ? (person) => {
+                  const sourcePhoto = data.photos[lightboxState.index];
+                  if (onPhotoPersonClick && sourcePhoto) {
+                    onPhotoPersonClick(person, sourcePhoto.id);
+                    return;
+                  }
 
-            onPersonClick?.(person.id);
-          }}
+                  onPersonClick?.(person.id);
+                }
+              : undefined
+          }
           onPeopleChanged={async () => {
             await mutate();
             await onPeopleChanged?.();

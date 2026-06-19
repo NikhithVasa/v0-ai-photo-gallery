@@ -207,6 +207,10 @@ export interface AlbumShareSettings {
   backgroundColor?: string;
   passcode?: string | null;
   passcodeRequired?: boolean;
+  personId?: string | null;
+  personName?: string | null;
+  linkName?: string | null;
+  onlyPerson?: boolean;
   allowDownloads: boolean;
   watermarkEnabled: boolean;
   watermarkText: string | null;

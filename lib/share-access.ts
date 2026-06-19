@@ -11,6 +11,10 @@ export interface ShareLinkAccess {
   watermarkText: string | null;
   watermarkMode: "full" | "corners";
   watermarkPositions: string[];
+  personId: string | null;
+  personName: string | null;
+  linkName: string | null;
+  onlyPerson: boolean;
 }
 
 interface ShareAccessRow {
@@ -22,6 +26,10 @@ interface ShareAccessRow {
   watermark_mode: "full" | "corners";
   watermark_positions: string[] | null;
   passcode: string | null;
+  person_id: string | null;
+  person_name: string | null;
+  link_name: string | null;
+  only_person: boolean;
 }
 
 export async function getShareLinkAccess(
@@ -43,7 +51,11 @@ export async function getShareLinkAccess(
       s.watermark_text,
       s.watermark_mode,
       s.watermark_positions,
-      s.passcode
+      s.passcode,
+      s.person_id,
+      s.person_name,
+      s.link_name,
+      s.only_person
     FROM album_share_links s
     JOIN albums a
       ON a.id = s.album_id
@@ -67,5 +79,9 @@ export async function getShareLinkAccess(
     watermarkText: row.watermark_text,
     watermarkMode: row.watermark_mode,
     watermarkPositions: row.watermark_positions ?? [],
+    personId: row.person_id,
+    personName: row.person_name,
+    linkName: row.link_name,
+    onlyPerson: row.only_person,
   };
 }

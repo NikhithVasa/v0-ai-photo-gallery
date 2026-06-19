@@ -229,6 +229,7 @@ async function fetchShareLink(albumId: string) {
       updated_at
     FROM album_share_links
     WHERE album_id = $1
+      AND person_id IS NULL
     ORDER BY updated_at DESC
     LIMIT 1
     `,
@@ -429,6 +430,7 @@ export async function DELETE(_request: Request, { params }: Props) {
       `
       DELETE FROM album_share_links
       WHERE album_id = $1
+        AND person_id IS NULL
       `,
       [album.id],
     );

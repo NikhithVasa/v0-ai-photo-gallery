@@ -325,9 +325,13 @@ export async function canAccessAlbumByShareToken(
     });
   });
 
-  const row = await queryOne<{ id: string; passcode: string | null }>(
+  const row = await queryOne<{
+    id: string;
+    passcode: string | null;
+    person_id: string | null;
+  }>(
     `
-    SELECT a.id, s.passcode
+    SELECT a.id, s.passcode, s.person_id
     FROM album_share_links s
     JOIN albums a
       ON a.id = s.album_id
@@ -347,8 +351,25 @@ export async function canAccessAlbumByShareToken(
     return null;
   });
 
+  const requestPath = new URL(request.url).pathname;
+  const encodedAlbumSlug = encodeURIComponent(albumSlug);
+  const albumApiPrefix = `/api/albums/${encodedAlbumSlug}`;
+  const albumRelativePath = requestPath.startsWith(albumApiPrefix)
+    ? requestPath.slice(albumApiPrefix.length)
+    : "";
+  const personSharePathAllowed =
+    albumRelativePath === "" ||
+    albumRelativePath === "/photos" ||
+    albumRelativePath === "/photos/signed-urls" ||
+    albumRelativePath === "/people" ||
+    /^\/people\/[^/]+\/photos$/.test(albumRelativePath) ||
+    albumRelativePath === "/downloads" ||
+    albumRelativePath === "/stats" ||
+    requestPath === "/api/media";
   const allowed = Boolean(
-    row && hasValidSharePasscodeAccess(request, token, row.passcode),
+    row &&
+      (!row.person_id || personSharePathAllowed) &&
+      hasValidSharePasscodeAccess(request, token, row.passcode),
   );
 
   console.info("[share-debug] album share access result", {

@@ -118,6 +118,10 @@ export function ensureAlbumShareLinkSchema() {
         expires_at date,
         background_color text NOT NULL DEFAULT '#f5f5f7',
         passcode text,
+        person_id uuid,
+        person_name text,
+        link_name text,
+        only_person boolean NOT NULL DEFAULT false,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
@@ -130,7 +134,11 @@ export function ensureAlbumShareLinkSchema() {
       ALTER TABLE album_share_links
         ADD COLUMN IF NOT EXISTS expires_at date,
         ADD COLUMN IF NOT EXISTS background_color text NOT NULL DEFAULT '#f5f5f7',
-        ADD COLUMN IF NOT EXISTS passcode text
+        ADD COLUMN IF NOT EXISTS passcode text,
+        ADD COLUMN IF NOT EXISTS person_id uuid,
+        ADD COLUMN IF NOT EXISTS person_name text,
+        ADD COLUMN IF NOT EXISTS link_name text,
+        ADD COLUMN IF NOT EXISTS only_person boolean NOT NULL DEFAULT false
       `,
       []
     );
@@ -147,6 +155,14 @@ export function ensureAlbumShareLinkSchema() {
       `
       CREATE INDEX IF NOT EXISTS album_share_links_token_idx
       ON album_share_links (token)
+      `,
+      []
+    );
+
+    await query(
+      `
+      CREATE INDEX IF NOT EXISTS album_share_links_person_id_idx
+      ON album_share_links (person_id)
       `,
       []
     );

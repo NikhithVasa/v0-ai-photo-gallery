@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { toPhoto, type PhotoRow } from "@/lib/gallery-data";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { getShareLinkAccess } from "@/lib/share-access";
 import {
   albumSortMode,
   ensurePhotoSortSchema,
@@ -44,15 +45,24 @@ export async function GET(request: Request, { params }: Props) {
 
     const { searchParams } = requestUrl;
     const eventSlug = searchParams.get("event") || null;
-    const personIds = (searchParams.get("people") ?? "")
+    const requestedPersonIds = (searchParams.get("people") ?? "")
       .split(",")
       .map((id) => id.trim())
       .filter((id) => id && isUuid(id));
     const rawPeopleMode = searchParams.get("peopleMode");
-    const peopleMode =
+    const requestedPeopleMode =
       rawPeopleMode === "any" || rawPeopleMode === "only"
         ? rawPeopleMode
         : "all";
+    const shareAccess = await getShareLinkAccess(request, albumSlug);
+    const personIds = shareAccess?.personId
+      ? [shareAccess.personId]
+      : requestedPersonIds;
+    const peopleMode = shareAccess?.personId
+      ? shareAccess.onlyPerson
+        ? "only"
+        : "all"
+      : requestedPeopleMode;
     await ensurePhotoSortSchema();
     const sortMode = eventSlug
       ? await eventSortMode(albumSlug, eventSlug)
@@ -124,6 +134,7 @@ export async function GET(request: Request, { params }: Props) {
         JOIN people pe ON pe.id = pp.person_id
         WHERE pp.photo_id = p.id
           AND COALESCE(pe.is_hidden, false) = false
+          AND ($5::uuid IS NULL OR pe.id = $5::uuid)
       ) photo_people_summary ON true
       WHERE lower(a.slug) = lower($1)
         AND ($2::text IS NULL OR e.slug = $2)
@@ -167,6 +178,7 @@ export async function GET(request: Request, { params }: Props) {
         eventSlug,
         personIds.length ? personIds : null,
         peopleMode,
+        shareAccess?.personId ?? null,
       ]
     );
 
