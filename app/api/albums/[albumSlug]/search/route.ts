@@ -11,6 +11,11 @@ import { requireAlbumAccess } from "@/lib/album-access";
 import { getShareLinkAccess } from "@/lib/share-access";
 import type { Person } from "@/lib/types";
 
+const OPENROUTER_EMBEDDING_MODEL =
+  process.env.OPENROUTER_EMBEDDING_MODEL ||
+  "sentence-transformers/all-minilm-l6-v2";
+const OPENROUTER_EMBEDDING_DIMENSION = 384;
+
 interface Props {
   params: Promise<{ albumSlug: string }>;
 }
@@ -23,7 +28,7 @@ interface PersonMatch {
 }
 
 function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(
     value
   );
 }
@@ -44,6 +49,77 @@ function personName(person: PersonMatch) {
     person.default_name.trim() ||
     `Person ${person.person_number ?? ""}`.trim()
   );
+}
+
+function normalizeEmbedding(values: number[]) {
+  const norm = Math.sqrt(values.reduce((sum, value) => sum + value * value, 0));
+  if (!Number.isFinite(norm) || norm === 0) return values;
+  return values.map((value) => value / norm);
+}
+
+function embeddingToPgVector(values: number[]) {
+  return `[${values.map((value) => Number(value).toString()).join(",")}]`;
+}
+
+function openRouterReferer(request: Request) {
+  const configured =
+    process.env.OPENROUTER_HTTP_REFERER ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "";
+
+  if (configured) return configured;
+
+  const host = request.headers.get("host");
+  if (!host) return "https://www.saathidesk.com";
+
+  const protocol = host.includes("localhost") ? "http" : "https";
+  return `${protocol}://${host}`;
+}
+
+async function embedSearchQueryWithOpenRouter(searchQuery: string, request: Request) {
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  if (!apiKey || !searchQuery) return null;
+
+  const response = await fetch("https://openrouter.ai/api/v1/embeddings", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": openRouterReferer(request),
+      "X-Title": process.env.OPENROUTER_APP_TITLE || "Saathidesk AI Photo Search",
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_EMBEDDING_MODEL,
+      input: searchQuery,
+      encoding_format: "float",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenRouter embedding failed: ${await response.text()}`);
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{ embedding?: unknown }>;
+  };
+  const embedding = payload.data?.[0]?.embedding;
+
+  if (!Array.isArray(embedding)) {
+    throw new Error("OpenRouter embedding response did not include an embedding");
+  }
+
+  const numericEmbedding = embedding.map((value) => Number(value));
+  if (
+    numericEmbedding.length !== OPENROUTER_EMBEDDING_DIMENSION ||
+    numericEmbedding.some((value) => !Number.isFinite(value))
+  ) {
+    throw new Error(
+      `OpenRouter embedding shape mismatch: expected ${OPENROUTER_EMBEDDING_DIMENSION}, got ${numericEmbedding.length}`
+    );
+  }
+
+  return embeddingToPgVector(normalizeEmbedding(numericEmbedding));
 }
 
 function extractSearchTerms(query: string) {
@@ -75,6 +151,7 @@ function extractSearchTerms(query: string) {
     "sad",
     "side",
     "face",
+    "faces",
     "front",
     "back",
     "sitting",
@@ -83,12 +160,33 @@ function extractSearchTerms(query: string) {
     "talking",
     "looking",
     "playing",
+    "singing",
+    "performance",
     "ceremony",
     "family",
     "stage",
     "group",
     "portrait",
     "couple",
+    "jewelry",
+    "rich",
+    "heavy",
+    "bright",
+    "colorful",
+    "cute",
+    "baby",
+    "child",
+    "dog",
+    "dogs",
+    "pet",
+    "puppy",
+    "beautiful",
+    "outfit",
+    "flowers",
+    "mandap",
+    "decor",
+    "lights",
+    "smile",
   ]);
 
   for (const word of cleaned.split(/\s+/).filter(Boolean)) {
@@ -220,6 +318,195 @@ async function fetchResolvedPeople(albumSlug: string, personIds: string[]) {
   );
 }
 
+function photoSearchSelectSql(includeSemanticScore: boolean) {
+  return `
+      SELECT
+        p.id,
+        p.album_id,
+        a.slug AS album_slug,
+        p.album_event_id,
+        p.file_name,
+        p.caption,
+        p.search_text,
+        p.width,
+        p.height,
+        p.original_s3_key,
+        p.ai_input_s3_key,
+        p.clean_preview_s3_key,
+        p.watermarked_preview_s3_key,
+        p.thumbnail_s3_key,
+        p.annotated_s3_key,
+        p.compression_status,
+        p.watermark_status,
+        e.slug AS event_slug,
+        e.name AS event_name,
+        MIN(pp_text.search_text) AS person_search_text,
+        MIN(pp_text.qwen_description) AS qwen_description,
+        COALESCE(photo_people_summary.people, '[]'::jsonb) AS people${includeSemanticScore ? ",\n        1 - (p.search_embedding <=> $3::vector) AS semantic_score" : ""}
+      FROM photos p
+      JOIN albums a ON a.id = p.album_id
+      JOIN album_events e ON e.id = p.album_event_id
+      LEFT JOIN photo_people pp_text ON pp_text.photo_id = p.id
+      LEFT JOIN LATERAL (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', pe.id,
+            'person_number', pe.person_number,
+            'default_name', pe.default_name,
+            'display_name', pe.display_name,
+            'photo_count', pe.photo_count,
+            'cover_face_s3_key', pe.cover_face_s3_key
+          )
+          ORDER BY pe.person_number ASC NULLS LAST, pe.default_name ASC
+        ) AS people
+        FROM photo_people pp
+        JOIN people pe ON pe.id = pp.person_id
+        WHERE pp.photo_id = p.id
+          AND COALESCE(pe.is_hidden, false) = false
+      ) photo_people_summary ON true`;
+}
+
+const photoSearchGroupBySql = `
+      GROUP BY
+        p.id,
+        p.album_id,
+        a.slug,
+        p.album_event_id,
+        p.file_name,
+        p.caption,
+        p.search_text,
+        p.width,
+        p.height,
+        p.original_s3_key,
+        p.ai_input_s3_key,
+        p.clean_preview_s3_key,
+        p.watermarked_preview_s3_key,
+        p.thumbnail_s3_key,
+        p.annotated_s3_key,
+        p.compression_status,
+        p.watermark_status,
+        e.slug,
+        e.name,
+        photo_people_summary.people,
+        p.created_at`;
+
+async function runKeywordSearch({
+  albumSlug,
+  eventSlug,
+  keyword,
+  personIds,
+  together,
+  limit,
+}: {
+  albumSlug: string;
+  eventSlug: string | null;
+  keyword: string | null;
+  personIds: string[];
+  together: boolean;
+  limit: number;
+}) {
+  return query<PhotoRow>(
+    `
+${photoSearchSelectSql(false)}
+      WHERE lower(a.slug) = lower($1)
+        AND ($2::text IS NULL OR e.slug = $2)
+        AND COALESCE(p.is_deleted, false) = false
+        AND p.upload_status = 'completed'
+        AND (
+          $3::text IS NULL
+          OR p.search_text ILIKE '%' || $3 || '%'
+          OR p.caption ILIKE '%' || $3 || '%'
+          OR pp_text.search_text ILIKE '%' || $3 || '%'
+          OR pp_text.qwen_description ILIKE '%' || $3 || '%'
+        )
+        AND (
+          $4::uuid[] IS NULL
+          OR CASE
+            WHEN $5::boolean THEN (
+              SELECT COUNT(DISTINCT pp.person_id)
+              FROM photo_people pp
+              WHERE pp.photo_id = p.id
+                AND pp.person_id = ANY($4::uuid[])
+            ) = cardinality($4::uuid[])
+            ELSE EXISTS (
+              SELECT 1
+              FROM photo_people pp
+              WHERE pp.photo_id = p.id
+                AND pp.person_id = ANY($4::uuid[])
+            )
+          END
+        )
+${photoSearchGroupBySql}
+      ORDER BY p.created_at ASC
+      LIMIT $6
+      `,
+    [
+      albumSlug,
+      eventSlug,
+      keyword,
+      personIds.length ? personIds : null,
+      together,
+      limit,
+    ]
+  );
+}
+
+async function runSemanticSearch({
+  albumSlug,
+  eventSlug,
+  queryVector,
+  personIds,
+  together,
+  limit,
+}: {
+  albumSlug: string;
+  eventSlug: string | null;
+  queryVector: string;
+  personIds: string[];
+  together: boolean;
+  limit: number;
+}) {
+  return query<PhotoRow & { semantic_score?: number }>(
+    `
+${photoSearchSelectSql(true)}
+      WHERE lower(a.slug) = lower($1)
+        AND ($2::text IS NULL OR e.slug = $2)
+        AND COALESCE(p.is_deleted, false) = false
+        AND p.upload_status = 'completed'
+        AND p.search_embedding IS NOT NULL
+        AND (
+          $4::uuid[] IS NULL
+          OR CASE
+            WHEN $5::boolean THEN (
+              SELECT COUNT(DISTINCT pp.person_id)
+              FROM photo_people pp
+              WHERE pp.photo_id = p.id
+                AND pp.person_id = ANY($4::uuid[])
+            ) = cardinality($4::uuid[])
+            ELSE EXISTS (
+              SELECT 1
+              FROM photo_people pp
+              WHERE pp.photo_id = p.id
+                AND pp.person_id = ANY($4::uuid[])
+            )
+          END
+        )
+${photoSearchGroupBySql},
+        p.search_embedding
+      ORDER BY p.search_embedding <=> $3::vector, p.created_at ASC
+      LIMIT $6
+      `,
+    [
+      albumSlug,
+      eventSlug,
+      queryVector,
+      personIds.length ? personIds : null,
+      together,
+      limit,
+    ]
+  );
+}
+
 export async function POST(request: Request, { params }: Props) {
   let pendingQueryLog: Record<string, unknown> | null = null;
   let selectedPersonNamesForLog: string[] = [];
@@ -338,11 +625,11 @@ export async function POST(request: Request, { params }: Props) {
     queryLogged = true;
 
     const personIds = Array.from(resolvedIds);
-const keywordTerms =
-  personIds.length > 0
-    ? keywords
-    : [...keywords, ...unresolvedTerms];
-        const keyword =
+    const keywordTerms =
+      personIds.length > 0
+        ? keywords
+        : [...keywords, ...unresolvedTerms];
+    const keyword =
       keywordTerms.length > 0
         ? keywordTerms.join(" ")
         : personIds.length > 0
@@ -362,114 +649,44 @@ const keywordTerms =
       limit,
     });
 
-    const rows = await query<PhotoRow>(
-      `
-      SELECT
-        p.id,
-        p.album_id,
-        a.slug AS album_slug,
-        p.album_event_id,
-        p.file_name,
-        p.caption,
-        p.search_text,
-        p.width,
-        p.height,
-        p.original_s3_key,
-        p.ai_input_s3_key,
-        p.clean_preview_s3_key,
-        p.watermarked_preview_s3_key,
-        p.thumbnail_s3_key,
-        p.annotated_s3_key,
-        p.compression_status,
-        p.watermark_status,
-        e.slug AS event_slug,
-        e.name AS event_name,
-        MIN(pp_text.search_text) AS person_search_text,
-        MIN(pp_text.qwen_description) AS qwen_description,
-        COALESCE(photo_people_summary.people, '[]'::jsonb) AS people
-      FROM photos p
-      JOIN albums a ON a.id = p.album_id
-      JOIN album_events e ON e.id = p.album_event_id
-      LEFT JOIN photo_people pp_text ON pp_text.photo_id = p.id
-      LEFT JOIN LATERAL (
-        SELECT jsonb_agg(
-          jsonb_build_object(
-            'id', pe.id,
-            'person_number', pe.person_number,
-            'default_name', pe.default_name,
-            'display_name', pe.display_name,
-            'photo_count', pe.photo_count,
-            'cover_face_s3_key', pe.cover_face_s3_key
-          )
-          ORDER BY pe.person_number ASC NULLS LAST, pe.default_name ASC
-        ) AS people
-        FROM photo_people pp
-        JOIN people pe ON pe.id = pp.person_id
-        WHERE pp.photo_id = p.id
-          AND COALESCE(pe.is_hidden, false) = false
-      ) photo_people_summary ON true
-      WHERE lower(a.slug) = lower($1)
-        AND ($2::text IS NULL OR e.slug = $2)
-        AND COALESCE(p.is_deleted, false) = false
-        AND p.upload_status = 'completed'
-        AND (
-          $3::text IS NULL
-          OR p.search_text ILIKE '%' || $3 || '%'
-          OR p.caption ILIKE '%' || $3 || '%'
-          OR pp_text.search_text ILIKE '%' || $3 || '%'
-          OR pp_text.qwen_description ILIKE '%' || $3 || '%'
-        )
-        AND (
-          $4::uuid[] IS NULL
-          OR CASE
-            WHEN $5::boolean THEN (
-              SELECT COUNT(DISTINCT pp.person_id)
-              FROM photo_people pp
-              WHERE pp.photo_id = p.id
-                AND pp.person_id = ANY($4::uuid[])
-            ) = cardinality($4::uuid[])
-            ELSE EXISTS (
-              SELECT 1
-              FROM photo_people pp
-              WHERE pp.photo_id = p.id
-                AND pp.person_id = ANY($4::uuid[])
-            )
-          END
-        )
-      GROUP BY
-        p.id,
-        p.album_id,
-        a.slug,
-        p.album_event_id,
-        p.file_name,
-        p.caption,
-        p.search_text,
-        p.width,
-        p.height,
-        p.original_s3_key,
-        p.ai_input_s3_key,
-        p.clean_preview_s3_key,
-        p.watermarked_preview_s3_key,
-        p.thumbnail_s3_key,
-        p.annotated_s3_key,
-        p.compression_status,
-        p.watermark_status,
-        e.slug,
-        e.name,
-        photo_people_summary.people,
-        p.created_at
-      ORDER BY p.created_at ASC
-      LIMIT $6
-      `,
-      [
+    let rows: PhotoRow[] = [];
+    let searchMode: "semantic" | "keyword" | "person_filter" = "keyword";
+    let semanticError: string | null = null;
+
+    if (searchQuery) {
+      try {
+        const queryVector = await embedSearchQueryWithOpenRouter(searchQuery, request);
+        if (queryVector) {
+          rows = await runSemanticSearch({
+            albumSlug,
+            eventSlug,
+            queryVector,
+            personIds,
+            together,
+            limit,
+          });
+          searchMode = "semantic";
+        }
+      } catch (error) {
+        semanticError = error instanceof Error ? error.message : String(error);
+        console.warn("[share-debug] semantic search failed; falling back to keyword", {
+          albumSlug,
+          error: semanticError,
+        });
+      }
+    }
+
+    if (!rows.length && searchMode !== "semantic") {
+      rows = await runKeywordSearch({
         albumSlug,
         eventSlug,
         keyword,
-        personIds.length ? personIds : null,
+        personIds,
         together,
         limit,
-      ]
-    );
+      });
+      searchMode = keyword ? "keyword" : "person_filter";
+    }
 
     const [resolvedPeople, results] = await Promise.all([
       fetchResolvedPeople(albumSlug, personIds),
@@ -481,10 +698,15 @@ const keywordTerms =
       dbRows: rows.length,
       results: results.length,
       resolvedPeople: resolvedPeople.length,
+      searchMode,
+      semanticError,
     });
 
     return NextResponse.json({
       query: searchQuery,
+      searchMode,
+      semanticModel: searchMode === "semantic" ? OPENROUTER_EMBEDDING_MODEL : null,
+      semanticError,
       resolvedPeople,
       results,
     });
