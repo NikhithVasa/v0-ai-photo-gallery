@@ -28,7 +28,7 @@ export default async function AlbumCullingPage({ params, searchParams }: Props) 
   }
 
   return (
-    <ProtectedRoute allowShareToken>
+    <ProtectedRoute>
       <Suspense>
         <AiCullingPage albumSlug={albumSlug} />
       </Suspense>

@@ -28,7 +28,7 @@ export default async function AlbumCollagePage({ params, searchParams }: Props) 
   }
 
   return (
-    <ProtectedRoute allowShareToken>
+    <ProtectedRoute>
       <Suspense>
         <CollageBuilderPage initialAlbumSlug={albumSlug} />
       </Suspense>

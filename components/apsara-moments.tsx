@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   Check,
   ChevronLeft,
@@ -353,6 +354,7 @@ export function ApsaraMomentsOverlay({
   onPeopleSelectionApply,
   onTextSearch,
 }: ApsaraMomentsOverlayProps) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<Photo[]>([]);
@@ -464,6 +466,12 @@ export function ApsaraMomentsOverlay({
           }),
         }
       );
+
+      if (response.status === 401 || response.status === 403) {
+        const next = `${window.location.pathname}${window.location.search}`;
+        router.replace(`/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
 
       if (!response.ok) throw new Error("Search request failed");
       const data = (await response.json()) as { results?: Photo[] };

@@ -2316,6 +2316,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         }
       );
 
+      if (response.status === 401 || response.status === 403) {
+        const next = `${window.location.pathname}${window.location.search}`;
+        router.replace(`/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
+
       if (!response.ok) throw new Error("Search request failed");
 
       const payload = (await response.json()) as { results?: Photo[] };

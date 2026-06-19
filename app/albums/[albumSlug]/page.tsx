@@ -7,6 +7,7 @@ import {
   albumAllowsPublicPasscode,
   canAccessAlbumFromHost,
 } from "@/lib/album-access";
+import { canAccessAlbumByShareToken } from "@/lib/auth-access";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -17,6 +18,7 @@ export default async function AlbumPage({ params, searchParams }: Props) {
   const { albumSlug } = await params;
   const { share } = await searchParams;
   const hasShareToken = typeof share === "string" && share.length > 0;
+  let hasValidShareToken = false;
 
   console.info("[share-debug] album page render start", {
     albumSlug,
@@ -24,8 +26,31 @@ export default async function AlbumPage({ params, searchParams }: Props) {
     shareToken: hasShareToken ? `${share.slice(0, 6)}...${share.slice(-4)}` : "",
   });
 
-  if (!hasShareToken) {
-    const headersList = await headers();
+  const headersList = await headers();
+
+  if (hasShareToken) {
+    const protocol =
+      headersList.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https";
+    const host =
+      headersList.get("x-forwarded-host") ||
+      headersList.get("host") ||
+      "localhost";
+    const requestUrl = new URL(
+      `/albums/${encodeURIComponent(albumSlug)}`,
+      `${protocol}://${host}`,
+    );
+    requestUrl.searchParams.set("share", share);
+
+    hasValidShareToken = await canAccessAlbumByShareToken(
+      new Request(requestUrl, { headers: new Headers(headersList) }),
+      albumSlug,
+    );
+
+    if (!hasValidShareToken) {
+      const next = `${requestUrl.pathname}${requestUrl.search}`;
+      redirect(`/login?next=${encodeURIComponent(next)}`);
+    }
+  } else {
     const host = headersList.get("host") || "";
     const canAccess = await canAccessAlbumFromHost(
       albumSlug,
@@ -45,10 +70,6 @@ export default async function AlbumPage({ params, searchParams }: Props) {
       });
       redirect("/albums");
     }
-  } else {
-    console.info("[share-debug] album page skipping host gate for share token", {
-      albumSlug,
-    });
   }
 
   const allowPublicAlbumPasscode =
@@ -56,7 +77,7 @@ export default async function AlbumPage({ params, searchParams }: Props) {
 
   return (
     <ProtectedRoute
-      allowShareToken
+      allowShareToken={hasValidShareToken}
       allowPublicAlbumPasscode={allowPublicAlbumPasscode}
     >
       <Suspense>

@@ -17,7 +17,7 @@ function isAssetOrApiPath(pathname: string) {
 }
 
 function isPublicPath(request: NextRequest, customerSlug: string | null) {
-  const { pathname, searchParams } = request.nextUrl;
+  const { pathname } = request.nextUrl;
 
   if (pathname === "/" && !customerSlug) return true;
   if (
@@ -26,14 +26,15 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
     pathname === "/auth/callback"
   )
     return true;
-  if (pathname.startsWith("/legal/") || pathname.startsWith("/share/"))
+  if (
+    pathname === "/legal/privacy-policy" ||
+    pathname === "/legal/terms-of-service" ||
+    /^\/share\/[^/]+$/.test(pathname)
+  )
     return true;
   if (/^\/albums\/[^/]+$/.test(pathname)) return true;
 
-  return (
-    /^\/albums\/[^/]+(?:\/(?:culling|collage))?$/.test(pathname) &&
-    Boolean(searchParams.get("share"))
-  );
+  return false;
 }
 
 function shouldNoIndex(pathname: string, customerSlug: string | null) {
