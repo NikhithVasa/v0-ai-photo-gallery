@@ -39,6 +39,9 @@ if (process.env.NODE_ENV !== "production") {
 const SIGNED_URL_SECONDS = 60 * 60;
 const SIGNED_URL_CACHE_MS = 55 * 60 * 1000;
 const S3_LIST_CACHE_MS = 5 * 60 * 1000;
+const MEDIA_PROXY_FALLBACK_ENABLED =
+  process.env.NEXT_PUBLIC_ALLOW_MEDIA_PROXY_FALLBACK === "true" ||
+  process.env.ALLOW_MEDIA_PROXY_FALLBACK === "true";
 
 async function cachedSignedUrl(
   cacheKey: string,
@@ -123,7 +126,7 @@ export async function signedUrl(key?: string | null): Promise<string | null> {
   const cloudFrontUrl = cloudFrontImageUrl(key);
   if (cloudFrontUrl) return cloudFrontUrl;
 
-  if (process.env.NEXT_PUBLIC_DIRECT_S3_IMAGES !== "true") {
+  if (MEDIA_PROXY_FALLBACK_ENABLED) {
     return `/api/media?key=${encodeURIComponent(key)}`;
   }
 
@@ -148,7 +151,7 @@ export async function signedDownloadUrl(
       Bucket: process.env.S3_BUCKET!,
       Key: key,
       ResponseContentDisposition: filename
-        ? `attachment; filename="${filename}"`
+        ? `attachment; filename=\"${filename}\"`
         : "attachment",
     });
 
@@ -219,7 +222,6 @@ export async function getS3ObjectBytes(key?: string | null) {
       bytes.set(chunk, offset);
       offset += chunk.byteLength;
     }
-
     return {
       bytes,
       contentType: response.ContentType ?? null,
@@ -227,37 +229,4 @@ export async function getS3ObjectBytes(key?: string | null) {
   }
 
   return null;
-}
-
-export async function uploadS3Object({
-  key,
-  body,
-  contentType,
-}: {
-  key: string;
-  body: Uint8Array;
-  contentType: string;
-}) {
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET!,
-      Key: key,
-      Body: body,
-      ContentType: contentType,
-    })
-  );
-}
-
-export async function deleteS3Object(key?: string | null): Promise<void> {
-  if (!key) return;
-  if (!key.startsWith("albums/") || key.includes("..") || key.endsWith("/")) {
-    return;
-  }
-
-  await s3.send(
-    new DeleteObjectCommand({
-      Bucket: process.env.S3_BUCKET!,
-      Key: key,
-    })
-  );
 }
