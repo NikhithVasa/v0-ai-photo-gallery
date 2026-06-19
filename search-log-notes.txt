@@ -1,0 +1,1 @@
+Search logs include request id, timing, result counts, and fallback reason.
