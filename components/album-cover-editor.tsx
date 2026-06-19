@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ImageUp, Loader2, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
-import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
+import { mediaUrlForS3KeyWithShare } from "@/lib/photo-image-url";
 
 interface AlbumCoverEditorProps {
   albumSlug: string;
@@ -63,7 +63,6 @@ export function AlbumCoverEditor({
     setError("");
 
     try {
-      // Step 1: Request upload URL
       const uploadRequestResponse = await fetch(
         `/api/albums/${encodeURIComponent(albumSlug)}/cover`,
         {
@@ -92,7 +91,6 @@ export function AlbumCoverEditor({
         );
       }
 
-      // Step 2: Upload file to S3
       const uploadResponse = await fetch(uploadRequest.upload.uploadUrl, {
         method: "PUT",
         headers: { "Content-Type": uploadRequest.upload.contentType },
@@ -103,9 +101,8 @@ export function AlbumCoverEditor({
         throw new Error(`Upload failed (${uploadResponse.status})`);
       }
 
-      const updatedCoverUrl = cloudFrontImageUrl(uploadRequest.upload.key);
+      const updatedCoverUrl = mediaUrlForS3KeyWithShare(uploadRequest.upload.key);
 
-      // Clear preview and file input
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setSelectedFile(null);
       setPreviewUrl(null);
@@ -151,7 +148,6 @@ export function AlbumCoverEditor({
         </div>
 
         <div className="space-y-4 px-4 py-4 sm:px-6">
-          {/* Current Cover Preview */}
           {currentCoverUrl && (
             <div>
               <p className="mb-2 text-sm font-medium text-zinc-700">
@@ -177,7 +173,6 @@ export function AlbumCoverEditor({
             </div>
           )}
 
-          {/* New Cover Preview */}
           {previewUrl && (
             <div>
               <p className="mb-2 text-sm font-medium text-zinc-700">
@@ -194,7 +189,6 @@ export function AlbumCoverEditor({
             </div>
           )}
 
-          {/* File Input */}
           <input
             ref={fileInputRef}
             type="file"
@@ -203,7 +197,6 @@ export function AlbumCoverEditor({
             className="hidden"
           />
 
-          {/* Upload Button */}
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
@@ -213,14 +206,12 @@ export function AlbumCoverEditor({
             {previewUrl ? "Change Image" : "Choose Image"}
           </button>
 
-          {/* Error */}
           {error && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {error}
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex flex-wrap gap-3">
             <button
               onClick={onClose}
