@@ -1593,7 +1593,21 @@ export function PhotoLightbox({
   const canApplyPreset = !isShareView && !shareSettings;
   const canEditPhoto = true;
   const photoName = photo.fileName || `Photo ${currentIndex + 1}`;
-  const photoPeople = photo.people ?? [];
+  const allPeopleById = useMemo(
+    () => new Map(allPeople.map((person) => [person.id, person])),
+    [allPeople],
+  );
+  const photoPeople = useMemo(
+    () =>
+      (photo.people ?? []).map((person) => ({
+        ...person,
+        coverFaceUrl: imageUrlWithShare(
+          person.coverFaceUrl ?? allPeopleById.get(person.id)?.coverFaceUrl,
+          shareToken,
+        ),
+      })),
+    [allPeopleById, photo.people, shareToken],
+  );
   const canManageLightboxPeople = canManagePeople && !shareToken;
   const selectedInstagramFilter = useMemo(
     () => instagramFilterByKey(selectedInstagramFilterKey),

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  type ReactNode,
   type TouchEvent as ReactTouchEvent,
   type WheelEvent as ReactWheelEvent,
   useEffect,
@@ -106,24 +105,10 @@ const navPillButtonClass =
 const navPillButtonActiveClass =
   "bg-[#1d1d1f] text-white ring-[#1d1d1f] hover:bg-black hover:text-white";
 
-const navCollapsedPillButtonClass =
-  "group/nav-action flex h-10 w-10 min-w-10 max-w-10 shrink-0 cursor-pointer items-center justify-center gap-0 overflow-hidden whitespace-nowrap rounded-full bg-transparent px-0 text-sm font-medium text-zinc-700 ring-1 ring-inset ring-black/10 transition-[width,max-width,min-width,padding,background-color,color,box-shadow] duration-300 ease-out hover:bg-white/55 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
-
-const navCollapsedLabelClass =
-  "pointer-events-none inline-block max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[max-width,opacity,margin] duration-300 ease-out";
-
 const navIconButtonClass =
   "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-zinc-500 ring-1 ring-inset ring-black/10 transition hover:bg-white/55 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
 
 const mobileCoverMediaQuery = "(max-width: 767px)";
-
-function NavCollapsedLabel({ children }: { children: ReactNode }) {
-  return (
-    <span aria-hidden="true" className={navCollapsedLabelClass}>
-      {children}
-    </span>
-  );
-}
 
 function scrollDebugMetrics() {
   if (typeof window === "undefined") return {};
@@ -560,11 +545,13 @@ function PersonAvatar({
 
 function PeopleFilterButton({
   people,
+  selectedPeople,
   selectedPeopleIds,
   onToggle,
   onClear,
 }: {
   people: Person[];
+  selectedPeople: Person[];
   selectedPeopleIds: string[];
   onToggle: (personId: string) => void;
   onClear: () => void;
@@ -576,6 +563,10 @@ function PeopleFilterButton({
     () => new Set(selectedPeopleIds),
     [selectedPeopleIds]
   );
+
+  const previewPeople = selectedPeople.length
+    ? selectedPeople.slice(0, 4)
+    : people.slice(0, 4);
 
   const filteredPeople = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -595,7 +586,7 @@ function PeopleFilterButton({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={`${navCollapsedPillButtonClass} ${
+          className={`${navPillButtonClass} min-w-[112px] ${
             selectedPeopleIds.length ? navPillButtonActiveClass : ""
           }`}
           aria-expanded={isOpen}
@@ -606,7 +597,21 @@ function PeopleFilterButton({
           }
         >
           <Users className="h-4 w-4 shrink-0" />
-          <NavCollapsedLabel>People</NavCollapsedLabel>
+          <span>People</span>
+
+          {previewPeople.length > 0 && (
+            <span className="hidden -space-x-2 md:flex">
+              {previewPeople.map((person) => (
+                <PersonAvatar key={person.id} person={person} size="sm" />
+              ))}
+            </span>
+          )}
+
+          {selectedPeopleIds.length > 0 && (
+            <span className="rounded-full bg-white/20 px-1.5 text-xs">
+              {selectedPeopleIds.length}
+            </span>
+          )}
         </button>
       </PopoverTrigger>
 
@@ -879,11 +884,11 @@ function AlbumDownloadMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className={navCollapsedPillButtonClass}
+          className={`${navPillButtonClass} min-w-[118px]`}
           aria-label="Download photos"
         >
           <DownloadIcon className="h-4 w-4 shrink-0" />
-          <NavCollapsedLabel>Download</NavCollapsedLabel>
+          <span>Download</span>
         </button>
       </DropdownMenuTrigger>
 
@@ -1131,11 +1136,11 @@ function AlbumShareDialog({
       <DialogTrigger asChild>
         <button
           type="button"
-          className={navCollapsedPillButtonClass}
+          className={`${navPillButtonClass} min-w-[98px]`}
           aria-label="Share album link"
         >
           <Share2 className="h-4 w-4 shrink-0" />
-          <NavCollapsedLabel>Share</NavCollapsedLabel>
+          <span>Share</span>
         </button>
       </DialogTrigger>
 
@@ -2624,7 +2629,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         }`}
       >
         <div
-          className="border-b border-white/70 bg-white/[0.88] px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl sm:hidden"
+          className="border-y border-zinc-200/80 bg-white/[0.88] px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl sm:hidden"
           style={{ backgroundColor: galleryNavColor }}
         >
           <div className="min-w-0">
@@ -2723,7 +2728,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         </div>
 
         <div
-          className="mx-auto hidden max-w-7xl flex-col gap-3 rounded-[28px] border border-white/70 bg-white/[0.82] px-3 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:flex sm:px-4"
+          className="mx-auto hidden max-w-7xl flex-col gap-3 rounded-[28px] border border-zinc-200/80 bg-white/[0.82] px-3 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:flex sm:px-4"
           style={{ backgroundColor: galleryNavColor }}
         >
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -2791,6 +2796,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 <div className="flex max-w-full flex-wrap gap-2 sm:flex-nowrap">
                   <PeopleFilterButton
                     people={filterPeople}
+                    selectedPeople={selectedFilterPeople}
                     selectedPeopleIds={selectedPeopleIds}
                     onToggle={toggleSelectedPersonId}
                     onClear={() => {
@@ -2829,7 +2835,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               )}
             </div>
 
-            <div className="-mx-3 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none] [-ms-overflow-style:none] sm:mx-0 sm:max-w-full sm:flex-nowrap sm:px-0 xl:justify-end [&::-webkit-scrollbar]:hidden">
+            <div className="-mx-3 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none] [-ms-overflow-style:none] sm:mx-0 sm:max-w-full sm:flex-wrap sm:justify-end sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
               <button
                 type="button"
                 onClick={() => {
@@ -2839,7 +2845,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   setApsaraTextSearch(null);
                   scrollToGalleryTop();
                 }}
-                className={`${navCollapsedPillButtonClass} ${
+                className={`${navPillButtonClass} min-w-[102px] ${
                   isPhotoSelectionMode ? navPillButtonActiveClass : ""
                 }`}
                 aria-pressed={isPhotoSelectionMode}
@@ -2850,21 +2856,21 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 }
               >
                 <Check className="h-4 w-4 shrink-0" />
-                <NavCollapsedLabel>
+                <span>
                   {isPhotoSelectionMode
                     ? `${selectedDownloadPhotoIds.length} Selected`
                     : "Select"}
-                </NavCollapsedLabel>
+                </span>
               </button>
 
               {!isShareView && (
                 <Link
                   href={addPhotosHref}
-                  className={`${navCollapsedPillButtonClass} ${navPillButtonActiveClass}`}
+                  className={`${navPillButtonClass} ${navPillButtonActiveClass} min-w-[122px]`}
                   aria-label="Add photos"
                 >
                   <Plus className="h-4 w-4 shrink-0" />
-                  <NavCollapsedLabel>Add Photos</NavCollapsedLabel>
+                  <span>Add Photos</span>
                 </Link>
               )}
 
@@ -2878,22 +2884,22 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               {!isShareView && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/culling`}
-                  className={navCollapsedPillButtonClass}
+                  className={`${navPillButtonClass} min-w-[118px] px-3`}
                   aria-label="AI review"
                 >
                   <Sparkles className="h-4 w-4 shrink-0" />
-                  <NavCollapsedLabel>AI Review</NavCollapsedLabel>
+                  <span>AI Review</span>
                 </Link>
               )}
 
               {!isShareView && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/collage`}
-                  className={`${navCollapsedPillButtonClass} hidden sm:flex`}
+                  className={`${navPillButtonClass} hidden min-w-[118px] sm:flex`}
                   aria-label="Create collage"
                 >
                   <LayoutTemplate className="h-4 w-4 shrink-0" />
-                  <NavCollapsedLabel>Collage</NavCollapsedLabel>
+                  <span>Collage</span>
                 </Link>
               )}
 

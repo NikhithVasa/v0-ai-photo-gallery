@@ -67,7 +67,17 @@ export async function GET(request: Request, { params }: Props) {
             pe.person_number,
             pe.default_name,
             pe.display_name,
-            pe.cover_face_s3_key,
+            COALESCE(
+              pe.cover_face_s3_key,
+              MIN(
+                COALESCE(
+                  p.thumbnail_s3_key,
+                  p.ai_input_s3_key,
+                  p.clean_preview_s3_key,
+                  p.watermarked_preview_s3_key
+                )
+              )
+            ) AS cover_face_s3_key,
             COUNT(DISTINCT p.id)::int AS photo_count,
             COUNT(p.id)::int AS face_count,
             COUNT(p.id)::int AS occurrence_count
@@ -108,7 +118,17 @@ export async function GET(request: Request, { params }: Props) {
             pe.person_number,
             pe.default_name,
             pe.display_name,
-            pe.cover_face_s3_key,
+            COALESCE(
+              pe.cover_face_s3_key,
+              MIN(
+                COALESCE(
+                  p.thumbnail_s3_key,
+                  p.ai_input_s3_key,
+                  p.clean_preview_s3_key,
+                  p.watermarked_preview_s3_key
+                )
+              )
+            ) AS cover_face_s3_key,
             COUNT(p.id)::int AS face_count,
             COUNT(DISTINCT p.id)::int AS photo_count,
             COUNT(p.id)::int AS occurrence_count
