@@ -20,6 +20,7 @@ type AiAction =
   | "retry_faces"
   | "check_status"
   | "clean_temp"
+  | "delete_album_ai"
   | "reset_album_ai";
 
 interface EventRow {
@@ -218,7 +219,10 @@ async function tableColumns(client: DbQueryClient, tableName: string) {
   );
 }
 
-async function resetAlbumAiData(albumId: string) {
+async function resetAlbumAiData(
+  albumId: string,
+  nextStatus: "pending" | "skipped",
+) {
   return withTransaction(async (client) => {
     const resetStats: Record<string, number> = {};
 
@@ -257,6 +261,39 @@ async function resetAlbumAiData(albumId: string) {
         [albumId],
       );
       resetStats.personEventStatsDeleted = result.rowCount ?? 0;
+    }
+
+    if (await tableExists(client, "person_cooccurrence_stats")) {
+      const result = await client.query(
+        `
+        DELETE FROM person_cooccurrence_stats
+        WHERE album_id = $1::uuid
+        `,
+        [albumId],
+      );
+      resetStats.personCooccurrenceStatsDeleted = result.rowCount ?? 0;
+    }
+
+    if (await tableExists(client, "person_merge_candidates")) {
+      const result = await client.query(
+        `
+        DELETE FROM person_merge_candidates
+        WHERE album_id = $1::uuid
+        `,
+        [albumId],
+      );
+      resetStats.personMergeCandidatesDeleted = result.rowCount ?? 0;
+    }
+
+    if (await tableExists(client, "photo_relationships")) {
+      const result = await client.query(
+        `
+        DELETE FROM photo_relationships
+        WHERE album_id = $1::uuid
+        `,
+        [albumId],
+      );
+      resetStats.photoRelationshipsDeleted = result.rowCount ?? 0;
     }
 
     if (await tableExists(client, "photo_people")) {
@@ -319,11 +356,12 @@ async function resetAlbumAiData(albumId: string) {
       "search_index_status",
     ]) {
       if (photoColumns.has(column)) {
-        setClauses.push(`${column} = 'pending'`);
+        setClauses.push(`${column} = '${nextStatus}'`);
       }
     }
 
     for (const column of [
+      "caption",
       "qwen_json",
       "qwen_description",
       "ai_description",
@@ -354,6 +392,23 @@ async function resetAlbumAiData(albumId: string) {
       [albumId],
     );
     resetStats.photosReset = photoResult.rowCount ?? 0;
+
+    if (nextStatus === "skipped" && (await tableExists(client, "processing_jobs"))) {
+      const result = await client.query(
+        `
+        UPDATE processing_jobs
+        SET status = 'skipped',
+            error_message = NULL,
+            completed_at = now(),
+            updated_at = now()
+        WHERE album_id = $1::uuid
+          AND job_type = 'face_index_photo'
+          AND lower(COALESCE(status, '')) IN ('pending', 'failed', 'error')
+        `,
+        [albumId],
+      );
+      resetStats.faceJobsSkipped = result.rowCount ?? 0;
+    }
 
     return resetStats;
   });
@@ -399,6 +454,7 @@ export async function POST(request: Request, { params }: Props) {
       "retry_faces",
       "check_status",
       "clean_temp",
+      "delete_album_ai",
       "reset_album_ai",
     ];
 
@@ -437,7 +493,7 @@ export async function POST(request: Request, { params }: Props) {
       [album.id, requestedSlugs.length ? requestedSlugs : null]
     );
 
-    if (!events.length) {
+    if (!events.length && action !== "delete_album_ai") {
       return NextResponse.json(
         { error: "Select at least one event" },
         { status: 400 }
@@ -533,7 +589,15 @@ export async function POST(request: Request, { params }: Props) {
     }
 
     const reset =
-      action === "reset_album_ai" ? await resetAlbumAiData(album.id) : null;
+      action === "reset_album_ai"
+        ? await resetAlbumAiData(album.id, "pending")
+        : action === "delete_album_ai"
+          ? await resetAlbumAiData(album.id, "skipped")
+          : null;
+
+    if (action === "delete_album_ai") {
+      return NextResponse.json({ ok: true, reset });
+    }
 
     const runpod = await submitRunpodJob(input);
     return NextResponse.json({ ok: true, input, runpod, reset, lambda });

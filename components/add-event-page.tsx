@@ -50,6 +50,7 @@ type AiAction =
   | "retry_faces"
   | "check_status"
   | "clean_temp"
+  | "delete_album_ai"
   | "reset_album_ai";
 
 const PHOTO_UPLOAD_MAX_RETRIES = 3;
@@ -58,6 +59,7 @@ const AI_JOB_WAIT_MESSAGE =
   "This can take a while. You can come back later - we will notify you by email when it is ready.";
 const ALBUM_WIDE_AI_ACTIONS = new Set<AiAction>([
   "process_all_new",
+  "delete_album_ai",
   "reset_album_ai",
 ]);
 
@@ -336,7 +338,8 @@ export function AddEventPage({
     if ((!eventSlugs.length && !ALBUM_WIDE_AI_ACTIONS.has(action)) || runningAiAction) return;
 
     setRunningAiAction(action);
-    setAiJobMessage(AI_JOB_WAIT_MESSAGE);
+    const isDeleteOnly = action === "delete_album_ai";
+    setAiJobMessage(isDeleteOnly ? "" : AI_JOB_WAIT_MESSAGE);
     setErrorMessage("");
 
     try {
@@ -361,14 +364,24 @@ export function AddEventPage({
         throw new Error(payload.error || "Could not submit AI job");
       }
 
-      const jobLabel = payload.runpod?.id
-        ? `${AI_JOB_WAIT_MESSAGE} Job ${payload.runpod.id} has been submitted.`
-        : AI_JOB_WAIT_MESSAGE;
-      setAiJobMessage(jobLabel);
-      toast({
-        title: "AI job submitted",
-        description: jobLabel,
-      });
+      if (isDeleteOnly) {
+        const deletedMessage =
+          "Faces, people, text embeddings, and LLM-generated text were deleted. Photos and events were preserved.";
+        setAiJobMessage(deletedMessage);
+        toast({
+          title: "AI data deleted",
+          description: deletedMessage,
+        });
+      } else {
+        const jobLabel = payload.runpod?.id
+          ? `${AI_JOB_WAIT_MESSAGE} Job ${payload.runpod.id} has been submitted.`
+          : AI_JOB_WAIT_MESSAGE;
+        setAiJobMessage(jobLabel);
+        toast({
+          title: "AI job submitted",
+          description: jobLabel,
+        });
+      }
       await Promise.all([mutateAlbum(), mutateSelectedEventPhotos()]);
     } catch (error) {
       setErrorMessage(
@@ -1624,6 +1637,30 @@ export function AddEventPage({
                   Switch Upload target to Existing and choose an event.
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      "Delete all faces, people, text embeddings, and LLM-generated text for this album? Photos and events will remain. AI processing will not restart automatically.",
+                    )
+                  ) {
+                    return;
+                  }
+
+                  submitAiAction("delete_album_ai", []);
+                }}
+                disabled={Boolean(runningAiAction) || isUploading}
+                className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {runningAiAction === "delete_album_ai" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                Delete faces, embeddings, and LLM text
+              </button>
 
               <button
                 type="button"
