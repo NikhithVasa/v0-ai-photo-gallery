@@ -219,10 +219,7 @@ async function tableColumns(client: DbQueryClient, tableName: string) {
   );
 }
 
-async function resetAlbumAiData(
-  albumId: string,
-  nextStatus: "pending" | "skipped",
-) {
+async function resetAlbumAiData(albumId: string) {
   return withTransaction(async (client) => {
     const resetStats: Record<string, number> = {};
 
@@ -351,16 +348,18 @@ async function resetAlbumAiData(
     const setClauses: string[] = [];
 
     for (const column of [
+      "compression_status",
       "face_index_status",
       "qwen_status",
       "search_index_status",
     ]) {
       if (photoColumns.has(column)) {
-        setClauses.push(`${column} = '${nextStatus}'`);
+        setClauses.push(`${column} = 'pending'`);
       }
     }
 
     for (const column of [
+      "compression_error",
       "caption",
       "qwen_json",
       "qwen_description",
@@ -393,21 +392,22 @@ async function resetAlbumAiData(
     );
     resetStats.photosReset = photoResult.rowCount ?? 0;
 
-    if (nextStatus === "skipped" && (await tableExists(client, "processing_jobs"))) {
+    if (await tableExists(client, "processing_jobs")) {
       const result = await client.query(
         `
         UPDATE processing_jobs
-        SET status = 'skipped',
+        SET status = 'pending',
+            attempt_count = 0,
             error_message = NULL,
-            completed_at = now(),
+            completed_at = NULL,
+            started_at = NULL,
             updated_at = now()
         WHERE album_id = $1::uuid
-          AND job_type = 'face_index_photo'
-          AND lower(COALESCE(status, '')) IN ('pending', 'failed', 'error')
+          AND job_type IN ('compress_photo', 'face_index_photo')
         `,
         [albumId],
       );
-      resetStats.faceJobsSkipped = result.rowCount ?? 0;
+      resetStats.processingJobsReset = result.rowCount ?? 0;
     }
 
     return resetStats;
@@ -590,9 +590,9 @@ export async function POST(request: Request, { params }: Props) {
 
     const reset =
       action === "reset_album_ai"
-        ? await resetAlbumAiData(album.id, "pending")
+        ? await resetAlbumAiData(album.id)
         : action === "delete_album_ai"
-          ? await resetAlbumAiData(album.id, "skipped")
+          ? await resetAlbumAiData(album.id)
           : null;
 
     if (action === "delete_album_ai") {

@@ -366,7 +366,7 @@ export function AddEventPage({
 
       if (isDeleteOnly) {
         const deletedMessage =
-          "Faces, people, text embeddings, and LLM-generated text were deleted. Photos and events were preserved.";
+          "AI data was deleted and queued for regeneration on the next worker run. Photos and events were preserved.";
         setAiJobMessage(deletedMessage);
         toast({
           title: "AI data deleted",
@@ -1643,7 +1643,7 @@ export function AddEventPage({
                 onClick={() => {
                   if (
                     !window.confirm(
-                      "Delete all faces, people, text embeddings, and LLM-generated text for this album? Photos and events will remain. AI processing will not restart automatically.",
+                      "Delete all faces, people, text embeddings, and LLM-generated text for this album? Photos and events will remain, and the next AI worker run will regenerate the deleted data.",
                     )
                   ) {
                     return;
