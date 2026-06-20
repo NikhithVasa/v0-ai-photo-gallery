@@ -948,6 +948,13 @@ export async function POST(request: Request, { params }: Props) {
       Promise.all(rows.map(toPhoto)),
     ]);
 
+    rows.forEach((row) => {
+      console.log("[ai-search-result]", {
+        imageName: row.file_name,
+        json: row.qwen_description,
+      });
+    });
+
     const totalDurationMs = durationSince(totalStartedAt);
     const oneShotDebugLog = {
       level: "info",
