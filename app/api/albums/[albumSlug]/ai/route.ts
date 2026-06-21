@@ -108,6 +108,7 @@ function stepsForAction(action: AiAction) {
     return {
       ingest: false,
       compress: false,
+      image_embedding: true,
       face_index: true,
       safe_people_reconcile: true,
       rebuild_people: true,
@@ -121,6 +122,7 @@ function stepsForAction(action: AiAction) {
     return {
       ingest: false,
       compress: false,
+      image_embedding: false,
       face_index: false,
       safe_people_reconcile: false,
       rebuild_people: false,
@@ -134,11 +136,12 @@ function stepsForAction(action: AiAction) {
     return {
       ingest: false,
       compress: false,
+      image_embedding: true,
       face_index: false,
       safe_people_reconcile: false,
       rebuild_people: false,
       qwen: false,
-      embeddings: true,
+      embeddings: false,
       cleanup_temp: false,
     };
   }
@@ -147,6 +150,7 @@ function stepsForAction(action: AiAction) {
     return {
       ingest: false,
       compress: false,
+      image_embedding: false,
       face_index: true,
       safe_people_reconcile: true,
       rebuild_people: false,
@@ -160,6 +164,7 @@ function stepsForAction(action: AiAction) {
     return {
       ingest: false,
       compress: false,
+      image_embedding: false,
       face_index: false,
       safe_people_reconcile: false,
       rebuild_people: false,
@@ -173,6 +178,7 @@ function stepsForAction(action: AiAction) {
     return {
       ingest: false,
       compress: false,
+      image_embedding: false,
       face_index: false,
       safe_people_reconcile: false,
       rebuild_people: false,
@@ -352,6 +358,7 @@ async function resetAlbumAiData(albumId: string) {
       "face_index_status",
       "qwen_status",
       "search_index_status",
+      "image_embedding_status",
     ]) {
       if (photoColumns.has(column)) {
         setClauses.push(`${column} = 'pending'`);
@@ -366,6 +373,9 @@ async function resetAlbumAiData(albumId: string) {
       "ai_description",
       "search_text",
       "search_embedding",
+      "image_embedding",
+      "image_embedding_model",
+      "image_embedded_at",
       "face_index_error",
       "qwen_error",
       "search_index_error",

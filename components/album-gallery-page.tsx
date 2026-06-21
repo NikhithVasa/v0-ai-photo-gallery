@@ -3,6 +3,7 @@
 import {
   type TouchEvent as ReactTouchEvent,
   type WheelEvent as ReactWheelEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -14,10 +15,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import useSWR, { mutate as mutateSWR } from "swr";
 import {
   Check,
+  CheckCircle2,
   ArrowLeft,
+  CalendarDays,
   ChevronDown,
   Copy,
   Download,
+  ExternalLink,
+  Link2,
   Loader2,
   LayoutTemplate,
   Lock,
@@ -25,7 +30,9 @@ import {
   Images,
   Plus,
   Search,
+  Settings2,
   Share2,
+  ShieldCheck,
   Sparkles,
   Trash2,
   User,
@@ -44,16 +51,12 @@ import { ApplyPresetSelectionDialog } from "@/components/apply-preset-selection-
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { usePasscodeVerification } from "@/hooks/use-passcode-verification";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { BorderBeam } from "@/components/ui/border-beam";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -986,6 +989,41 @@ interface AlbumShareResponse {
   defaults?: AlbumShareSettings;
 }
 
+interface AlbumShareSettingsPayload {
+  allowDownloads: boolean;
+  hideAi: boolean;
+  watermarkEnabled: boolean;
+  watermarkText: string;
+  watermarkMode: AlbumShareSettings["watermarkMode"];
+  watermarkPositions: string[];
+  expiresAt: string | null;
+  backgroundColor: string;
+  passcode: string | null;
+}
+
+async function persistAlbumShareSettings(
+  albumSlug: string,
+  settings: AlbumShareSettingsPayload,
+) {
+  const response = await fetch(
+    `/api/albums/${encodeURIComponent(albumSlug)}/share`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    },
+  );
+  const payload = (await response.json()) as
+    | AlbumShareResponse
+    | { error?: string };
+
+  if (!response.ok || !("share" in payload) || !payload.share) {
+    throw new Error("error" in payload ? payload.error : "Failed to save");
+  }
+
+  return payload as AlbumShareResponse;
+}
+
 const cornerOptions = [
   { id: "top_left", label: "Top left" },
   { id: "top_right", label: "Top right" },
@@ -1018,6 +1056,13 @@ function AlbumShareDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [status, setStatus] = useState("");
+  const hasInitializedSettingsRef = useRef(false);
+  const pendingHydrationSnapshotRef = useRef<string | null>(null);
+  const lastSavedSettingsRef = useRef("");
+  const latestSettingsRef = useRef("");
+  const pendingSettingsRef = useRef<AlbumShareSettingsPayload | null>(null);
+  const autosaveTimerRef = useRef<number | null>(null);
+  const isSavingRef = useRef(false);
 
   const { data, mutate } = useSWR<AlbumShareResponse>(
     isOpen ? `/api/albums/${encodeURIComponent(albumSlug)}/share` : null,
@@ -1049,6 +1094,29 @@ function AlbumShareDialog({
     setPasscode(source.passcode ?? "");
 
     setShareUrl(data.share?.url ?? "");
+    const initialSettings: AlbumShareSettingsPayload = {
+      allowDownloads: source.allowDownloads,
+      hideAi: Boolean(source.hideAi),
+      watermarkEnabled: source.watermarkEnabled,
+      watermarkText: source.watermarkText || defaultWatermarkText,
+      watermarkMode: source.watermarkMode,
+      watermarkPositions: source.watermarkPositions?.length
+        ? source.watermarkPositions
+        : ["bottom_right"],
+      expiresAt: source.expiresAt || null,
+      backgroundColor: normalizeShareBackgroundColor(source.backgroundColor),
+      passcode: source.passcode || null,
+    };
+    const initialSnapshot = JSON.stringify(initialSettings);
+    lastSavedSettingsRef.current = initialSnapshot;
+    latestSettingsRef.current = initialSnapshot;
+    pendingHydrationSnapshotRef.current = initialSnapshot;
+    hasInitializedSettingsRef.current = false;
+    setStatus(
+      data.share
+        ? "All changes are saved"
+        : "Change any setting to create the share link",
+    );
   }, [data, defaultWatermarkText, isOpen]);
 
   const toggleCorner = (position: string) => {
@@ -1060,57 +1128,120 @@ function AlbumShareDialog({
     });
   };
 
-  const save = async () => {
-    const nextPasscode = passcode.trim();
-    if (nextPasscode && nextPasscode.length < 4) {
-      setStatus("Passcode must be at least 4 characters");
+  const settings = useMemo<AlbumShareSettingsPayload>(
+    () => ({
+      allowDownloads,
+      hideAi,
+      watermarkEnabled,
+      watermarkText,
+      watermarkMode,
+      watermarkPositions,
+      expiresAt: expiresAt || null,
+      backgroundColor,
+      passcode: passcode.trim() || null,
+    }),
+    [
+      allowDownloads,
+      backgroundColor,
+      expiresAt,
+      hideAi,
+      passcode,
+      watermarkEnabled,
+      watermarkMode,
+      watermarkPositions,
+      watermarkText,
+    ],
+  );
+  const settingsSnapshot = JSON.stringify(settings);
+  latestSettingsRef.current = settingsSnapshot;
+
+  const flushAutosave = useCallback(async () => {
+    if (isSavingRef.current || !pendingSettingsRef.current) return;
+
+    const nextSettings = pendingSettingsRef.current;
+    const nextSnapshot = JSON.stringify(nextSettings);
+    pendingSettingsRef.current = null;
+    isSavingRef.current = true;
+    setIsSaving(true);
+    setStatus("Saving changes...");
+
+    try {
+      const payload = await persistAlbumShareSettings(albumSlug, nextSettings);
+      lastSavedSettingsRef.current = nextSnapshot;
+      setShareUrl(payload.share?.url ?? "");
+
+      if (nextSnapshot === latestSettingsRef.current) {
+        setPasscode(payload.share?.passcode ?? "");
+        setStatus("All changes are saved");
+        await mutate(payload, { revalidate: false });
+      }
+    } catch (error) {
+      console.error("Failed to auto-save share link:", error);
+      setStatus("Could not save changes");
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
+
+      if (pendingSettingsRef.current) {
+        window.setTimeout(() => void flushAutosave(), 0);
+      }
+    }
+  }, [albumSlug, mutate]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (pendingHydrationSnapshotRef.current) {
+      if (settingsSnapshot === pendingHydrationSnapshotRef.current) {
+        pendingHydrationSnapshotRef.current = null;
+        hasInitializedSettingsRef.current = true;
+      }
       return;
     }
 
-    setIsSaving(true);
-    setStatus("");
+    if (!hasInitializedSettingsRef.current) return;
+    if (settingsSnapshot === lastSavedSettingsRef.current) return;
 
-    try {
-      const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/share`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            allowDownloads,
-            hideAi,
-            watermarkEnabled,
-            watermarkText,
-            watermarkMode,
-            watermarkPositions,
-            expiresAt: expiresAt || null,
-            backgroundColor,
-            passcode: nextPasscode || null,
-          }),
-        },
-      );
-      const payload = (await response.json()) as AlbumShareResponse | { error?: string };
-
-      if (!response.ok || !("share" in payload) || !payload.share) {
-        throw new Error("error" in payload ? payload.error : "Failed to save");
-      }
-
-      setShareUrl(payload.share.url);
-      setPasscode(payload.share.passcode ?? "");
-      setStatus("Saved");
-      await mutate(payload as AlbumShareResponse, { revalidate: false });
-    } catch (error) {
-      console.error("Failed to save share link:", error);
-      setStatus("Failed to save");
-    } finally {
-      setIsSaving(false);
+    const nextPasscode = settings.passcode ?? "";
+    if (nextPasscode && nextPasscode.length < 4) {
+      pendingSettingsRef.current = null;
+      setStatus("Passcode must be empty or at least 4 characters");
+      return;
     }
-  };
+
+    pendingSettingsRef.current = settings;
+    setStatus("Saving changes...");
+
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null;
+      void flushAutosave();
+    }, 450);
+
+    return () => {
+      if (autosaveTimerRef.current !== null) {
+        window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+    };
+  }, [flushAutosave, isOpen, settings, settingsSnapshot]);
+
+  useEffect(
+    () => () => {
+      if (autosaveTimerRef.current !== null) {
+        window.clearTimeout(autosaveTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const copyLink = async () => {
     if (!shareUrl) return;
     await navigator.clipboard?.writeText(shareUrl);
-    setStatus("Copied");
+    setStatus("Link copied");
   };
 
   const deleteLink = async () => {
@@ -1120,6 +1251,13 @@ function AlbumShareDialog({
 
     setIsDeleting(true);
     setStatus("");
+    pendingSettingsRef.current = null;
+    hasInitializedSettingsRef.current = false;
+    pendingHydrationSnapshotRef.current = null;
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
 
     try {
       const response = await fetch(
@@ -1135,7 +1273,7 @@ function AlbumShareDialog({
       }
 
       setShareUrl("");
-      setStatus("Deleted");
+      setStatus("Share link deleted");
       await mutate(
         {
           share: null,

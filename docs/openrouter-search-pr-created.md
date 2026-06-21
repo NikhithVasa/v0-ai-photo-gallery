@@ -1,6 +1,6 @@
 # OpenRouter pgvector search checklist
 
 - Set `OPENROUTER_API_KEY` in Vercel.
-- Keep `OPENROUTER_EMBEDDING_MODEL=sentence-transformers/all-minilm-l6-v2` unless all stored embeddings are regenerated with another model.
-- Run worker embeddings before semantic search, so `photos.search_embedding` is populated.
+- Set `OPENROUTER_EMBEDDING_MODEL=google/gemini-embedding-2`.
+- Run the worker's `image_embedding=true` step before semantic search, so `photos.image_embedding` is populated with the same model.
 - The search route falls back to keyword/person search if OpenRouter is unavailable.

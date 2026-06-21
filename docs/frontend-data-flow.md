@@ -336,6 +336,7 @@ Current implementation:
 - `person 93` resolves through `people.person_number`.
 - Optional `people` values may be UUIDs or names.
 - `together=true` requires every selected person to appear in the same photo.
+- Natural-language queries use OpenRouter `google/gemini-embedding-2` at 768 dimensions and rank `photos.image_embedding` with pgvector cosine distance.
 - Keyword fallback searches `photos.search_text`, `photos.caption`, `photo_people.search_text`, and `photo_people.qwen_description`.
 
 Vector columns are not exposed to the browser. Backend can replace the internals with vector search as long as the response contract stays the same.

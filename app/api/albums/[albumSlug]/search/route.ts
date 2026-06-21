@@ -13,8 +13,8 @@ import type { Person } from "@/lib/types";
 
 const OPENROUTER_EMBEDDING_MODEL =
   process.env.OPENROUTER_EMBEDDING_MODEL ||
-  "sentence-transformers/all-minilm-l6-v2";
-const OPENROUTER_EMBEDDING_DIMENSION = 384;
+  "google/gemini-embedding-2";
+const OPENROUTER_EMBEDDING_DIMENSION = 768;
 const SEARCH_DEBUG_TOP_RESULTS = 10;
 const SEARCH_DEBUG_SNIPPET_LENGTH = 180;
 
@@ -39,11 +39,11 @@ type SearchRow = PhotoRow & {
 
 interface EmbeddingCoverageRow {
   completed_photos: string | number | null;
-  photos_with_search_embedding: string | number | null;
-  photos_missing_search_embedding: string | number | null;
+  photos_with_image_embedding: string | number | null;
+  photos_missing_image_embedding: string | number | null;
   event_completed_photos: string | number | null;
-  event_photos_with_search_embedding: string | number | null;
-  event_photos_missing_search_embedding: string | number | null;
+  event_photos_with_image_embedding: string | number | null;
+  event_photos_missing_image_embedding: string | number | null;
 }
 
 interface EmbeddingDebug {
@@ -167,6 +167,7 @@ async function embedSearchQueryWithOpenRouter(
     body: JSON.stringify({
       model: OPENROUTER_EMBEDDING_MODEL,
       input: searchQuery,
+      dimensions: OPENROUTER_EMBEDDING_DIMENSION,
       encoding_format: "float",
     }),
   });
@@ -431,13 +432,17 @@ async function fetchEmbeddingCoverage(albumSlug: string, eventSlug: string | nul
       COUNT(*) FILTER (
         WHERE COALESCE(p.is_deleted, false) = false
           AND p.upload_status = 'completed'
-          AND p.search_embedding IS NOT NULL
-      ) AS photos_with_search_embedding,
+          AND p.image_embedding IS NOT NULL
+          AND p.image_embedding_model = $3
+      ) AS photos_with_image_embedding,
       COUNT(*) FILTER (
         WHERE COALESCE(p.is_deleted, false) = false
           AND p.upload_status = 'completed'
-          AND p.search_embedding IS NULL
-      ) AS photos_missing_search_embedding,
+          AND (
+            p.image_embedding IS NULL
+            OR p.image_embedding_model IS DISTINCT FROM $3
+          )
+      ) AS photos_missing_image_embedding,
       COUNT(*) FILTER (
         WHERE ($2::text IS NULL OR e.slug = $2)
           AND COALESCE(p.is_deleted, false) = false
@@ -447,29 +452,33 @@ async function fetchEmbeddingCoverage(albumSlug: string, eventSlug: string | nul
         WHERE ($2::text IS NULL OR e.slug = $2)
           AND COALESCE(p.is_deleted, false) = false
           AND p.upload_status = 'completed'
-          AND p.search_embedding IS NOT NULL
-      ) AS event_photos_with_search_embedding,
+          AND p.image_embedding IS NOT NULL
+          AND p.image_embedding_model = $3
+      ) AS event_photos_with_image_embedding,
       COUNT(*) FILTER (
         WHERE ($2::text IS NULL OR e.slug = $2)
           AND COALESCE(p.is_deleted, false) = false
           AND p.upload_status = 'completed'
-          AND p.search_embedding IS NULL
-      ) AS event_photos_missing_search_embedding
+          AND (
+            p.image_embedding IS NULL
+            OR p.image_embedding_model IS DISTINCT FROM $3
+          )
+      ) AS event_photos_missing_image_embedding
     FROM photos p
     JOIN albums a ON a.id = p.album_id
     JOIN album_events e ON e.id = p.album_event_id
     WHERE lower(a.slug) = lower($1)
     `,
-    [albumSlug, eventSlug]
+    [albumSlug, eventSlug, OPENROUTER_EMBEDDING_MODEL]
   );
 
   return {
     completedPhotos: toNumber(row?.completed_photos),
-    photosWithSearchEmbedding: toNumber(row?.photos_with_search_embedding),
-    photosMissingSearchEmbedding: toNumber(row?.photos_missing_search_embedding),
+    photosWithImageEmbedding: toNumber(row?.photos_with_image_embedding),
+    photosMissingImageEmbedding: toNumber(row?.photos_missing_image_embedding),
     eventCompletedPhotos: toNumber(row?.event_completed_photos),
-    eventPhotosWithSearchEmbedding: toNumber(row?.event_photos_with_search_embedding),
-    eventPhotosMissingSearchEmbedding: toNumber(row?.event_photos_missing_search_embedding),
+    eventPhotosWithImageEmbedding: toNumber(row?.event_photos_with_image_embedding),
+    eventPhotosMissingImageEmbedding: toNumber(row?.event_photos_missing_image_embedding),
   };
 }
 
@@ -497,7 +506,7 @@ function photoSearchSelectSql(includeSemanticScore: boolean) {
         e.name AS event_name,
         MIN(pp_text.search_text) AS person_search_text,
         MIN(pp_text.qwen_description) AS qwen_description,
-        COALESCE(photo_people_summary.people, '[]'::jsonb) AS people${includeSemanticScore ? ",\n        p.search_embedding <=> $3::vector AS vector_distance,\n        1 - (p.search_embedding <=> $3::vector) AS semantic_score" : ""}
+        COALESCE(photo_people_summary.people, '[]'::jsonb) AS people${includeSemanticScore ? ",\n        p.image_embedding <=> $3::vector AS vector_distance,\n        1 - (p.image_embedding <=> $3::vector) AS semantic_score" : ""}
       FROM photos p
       JOIN albums a ON a.id = p.album_id
       JOIN album_events e ON e.id = p.album_event_id
@@ -628,7 +637,8 @@ ${photoSearchSelectSql(true)}
         AND ($2::text IS NULL OR e.slug = $2)
         AND COALESCE(p.is_deleted, false) = false
         AND p.upload_status = 'completed'
-        AND p.search_embedding IS NOT NULL
+        AND p.image_embedding IS NOT NULL
+        AND p.image_embedding_model = $7
         AND (
           $4::uuid[] IS NULL
           OR CASE
@@ -647,8 +657,8 @@ ${photoSearchSelectSql(true)}
           END
         )
 ${photoSearchGroupBySql},
-        p.search_embedding
-      ORDER BY p.search_embedding <=> $3::vector, p.created_at ASC
+        p.image_embedding
+      ORDER BY p.image_embedding <=> $3::vector, p.created_at ASC
       LIMIT $6
       `,
     [
@@ -658,6 +668,7 @@ ${photoSearchGroupBySql},
       personIds.length ? personIds : null,
       together,
       limit,
+      OPENROUTER_EMBEDDING_MODEL,
     ]
   );
 }
@@ -904,7 +915,7 @@ export async function POST(request: Request, { params }: Props) {
             searchMode = "semantic";
           } else {
             semanticSearchDebug.fallbackReason =
-              embeddingCoverage.eventPhotosWithSearchEmbedding === 0
+              embeddingCoverage.eventPhotosWithImageEmbedding === 0
                 ? "semantic_returned_zero_rows_no_event_embeddings"
                 : "semantic_returned_zero_rows";
           }
