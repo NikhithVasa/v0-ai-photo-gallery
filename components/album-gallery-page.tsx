@@ -18,8 +18,6 @@ import {
   ChevronDown,
   Copy,
   Download,
-  Eye,
-  EyeOff,
   Loader2,
   LayoutTemplate,
   Lock,
@@ -1004,6 +1002,7 @@ function AlbumShareDialog({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [allowDownloads, setAllowDownloads] = useState(false);
+  const [hideAi, setHideAi] = useState(false);
   const [watermarkEnabled, setWatermarkEnabled] = useState(false);
   const [watermarkText, setWatermarkText] = useState(defaultWatermarkText);
   const [watermarkMode, setWatermarkMode] =
@@ -1036,6 +1035,7 @@ function AlbumShareDialog({
     if (!source) return;
 
     setAllowDownloads(source.allowDownloads);
+    setHideAi(Boolean(source.hideAi));
     setWatermarkEnabled(source.watermarkEnabled);
     setWatermarkText(source.watermarkText || defaultWatermarkText);
     setWatermarkMode(source.watermarkMode);
@@ -1078,6 +1078,7 @@ function AlbumShareDialog({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             allowDownloads,
+            hideAi,
             watermarkEnabled,
             watermarkText,
             watermarkMode,
@@ -1217,6 +1218,22 @@ function AlbumShareDialog({
               id="share-allow-downloads"
               checked={allowDownloads}
               onCheckedChange={setAllowDownloads}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+            <div className="space-y-1">
+              <Label htmlFor="share-hide-ai" className="text-sm font-medium">
+                Hide AI from clients
+              </Label>
+              <p className="text-xs leading-5 text-zinc-500">
+                Hides People, face controls, AI Review, and SaathiDesk chat.
+              </p>
+            </div>
+            <Switch
+              id="share-hide-ai"
+              checked={hideAi}
+              onCheckedChange={setHideAi}
             />
           </div>
 
@@ -1400,7 +1417,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [selectedEventSlug, setSelectedEventSlug] = useState<string | null>(
     null
   );
-  const [isAiHidden, setIsAiHidden] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const {
     isVerified: isPasswordVerified,
@@ -1558,6 +1574,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       },
   );
   const shareSettings = publicShareData?.share ?? null;
+  const hideAi =
+    isShareView && (!shareSettings || Boolean(shareSettings.hideAi));
   const isPersonShare = Boolean(shareSettings?.personId);
   const showPersonShareEventTabs =
     isPersonShare && Boolean(shareSettings?.allowEventTabs);
@@ -1589,6 +1607,18 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setApsaraTextSearch(null);
     setActiveTab("photos");
   }, [shareSettings?.personId]);
+
+  useEffect(() => {
+    if (!hideAi) return;
+
+    setSelectedPerson(null);
+    setPhotoIdToReopen(null);
+    setSelectedPeopleIds([]);
+    setPeopleMatchMode("all");
+    setApsaraTextSearch(null);
+    setIsSearchOpen(false);
+    setActiveTab("photos");
+  }, [hideAi]);
 
   isCoverDismissedRef.current = isCoverDismissed;
 
@@ -2242,21 +2272,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   };
 
-  const toggleAiVisibility = () => {
-    const nextIsAiHidden = !isAiHidden;
-    setIsAiHidden(nextIsAiHidden);
-
-    if (!nextIsAiHidden) return;
-
-    setSelectedPerson(null);
-    setPhotoIdToReopen(null);
-    setSelectedPeopleIds([]);
-    setPeopleMatchMode("all");
-    setApsaraTextSearch(null);
-    setIsSearchOpen(false);
-    setActiveTab("photos");
-  };
-
   const filterByPerson = (personId: string) => {
     setApsaraTextSearch(null);
     setSelectedPeopleIds([personId]);
@@ -2738,43 +2753,21 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           className="border-y border-zinc-200/80 bg-white/[0.88] px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl sm:hidden"
           style={{ backgroundColor: galleryNavColor }}
         >
-          <div className="flex min-w-0 items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold tracking-normal text-[#1d1d1f]">
-                {pageName}
-              </h1>
-              <p className="truncate text-xs font-medium text-zinc-500">
-                {isPersonShare
-                  ? shareSettings?.personName
-                  : `${album.customer?.name || coverCreditName} · ${album.peopleCount} People`}
-              </p>
-            </div>
-
-            {isShareView && (
-              <button
-                type="button"
-                onClick={toggleAiVisibility}
-                aria-pressed={isAiHidden}
-                className={`flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-xs font-semibold ring-1 ring-inset transition ${
-                  isAiHidden
-                    ? "bg-[#1d1d1f] text-white ring-[#1d1d1f]"
-                    : "bg-white/70 text-zinc-600 ring-black/10"
-                }`}
-              >
-                {isAiHidden ? (
-                  <Eye className="h-3.5 w-3.5" />
-                ) : (
-                  <EyeOff className="h-3.5 w-3.5" />
-                )}
-                <span>{isAiHidden ? "Show AI" : "Hide AI"}</span>
-              </button>
-            )}
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold tracking-normal text-[#1d1d1f]">
+              {pageName}
+            </h1>
+            <p className="truncate text-xs font-medium text-zinc-500">
+              {isPersonShare
+                ? shareSettings?.personName
+                : `${album.customer?.name || coverCreditName} · ${album.peopleCount} People`}
+            </p>
           </div>
 
           {!isPersonShare && (
             <div
               className={`mt-2 grid h-9 gap-1 rounded-full bg-black/5 p-1 ${
-                isAiHidden ? "grid-cols-1" : "grid-cols-2"
+                hideAi ? "grid-cols-1" : "grid-cols-2"
               }`}
               role="tablist"
             >
@@ -2796,7 +2789,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 Photos
               </button>
 
-              {!isAiHidden && (
+              {!hideAi && (
                 <button
                   role="tab"
                   aria-selected={activeTab === "people" || Boolean(selectedPerson)}
@@ -2910,7 +2903,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                       Photos
                     </button>
 
-                    {!isAiHidden && (
+                    {!hideAi && (
                       <button
                         role="tab"
                         aria-selected={activeTab === "people"}
@@ -2934,7 +2927,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 )}
               </div>
 
-              {!isAiHidden &&
+              {!hideAi &&
                 !selectedPerson &&
                 activeTab === "photos" &&
                 !isPersonShare && (
@@ -3026,25 +3019,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 />
               )}
 
-              {isShareView && (
-                <button
-                  type="button"
-                  onClick={toggleAiVisibility}
-                  aria-pressed={isAiHidden}
-                  className={`${navPillButtonClass} min-w-[112px] ${
-                    isAiHidden ? navPillButtonActiveClass : ""
-                  }`}
-                >
-                  {isAiHidden ? (
-                    <Eye className="h-4 w-4 shrink-0" />
-                  ) : (
-                    <EyeOff className="h-4 w-4 shrink-0" />
-                  )}
-                  <span>{isAiHidden ? "Show AI" : "Hide AI"}</span>
-                </button>
-              )}
-
-              {!isShareView && !isAiHidden && (
+              {!isShareView && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/culling`}
                   className={`${navPillButtonClass} min-w-[118px] px-3`}
@@ -3101,7 +3076,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     Photos
                   </button>
 
-                  {!isAiHidden && (
+                  {!hideAi && (
                     <button
                       role="tab"
                       aria-selected={activeTab === "people"}
@@ -3124,7 +3099,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 </div>
               )}
 
-              {!isPersonShare && !isAiHidden && (
+              {!isPersonShare && !hideAi && (
                 <button
                   type="button"
                   onClick={() => setIsSearchOpen(true)}
@@ -3203,7 +3178,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             onBack={handlePersonBack}
             shareSettings={shareSettings}
           />
-        ) : !isAiHidden && !isPersonShare && activeTab === "people" ? (
+        ) : !hideAi && !isPersonShare && activeTab === "people" ? (
           <section className="space-y-5 px-2 sm:px-0">
             <div>
               <p className="text-sm font-medium text-zinc-500">All people</p>
@@ -3222,7 +3197,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               readOnly={isShareView}
             />
           </section>
-        ) : !isAiHidden && apsaraTextSearch ? (
+        ) : !hideAi && apsaraTextSearch ? (
           <SearchResultsGrid
             albumSlug={albumSlug}
             shareToken={shareToken}
@@ -3468,7 +3443,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               canManagePeople={!isShareView}
               onPeopleChanged={refreshPeopleData}
               shareSettings={shareSettings}
-              hidePeople={isAiHidden}
+              hidePeople={hideAi}
               canManageSort={!isShareView}
               canUploadPhotos={!isShareView}
               uploadHref={addPhotosHref}
@@ -3481,7 +3456,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         activeTab === "photos" &&
         !selectedPerson &&
         !isPersonShare &&
-        !isAiHidden && (
+        !hideAi && (
         <div
           className={`fixed bottom-4 left-1/2 z-40 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 gap-1 rounded-full bg-zinc-950/92 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 sm:hidden ${
             isShareView ? "grid-cols-2" : "grid-cols-4"
@@ -3540,7 +3515,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         </div>
       )}
 
-      {!isPersonShare && !isAiHidden && (
+      {!isPersonShare && !hideAi && (
         <ApsaraMomentsRoot
           albumSlug={albumSlug}
           shareToken={shareToken}

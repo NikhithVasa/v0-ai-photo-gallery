@@ -212,6 +212,7 @@ export interface AlbumShareSettings {
   linkName?: string | null;
   onlyPerson?: boolean;
   allowEventTabs?: boolean;
+  hideAi?: boolean;
   allowDownloads: boolean;
   watermarkEnabled: boolean;
   watermarkText: string | null;

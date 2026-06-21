@@ -17,6 +17,7 @@ interface ShareTokenRow {
   album_name: string;
   customer_name: string | null;
   allow_downloads: boolean;
+  hide_ai: boolean;
   watermark_enabled: boolean;
   watermark_text: string | null;
   watermark_mode: "full" | "corners";
@@ -52,6 +53,7 @@ function serialize(row: ShareTokenRow) {
     onlyPerson: row.only_person,
     allowEventTabs: row.allow_event_tabs,
     allowDownloads: row.allow_downloads,
+    hideAi: row.hide_ai,
     watermarkEnabled: row.watermark_enabled,
     watermarkText: row.watermark_text,
     watermarkMode: row.watermark_mode,
@@ -80,6 +82,7 @@ export async function GET(_request: Request, { params }: Props) {
         s.album_name,
         s.customer_name,
         s.allow_downloads,
+        s.hide_ai,
         s.watermark_enabled,
         s.watermark_text,
         s.watermark_mode,

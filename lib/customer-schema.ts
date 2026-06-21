@@ -111,6 +111,7 @@ export function ensureAlbumShareLinkSchema() {
         album_name text NOT NULL,
         customer_name text,
         allow_downloads boolean NOT NULL DEFAULT false,
+        hide_ai boolean NOT NULL DEFAULT false,
         watermark_enabled boolean NOT NULL DEFAULT false,
         watermark_text text,
         watermark_mode text NOT NULL DEFAULT 'corners',
@@ -140,7 +141,8 @@ export function ensureAlbumShareLinkSchema() {
         ADD COLUMN IF NOT EXISTS person_name text,
         ADD COLUMN IF NOT EXISTS link_name text,
         ADD COLUMN IF NOT EXISTS only_person boolean NOT NULL DEFAULT false,
-        ADD COLUMN IF NOT EXISTS allow_event_tabs boolean NOT NULL DEFAULT false
+        ADD COLUMN IF NOT EXISTS allow_event_tabs boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS hide_ai boolean NOT NULL DEFAULT false
       `,
       []
     );

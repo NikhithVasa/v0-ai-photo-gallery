@@ -41,6 +41,7 @@ interface ShareLinkRow {
   album_name: string;
   customer_name: string | null;
   allow_downloads: boolean;
+  hide_ai: boolean;
   watermark_enabled: boolean;
   watermark_text: string | null;
   watermark_mode: WatermarkMode;
@@ -144,6 +145,7 @@ function sanitizeSettings(
 
   return {
     allowDownloads: Boolean(source.allowDownloads),
+    hideAi: Boolean(source.hideAi),
     watermarkEnabled: Boolean(source.watermarkEnabled),
     watermarkText:
       typeof source.watermarkText === "string" && source.watermarkText.trim()
@@ -175,6 +177,7 @@ function serialize(row: ShareLinkRow, request: Request, customerSlug: string | n
     backgroundColor: normalizeShareBackgroundColor(row.background_color),
     passcode: row.passcode,
     allowDownloads: row.allow_downloads,
+    hideAi: row.hide_ai,
     watermarkEnabled: row.watermark_enabled,
     watermarkText: row.watermark_text,
     watermarkMode: row.watermark_mode,
@@ -219,6 +222,7 @@ async function fetchShareLink(albumId: string) {
       album_name,
       customer_name,
       allow_downloads,
+      hide_ai,
       watermark_enabled,
       watermark_text,
       watermark_mode,
@@ -263,6 +267,7 @@ export async function GET(request: Request, { params }: Props) {
         expiresAt: null,
         backgroundColor: DEFAULT_SHARE_BACKGROUND_COLOR,
         allowDownloads: false,
+        hideAi: false,
         watermarkEnabled: false,
         watermarkMode: "corners",
         watermarkPositions: ["bottom_right"],
@@ -311,6 +316,7 @@ export async function POST(request: Request, { params }: Props) {
         album_name,
         customer_name,
         allow_downloads,
+        hide_ai,
         watermark_enabled,
         watermark_text,
         watermark_mode,
@@ -332,10 +338,11 @@ export async function POST(request: Request, { params }: Props) {
         $8,
         $9,
         $10,
-        $11::text[],
-        $12::date,
-        $13,
+        $11,
+        $12::text[],
+        $13::date,
         $14,
+        $15,
         now(),
         now()
       )
@@ -344,6 +351,7 @@ export async function POST(request: Request, { params }: Props) {
         album_name = EXCLUDED.album_name,
         customer_name = EXCLUDED.customer_name,
         allow_downloads = EXCLUDED.allow_downloads,
+        hide_ai = EXCLUDED.hide_ai,
         watermark_enabled = EXCLUDED.watermark_enabled,
         watermark_text = EXCLUDED.watermark_text,
         watermark_mode = EXCLUDED.watermark_mode,
@@ -360,6 +368,7 @@ export async function POST(request: Request, { params }: Props) {
         album_name,
         customer_name,
         allow_downloads,
+        hide_ai,
         watermark_enabled,
         watermark_text,
         watermark_mode,
@@ -377,6 +386,7 @@ export async function POST(request: Request, { params }: Props) {
         album.name,
         album.customer_name,
         settings.allowDownloads,
+        settings.hideAi,
         settings.watermarkEnabled,
         settings.watermarkText,
         settings.watermarkMode,
