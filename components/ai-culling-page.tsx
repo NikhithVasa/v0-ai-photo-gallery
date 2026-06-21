@@ -67,6 +67,12 @@ const fetcher = async (url: string) => {
   return data;
 };
 
+const aiInferenceFetcher = async (url: string) => {
+  const data = await fetcher(url);
+  console.log(`[AI Culling] AI/LLM inference JSON (${url}):`, data);
+  return data;
+};
+
 const MODES: Array<{
   key: ReviewMode;
   label: string;
@@ -383,7 +389,7 @@ function ClusterCard({
     : null;
   const { data, isLoading, mutate } = useSWR<CullingClusterItemsResponse>(
     itemsUrl,
-    fetcher,
+    aiInferenceFetcher,
   );
   const photo = cluster.photo;
   const imageUrl = photo
@@ -837,19 +843,22 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
     data: clustersData,
     error: clustersError,
     isLoading: isClustersLoading,
-  } = useSWR<CullingClustersResponse>(clustersRequestUrl, fetcher);
+  } = useSWR<CullingClustersResponse>(
+    clustersRequestUrl,
+    aiInferenceFetcher,
+  );
 
   const {
     data: reviewData,
     error: reviewError,
     isLoading: isReviewLoading,
-  } = useSWR<ReviewResponse>(reviewRequestUrl, fetcher);
+  } = useSWR<ReviewResponse>(reviewRequestUrl, aiInferenceFetcher);
 
   const {
     data: personData,
     error: personError,
     isLoading: isPersonLoading,
-  } = useSWR<BestByPersonResponse>(personRequestUrl, fetcher);
+  } = useSWR<BestByPersonResponse>(personRequestUrl, aiInferenceFetcher);
 
   const photos = useMemo(() => {
     if (mode === "by_person") {

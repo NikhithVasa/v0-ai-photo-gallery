@@ -1022,6 +1022,7 @@ export async function POST(request: Request, { params }: Props) {
       semanticModel: searchMode === "semantic" ? OPENROUTER_EMBEDDING_MODEL : null,
       semanticError,
       debugRequestId: requestId,
+      debug: oneShotDebugLog,
       resolvedPeople,
       results,
     });
