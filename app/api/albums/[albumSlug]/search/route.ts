@@ -176,12 +176,35 @@ async function embedSearchQueryWithOpenRouter(
   embeddingDebug.durationMs = durationSince(startedAt);
 
   if (!response.ok) {
-    throw new Error(`OpenRouter embedding failed: ${await response.text()}`);
+    const errorBody = await response.text();
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "openrouter_embedding_response",
+        model: OPENROUTER_EMBEDDING_MODEL,
+        queryLength: searchQuery.length,
+        httpStatus: response.status,
+        durationMs: embeddingDebug.durationMs,
+        response: errorBody,
+      })
+    );
+    throw new Error(`OpenRouter embedding failed: ${errorBody}`);
   }
 
   const payload = (await response.json()) as {
     data?: Array<{ embedding?: unknown }>;
   };
+  console.info(
+    JSON.stringify({
+      level: "info",
+      event: "openrouter_embedding_response",
+      model: OPENROUTER_EMBEDDING_MODEL,
+      queryLength: searchQuery.length,
+      httpStatus: response.status,
+      durationMs: embeddingDebug.durationMs,
+      response: payload,
+    })
+  );
   const embedding = payload.data?.[0]?.embedding;
 
   if (!Array.isArray(embedding)) {
