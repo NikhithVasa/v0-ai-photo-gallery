@@ -1289,6 +1289,7 @@ function AlbumShareDialog({
     }
   };
 
+  const isSettingsLoading = !data;
   const hasSaveError =
     status.startsWith("Could") ||
     status.startsWith("Failed") ||
@@ -1322,7 +1323,7 @@ function AlbumShareDialog({
         </button>
       </DialogTrigger>
 
-      <DialogContent className="max-h-[92svh] gap-0 overflow-hidden border-0 bg-zinc-100 p-0 shadow-[0_32px_100px_rgba(0,0,0,0.28)] sm:max-w-3xl">
+      <DialogContent className="grid max-h-[92svh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden border-0 bg-zinc-100 p-0 shadow-[0_32px_100px_rgba(0,0,0,0.28)] sm:max-w-3xl [&_[data-slot=dialog-close]]:text-white [&_[data-slot=dialog-close]]:hover:bg-white/10">
         <div className="relative overflow-hidden bg-[#161618] px-5 py-5 text-white sm:px-7">
           <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-indigo-500/20 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-24 left-24 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
@@ -1349,19 +1350,23 @@ function AlbumShareDialog({
               }`}
               aria-live="polite"
             >
-              {isSaving ? (
+              {isSettingsLoading || isSaving ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : hasSaveError ? (
                 <ShieldCheck className="h-3.5 w-3.5" />
               ) : (
                 <CheckCircle2 className="h-3.5 w-3.5" />
               )}
-              <span className="truncate">{status || "Autosave ready"}</span>
+              <span className="truncate">
+                {isSettingsLoading
+                  ? "Loading settings..."
+                  : status || "Autosave ready"}
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="max-h-[calc(92svh-150px)] overflow-y-auto p-4 sm:p-6">
+        <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
           {shareUrl ? (
             <div className="relative mb-5 overflow-hidden rounded-[24px] border border-indigo-100 bg-white p-4 shadow-[0_14px_40px_rgba(49,46,129,0.08)]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1440,6 +1445,7 @@ function AlbumShareDialog({
                     placeholder="No passcode"
                     maxLength={64}
                     autoComplete="off"
+                    disabled={isSettingsLoading || isDeleting}
                     className="h-11 rounded-xl bg-zinc-50 font-mono"
                   />
                   <p className="text-xs leading-5 text-zinc-500">
@@ -1461,6 +1467,7 @@ function AlbumShareDialog({
                     min={todayIsoDate()}
                     value={expiresAt}
                     onChange={(event) => setExpiresAt(event.target.value)}
+                    disabled={isSettingsLoading || isDeleting}
                     className="h-11 rounded-xl bg-zinc-50"
                   />
                 </div>
@@ -1499,6 +1506,7 @@ function AlbumShareDialog({
                     id="share-allow-downloads"
                     checked={allowDownloads}
                     onCheckedChange={setAllowDownloads}
+                    disabled={isSettingsLoading || isDeleting}
                   />
                 </div>
 
@@ -1518,6 +1526,7 @@ function AlbumShareDialog({
                     id="share-hide-ai"
                     checked={hideAi}
                     onCheckedChange={setHideAi}
+                    disabled={isSettingsLoading || isDeleting}
                   />
                 </div>
               </div>
@@ -1543,6 +1552,7 @@ function AlbumShareDialog({
                       onClick={() => setBackgroundColor(color.value)}
                       aria-label={`${color.label} background`}
                       aria-pressed={isSelected}
+                      disabled={isSettingsLoading || isDeleting}
                       className={`flex aspect-square min-h-9 cursor-pointer items-center justify-center rounded-2xl shadow-sm ring-offset-2 transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
                         isSelected
                           ? "ring-2 ring-zinc-950"
@@ -1573,6 +1583,7 @@ function AlbumShareDialog({
                   id="share-watermark"
                   checked={watermarkEnabled}
                   onCheckedChange={setWatermarkEnabled}
+                  disabled={isSettingsLoading || isDeleting}
                 />
               </div>
 
@@ -1583,6 +1594,7 @@ function AlbumShareDialog({
                     value={watermarkText}
                     onChange={(event) => setWatermarkText(event.target.value)}
                     aria-label="Watermark company name"
+                    disabled={isSettingsLoading || isDeleting}
                     className="h-11 rounded-xl bg-zinc-50"
                   />
 
@@ -1600,6 +1612,7 @@ function AlbumShareDialog({
                       }
                     }}
                     className="grid grid-cols-2 gap-2"
+                    disabled={isSettingsLoading || isDeleting}
                   >
                     <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
                       <RadioGroupItem value="full" />
@@ -1621,6 +1634,7 @@ function AlbumShareDialog({
                           <Checkbox
                             checked={watermarkPositions.includes(option.id)}
                             onCheckedChange={() => toggleCorner(option.id)}
+                            disabled={isSettingsLoading || isDeleting}
                           />
                           {option.label}
                         </label>
