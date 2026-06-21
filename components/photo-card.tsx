@@ -1449,6 +1449,7 @@ interface PhotoLightboxProps {
   onPersonClick?: (person: PhotoPerson) => void;
   onPeopleChanged?: () => void | Promise<void>;
   shareSettings?: AlbumShareSettings | null;
+  hidePeople?: boolean;
 }
 
 export function PhotoLightbox({
@@ -1465,6 +1466,7 @@ export function PhotoLightbox({
   onPersonClick,
   onPeopleChanged,
   shareSettings,
+  hidePeople = false,
 }: PhotoLightboxProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -2978,7 +2980,7 @@ export function PhotoLightbox({
                 )}
               </div>
 
-              <div className="relative">
+              {!hidePeople && <div className="relative">
                 <button
                   type="button"
                   onClick={() => {
@@ -3143,7 +3145,7 @@ export function PhotoLightbox({
                     )}
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
           </div>
         ) : (

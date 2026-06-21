@@ -18,6 +18,8 @@ import {
   ChevronDown,
   Copy,
   Download,
+  Eye,
+  EyeOff,
   Loader2,
   LayoutTemplate,
   Lock,
@@ -1398,6 +1400,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [selectedEventSlug, setSelectedEventSlug] = useState<string | null>(
     null
   );
+  const [isAiHidden, setIsAiHidden] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const {
     isVerified: isPasswordVerified,
@@ -2239,6 +2242,21 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   };
 
+  const toggleAiVisibility = () => {
+    const nextIsAiHidden = !isAiHidden;
+    setIsAiHidden(nextIsAiHidden);
+
+    if (!nextIsAiHidden) return;
+
+    setSelectedPerson(null);
+    setPhotoIdToReopen(null);
+    setSelectedPeopleIds([]);
+    setPeopleMatchMode("all");
+    setApsaraTextSearch(null);
+    setIsSearchOpen(false);
+    setActiveTab("photos");
+  };
+
   const filterByPerson = (personId: string) => {
     setApsaraTextSearch(null);
     setSelectedPeopleIds([personId]);
@@ -2720,20 +2738,44 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           className="border-y border-zinc-200/80 bg-white/[0.88] px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)] backdrop-blur-2xl sm:hidden"
           style={{ backgroundColor: galleryNavColor }}
         >
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold tracking-normal text-[#1d1d1f]">
-              {pageName}
-            </h1>
-            <p className="truncate text-xs font-medium text-zinc-500">
-              {isPersonShare
-                ? shareSettings?.personName
-                : `${album.customer?.name || coverCreditName} · ${album.peopleCount} People`}
-            </p>
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-semibold tracking-normal text-[#1d1d1f]">
+                {pageName}
+              </h1>
+              <p className="truncate text-xs font-medium text-zinc-500">
+                {isPersonShare
+                  ? shareSettings?.personName
+                  : `${album.customer?.name || coverCreditName} · ${album.peopleCount} People`}
+              </p>
+            </div>
+
+            {isShareView && (
+              <button
+                type="button"
+                onClick={toggleAiVisibility}
+                aria-pressed={isAiHidden}
+                className={`flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-xs font-semibold ring-1 ring-inset transition ${
+                  isAiHidden
+                    ? "bg-[#1d1d1f] text-white ring-[#1d1d1f]"
+                    : "bg-white/70 text-zinc-600 ring-black/10"
+                }`}
+              >
+                {isAiHidden ? (
+                  <Eye className="h-3.5 w-3.5" />
+                ) : (
+                  <EyeOff className="h-3.5 w-3.5" />
+                )}
+                <span>{isAiHidden ? "Show AI" : "Hide AI"}</span>
+              </button>
+            )}
           </div>
 
           {!isPersonShare && (
             <div
-              className="mt-2 grid h-9 grid-cols-2 gap-1 rounded-full bg-black/5 p-1"
+              className={`mt-2 grid h-9 gap-1 rounded-full bg-black/5 p-1 ${
+                isAiHidden ? "grid-cols-1" : "grid-cols-2"
+              }`}
               role="tablist"
             >
               <button
@@ -2754,23 +2796,25 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 Photos
               </button>
 
-              <button
-                role="tab"
-                aria-selected={activeTab === "people" || Boolean(selectedPerson)}
-                onClick={() => {
-                  setSelectedPerson(null);
-                  setApsaraTextSearch(null);
-                  setActiveTab("people");
-                  scrollToGalleryTop();
-                }}
-                className={`flex h-7 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition ${
-                  activeTab === "people" || selectedPerson
-                    ? "bg-[#1d1d1f] text-white shadow-sm"
-                    : "text-zinc-600"
-                }`}
-              >
-                People
-              </button>
+              {!isAiHidden && (
+                <button
+                  role="tab"
+                  aria-selected={activeTab === "people" || Boolean(selectedPerson)}
+                  onClick={() => {
+                    setSelectedPerson(null);
+                    setApsaraTextSearch(null);
+                    setActiveTab("people");
+                    scrollToGalleryTop();
+                  }}
+                  className={`flex h-7 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition ${
+                    activeTab === "people" || selectedPerson
+                      ? "bg-[#1d1d1f] text-white shadow-sm"
+                      : "text-zinc-600"
+                  }`}
+                >
+                  People
+                </button>
+              )}
             </div>
           )}
 
@@ -2866,29 +2910,34 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                       Photos
                     </button>
 
-                    <button
-                      role="tab"
-                      aria-selected={activeTab === "people"}
-                      onClick={() => {
-                        setSelectedPerson(null);
-                        setApsaraTextSearch(null);
-                        setActiveTab("people");
-                        scrollToGalleryTop();
-                      }}
-                      className={`flex h-8 min-w-20 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
-                        activeTab === "people"
-                          ? "bg-[#1d1d1f] text-white shadow-sm"
-                          : "text-zinc-500"
-                      }`}
-                    >
-                      <Users className="h-4 w-4" />
-                      People
-                    </button>
+                    {!isAiHidden && (
+                      <button
+                        role="tab"
+                        aria-selected={activeTab === "people"}
+                        onClick={() => {
+                          setSelectedPerson(null);
+                          setApsaraTextSearch(null);
+                          setActiveTab("people");
+                          scrollToGalleryTop();
+                        }}
+                        className={`flex h-8 min-w-20 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition ${
+                          activeTab === "people"
+                            ? "bg-[#1d1d1f] text-white shadow-sm"
+                            : "text-zinc-500"
+                        }`}
+                      >
+                        <Users className="h-4 w-4" />
+                        People
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
-              {!selectedPerson && activeTab === "photos" && !isPersonShare && (
+              {!isAiHidden &&
+                !selectedPerson &&
+                activeTab === "photos" &&
+                !isPersonShare && (
                 <div className="flex max-w-full flex-wrap gap-2 sm:flex-nowrap">
                   <PeopleFilterButton
                     people={filterPeople}
@@ -2928,7 +2977,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     </button>
                   )}
                 </div>
-              )}
+                )}
             </div>
 
             <div className="-mx-3 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none] [-ms-overflow-style:none] sm:mx-0 sm:max-w-full sm:flex-wrap sm:justify-end sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
@@ -2977,7 +3026,25 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 />
               )}
 
-              {!isShareView && (
+              {isShareView && (
+                <button
+                  type="button"
+                  onClick={toggleAiVisibility}
+                  aria-pressed={isAiHidden}
+                  className={`${navPillButtonClass} min-w-[112px] ${
+                    isAiHidden ? navPillButtonActiveClass : ""
+                  }`}
+                >
+                  {isAiHidden ? (
+                    <Eye className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <EyeOff className="h-4 w-4 shrink-0" />
+                  )}
+                  <span>{isAiHidden ? "Show AI" : "Hide AI"}</span>
+                </button>
+              )}
+
+              {!isShareView && !isAiHidden && (
                 <Link
                   href={`/albums/${encodeURIComponent(albumSlug)}/culling`}
                   className={`${navPillButtonClass} min-w-[118px] px-3`}
@@ -3034,28 +3101,30 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     Photos
                   </button>
 
-                  <button
-                    role="tab"
-                    aria-selected={activeTab === "people"}
-                    onClick={() => {
-                      setSelectedPerson(null);
-                      setApsaraTextSearch(null);
-                      setActiveTab("people");
-                      scrollToGalleryTop();
-                    }}
-                    className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
-                      activeTab === "people"
-                        ? "bg-[#1d1d1f] text-white shadow-sm"
-                        : "text-zinc-500 hover:text-zinc-950"
-                    }`}
-                  >
-                    <Users className="h-4 w-4" />
-                    People
-                  </button>
+                  {!isAiHidden && (
+                    <button
+                      role="tab"
+                      aria-selected={activeTab === "people"}
+                      onClick={() => {
+                        setSelectedPerson(null);
+                        setApsaraTextSearch(null);
+                        setActiveTab("people");
+                        scrollToGalleryTop();
+                      }}
+                      className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
+                        activeTab === "people"
+                          ? "bg-[#1d1d1f] text-white shadow-sm"
+                          : "text-zinc-500 hover:text-zinc-950"
+                      }`}
+                    >
+                      <Users className="h-4 w-4" />
+                      People
+                    </button>
+                  )}
                 </div>
               )}
 
-              {!isPersonShare && (
+              {!isPersonShare && !isAiHidden && (
                 <button
                   type="button"
                   onClick={() => setIsSearchOpen(true)}
@@ -3134,7 +3203,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             onBack={handlePersonBack}
             shareSettings={shareSettings}
           />
-        ) : !isPersonShare && activeTab === "people" ? (
+        ) : !isAiHidden && !isPersonShare && activeTab === "people" ? (
           <section className="space-y-5 px-2 sm:px-0">
             <div>
               <p className="text-sm font-medium text-zinc-500">All people</p>
@@ -3153,7 +3222,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               readOnly={isShareView}
             />
           </section>
-        ) : apsaraTextSearch ? (
+        ) : !isAiHidden && apsaraTextSearch ? (
           <SearchResultsGrid
             albumSlug={albumSlug}
             shareToken={shareToken}
@@ -3399,6 +3468,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               canManagePeople={!isShareView}
               onPeopleChanged={refreshPeopleData}
               shareSettings={shareSettings}
+              hidePeople={isAiHidden}
               canManageSort={!isShareView}
               canUploadPhotos={!isShareView}
               uploadHref={addPhotosHref}
@@ -3410,7 +3480,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       {isCoverDismissed &&
         activeTab === "photos" &&
         !selectedPerson &&
-        !isPersonShare && (
+        !isPersonShare &&
+        !isAiHidden && (
         <div
           className={`fixed bottom-4 left-1/2 z-40 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 gap-1 rounded-full bg-zinc-950/92 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 sm:hidden ${
             isShareView ? "grid-cols-2" : "grid-cols-4"
@@ -3469,7 +3540,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         </div>
       )}
 
-      {!isPersonShare && (
+      {!isPersonShare && !isAiHidden && (
         <ApsaraMomentsRoot
           albumSlug={albumSlug}
           shareToken={shareToken}

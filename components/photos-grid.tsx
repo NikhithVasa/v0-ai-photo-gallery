@@ -324,6 +324,7 @@ interface PhotosGridProps {
   canManagePeople?: boolean;
   onPeopleChanged?: () => void | Promise<void>;
   shareSettings?: AlbumShareSettings | null;
+  hidePeople?: boolean;
   canManageSort?: boolean;
   canUploadPhotos?: boolean;
   uploadHref?: string;
@@ -419,6 +420,7 @@ export function PhotosGrid({
   canManagePeople = false,
   onPeopleChanged,
   shareSettings,
+  hidePeople = false,
   canManageSort = false,
   canUploadPhotos = false,
   uploadHref,
@@ -1130,6 +1132,7 @@ export function PhotosGrid({
             await onPeopleChanged?.();
           }}
           shareSettings={shareSettings}
+          hidePeople={hidePeople}
         />
       )}
     </div>
