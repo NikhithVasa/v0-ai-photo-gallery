@@ -23,6 +23,8 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
   if (
     pathname === "/login" ||
     pathname === "/contact" ||
+    pathname === "/docs" ||
+    pathname === "/how-ai-works" ||
     pathname === "/auth/callback"
   )
     return true;

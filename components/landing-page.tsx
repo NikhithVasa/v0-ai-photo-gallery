@@ -269,7 +269,7 @@ const docPages: Array<{
     eyebrow: "AI guide",
     title: "How intelligence is made",
     body: "The AI pipeline creates face groups, scene descriptions, quality signals, searchable text, review clusters, and optional image edits while keeping the original file intact.",
-    href: "#ai-workflow",
+    href: "/how-ai-works",
     icon: BrainCircuit,
     tone: "sky",
     highlights: ["Face grouping", "Search descriptions", "Culling scores"],
@@ -460,11 +460,9 @@ export function LandingPage() {
 
   return (
     <main className="min-h-screen bg-[#F7F5F0] text-[#1C1B18] antialiased">
-      <Header />
+      <MarketingHeader />
 
       <Hero reveal={reveal} />
-
-      <DocsHub reveal={reveal} stagger={stagger} />
 
       <section className="border-y border-[#E8DED2]/70 bg-white/60">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-10 text-center sm:flex-row sm:justify-between sm:gap-8 sm:py-12 sm:text-left">
@@ -504,24 +502,42 @@ export function LandingPage() {
         </div>
       </section>
 
-      <AiWorkflow reveal={reveal} stagger={stagger} />
-
       <MomentsCarousel reveal={reveal} />
-
-      <PromptGuide reveal={reveal} stagger={stagger} />
-
-      <FeatureGuides reveal={reveal} stagger={stagger} />
 
       <GalleryPreview reveal={reveal} stagger={stagger} />
 
       <FinalCTA reveal={reveal} />
 
-      <Footer />
+      <MarketingFooter />
     </main>
   );
 }
 
-function Header() {
+export function DocsPageContent() {
+  const reveal = useReveal();
+  const stagger = useStagger();
+
+  return (
+    <>
+      <DocsHub reveal={reveal} stagger={stagger} />
+      <FeatureGuides reveal={reveal} stagger={stagger} />
+    </>
+  );
+}
+
+export function HowAiWorksPageContent() {
+  const reveal = useReveal();
+  const stagger = useStagger();
+
+  return (
+    <>
+      <AiWorkflow reveal={reveal} stagger={stagger} />
+      <PromptGuide reveal={reveal} stagger={stagger} />
+    </>
+  );
+}
+
+export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.06] bg-[#F7F5F0]/90 backdrop-blur-xl">
       <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-5 sm:px-8">
@@ -539,18 +555,18 @@ function Header() {
         </Link>
 
         <nav className="flex items-center gap-1 sm:gap-2">
-          <a
-            href="#docs"
+          <Link
+            href="/docs"
             className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 md:inline-flex"
           >
             Docs
-          </a>
-          <a
-            href="#ai-workflow"
+          </Link>
+          <Link
+            href="/how-ai-works"
             className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 lg:inline-flex"
           >
             How AI works
-          </a>
+          </Link>
           <Link
             href="/login"
             className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 sm:inline-flex"
@@ -663,12 +679,12 @@ function Hero({ reveal }: { reveal: MotionProps }) {
                 Sign Up
               </Link>
 
-              <a
-                href="#docs"
+              <Link
+                href="/docs"
                 className="inline-flex h-12 items-center rounded-full border border-[#D6C8B8] bg-white/80 px-6 text-sm font-medium text-[#3A2A22] backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
               >
                 Read the docs
-              </a>
+              </Link>
             </div>
 
             <dl className="mt-12 grid max-w-md grid-cols-3 gap-6 border-t border-black/10 pt-6">
@@ -954,7 +970,7 @@ function DocsHub({
                       ))}
                     </ul>
 
-                    <a
+                    <Link
                       href={page.href}
                       className="mt-5 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-[#1F1B16] transition hover:text-[#6F795F]"
                     >
@@ -963,7 +979,7 @@ function DocsHub({
                         className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5"
                         strokeWidth={1.75}
                       />
-                    </a>
+                    </Link>
                   </div>
                 </motion.article>
               );
@@ -1255,13 +1271,13 @@ function PromptGuide({
           </p>
         </div>
 
-        <a
-          href="#search-guide"
+        <Link
+          href="/docs#search-guide"
           className="inline-flex h-11 w-fit items-center gap-2 rounded-full border border-[#D6C8B8] bg-white px-5 text-sm font-medium text-[#1F1B16] transition hover:border-[#C8B8A6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30"
         >
           Search guide
           <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
-        </a>
+        </Link>
       </motion.div>
 
       <motion.div
@@ -1925,7 +1941,7 @@ function FinalCTA({ reveal }: { reveal: MotionProps }) {
   );
 }
 
-function Footer() {
+export function MarketingFooter() {
   return (
     <footer className="border-t border-[#E8DED2]/70 bg-[#FAF7F2]">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 py-8 text-xs text-[#8B8176] sm:flex-row sm:px-8">
@@ -1942,12 +1958,12 @@ function Footer() {
           <Link href="/login" className="hover:text-[#3A2A22]">
             Galleries
           </Link>
-          <a href="#docs" className="hover:text-[#3A2A22]">
+          <Link href="/docs" className="hover:text-[#3A2A22]">
             Docs
-          </a>
-          <a href="#ai-workflow" className="hover:text-[#3A2A22]">
+          </Link>
+          <Link href="/how-ai-works" className="hover:text-[#3A2A22]">
             AI
-          </a>
+          </Link>
           <Link href="/legal/privacy-policy" className="hover:text-[#3A2A22]">
             Privacy
           </Link>
