@@ -1115,7 +1115,7 @@ function AlbumShareDialog({
     setStatus(
       data.share
         ? "All changes are saved"
-        : "Change any setting to create the share link",
+        : "Autosave ready",
     );
   }, [data, defaultWatermarkText, isOpen]);
 
@@ -1289,8 +1289,28 @@ function AlbumShareDialog({
     }
   };
 
+  const hasSaveError =
+    status.startsWith("Could") ||
+    status.startsWith("Failed") ||
+    status.startsWith("Passcode");
+  const handleOpenChange = (nextOpen: boolean) => {
+    setIsOpen(nextOpen);
+
+    if (
+      !nextOpen &&
+      pendingSettingsRef.current &&
+      !isSavingRef.current
+    ) {
+      if (autosaveTimerRef.current !== null) {
+        window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+      void flushAutosave();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <button
           type="button"
@@ -1302,223 +1322,341 @@ function AlbumShareDialog({
         </button>
       </DialogTrigger>
 
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Share album link</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-h-[92svh] gap-0 overflow-hidden border-0 bg-zinc-100 p-0 shadow-[0_32px_100px_rgba(0,0,0,0.28)] sm:max-w-3xl">
+        <div className="relative overflow-hidden bg-[#161618] px-5 py-5 text-white sm:px-7">
+          <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-indigo-500/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 left-24 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
 
-        <div className="space-y-5">
-          <AiPrivacyNotice className="bg-zinc-50/80" />
+          <div className="relative flex flex-col items-start gap-4 pr-8 sm:flex-row sm:justify-between">
+            <DialogHeader className="text-left">
+              <div className="mb-1 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15">
+                <Share2 className="h-5 w-5" />
+              </div>
+              <DialogTitle className="text-xl text-white">
+                Share gallery
+              </DialogTitle>
+              <DialogDescription className="max-w-lg text-white/55">
+                Client access, presentation, and privacy settings save
+                automatically.
+              </DialogDescription>
+            </DialogHeader>
 
-          <Accordion
-            type="single"
-            collapsible
-            className="rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 px-3"
-          >
-            <AccordionItem value="passcode" className="border-none">
-              <AccordionTrigger className="py-3 hover:no-underline">
-                <span className="flex min-w-0 items-center gap-2">
-                  <Lock className="h-4 w-4 shrink-0 text-zinc-500" />
-                  <span>Passcode</span>
-                  <span className="truncate font-mono text-xs font-normal text-zinc-500">
-                    {passcode || "No passcode set"}
-                  </span>
-                </span>
-              </AccordionTrigger>
-              <AccordionContent className="space-y-2">
-                <Label htmlFor="share-passcode">Share link passcode</Label>
-                <Input
-                  id="share-passcode"
-                  type="text"
-                  value={passcode}
-                  onChange={(event) => {
-                    setPasscode(event.target.value);
-                    if (status) setStatus("");
-                  }}
-                  placeholder="Add a passcode"
-                  maxLength={64}
-                  autoComplete="off"
-                  className="font-mono"
-                />
-                <p className="text-xs leading-5 text-zinc-500">
-                  Visitors must enter this passcode before viewing the gallery.
-                  Clear the field to remove it.
-                </p>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-
-          <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
-            <Label htmlFor="share-allow-downloads" className="text-sm font-medium">
-              Allow downloads
-            </Label>
-            <Switch
-              id="share-allow-downloads"
-              checked={allowDownloads}
-              onCheckedChange={setAllowDownloads}
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
-            <div className="space-y-1">
-              <Label htmlFor="share-hide-ai" className="text-sm font-medium">
-                Hide AI from clients
-              </Label>
-              <p className="text-xs leading-5 text-zinc-500">
-                Hides People, face controls, AI Review, and SaathiDesk chat.
-              </p>
+            <div
+              className={`flex max-w-full shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 sm:mt-1 ${
+                hasSaveError
+                  ? "bg-rose-500/15 text-rose-100 ring-rose-300/20"
+                  : "bg-white/8 text-white/75 ring-white/10"
+              }`}
+              aria-live="polite"
+            >
+              {isSaving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : hasSaveError ? (
+                <ShieldCheck className="h-3.5 w-3.5" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              <span className="truncate">{status || "Autosave ready"}</span>
             </div>
-            <Switch
-              id="share-hide-ai"
-              checked={hideAi}
-              onCheckedChange={setHideAi}
-            />
           </div>
+        </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="share-expires-at">Expires on</Label>
-            <Input
-              id="share-expires-at"
-              type="date"
-              min={todayIsoDate()}
-              value={expiresAt}
-              onChange={(event) => setExpiresAt(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
-            <Label className="text-sm font-medium">Background</Label>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-9">
-              {SHARE_BACKGROUND_COLORS.map((color) => {
-                const isSelected = backgroundColor === color.value;
-
-                return (
-                  <button
-                    key={color.value}
+        <div className="max-h-[calc(92svh-150px)] overflow-y-auto p-4 sm:p-6">
+          {shareUrl ? (
+            <div className="relative mb-5 overflow-hidden rounded-[24px] border border-indigo-100 bg-white p-4 shadow-[0_14px_40px_rgba(49,46,129,0.08)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Link2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-400">
+                    Client link
+                  </p>
+                  <p className="truncate font-mono text-sm text-zinc-700">
+                    {shareUrl}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
                     type="button"
-                    onClick={() => setBackgroundColor(color.value)}
-                    aria-label={`${color.label} background`}
-                    aria-pressed={isSelected}
-                    className={`flex aspect-square min-h-8 cursor-pointer items-center justify-center rounded-full shadow-sm ring-offset-2 transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
-                      isSelected
-                        ? "ring-2 ring-zinc-950"
-                        : "ring-1 ring-black/10 hover:ring-zinc-400"
-                    }`}
-                    style={{ backgroundColor: color.value }}
+                    variant="outline"
+                    size="icon"
+                    onClick={copyLink}
+                    aria-label="Copy share link"
+                    className="rounded-xl"
                   >
-                    {isSelected && (
-                      <span className="h-2 w-2 rounded-full bg-zinc-950" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
-            <div className="flex items-center justify-between gap-4">
-              <Label htmlFor="share-watermark" className="text-sm font-medium">
-                Watermark
-              </Label>
-              <Switch
-                id="share-watermark"
-                checked={watermarkEnabled}
-                onCheckedChange={setWatermarkEnabled}
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" className="rounded-xl" asChild>
+                    <a
+                      href={shareUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Preview
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
+              </div>
+              <BorderBeam
+                duration={10}
+                size={120}
+                colorFrom="#818cf8"
+                colorTo="#67e8f9"
               />
             </div>
+          ) : (
+            <div className="mb-5 flex items-center gap-3 rounded-[22px] border border-dashed border-zinc-300 bg-white/65 px-4 py-3 text-sm text-zinc-500">
+              <Link2 className="h-4 w-4 shrink-0" />
+              Change any setting below to create the client link.
+            </div>
+          )}
 
-            {watermarkEnabled && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="rounded-[24px] border border-white bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-600">
+                  <Lock className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-950">
+                    Access
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Control who can open the gallery.
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="share-watermark-text">Company name</Label>
+                  <Label htmlFor="share-passcode">Passcode</Label>
+                  <Input
+                    id="share-passcode"
+                    type="text"
+                    value={passcode}
+                    onChange={(event) => setPasscode(event.target.value)}
+                    placeholder="No passcode"
+                    maxLength={64}
+                    autoComplete="off"
+                    className="h-11 rounded-xl bg-zinc-50 font-mono"
+                  />
+                  <p className="text-xs leading-5 text-zinc-500">
+                    Leave blank for unrestricted link access.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="share-expires-at"
+                    className="flex items-center gap-1.5"
+                  >
+                    <CalendarDays className="h-3.5 w-3.5 text-zinc-400" />
+                    Expiration
+                  </Label>
+                  <Input
+                    id="share-expires-at"
+                    type="date"
+                    min={todayIsoDate()}
+                    value={expiresAt}
+                    onChange={(event) => setExpiresAt(event.target.value)}
+                    className="h-11 rounded-xl bg-zinc-50"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[24px] border border-white bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Settings2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-950">
+                    Client experience
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Choose what clients can see and do.
+                  </p>
+                </div>
+              </div>
+
+              <div className="divide-y divide-zinc-100 rounded-2xl border border-zinc-100 bg-zinc-50/70 px-3">
+                <div className="flex items-center justify-between gap-4 py-3">
+                  <div>
+                    <Label
+                      htmlFor="share-allow-downloads"
+                      className="text-sm font-medium"
+                    >
+                      Allow downloads
+                    </Label>
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      Clients can download permitted images.
+                    </p>
+                  </div>
+                  <Switch
+                    id="share-allow-downloads"
+                    checked={allowDownloads}
+                    onCheckedChange={setAllowDownloads}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4 py-3">
+                  <div>
+                    <Label
+                      htmlFor="share-hide-ai"
+                      className="text-sm font-medium"
+                    >
+                      Hide AI features
+                    </Label>
+                    <p className="mt-0.5 text-xs leading-5 text-zinc-500">
+                      Hides People, face controls, AI Review, and chat.
+                    </p>
+                  </div>
+                  <Switch
+                    id="share-hide-ai"
+                    checked={hideAi}
+                    onCheckedChange={setHideAi}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[24px] border border-white bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-zinc-950">
+                  Gallery background
+                </h3>
+                <p className="text-xs text-zinc-500">
+                  Applied to the client gallery presentation.
+                </p>
+              </div>
+              <div className="grid grid-cols-5 gap-3 sm:grid-cols-9 lg:grid-cols-5">
+                {SHARE_BACKGROUND_COLORS.map((color) => {
+                  const isSelected = backgroundColor === color.value;
+
+                  return (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => setBackgroundColor(color.value)}
+                      aria-label={`${color.label} background`}
+                      aria-pressed={isSelected}
+                      className={`flex aspect-square min-h-9 cursor-pointer items-center justify-center rounded-2xl shadow-sm ring-offset-2 transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
+                        isSelected
+                          ? "ring-2 ring-zinc-950"
+                          : "ring-1 ring-black/10"
+                      }`}
+                      style={{ backgroundColor: color.value }}
+                    >
+                      {isSelected && (
+                        <Check className="h-4 w-4 text-zinc-950" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="rounded-[24px] border border-white bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-950">
+                    Watermark
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Protect shared previews with your brand.
+                  </p>
+                </div>
+                <Switch
+                  id="share-watermark"
+                  checked={watermarkEnabled}
+                  onCheckedChange={setWatermarkEnabled}
+                />
+              </div>
+
+              {watermarkEnabled ? (
+                <div className="space-y-3">
                   <Input
                     id="share-watermark-text"
                     value={watermarkText}
                     onChange={(event) => setWatermarkText(event.target.value)}
+                    aria-label="Watermark company name"
+                    className="h-11 rounded-xl bg-zinc-50"
                   />
+
+                  <RadioGroup
+                    value={watermarkMode}
+                    onValueChange={(value) => {
+                      const nextMode =
+                        value as AlbumShareSettings["watermarkMode"];
+                      setWatermarkMode(nextMode);
+                      if (
+                        nextMode === "corners" &&
+                        !watermarkPositions.length
+                      ) {
+                        setWatermarkPositions(["bottom_right"]);
+                      }
+                    }}
+                    className="grid grid-cols-2 gap-2"
+                  >
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
+                      <RadioGroupItem value="full" />
+                      <span className="text-sm font-medium">Full photo</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
+                      <RadioGroupItem value="corners" />
+                      <span className="text-sm font-medium">Corners</span>
+                    </label>
+                  </RadioGroup>
+
+                  {watermarkMode === "corners" && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {cornerOptions.map((option) => (
+                        <label
+                          key={option.id}
+                          className="flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-medium"
+                        >
+                          <Checkbox
+                            checked={watermarkPositions.includes(option.id)}
+                            onCheckedChange={() => toggleCorner(option.id)}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
-
-                <RadioGroup
-                  value={watermarkMode}
-                  onValueChange={(value) => {
-                    const nextMode = value as AlbumShareSettings["watermarkMode"];
-                    setWatermarkMode(nextMode);
-                    if (nextMode === "corners" && !watermarkPositions.length) {
-                      setWatermarkPositions(["bottom_right"]);
-                    }
-                  }}
-                  className="gap-2"
-                >
-                  <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white/80 px-3 py-2">
-                    <RadioGroupItem value="full" />
-                    <span className="text-sm font-medium">Full photo</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white/80 px-3 py-2">
-                    <RadioGroupItem value="corners" />
-                    <span className="text-sm font-medium">Corners</span>
-                  </label>
-                </RadioGroup>
-
-                {watermarkMode === "corners" && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {cornerOptions.map((option) => (
-                      <label
-                        key={option.id}
-                        className="flex cursor-pointer items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white/80 px-3 py-2 text-sm"
-                      >
-                        <Checkbox
-                          checked={watermarkPositions.includes(option.id)}
-                          onCheckedChange={() => toggleCorner(option.id)}
-                        />
-                        {option.label}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+              ) : (
+                <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/70 px-4 py-5 text-center text-xs text-zinc-500">
+                  Watermarking is off.
+                </div>
+              )}
+            </section>
           </div>
 
+          <AiPrivacyNotice className="mt-4 border-white bg-white/70 shadow-none" />
+
           {shareUrl && (
-            <div className="space-y-2">
-              <div className="flex min-w-0 gap-2">
-                <Input value={shareUrl} readOnly className="font-mono text-xs" />
-                <Button type="button" variant="outline" size="icon" onClick={copyLink}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-              <Button type="button" variant="outline" className="w-full" asChild>
-                <a href={shareUrl} target="_blank" rel="noopener noreferrer">
-                  Preview as Client
-                </a>
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={deleteLink}
+                disabled={isSaving || isDeleting}
+                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                Delete share link
               </Button>
             </div>
           )}
-
-          {status && (
-            <p className="text-sm font-medium text-zinc-500">{status}</p>
-          )}
         </div>
-
-        <DialogFooter className="sm:justify-between">
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={deleteLink}
-            disabled={!shareUrl || isSaving || isDeleting}
-          >
-            {isDeleting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="h-4 w-4" />
-            )}
-            Delete link
-          </Button>
-          <Button type="button" onClick={save} disabled={isSaving || isDeleting}>
-            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-            Save link
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
