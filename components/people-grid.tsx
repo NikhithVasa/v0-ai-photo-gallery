@@ -1,8 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { Check, GitMerge, Images, Loader2, Users, X } from "lucide-react";
+import {
+  Camera,
+  Check,
+  GitMerge,
+  Images,
+  Loader2,
+  Upload,
+  Users,
+  X,
+} from "lucide-react";
 import { PersonCard } from "./person-card";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +26,11 @@ const fetcher = async (url: string) => {
 };
 
 type PeopleSelectionMode = "any" | "all";
+
+interface FaceMatch {
+  personId: string;
+  similarity?: number;
+}
 
 interface PeopleGridProps {
   albumSlug: string;
@@ -68,8 +82,26 @@ export function PeopleGrid({
   const [mergeCoverPersonId, setMergeCoverPersonId] = useState("");
   const [isMergingPeople, setIsMergingPeople] = useState(false);
   const [mergeError, setMergeError] = useState("");
+  const [isFindPersonDialogOpen, setIsFindPersonDialogOpen] = useState(false);
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  const [selfiePreviewUrl, setSelfiePreviewUrl] = useState("");
+  const [isFindingPerson, setIsFindingPerson] = useState(false);
+  const [findPersonError, setFindPersonError] = useState("");
+  const [faceMatches, setFaceMatches] = useState<FaceMatch[] | null>(null);
+  const selfieInputRef = useRef<HTMLInputElement | null>(null);
 
   const people = data?.people ?? [];
+  const faceMatchIdSet = useMemo(
+    () => new Set(faceMatches?.map((match) => match.personId) ?? []),
+    [faceMatches]
+  );
+  const visiblePeople = useMemo(
+    () =>
+      faceMatches === null
+        ? people
+        : people.filter((person) => faceMatchIdSet.has(person.id)),
+    [faceMatchIdSet, faceMatches, people]
+  );
 
   const selectedPeople = useMemo(() => {
     const selectedIds = new Set(selectedPersonIds);
@@ -81,7 +113,14 @@ export function PeopleGrid({
     [selectedPersonIds]
   );
 
-  useBodyScrollLock(isMergeDialogOpen);
+  useBodyScrollLock(isMergeDialogOpen || isFindPersonDialogOpen);
+
+  useEffect(
+    () => () => {
+      if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
+    },
+    [selfiePreviewUrl]
+  );
 
   useEffect(() => {
     if (!isMergeDialogOpen) return;
@@ -99,6 +138,106 @@ export function PeopleGrid({
     setIsMergeDialogOpen(false);
     setMergeCoverPersonId("");
     setMergeError("");
+  };
+
+  const resetFindPersonDialog = () => {
+    setIsFindPersonDialogOpen(false);
+    setSelfieFile(null);
+    setFindPersonError("");
+    if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
+    setSelfiePreviewUrl("");
+    if (selfieInputRef.current) selfieInputRef.current.value = "";
+  };
+
+  const closeFindPersonDialog = () => {
+    if (isFindingPerson) return;
+    resetFindPersonDialog();
+  };
+
+  const selectSelfie = (file: File | null) => {
+    setFindPersonError("");
+
+    if (!file) {
+      setSelfieFile(null);
+      if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
+      setSelfiePreviewUrl("");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setFindPersonError("Choose a JPG, PNG, WebP, or HEIC photo.");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setFindPersonError("Choose an image smaller than 10 MB.");
+      return;
+    }
+
+    if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
+    setSelfieFile(file);
+    setSelfiePreviewUrl(URL.createObjectURL(file));
+  };
+
+  const findPerson = async () => {
+    if (!selfieFile || isFindingPerson) return;
+
+    setIsFindingPerson(true);
+    setFindPersonError("");
+
+    try {
+      const params = new URLSearchParams();
+      if (selectedEventSlug) params.set("event", selectedEventSlug);
+      if (shareToken) params.set("share", shareToken);
+
+      const formData = new FormData();
+      formData.set("image", selfieFile);
+
+      const query = params.toString();
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/people/match${
+          query ? `?${query}` : ""
+        }`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        matches?: Array<{
+          personId?: string;
+          person_id?: string;
+          similarity?: number;
+        }>;
+        personIds?: string[];
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not search for this person.");
+      }
+
+      const matches =
+        payload.matches
+          ?.map((match) => ({
+            personId: match.personId || match.person_id || "",
+            similarity: match.similarity,
+          }))
+          .filter((match) => match.personId) ??
+        payload.personIds?.map((personId) => ({ personId })) ??
+        [];
+
+      setFaceMatches(matches);
+      resetFindPersonDialog();
+    } catch (error) {
+      setFindPersonError(
+        error instanceof Error
+          ? error.message
+          : "Could not search for this person."
+      );
+    } finally {
+      setIsFindingPerson(false);
+    }
   };
 
   const togglePerson = (personId: string) => {
@@ -260,18 +399,83 @@ export function PeopleGrid({
               <X className="h-4 w-4" />
               Cancel
             </button>
-          ) : onPeopleSelectionApply ? (
-            <button
-              type="button"
-              onClick={() => setIsSelectionMode(true)}
-              className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 sm:w-auto"
-            >
-              <Users className="h-4 w-4" />
-              {readOnly ? "Select multiple people" : "Select / merge faces"}
-            </button>
-          ) : null}
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setFindPersonError("");
+                  setIsFindPersonDialogOpen(true);
+                }}
+                className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:text-zinc-950 sm:w-auto"
+              >
+                <Camera className="h-4 w-4" />
+                Find yourself
+              </button>
+
+              {onPeopleSelectionApply ? (
+                <button
+                  type="button"
+                  onClick={() => setIsSelectionMode(true)}
+                  className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 sm:w-auto"
+                >
+                  <Users className="h-4 w-4" />
+                  {readOnly ? "Select multiple people" : "Select / merge faces"}
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
+
+      {faceMatches !== null && (
+        <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-zinc-700 shadow-sm ring-1 ring-zinc-200">
+              <Camera className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-zinc-950">
+                {visiblePeople.length
+                  ? `${visiblePeople.length} labeled ${
+                      visiblePeople.length === 1 ? "person" : "people"
+                    } in the closest photo`
+                  : "No labeled people found"}
+              </p>
+              <p className="text-xs text-zinc-500">
+                {visiblePeople.length
+                  ? "Open someone below, or show photos containing these people."
+                  : "Try another photo with a clearer match to the album."}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            {visiblePeople.length > 0 && onPeopleSelectionApply ? (
+              <button
+                type="button"
+                onClick={() =>
+                  onPeopleSelectionApply(
+                    visiblePeople,
+                    visiblePeople.length > 1 ? "any" : "all"
+                  )
+                }
+                className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-medium text-white transition hover:bg-zinc-800 sm:flex-none"
+              >
+                <Images className="h-4 w-4" />
+                Show photos
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setFaceMatches(null)}
+              className="inline-flex h-9 flex-1 items-center justify-center rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-600 transition hover:text-zinc-950 sm:flex-none"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {isSelectionMode && (
         <div className="sticky top-[86px] z-20 w-full max-w-full overflow-hidden rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-sm backdrop-blur-md sm:top-4">
@@ -374,7 +578,7 @@ export function PeopleGrid({
       )}
 
       <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {people.map((person) => (
+        {visiblePeople.map((person) => (
           <PersonCard
             key={person.id}
             person={person}
@@ -396,6 +600,133 @@ export function PeopleGrid({
           />
         ))}
       </div>
+
+      {isFindPersonDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-x-hidden bg-black/50 p-4">
+          <div
+            className="w-full max-w-[min(28rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="find-yourself-title"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-zinc-200 px-5 py-4">
+              <div>
+                <h3
+                  id="find-yourself-title"
+                  className="text-lg font-semibold text-zinc-950"
+                >
+                  Find yourself in this album
+                </h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Upload a selfie or photo to find the closest album photo and
+                  everyone labeled in it.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeFindPersonDialog}
+                disabled={isFindingPerson}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:opacity-40"
+                aria-label="Close find yourself dialog"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-5">
+              <input
+                ref={selfieInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                className="sr-only"
+                onChange={(event) => selectSelfie(event.target.files?.[0] ?? null)}
+              />
+
+              <button
+                type="button"
+                onClick={() => selfieInputRef.current?.click()}
+                disabled={isFindingPerson}
+                className="group relative flex aspect-[4/3] w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-zinc-300 bg-zinc-50 transition hover:border-zinc-400 hover:bg-zinc-100 disabled:cursor-wait"
+              >
+                {selfiePreviewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={selfiePreviewUrl}
+                    alt="Selected portrait preview"
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <span className="flex flex-col items-center gap-2 px-6 text-center">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-zinc-700 shadow-sm ring-1 ring-zinc-200">
+                      <Upload className="h-5 w-5" />
+                    </span>
+                    <span className="text-sm font-medium text-zinc-800">
+                      Choose a selfie or portrait
+                    </span>
+                    <span className="text-xs text-zinc-500">
+                      JPG, PNG, WebP, or HEIC · up to 10 MB
+                    </span>
+                  </span>
+                )}
+              </button>
+
+              {selfiePreviewUrl ? (
+                <button
+                  type="button"
+                  onClick={() => selfieInputRef.current?.click()}
+                  disabled={isFindingPerson}
+                  className="text-sm font-medium text-zinc-600 transition hover:text-zinc-950 disabled:opacity-40"
+                >
+                  Choose a different photo
+                </button>
+              ) : null}
+
+              {findPersonError ? (
+                <p
+                  role="alert"
+                  className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                >
+                  {findPersonError}
+                </p>
+              ) : null}
+
+              <p className="text-xs leading-5 text-zinc-500">
+                This compares the whole image, so a similar background, outfit,
+                and moment can improve the match.
+              </p>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-zinc-200 px-5 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeFindPersonDialog}
+                disabled={isFindingPerson}
+                className="inline-flex h-10 items-center justify-center rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:text-zinc-950 disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={findPerson}
+                disabled={!selfieFile || isFindingPerson}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isFindingPerson ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Finding matches...
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-4 w-4" />
+                    Find matches
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isMergeDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-x-hidden bg-black/50 p-4">

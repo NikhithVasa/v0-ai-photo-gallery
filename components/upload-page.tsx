@@ -368,6 +368,7 @@ export function UploadPage() {
           albumId: context.albumId,
           eventId: context.eventId,
           mode: "new_photos_only",
+          fullMode: true,
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as {

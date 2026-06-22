@@ -25,8 +25,17 @@ import {
   AI_PRIVACY_MESSAGE,
 } from "@/components/ai-privacy-notice";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { useGoogleImageImport } from "@/hooks/use-google-image-import";
 import type { AlbumDetail, AlbumEvent, Photo } from "@/lib/types";
@@ -42,6 +51,9 @@ type UploadStatus = "ready" | "uploading" | "uploaded" | "failed";
 type UploadTarget = "new" | "existing";
 type AiAction =
   | "run_event"
+  | "run_face_worker"
+  | "run_image_text_worker"
+  | "best_photos_full"
   | "process_new"
   | "process_all_new"
   | "sample"
@@ -62,6 +74,72 @@ const ALBUM_WIDE_AI_ACTIONS = new Set<AiAction>([
   "delete_album_ai",
   "reset_album_ai",
 ]);
+const AI_ACTION_OPTIONS: Array<{
+  value: Exclude<AiAction, "delete_album_ai" | "reset_album_ai">;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "run_event",
+    label: "Full pipeline",
+    description: "Runs faces, people, covers, captions, search, and photo intelligence.",
+  },
+  {
+    value: "run_face_worker",
+    label: "Face worker",
+    description: "Detects faces, groups people, and creates person cover images.",
+  },
+  {
+    value: "run_image_text_worker",
+    label: "Image-text worker",
+    description: "Generates captions, searchable metadata, and text embeddings.",
+  },
+  {
+    value: "best_photos_full",
+    label: "Best-photo culling",
+    description: "Scores, embeds, clusters, and selects the strongest photos.",
+  },
+  {
+    value: "process_new",
+    label: "New photos in this event",
+    description: "Runs the full pipeline only for photos that still need processing.",
+  },
+  {
+    value: "process_all_new",
+    label: "New photos in all events",
+    description: "Processes pending photos across the entire album.",
+  },
+  {
+    value: "sample",
+    label: "20-photo sample",
+    description: "Tests the full pipeline on a limited sample before a larger run.",
+  },
+  {
+    value: "retry_captions",
+    label: "Retry captions",
+    description: "Retries failed image-text descriptions and their embeddings.",
+  },
+  {
+    value: "retry_faces",
+    label: "Retry face detection",
+    description: "Retries face indexing and safe people reconciliation.",
+  },
+  {
+    value: "rebuild_search",
+    label: "Rebuild search index",
+    description: "Regenerates image embeddings used by album search.",
+  },
+  {
+    value: "check_status",
+    label: "Check AI status",
+    description: "Submits a status-only worker job without processing photos.",
+  },
+  {
+    value: "clean_temp",
+    label: "Clean temporary files",
+    description: "Removes temporary AI artifacts for the selected event.",
+  },
+];
 
 interface QueuedFile {
   localId: string;
@@ -128,6 +206,8 @@ export function AddEventPage({
     initialEventSlug ?? "",
   );
   const [runAi, setRunAi] = useState(true);
+  const [selectedAiAction, setSelectedAiAction] =
+    useState<(typeof AI_ACTION_OPTIONS)[number]["value"]>("run_event");
   const [isUploading, setIsUploading] = useState(false);
   const [isSavingCover, setIsSavingCover] = useState(false);
   const [runningAiAction, setRunningAiAction] = useState<AiAction | null>(null);
@@ -396,6 +476,9 @@ export function AddEventPage({
     uploadTarget === "existing" && selectedExistingEvent
       ? [selectedExistingEvent.slug]
       : [];
+  const selectedAiOption =
+    AI_ACTION_OPTIONS.find((option) => option.value === selectedAiAction) ??
+    AI_ACTION_OPTIONS[0];
   const canRunSelectedEventAi = Boolean(selectedAiEventSlugs.length);
 
   const uploadCover = async (eventSlug: string) => {
@@ -1556,8 +1639,8 @@ export function AddEventPage({
                       Process new uploads with AI
                     </span>
                     <span className="mt-0.5 block text-xs leading-5 text-zinc-500">
-                      Creates people, search, and photo intelligence after photos
-                      finish uploading.
+                      Runs the full face and image-text pipeline after photos finish
+                      uploading.
                     </span>
                   </span>
                 </span>
@@ -1578,7 +1661,7 @@ export function AddEventPage({
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-zinc-950">
-                    Event AI actions
+                    Lambda worker action
                   </p>
                   <p className="mt-0.5 text-xs text-zinc-500">
                     {canRunSelectedEventAi
@@ -1594,43 +1677,66 @@ export function AddEventPage({
               </div>
 
               {canRunSelectedEventAi ? (
-                <div className="grid gap-2">
-                  {[
-                    ["run_event", "Run AI for this event"],
-                    ["process_new", "Process new photos only"],
-                    ["process_all_new", "Process new photos in all events"],
-                    ["sample", "Run sample test on 20 photos"],
-                    ["retry_captions", "Retry AI captions"],
-                    ["retry_faces", "Retry face detection"],
-                    ["rebuild_search", "Rebuild search index"],
-                    ["check_status", "Check AI status"],
-                    ["clean_temp", "Clean AI temp files"],
-                  ].map(([action, label]) => (
-                    <button
-                      key={action}
+                <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3">
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <Select
+                      value={selectedAiAction}
+                      onValueChange={(value) =>
+                        setSelectedAiAction(value as typeof selectedAiAction)
+                      }
+                      disabled={Boolean(runningAiAction) || isUploading}
+                    >
+                      <SelectTrigger
+                        className="h-11 w-full rounded-xl border-zinc-200 bg-white px-3 shadow-none"
+                        aria-label="AI worker action"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {AI_ACTION_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
                       type="button"
+                      size="lg"
                       onClick={() => {
                         submitAiAction(
-                          action as AiAction,
-                          ALBUM_WIDE_AI_ACTIONS.has(action as AiAction)
+                          selectedAiAction,
+                          ALBUM_WIDE_AI_ACTIONS.has(selectedAiAction)
                             ? []
                             : selectedAiEventSlugs,
                           {
-                            maxFiles: action === "sample" ? 20 : undefined,
-                          }
+                            maxFiles:
+                              selectedAiAction === "sample" ? 20 : undefined,
+                          },
                         );
                       }}
                       disabled={Boolean(runningAiAction) || isUploading}
-                      className="flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="h-11 rounded-xl bg-[#4457ff] px-5 text-white hover:bg-[#3547ee]"
                     >
-                      {runningAiAction === action ? (
+                      {runningAiAction === selectedAiAction ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Sparkles className="h-4 w-4" />
                       )}
-                      {label}
-                    </button>
-                  ))}
+                      {runningAiAction === selectedAiAction ? "Starting" : "Run"}
+                    </Button>
+                  </div>
+                  <p className="mt-2 px-1 text-xs leading-5 text-zinc-500">
+                    {selectedAiOption.description}
+                  </p>
+                  {runningAiAction && (
+                    <BorderBeam
+                      size={90}
+                      duration={5}
+                      colorFrom="#4457ff"
+                      colorTo="#8b5cf6"
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-5 text-center text-sm text-zinc-500">

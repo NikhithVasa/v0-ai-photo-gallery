@@ -9,6 +9,7 @@ interface StartAiWorkerBody {
   albumId?: unknown;
   eventId?: unknown;
   mode?: unknown;
+  fullMode?: unknown;
 }
 
 interface AlbumAccessRow {
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
       typeof body.mode === "string" && body.mode.trim()
         ? body.mode.trim()
         : "new_photos_only";
+    const fullMode = body.fullMode === true;
 
     const requiresEventId = mode !== "full_album_reset";
 
@@ -109,6 +111,7 @@ export async function POST(request: Request) {
         albumId,
         eventId: eventId || null,
         mode,
+        full_mode: fullMode,
       }),
     });
     const payload = (await response.json().catch(() => ({}))) as Record<

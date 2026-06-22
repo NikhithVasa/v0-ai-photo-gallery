@@ -12,6 +12,9 @@ interface Props {
 
 type AiAction =
   | "run_event"
+  | "run_face_worker"
+  | "run_image_text_worker"
+  | "best_photos_full"
   | "process_new"
   | "process_all_new"
   | "sample"
@@ -48,7 +51,12 @@ function aiWorkerAdminKey() {
   ).trim();
 }
 
-async function startAiWorker(albumId: string) {
+async function startAiWorker(
+  albumId: string,
+  eventId: string | null,
+  mode: "new_photos_only" | "full_album_reset",
+  input: Record<string, unknown>,
+) {
   const adminKey = aiWorkerAdminKey();
   if (!adminKey) {
     throw new Error("AI worker admin key is not configured");
@@ -64,7 +72,10 @@ async function startAiWorker(albumId: string) {
     },
     body: JSON.stringify({
       albumId,
-      mode: "full_album_reset",
+      eventId,
+      mode,
+      full_mode: input.full_mode === true,
+      input,
     }),
   });
 
@@ -104,6 +115,40 @@ function sourcePrefix(albumSlug: string, event: EventRow) {
 }
 
 function stepsForAction(action: AiAction) {
+  if (action === "run_face_worker") {
+    return {
+      ingest: false,
+      compress: true,
+      image_embedding: true,
+      face_index: true,
+      safe_people_reconcile: true,
+      crop_person_covers: true,
+      enqueue_qwen: false,
+      rebuild_people: false,
+      qwen: false,
+      embeddings: false,
+      culling: false,
+      cleanup_temp: false,
+    };
+  }
+
+  if (action === "run_image_text_worker") {
+    return {
+      ingest: false,
+      compress: false,
+      image_embedding: false,
+      face_index: false,
+      safe_people_reconcile: false,
+      crop_person_covers: true,
+      enqueue_qwen: true,
+      rebuild_people: false,
+      qwen: true,
+      embeddings: true,
+      culling: false,
+      cleanup_temp: false,
+    };
+  }
+
   if (action === "reset_album_ai") {
     return {
       ingest: false,
@@ -456,6 +501,9 @@ export async function POST(request: Request, { params }: Props) {
     const action = typeof body.action === "string" ? body.action : "";
     const validActions: AiAction[] = [
       "run_event",
+      "run_face_worker",
+      "run_image_text_worker",
+      "best_photos_full",
       "process_new",
       "process_all_new",
       "sample",
@@ -528,6 +576,10 @@ export async function POST(request: Request, { params }: Props) {
       input.full_mode = true;
     }
 
+    if (action === "best_photos_full") {
+      input.mode = "best_photos_full";
+    }
+
     if (action === "reset_album_ai") {
       input.full_mode = true;
       input.skip_completed = false;
@@ -589,10 +641,24 @@ export async function POST(request: Request, { params }: Props) {
       }));
     }
 
-    const lambda =
-      action === "reset_album_ai"
-        ? await startAiWorker(album.id)
-        : null;
+    const shouldStartLambda = new Set<AiAction>([
+      "run_event",
+      "run_face_worker",
+      "run_image_text_worker",
+      "best_photos_full",
+      "process_new",
+      "reset_album_ai",
+    ]).has(action as AiAction);
+    const lambda = shouldStartLambda
+      ? await startAiWorker(
+          album.id,
+          action === "reset_album_ai" ? null : events[0]?.id ?? null,
+          action === "reset_album_ai"
+            ? "full_album_reset"
+            : "new_photos_only",
+          input,
+        )
+      : null;
 
     if (action === "reset_album_ai") {
       await checkRunpodEndpoint();
