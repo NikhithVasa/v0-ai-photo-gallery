@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { useGoogleImageImport } from "@/hooks/use-google-image-import";
+import { photoPreviewImageUrl } from "@/lib/photo-image-url";
 import type { AlbumDetail, AlbumEvent, Photo } from "@/lib/types";
 
 const fetcher = async (url: string) => {
@@ -1194,6 +1195,7 @@ export function AddEventPage({
           {selectedEventPhotos.map((photo) => {
             const isDeleting = deletingPhotoIds.includes(photo.id);
             const isSelected = selectedPhotoIds.includes(photo.id);
+            const imageUrl = photoPreviewImageUrl(photo);
 
             return (
               <div
@@ -1228,9 +1230,9 @@ export function AddEventPage({
                     : photo.fileName || "Event photo"
                 }
               >
-                {photo.thumbnailUrl || photo.previewUrl ? (
+                {imageUrl ? (
                   <Image
-                    src={photo.thumbnailUrl || photo.previewUrl || ""}
+                    src={imageUrl}
                     alt={photo.fileName || "Event photo"}
                     fill
                     sizes="(min-width: 1280px) 160px, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw"
