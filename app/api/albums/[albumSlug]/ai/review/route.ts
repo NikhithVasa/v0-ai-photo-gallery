@@ -28,6 +28,7 @@ interface AiReviewPhotoRow extends PhotoRow {
   qwen_status: string | null;
   detected_people_count: number | string | null;
   problem_reasons: string[] | null;
+  qwen_json: Record<string, unknown> | null;
 }
 
 const MODES = new Set<ReviewMode>([
@@ -72,6 +73,7 @@ function toAiAnalysis(row: AiReviewPhotoRow): PhotoAiAnalysis {
     reason: row.album_worthy_reason,
     qwenStatus: row.qwen_status,
     peopleCount: numberValue(row.detected_people_count),
+    qwenJson: row.qwen_json,
   };
 }
 
@@ -111,33 +113,38 @@ export async function GET(request: Request, { params }: Props) {
           e.name AS event_name,
           p.qwen_status,
           CASE
-            WHEN (p.qwen_json::jsonb->'raw'->>'album_worthy_score') ~ '^\\d+(\\.\\d+)?$'
-              THEN (p.qwen_json::jsonb->'raw'->>'album_worthy_score')::numeric
+            WHEN p.qwen_json IS NULL THEN NULL
+            ELSE jsonb_build_object(
+              'photo', COALESCE(p.qwen_json::jsonb->'photo', '{}'::jsonb),
+              'quality', COALESCE(p.qwen_json::jsonb->'quality', '{}'::jsonb),
+              'people_map', COALESCE(p.qwen_json::jsonb->'people_map', '{}'::jsonb),
+              'relationships', COALESCE(p.qwen_json::jsonb->'relationships', '[]'::jsonb)
+            )
+          END AS qwen_json,
+          CASE
+            WHEN (p.qwen_json::jsonb->'quality'->>'album_worthy_score') ~ '^\\d+(\\.\\d+)?$'
+              THEN (p.qwen_json::jsonb->'quality'->>'album_worthy_score')::numeric
             ELSE NULL
           END AS album_score,
           CASE
-            WHEN (p.qwen_json::jsonb->'raw'->>'frame_clarity') ~ '^\\d+(\\.\\d+)?$'
-              THEN (p.qwen_json::jsonb->'raw'->>'frame_clarity')::numeric
+            WHEN (p.qwen_json::jsonb->'quality'->>'frame_clarity') ~ '^\\d+(\\.\\d+)?$'
+              THEN (p.qwen_json::jsonb->'quality'->>'frame_clarity')::numeric
             ELSE NULL
           END AS clarity_score,
           CASE
-            WHEN (p.qwen_json::jsonb->'raw'->>'background_quality') ~ '^\\d+(\\.\\d+)?$'
-              THEN (p.qwen_json::jsonb->'raw'->>'background_quality')::numeric
+            WHEN (p.qwen_json::jsonb->'quality'->>'background_quality') ~ '^\\d+(\\.\\d+)?$'
+              THEN (p.qwen_json::jsonb->'quality'->>'background_quality')::numeric
             ELSE NULL
           END AS background_score,
-          COALESCE(
-            p.qwen_json::jsonb->'raw'->'camera_gaze'->>'overall',
-            p.qwen_json::jsonb->'raw'->>'camera_gaze'
-          ) AS camera_gaze,
-          COALESCE(
-            p.qwen_json::jsonb->'raw'->>'decoration_keywords',
-            p.qwen_json::jsonb->'raw'->>'decorations',
-            p.qwen_json::jsonb->'raw'->>'background_keywords'
-          ) AS decoration_keywords,
-          p.qwen_json::jsonb->'raw'->>'album_worthy_reason' AS album_worthy_reason,
+          p.qwen_json::jsonb->'quality'->>'camera_gaze_overall' AS camera_gaze,
+          p.qwen_json::jsonb->'quality'->>'decoration_keywords' AS decoration_keywords,
+          p.qwen_json::jsonb->'quality'->>'album_worthy_reason' AS album_worthy_reason,
           CASE
-            WHEN jsonb_typeof(p.qwen_json::jsonb->'raw'->'people') = 'array'
-              THEN jsonb_array_length(p.qwen_json::jsonb->'raw'->'people')
+            WHEN jsonb_typeof(p.qwen_json::jsonb->'people_map') = 'object'
+              THEN (
+                SELECT COUNT(*)::int
+                FROM jsonb_object_keys(p.qwen_json::jsonb->'people_map')
+              )
             ELSE NULL
           END AS detected_people_count,
           COALESCE(photo_people_summary.people, '[]'::jsonb) AS people

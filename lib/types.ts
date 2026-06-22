@@ -129,6 +129,7 @@ export interface PhotoAiAnalysis {
   reason: string | null;
   qwenStatus: string | null;
   peopleCount: number | null;
+  qwenJson: Record<string, unknown> | null;
 }
 
 export interface AiReviewPhoto {

@@ -235,6 +235,7 @@ function clusterToReviewPhoto(cluster: CullingCluster): AiReviewPhoto | null {
       reason: cluster.reason,
       qwenStatus: "completed",
       peopleCount: null,
+      qwenJson: null,
     },
   };
 }
@@ -775,6 +776,17 @@ function CullingLightbox({
                 {item.ai.reason}
               </p>
             </div>
+          )}
+
+          {item.ai.qwenJson && (
+            <details className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/30">
+              <summary className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-[0.08em] text-zinc-300">
+                Normalized Qwen JSON
+              </summary>
+              <pre className="max-h-96 overflow-auto border-t border-zinc-800 p-4 text-xs leading-5 text-zinc-300">
+                {JSON.stringify(item.ai.qwenJson, null, 2)}
+              </pre>
+            </details>
           )}
 
           {/* Other Attributes */}
