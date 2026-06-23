@@ -234,6 +234,7 @@ const galleryTiles: Array<{
     className: "",
     gradient: "#98685F",
     label: "Reception",
+    src: "/reception.png",
     badge: { icon: Heart, tone: "rose" },
   },
   {
