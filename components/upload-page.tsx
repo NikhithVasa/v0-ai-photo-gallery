@@ -85,7 +85,35 @@ function formatBytes(value: number) {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function statusLabel(status: UploadStatus) {
+// Extensions accepted by the AI workers. Browsers often report an empty
+// `file.type` for RAW formats (NEF, CR2, ...), so we also match by extension.
+const SUPPORTED_IMAGE_EXTENSIONS = [
+  ".jpg", ".jpeg", ".jpe", ".png", ".webp", ".heic", ".heif",
+  ".nef", ".cr2", ".arw", ".dng", ".tif", ".tiff",
+  ".bmp", ".gif", ".avif", ".jfif",
+];
+
+const UPLOAD_ACCEPT_ATTR = ["image/*", ...SUPPORTED_IMAGE_EXTENSIONS].join(",");
+
+function isSupportedImageFile(file: File) {
+  if (file.type.startsWith("image/")) return true;
+  const name = file.name.toLowerCase();
+  return SUPPORTED_IMAGE_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
+// Formats a browser can render in an <img> tag. RAW/TIFF/HEIC cannot be
+// previewed, so we skip the object URL and fall back to a placeholder icon.
+const BROWSER_PREVIEWABLE_EXTENSIONS = [
+  ".jpg", ".jpeg", ".jpe", ".png", ".webp", ".gif", ".bmp", ".avif", ".jfif",
+];
+
+function previewObjectUrl(file: File) {
+  const name = file.name.toLowerCase();
+  const canPreview = BROWSER_PREVIEWABLE_EXTENSIONS.some((ext) =>
+    name.endsWith(ext),
+  );
+  return canPreview ? URL.createObjectURL(file) : undefined;
+}function statusLabel(status: UploadStatus) {
   return {
     queued: "Queued",
     uploading: "Uploading",
@@ -197,7 +225,7 @@ export function UploadPage() {
           file: image.file,
           source: image.source,
           status: "queued" as UploadStatus,
-          objectUrl: URL.createObjectURL(image.file),
+          objectUrl: previewObjectUrl(image.file),
         })),
         ...current,
       ]);
@@ -282,12 +310,12 @@ export function UploadPage() {
     if (!files?.length) return;
 
     const nextFiles = Array.from(files)
-      .filter((file) => file.type.startsWith("image/"))
+      .filter(isSupportedImageFile)
       .map((file) => ({
         localId: crypto.randomUUID(),
         file,
         status: "queued" as UploadStatus,
-        objectUrl: URL.createObjectURL(file),
+        objectUrl: previewObjectUrl(file),
       }));
 
     setQueuedFiles((current) => [...nextFiles, ...current]);
@@ -984,7 +1012,7 @@ export function UploadPage() {
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/*"
+              accept={UPLOAD_ACCEPT_ATTR}
               className="hidden"
               onChange={(event) => addFiles(event.target.files)}
             />
