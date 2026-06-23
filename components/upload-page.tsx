@@ -10,6 +10,7 @@ import {
   FileImage,
   Images,
   Loader2,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
@@ -25,6 +26,8 @@ import {
 import type { AlbumDetail, AlbumSummary } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+const PREVIEW_FILE_LIMIT = 20;
 
 type UploadMode = "existing" | "new";
 type EventMode = "existing" | "new";
@@ -54,6 +57,18 @@ interface QueuedFile {
   progress?: number;
   attempt?: number;
   error?: string;
+}
+
+function applyPreviewLimit(files: QueuedFile[]) {
+  if (files.length > PREVIEW_FILE_LIMIT) {
+    return files.map((item) =>
+      item.objectUrl ? { ...item, objectUrl: undefined } : item,
+    );
+  }
+
+  return files.map((item) =>
+    item.objectUrl ? item : { ...item, objectUrl: previewObjectUrl(item.file) },
+  );
 }
 
 interface PreparedUpload {
@@ -196,16 +211,17 @@ export function UploadPage() {
     message: googleImportMessage,
   } = useGoogleImageImport({
     onImages: (images) => {
-      setQueuedFiles((current) => [
-        ...images.map((image) => ({
-          localId: crypto.randomUUID(),
-          file: image.file,
-          source: image.source,
-          status: "queued" as UploadStatus,
-          objectUrl: previewObjectUrl(image.file),
-        })),
-        ...current,
-      ]);
+      setQueuedFiles((current) =>
+        applyPreviewLimit([
+          ...images.map((image) => ({
+            localId: crypto.randomUUID(),
+            file: image.file,
+            source: image.source,
+            status: "queued" as UploadStatus,
+          })),
+          ...current,
+        ]),
+      );
     },
   });
 
@@ -237,6 +253,7 @@ export function UploadPage() {
   const failedCount = queuedFiles.filter((file) => file.status === "failed").length;
   const queuedCount = queuedFiles.filter((file) => file.status === "queued").length;
   const failedFiles = queuedFiles.filter((file) => file.status === "failed");
+  const showPreviews = queuedFiles.length <= PREVIEW_FILE_LIMIT;
   const uploadPercent = queuedFiles.length
     ? Math.round(
         (queuedFiles.reduce((acc, file) => {
@@ -286,16 +303,18 @@ export function UploadPage() {
   const addFiles = (files: FileList | null) => {
     if (!files?.length) return;
 
-    const nextFiles = Array.from(files)
-      .filter(isSupportedImageFile)
-      .map((file) => ({
-        localId: crypto.randomUUID(),
-        file,
-        status: "queued" as UploadStatus,
-        objectUrl: previewObjectUrl(file),
-      }));
+    const supportedFiles = Array.from(files).filter(isSupportedImageFile);
 
-    setQueuedFiles((current) => [...nextFiles, ...current]);
+    setQueuedFiles((current) =>
+      applyPreviewLimit([
+        ...supportedFiles.map((file) => ({
+          localId: crypto.randomUUID(),
+          file,
+          status: "queued" as UploadStatus,
+        })),
+        ...current,
+      ]),
+    );
     setMessage("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -316,10 +335,18 @@ export function UploadPage() {
 
   const clearCompleted = () => {
     setQueuedFiles((current) =>
-      current.filter(
-        (file) =>
-          !["uploaded", "processing", "ready"].includes(file.status),
+      applyPreviewLimit(
+        current.filter(
+          (file) =>
+            !["uploaded", "processing", "ready"].includes(file.status),
+        ),
       ),
+    );
+  };
+
+  const removeFile = (localId: string) => {
+    setQueuedFiles((current) =>
+      applyPreviewLimit(current.filter((file) => file.localId !== localId)),
     );
   };
 
@@ -761,23 +788,35 @@ export function UploadPage() {
               </div>
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <div
+                  className={
+                    showPreviews
+                      ? "grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3"
+                      : "space-y-2"
+                  }
+                >
                   {queuedFiles.map((item) => (
                     <div
                       key={item.localId}
-                      className="grid min-w-0 grid-cols-[56px_minmax(0,1fr)_auto] gap-3 rounded-lg border border-zinc-100 bg-zinc-50/60 px-3 py-2.5"
+                      className={
+                        showPreviews
+                          ? "grid min-w-0 grid-cols-[56px_minmax(0,1fr)_auto] gap-3 rounded-lg border border-zinc-100 bg-zinc-50/60 px-3 py-2.5"
+                          : "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border border-zinc-100 bg-zinc-50/60 px-3 py-2.5"
+                      }
                     >
-                      <div className="relative h-14 w-14 overflow-hidden rounded-md bg-zinc-100">
-                        {item.objectUrl ? (
-                          <img
-                            src={item.objectUrl}
-                            alt={item.file.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <FileImage className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-zinc-300" />
-                        )}
-                      </div>
+                      {showPreviews && (
+                        <div className="relative h-14 w-14 overflow-hidden rounded-md bg-zinc-100">
+                          {item.objectUrl ? (
+                            <img
+                              src={item.objectUrl}
+                              alt={item.file.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <FileImage className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-zinc-300" />
+                          )}
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-2">
                           <StatusIcon status={item.status} />
@@ -815,6 +854,17 @@ export function UploadPage() {
                           >
                             Retry
                           </Button>
+                        )}
+                        {(item.status === "queued" || item.status === "failed") && (
+                          <button
+                            type="button"
+                            onClick={() => removeFile(item.localId)}
+                            disabled={isUploading}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-rose-600 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={`Remove ${item.file.name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         )}
                         <span className="max-w-full truncate rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
                           {statusLabel(item.status)}
