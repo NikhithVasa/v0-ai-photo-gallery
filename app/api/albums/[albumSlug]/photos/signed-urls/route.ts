@@ -107,22 +107,30 @@ export async function POST(request: Request, { params }: Props) {
           )
         )
         AND (
-          $4::boolean = false
+          $3::uuid[] IS NULL
           OR (
             (
               SELECT COUNT(DISTINCT scoped_pp.person_id)
               FROM photo_people scoped_pp
               WHERE scoped_pp.photo_id = p.id
                 AND scoped_pp.person_id = ANY($3::uuid[])
-            ) = cardinality($3::uuid[])
-            AND (
+            ) = (
               SELECT COUNT(DISTINCT scoped_pp.person_id)
               FROM photo_people scoped_pp
               JOIN people scoped_pe
                 ON scoped_pe.id = scoped_pp.person_id
                AND COALESCE(scoped_pe.is_hidden, false) = false
               WHERE scoped_pp.photo_id = p.id
-            ) = cardinality($3::uuid[])
+            )
+            AND (
+              $4::boolean = false
+              OR (
+                SELECT COUNT(DISTINCT scoped_pp.person_id)
+                FROM photo_people scoped_pp
+                WHERE scoped_pp.photo_id = p.id
+                  AND scoped_pp.person_id = ANY($3::uuid[])
+              ) = cardinality($3::uuid[])
+            )
           )
         )
         AND COALESCE(p.is_deleted, false) = false

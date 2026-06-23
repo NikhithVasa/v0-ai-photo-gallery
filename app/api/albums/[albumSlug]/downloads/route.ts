@@ -295,7 +295,7 @@ async function fetchDownloadRows(
   albumSlug: string,
   eventSlug: string | null,
   personIds: string[],
-  peopleMode: "all" | "any" | "only",
+  peopleMode: "all" | "any" | "only" | "subset",
   photoIds: string[],
 ) {
   return query<DownloadPhotoRow>(
@@ -338,6 +338,25 @@ async function fetchDownloadRows(
             WHERE pp.photo_id = p.id
               AND pp.person_id = ANY($3::uuid[])
           ) = cardinality($3::uuid[])
+          WHEN $4::text = 'subset' THEN (
+            SELECT COUNT(DISTINCT pp.person_id)
+            FROM photo_people pp
+            WHERE pp.photo_id = p.id
+              AND pp.person_id = ANY($3::uuid[])
+          ) >= 1
+          AND (
+            SELECT COUNT(DISTINCT pp.person_id)
+            FROM photo_people pp
+            WHERE pp.photo_id = p.id
+              AND pp.person_id = ANY($3::uuid[])
+          ) = (
+            SELECT COUNT(DISTINCT pp.person_id)
+            FROM photo_people pp
+            JOIN people pe
+              ON pe.id = pp.person_id
+             AND COALESCE(pe.is_hidden, false) = false
+            WHERE pp.photo_id = p.id
+          )
           ELSE EXISTS (
             SELECT 1
             FROM photo_people pp
@@ -370,8 +389,10 @@ export async function GET(request: Request, { params }: Props) {
     const eventSlug = searchParams.get("event") || null;
     const format = parseDownloadFormat(searchParams.get("format"));
     const rawPeopleMode = searchParams.get("peopleMode");
-    let peopleMode: "all" | "any" | "only" =
-      rawPeopleMode === "any" || rawPeopleMode === "only"
+    let peopleMode: "all" | "any" | "only" | "subset" =
+      rawPeopleMode === "any" ||
+      rawPeopleMode === "only" ||
+      rawPeopleMode === "subset"
         ? rawPeopleMode
         : "all";
     let personIds = (searchParams.get("people") ?? "")
@@ -415,7 +436,7 @@ export async function GET(request: Request, { params }: Props) {
     }
     if (shareAccess?.personIds.length) {
       personIds = shareAccess.personIds;
-      peopleMode = shareAccess.onlyPerson ? "only" : "any";
+      peopleMode = shareAccess.onlyPerson ? "only" : "subset";
     }
 
     const rows = await fetchDownloadRows(

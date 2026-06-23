@@ -717,31 +717,6 @@ function PeopleFilterButton({
   );
 }
 
-function PeopleMatchModeSelect({
-  value,
-  onChange,
-}: {
-  value: PeopleMatchMode;
-  onChange: (value: PeopleMatchMode) => void;
-}) {
-  return (
-    <label className="relative shrink-0">
-      <span className="sr-only">People photo mode</span>
-
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as PeopleMatchMode)}
-        className="h-10 min-w-[196px] cursor-pointer appearance-none rounded-full bg-white/80 py-0 pl-4 pr-9 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
-      >
-        <option value="any">Show single person photos</option>
-        <option value="all">Show multiple person photos</option>
-      </select>
-
-      <span className="pointer-events-none absolute right-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rotate-45 border-b border-r border-zinc-500" />
-    </label>
-  );
-}
-
 function EventNameControl({
   eventName,
   isEditing,
@@ -2394,7 +2369,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const scopedPeopleMode = isPersonShare
     ? shareSettings?.onlyPerson
       ? "only"
-      : "any"
+      : "subset"
     : peopleMatchMode;
   const pageName = shareSettings?.linkName || album?.name || "";
   const coverTitle = pageName;
@@ -3016,9 +2991,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     if (selectedPeopleIds.length === 0 && peopleMatchMode !== "all") {
       setPeopleMatchMode("all");
     }
-    if (selectedPeopleIds.length > 1 && peopleMatchMode === "only") {
-      setPeopleMatchMode("all");
-    }
   }, [peopleMatchMode, selectedPeopleIds.length]);
 
   const changeEvent = (eventSlug: string | null) => {
@@ -3102,10 +3074,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   const toggleSelectedPersonId = (personId: string) => {
     setApsaraTextSearch(null);
-    setSelectedPeopleIds((current) =>
-      current.includes(personId)
-        ? current.filter((id) => id !== personId)
-        : [...current, personId]
+    const next = selectedPeopleIds.includes(personId)
+      ? selectedPeopleIds.filter((id) => id !== personId)
+      : [...selectedPeopleIds, personId];
+    setSelectedPeopleIds(next);
+    setPeopleMatchMode((current) =>
+      current === "only" ? "only" : next.length > 1 ? "subset" : "all"
     );
     setSelectedPerson(null);
     setActiveTab("photos");
@@ -3752,19 +3726,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     }}
                   />
 
-                  {selectedPeopleIds.length > 1 && (
-                    <PeopleMatchModeSelect
-                      value={peopleMatchMode}
-                      onChange={setPeopleMatchMode}
-                    />
-                  )}
-
-                  {selectedPeopleIds.length === 1 && (
+                  {selectedPeopleIds.length >= 1 && (
                     <button
                       type="button"
                       onClick={() =>
                         setPeopleMatchMode((current) =>
-                          current === "only" ? "all" : "only"
+                          current === "only"
+                            ? selectedPeopleIds.length > 1
+                              ? "subset"
+                              : "all"
+                            : "only"
                         )
                       }
                       aria-pressed={peopleMatchMode === "only"}

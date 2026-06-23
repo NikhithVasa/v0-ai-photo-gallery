@@ -98,22 +98,30 @@ export async function GET(request: Request, { params }: Props) {
               )
             )
             AND (
-              $3::boolean = false
+              $2::uuid[] IS NULL
               OR (
                 (
                   SELECT COUNT(DISTINCT scoped_pp.person_id)
                   FROM photo_people scoped_pp
                   WHERE scoped_pp.photo_id = p.id
                     AND scoped_pp.person_id = ANY($2::uuid[])
-                ) = cardinality($2::uuid[])
-                AND (
+                ) = (
                   SELECT COUNT(DISTINCT scoped_pp.person_id)
                   FROM photo_people scoped_pp
                   JOIN people scoped_pe
                     ON scoped_pe.id = scoped_pp.person_id
                    AND COALESCE(scoped_pe.is_hidden, false) = false
                   WHERE scoped_pp.photo_id = p.id
-                ) = cardinality($2::uuid[])
+                )
+                AND (
+                  $3::boolean = false
+                  OR (
+                    SELECT COUNT(DISTINCT scoped_pp.person_id)
+                    FROM photo_people scoped_pp
+                    WHERE scoped_pp.photo_id = p.id
+                      AND scoped_pp.person_id = ANY($2::uuid[])
+                  ) = cardinality($2::uuid[])
+                )
               )
             )
             AND COALESCE(p.is_deleted, false) = false
@@ -177,24 +185,40 @@ export async function GET(request: Request, { params }: Props) {
           FROM photos p
           WHERE album_id = $1::uuid
             AND (
-              $2::uuid IS NULL
+              $2::uuid[] IS NULL
               OR EXISTS (
                 SELECT 1
                 FROM photo_people scoped_pp
                 WHERE scoped_pp.photo_id = p.id
-                  AND scoped_pp.person_id = $2::uuid
+                  AND scoped_pp.person_id = ANY($2::uuid[])
               )
             )
             AND (
-              $3::boolean = false
+              $2::uuid[] IS NULL
               OR (
-                SELECT COUNT(DISTINCT scoped_pp.person_id)
-                FROM photo_people scoped_pp
-                JOIN people scoped_pe
-                  ON scoped_pe.id = scoped_pp.person_id
-                 AND COALESCE(scoped_pe.is_hidden, false) = false
-                WHERE scoped_pp.photo_id = p.id
-              ) = 1
+                (
+                  SELECT COUNT(DISTINCT scoped_pp.person_id)
+                  FROM photo_people scoped_pp
+                  WHERE scoped_pp.photo_id = p.id
+                    AND scoped_pp.person_id = ANY($2::uuid[])
+                ) = (
+                  SELECT COUNT(DISTINCT scoped_pp.person_id)
+                  FROM photo_people scoped_pp
+                  JOIN people scoped_pe
+                    ON scoped_pe.id = scoped_pp.person_id
+                   AND COALESCE(scoped_pe.is_hidden, false) = false
+                  WHERE scoped_pp.photo_id = p.id
+                )
+                AND (
+                  $3::boolean = false
+                  OR (
+                    SELECT COUNT(DISTINCT scoped_pp.person_id)
+                    FROM photo_people scoped_pp
+                    WHERE scoped_pp.photo_id = p.id
+                      AND scoped_pp.person_id = ANY($2::uuid[])
+                  ) = cardinality($2::uuid[])
+                )
+              )
             )
             AND COALESCE(is_deleted, false) = false
             AND upload_status = 'completed'
@@ -207,7 +231,7 @@ export async function GET(request: Request, { params }: Props) {
           FROM person_event_stats pes
           JOIN people pe ON pe.id = pes.person_id
           WHERE pes.photo_count > 0
-            AND ($2::uuid IS NULL OR pes.person_id = $2::uuid)
+            AND ($2::uuid[] IS NULL OR pes.person_id = ANY($2::uuid[]))
             AND COALESCE(pe.is_hidden, false) = false
           GROUP BY pes.album_event_id
         )
@@ -226,8 +250,8 @@ export async function GET(request: Request, { params }: Props) {
         `,
         [
           album.id,
-          shareAccess?.personId ?? null,
-          Boolean(shareAccess?.personId && shareAccess.onlyPerson),
+          shareAccess?.personIds.length ? shareAccess.personIds : null,
+          Boolean(shareAccess?.personIds.length && shareAccess.onlyPerson),
         ],
       );
 

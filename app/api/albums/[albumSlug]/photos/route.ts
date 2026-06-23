@@ -51,7 +51,9 @@ export async function GET(request: Request, { params }: Props) {
       .filter((id) => id && isUuid(id));
     const rawPeopleMode = searchParams.get("peopleMode");
     const requestedPeopleMode =
-      rawPeopleMode === "any" || rawPeopleMode === "only"
+      rawPeopleMode === "any" ||
+      rawPeopleMode === "only" ||
+      rawPeopleMode === "subset"
         ? rawPeopleMode
         : "all";
     const shareAccess = await getShareLinkAccess(request, albumSlug);
@@ -62,7 +64,7 @@ export async function GET(request: Request, { params }: Props) {
     const peopleMode = sharePersonIds.length
       ? shareAccess?.onlyPerson
         ? "only"
-        : "any"
+        : "subset"
       : requestedPeopleMode;
     await ensurePhotoSortSchema();
     const sortMode = eventSlug
@@ -162,6 +164,25 @@ export async function GET(request: Request, { params }: Props) {
               WHERE pp.photo_id = p.id
                 AND pp.person_id = ANY($3::uuid[])
             ) = cardinality($3::uuid[])
+            WHEN $4::text = 'subset' THEN (
+              SELECT COUNT(DISTINCT pp.person_id)
+              FROM photo_people pp
+              WHERE pp.photo_id = p.id
+                AND pp.person_id = ANY($3::uuid[])
+            ) >= 1
+            AND (
+              SELECT COUNT(DISTINCT pp.person_id)
+              FROM photo_people pp
+              WHERE pp.photo_id = p.id
+                AND pp.person_id = ANY($3::uuid[])
+            ) = (
+              SELECT COUNT(DISTINCT pp.person_id)
+              FROM photo_people pp
+              JOIN people pe
+                ON pe.id = pp.person_id
+               AND COALESCE(pe.is_hidden, false) = false
+              WHERE pp.photo_id = p.id
+            )
             ELSE EXISTS (
               SELECT 1
               FROM photo_people pp
