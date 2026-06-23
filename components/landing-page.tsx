@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -128,6 +129,8 @@ const moments: Moment[] = [
     body: "Filter by one person or a group and jump straight to the photos that matter.",
     icon: Users,
     tone: "blush",
+    src: "/laugh_1.png",
+    alt: "Find every smile",
   },
   {
     eyebrow: "AI edits",
@@ -135,6 +138,8 @@ const moments: Moment[] = [
     body: "Edit a photo with AI, download the result, or add it back into any event.",
     icon: Sparkles,
     tone: "champagne",
+    src: "/filter_1.png",
+    alt: "Fix and finish photos",
   },
   {
     eyebrow: "Collage",
@@ -142,6 +147,8 @@ const moments: Moment[] = [
     body: "Upload extra photos, drag them into a collage, crop the best view, and export JPG or PNG.",
     icon: Camera,
     tone: "rose",
+    src: "/collage.png",
+    alt: "Build the keepsake",
   },
   {
     eyebrow: "Sharing",
@@ -149,6 +156,8 @@ const moments: Moment[] = [
     body: "Download all, selected, event, or filtered photos and share albums with watermark and download controls.",
     icon: Download,
     tone: "sand",
+    src: "/download.png",
+    alt: "Control every handoff",
   },
 ];
 
@@ -190,6 +199,7 @@ const galleryTiles: Array<{
   className: string;
   gradient: string;
   label: string;
+  src?: string;
   badge?: { icon: typeof Heart; tone: "rose" | "amber" | "stone" };
   people?: number;
 }> = [
@@ -197,13 +207,15 @@ const galleryTiles: Array<{
     className: "row-span-2",
     gradient: "#B88F7C",
     label: "Golden hour",
+    src: "/glow_1.png",
     badge: { icon: Heart, tone: "rose" },
-    people: 2,
+    people: 1,
   },
   {
     className: "",
     gradient: "#9E8E7A",
     label: "First look",
+    src: "/First%20look.png",
     people: 3,
   },
   {
@@ -634,15 +646,10 @@ function Hero({ reveal }: { reveal: MotionProps }) {
         className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-1/2 bg-[#EDE8DE]/60"
       />
 
-      <div className="relative mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:py-28">
+      <div className="relative mx-auto max-w-7xl px-5 pb-16 sm:px-8 sm:pb-24 lg:pb-28">
         <div className="grid items-center gap-14 lg:grid-cols-[0.92fr_1.08fr] lg:gap-20">
-          <motion.div {...reveal}>
-            <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3.5 py-1.5 text-xs font-medium text-[#514B43] shadow-sm backdrop-blur">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#7B8A71]" />
-              SaathiDesk · Free open-source AI photo gallery platform
-            </span>
-
-            <h1 className="mt-7 max-w-2xl font-serif text-[2.8rem] leading-[0.98] tracking-[-0.035em] text-[#1C1B18] sm:text-6xl lg:text-[4.6rem]">
+          <div>
+            <h1 className="max-w-2xl font-serif text-[2.8rem] leading-[0.98] tracking-[-0.035em] text-[#1C1B18] sm:text-6xl lg:text-[4.6rem]">
               Every moment,
               <br />
               <span className="italic text-[#655443]">beautifully</span> findable.
@@ -701,14 +708,9 @@ function Hero({ reveal }: { reveal: MotionProps }) {
                 </div>
               ))}
             </dl>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96 }}
-            animate={prefersReducedMotion ? undefined : { opacity: 1, scale: 1 }}
-            transition={entranceTransition}
-            className="relative mx-auto w-full max-w-xl"
-          >
+          <div className="relative mx-auto w-full max-w-xl">
             <HeroPreview
               badgeOffset={heroControls.preview.badgeOffset}
               radius={heroControls.preview.radius}
@@ -716,7 +718,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
               showBadges={heroControls.showBadges}
               animateBorder={!prefersReducedMotion}
             />
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>
@@ -736,13 +738,6 @@ function HeroPreview({
   showBadges: boolean;
   animateBorder: boolean;
 }) {
-  const previewTiles = [
-    { label: "Ceremony", color: "#9A7666", className: "row-span-2" },
-    { label: "Portraits", color: "#7A806D", className: "" },
-    { label: "Details", color: "#AA936E", className: "" },
-    { label: "Reception", color: "#725E55", className: "col-span-2" },
-  ];
-
   return (
     <div className="relative">
       <div
@@ -757,88 +752,15 @@ function HeroPreview({
           filter: `saturate(${saturation})`,
         }}
       >
-        <div className="overflow-hidden rounded-[calc(1.5rem-2px)] bg-[#F4F1EB]">
-          <div className="flex h-12 items-center justify-between border-b border-black/[0.07] bg-white/70 px-4">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#1C1B18] text-white">
-                <Camera className="h-3 w-3" strokeWidth={1.8} />
-              </span>
-              <span className="text-xs font-semibold text-[#292722]">
-                Anika & Dev
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-[#6F675E]">
-              <Search className="h-3.5 w-3.5" strokeWidth={1.7} />
-              <Share2 className="h-3.5 w-3.5" strokeWidth={1.7} />
-              <span className="h-6 w-6 rounded-full bg-[#A47B6C] ring-2 ring-white" />
-            </div>
-          </div>
-
-          <div className="grid min-h-[30rem] grid-cols-[4.25rem_1fr] sm:min-h-[34rem] sm:grid-cols-[5.5rem_1fr]">
-            <aside className="border-r border-black/[0.07] bg-[#ECE8E0] px-2 py-4">
-              <div className="space-y-2">
-                {[
-                  { icon: Camera, label: "Photos", active: true },
-                  { icon: Users, label: "People" },
-                  { icon: Sparkles, label: "Search" },
-                  { icon: Download, label: "Save" },
-                ].map(({ icon: Icon, label, active }) => (
-                  <div
-                    key={label}
-                    className={`flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-[9px] font-medium ${
-                      active
-                        ? "bg-white text-[#25231F] shadow-sm"
-                        : "text-[#7A746B]"
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" strokeWidth={1.7} />
-                    <span>{label}</span>
-                  </div>
-                ))}
-              </div>
-            </aside>
-
-            <div className="p-3 sm:p-5">
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-[#8B8176]">
-                    Wedding album
-                  </p>
-                  <h2 className="mt-1 font-serif text-xl text-[#25231F] sm:text-2xl">
-                    The whole day
-                  </h2>
-                </div>
-                <span className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[9px] font-medium text-[#5C574F]">
-                  428 photos
-                </span>
-              </div>
-
-              <div className="mt-4 grid auto-rows-[7.2rem] grid-cols-2 gap-2 sm:auto-rows-[8.5rem] sm:gap-3">
-                {previewTiles.map((tile) => (
-                  <div
-                    key={tile.label}
-                    className={`group relative overflow-hidden rounded-xl ${tile.className}`}
-                    style={{ backgroundColor: tile.color }}
-                  >
-                    <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-black/20 px-3 py-2 text-white">
-                      <span className="font-serif text-sm">{tile.label}</span>
-                      <Heart className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-3 flex items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 shadow-sm">
-                <Search className="h-3.5 w-3.5 text-[#817A70]" strokeWidth={1.7} />
-                <span className="truncate text-[11px] text-[#5D574F]">
-                  Mum laughing during the toast
-                </span>
-                <span className="ml-auto rounded-full bg-[#ECE8E0] px-2 py-1 text-[9px] font-medium text-[#6F675E]">
-                  12 results
-                </span>
-              </div>
-            </div>
-          </div>
+        <div className="relative min-h-[30rem] overflow-hidden rounded-[calc(1.5rem-2px)] bg-[#F4F1EB] sm:min-h-[34rem]">
+          <Image
+            src="/hero_one.png"
+            alt="Wedding photo gallery preview"
+            fill
+            priority
+            sizes="(min-width: 1024px) 36rem, 100vw"
+            className="object-cover"
+          />
         </div>
 
         {animateBorder ? (
@@ -861,7 +783,7 @@ function HeroPreview({
             <div className="flex items-center gap-2 rounded-xl bg-[#F2EFE9] px-3 py-2 ring-1 ring-black/[0.06]">
               <Search className="h-4 w-4 text-[#8B8176]" strokeWidth={1.75} />
               <span className="truncate text-sm text-[#4F473F]">
-                “Mum laughing at the toast”
+                “Bride happy looking at groom”
               </span>
             </div>
             <p className="mt-2 px-1 text-[11px] text-[#8B8176]">
@@ -1810,6 +1732,16 @@ function GalleryPreview({
               className={`group relative overflow-hidden rounded-xl shadow-sm ring-1 ring-[#1F1B16]/5 transition duration-500 hover:shadow-lg ${tile.className}`}
               style={{ background: tile.gradient }}
             >
+              {tile.src ? (
+                <Image
+                  src={tile.src}
+                  alt={tile.label}
+                  fill
+                  sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                  className="object-cover"
+                />
+              ) : null}
+
               <div
                 aria-hidden
                 className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
