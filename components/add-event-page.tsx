@@ -39,6 +39,11 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useGoogleImageImport } from "@/hooks/use-google-image-import";
 import { photoPreviewImageUrl } from "@/lib/photo-image-url";
+import {
+  IMAGE_UPLOAD_ACCEPT,
+  isSupportedImageFile,
+  previewObjectUrl,
+} from "@/lib/image-files";
 import type { AlbumDetail, AlbumEvent, Photo } from "@/lib/types";
 
 const fetcher = async (url: string) => {
@@ -145,7 +150,7 @@ const AI_ACTION_OPTIONS: Array<{
 interface QueuedFile {
   localId: string;
   file: File;
-  previewUrl: string;
+  previewUrl?: string;
   status: UploadStatus;
   source?: "google-drive" | "google-photos";
   error?: string;
@@ -345,26 +350,26 @@ export function AddEventPage({
       if (coverPreviewUrlRef.current) {
         URL.revokeObjectURL(coverPreviewUrlRef.current);
       }
-      queuedFilesRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      queuedFilesRef.current.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
     };
   }, []);
 
   const chooseCover = (files: FileList | null) => {
-    const file = Array.from(files ?? []).find((item) => item.type.startsWith("image/"));
+    const file = Array.from(files ?? []).find(isSupportedImageFile);
     if (!file) return;
 
     if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
     setCoverFile(file);
-    setCoverPreviewUrl(URL.createObjectURL(file));
+    setCoverPreviewUrl(previewObjectUrl(file) ?? null);
   };
 
   const addMediaFiles = (
     files: File[],
     source?: "google-drive" | "google-photos",
   ) => {
-    const images = files.filter((file) =>
-      file.type.startsWith("image/"),
-    );
+    const images = files.filter(isSupportedImageFile);
     if (!images.length) return;
 
     setQueuedFiles((current) => [
@@ -372,7 +377,7 @@ export function AddEventPage({
       ...images.map((file) => ({
         localId: crypto.randomUUID(),
         file,
-        previewUrl: URL.createObjectURL(file),
+        previewUrl: previewObjectUrl(file),
         status: "ready" as UploadStatus,
         source,
       })),
@@ -389,13 +394,15 @@ export function AddEventPage({
   const removeMedia = (localId: string) => {
     setQueuedFiles((current) => {
       const removed = current.find((file) => file.localId === localId);
-      if (removed) URL.revokeObjectURL(removed.previewUrl);
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
       return current.filter((file) => file.localId !== localId);
     });
   };
 
   const clearUploadQueue = () => {
-    queuedFiles.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    queuedFiles.forEach((item) => {
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    });
     setQueuedFiles([]);
     setCompletedUpload(null);
     setErrorMessage("");
@@ -973,14 +980,20 @@ export function AddEventPage({
                 key={item.localId}
                 className="group relative mb-3 break-inside-avoid overflow-hidden rounded-[18px] bg-zinc-100 shadow-sm ring-1 ring-zinc-200"
               >
-                <Image
-                  src={item.previewUrl}
-                  alt={item.file.name}
-                  width={320}
-                  height={420}
-                  className="h-auto w-full object-cover"
-                  unoptimized
-                />
+                {item.previewUrl ? (
+                  <Image
+                    src={item.previewUrl}
+                    alt={item.file.name}
+                    width={320}
+                    height={420}
+                    className="h-auto w-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex aspect-[3/4] w-full items-center justify-center bg-zinc-100 text-zinc-400">
+                    <FileImage className="h-8 w-8" />
+                  </div>
+                )}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-3 text-left text-white">
                   <p className="truncate text-xs font-medium">{item.file.name}</p>
                   <p className="text-[11px] text-white/75">
@@ -1055,7 +1068,7 @@ export function AddEventPage({
           ref={mediaInputRef}
           type="file"
           multiple
-          accept="image/*"
+          accept={IMAGE_UPLOAD_ACCEPT}
           className="hidden"
           onChange={(event) => addMedia(event.target.files)}
         />
