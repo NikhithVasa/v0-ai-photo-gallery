@@ -47,7 +47,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 import {
   imageUrlWithShare,
-  mediaProxyUrlForS3Key,
   mediaUrlForS3KeyWithShare,
 } from "@/lib/photo-image-url";
 import { photoAspectRatio } from "@/lib/photo-layout";
@@ -162,24 +161,10 @@ function previewUrlsForPhoto(
     imageUrlWithShare(photo.thumbnailUrl, options.shareToken),
   ];
 
-  // Same-origin proxy fallbacks. These are always safe to load (no cross-origin
-  // ORB blocking) and the /api/media route serves the original when previews or
-  // ai-input objects do not exist yet (e.g. right after upload). Deduped against
-  // the entries above when CloudFront is not forced.
-  const proxyFallbackUrls = includeMediaFallback
-    ? [
-        mediaProxyUrlForS3Key(photo.cleanPreviewS3Key, options.shareToken),
-        mediaProxyUrlForS3Key(photo.watermarkedPreviewS3Key, options.shareToken),
-        mediaProxyUrlForS3Key(photo.thumbnailS3Key, options.shareToken),
-        mediaProxyUrlForS3Key(photo.aiInputS3Key, options.shareToken),
-      ]
-    : [];
-
   return uniqueUrls([
     ...(preferMediaFallback ? mediaFallbackUrls : providedUrls),
     ...(preferMediaFallback ? providedUrls : mediaFallbackUrls),
     ...cloudFrontUrls,
-    ...proxyFallbackUrls,
   ]);
 }
 
@@ -949,7 +934,6 @@ function drawWatermark(
 
 type WatermarkedImageProps = {
   src: string;
-  fallbackSrcs?: string[];
   alt: string;
   className?: string;
   fit?: "cover" | "contain";
@@ -964,7 +948,6 @@ type WatermarkedImageProps = {
 
 function WatermarkedImage({
   src,
-  fallbackSrcs,
   alt,
   className,
   fit = "cover",
@@ -1049,7 +1032,6 @@ function WatermarkedImage({
     return (
       <RetryingImage
         src={src}
-        fallbackSrcs={fallbackSrcs}
         alt={alt}
         className={className}
         loading={loading}
@@ -1345,7 +1327,6 @@ export const PhotoCard = memo(function PhotoCard({
         {imageUrl && shouldLoadImage ? (
           <WatermarkedImage
             src={imageUrl}
-            fallbackSrcs={imageCandidates.slice(activeImageIndex + 1)}
             alt={photo.caption || "Photo"}
             className={`absolute inset-0 h-full w-full transition-opacity duration-300 ${
               isImageLoaded ? "opacity-100" : "opacity-0"

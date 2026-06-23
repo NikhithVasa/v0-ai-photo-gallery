@@ -95,9 +95,18 @@ export function toAlbumEvent(row: AlbumEventRow): AlbumEvent {
   };
 }
 
+function readyAiInputKey(row: PhotoRow) {
+  // `ai_input_s3_key` is pre-populated at ingest time, but the actual webp
+  // object only exists once compression has completed. Pointing the grid at a
+  // not-yet-created ai-input object makes CloudFront/S3 return 403 for the
+  // missing key, which the browser blocks via ORB. Only trust the key once
+  // compression is done; otherwise callers fall back to the original.
+  return row.compression_status === "completed" ? row.ai_input_s3_key : null;
+}
+
 function displayKey(row: PhotoRow) {
   return (
-    row.ai_input_s3_key ??
+    readyAiInputKey(row) ??
     row.original_s3_key ??
     row.clean_preview_s3_key ??
     row.watermarked_preview_s3_key ??
@@ -209,7 +218,7 @@ export async function toPhoto(
     personSearchText: row.person_search_text,
     qwenDescription: row.qwen_description,
     originalS3Key: row.original_s3_key,
-    aiInputS3Key: row.ai_input_s3_key,
+    aiInputS3Key: readyAiInputKey(row),
     cleanPreviewS3Key: displayS3Key,
     watermarkedPreviewS3Key: row.watermarked_preview_s3_key,
     thumbnailS3Key: displayS3Key,
