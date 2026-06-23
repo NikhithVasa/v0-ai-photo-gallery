@@ -209,6 +209,7 @@ export interface AlbumShareSettings {
   passcode?: string | null;
   passcodeRequired?: boolean;
   personId?: string | null;
+  personIds?: string[];
   personName?: string | null;
   linkName?: string | null;
   onlyPerson?: boolean;

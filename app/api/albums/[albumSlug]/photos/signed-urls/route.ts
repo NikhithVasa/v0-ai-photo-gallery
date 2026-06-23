@@ -98,24 +98,32 @@ export async function POST(request: Request, { params }: Props) {
       WHERE lower(a.slug) = lower($1)
         AND p.id = ANY($2::uuid[])
         AND (
-          $3::uuid IS NULL
+          $3::uuid[] IS NULL
           OR EXISTS (
             SELECT 1
             FROM photo_people scoped_pp
             WHERE scoped_pp.photo_id = p.id
-              AND scoped_pp.person_id = $3::uuid
+              AND scoped_pp.person_id = ANY($3::uuid[])
           )
         )
         AND (
           $4::boolean = false
           OR (
-            SELECT COUNT(DISTINCT scoped_pp.person_id)
-            FROM photo_people scoped_pp
-            JOIN people scoped_pe
-              ON scoped_pe.id = scoped_pp.person_id
-             AND COALESCE(scoped_pe.is_hidden, false) = false
-            WHERE scoped_pp.photo_id = p.id
-          ) = 1
+            (
+              SELECT COUNT(DISTINCT scoped_pp.person_id)
+              FROM photo_people scoped_pp
+              WHERE scoped_pp.photo_id = p.id
+                AND scoped_pp.person_id = ANY($3::uuid[])
+            ) = cardinality($3::uuid[])
+            AND (
+              SELECT COUNT(DISTINCT scoped_pp.person_id)
+              FROM photo_people scoped_pp
+              JOIN people scoped_pe
+                ON scoped_pe.id = scoped_pp.person_id
+               AND COALESCE(scoped_pe.is_hidden, false) = false
+              WHERE scoped_pp.photo_id = p.id
+            ) = cardinality($3::uuid[])
+          )
         )
         AND COALESCE(p.is_deleted, false) = false
         AND p.upload_status = 'completed'
@@ -123,8 +131,8 @@ export async function POST(request: Request, { params }: Props) {
       [
         albumSlug,
         photoIds,
-        shareAccess?.personId ?? null,
-        Boolean(shareAccess?.personId && shareAccess.onlyPerson),
+        shareAccess?.personIds.length ? shareAccess.personIds : null,
+        Boolean(shareAccess?.personIds.length && shareAccess.onlyPerson),
       ]
     );
 

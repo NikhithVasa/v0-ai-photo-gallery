@@ -100,7 +100,7 @@ export async function GET(request: Request, { params }: Props) {
            AND COALESCE(p.is_deleted, false) = false
            AND p.upload_status = 'completed'
           WHERE lower(a.slug) = lower($1)
-            AND ($3::uuid IS NULL OR pe.id = $3::uuid)
+            AND ($3::uuid[] IS NULL OR pe.id = ANY($3::uuid[]))
             AND COALESCE(a.is_deleted, false) = false
             AND COALESCE(pe.is_hidden, false) = false
           GROUP BY
@@ -112,7 +112,7 @@ export async function GET(request: Request, { params }: Props) {
             pe.cover_face_s3_key
           ORDER BY COUNT(DISTINCT p.id) DESC, pe.person_number ASC
           `,
-          [albumSlug, eventSlug, shareAccess?.personId ?? null]
+          [albumSlug, eventSlug, shareAccess?.personIds.length ? shareAccess.personIds : null]
         )
       : await query<PersonRow>(
           `
@@ -146,7 +146,7 @@ export async function GET(request: Request, { params }: Props) {
            AND COALESCE(p.is_deleted, false) = false
            AND p.upload_status = 'completed'
           WHERE lower(a.slug) = lower($1)
-            AND ($2::uuid IS NULL OR pe.id = $2::uuid)
+            AND ($2::uuid[] IS NULL OR pe.id = ANY($2::uuid[]))
             AND COALESCE(a.is_deleted, false) = false
             AND COALESCE(pe.is_hidden, false) = false
           GROUP BY
@@ -158,7 +158,7 @@ export async function GET(request: Request, { params }: Props) {
             pe.cover_face_s3_key
           ORDER BY COUNT(DISTINCT p.id) DESC, pe.person_number ASC
           `,
-          [albumSlug, shareAccess?.personId ?? null]
+          [albumSlug, shareAccess?.personIds.length ? shareAccess.personIds : null]
         );
 
     const peopleBase = (await Promise.all(rows.map(toPerson))) satisfies Person[];

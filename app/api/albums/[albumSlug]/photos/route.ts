@@ -55,13 +55,14 @@ export async function GET(request: Request, { params }: Props) {
         ? rawPeopleMode
         : "all";
     const shareAccess = await getShareLinkAccess(request, albumSlug);
-    const personIds = shareAccess?.personId
-      ? [shareAccess.personId]
+    const sharePersonIds = shareAccess?.personIds ?? [];
+    const personIds = sharePersonIds.length
+      ? sharePersonIds
       : requestedPersonIds;
-    const peopleMode = shareAccess?.personId
-      ? shareAccess.onlyPerson
+    const peopleMode = sharePersonIds.length
+      ? shareAccess?.onlyPerson
         ? "only"
-        : "all"
+        : "any"
       : requestedPeopleMode;
     await ensurePhotoSortSchema();
     const sortMode = eventSlug
@@ -134,7 +135,7 @@ export async function GET(request: Request, { params }: Props) {
         JOIN people pe ON pe.id = pp.person_id
         WHERE pp.photo_id = p.id
           AND COALESCE(pe.is_hidden, false) = false
-          AND ($5::uuid IS NULL OR pe.id = $5::uuid)
+          AND ($5::uuid[] IS NULL OR pe.id = ANY($5::uuid[]))
       ) photo_people_summary ON true
       WHERE lower(a.slug) = lower($1)
         AND ($2::text IS NULL OR e.slug = $2)
@@ -178,7 +179,7 @@ export async function GET(request: Request, { params }: Props) {
         eventSlug,
         personIds.length ? personIds : null,
         peopleMode,
-        shareAccess?.personId ?? null,
+        sharePersonIds.length ? sharePersonIds : null,
       ]
     );
 

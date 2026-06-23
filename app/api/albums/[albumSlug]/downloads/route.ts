@@ -413,9 +413,9 @@ export async function GET(request: Request, { params }: Props) {
         { status: 403 },
       );
     }
-    if (shareAccess?.personId) {
-      personIds = [shareAccess.personId];
-      peopleMode = shareAccess.onlyPerson ? "only" : "all";
+    if (shareAccess?.personIds.length) {
+      personIds = shareAccess.personIds;
+      peopleMode = shareAccess.onlyPerson ? "only" : "any";
     }
 
     const rows = await fetchDownloadRows(

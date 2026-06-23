@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { queryOne } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 import { customerPublicUrl } from "@/lib/customer-host";
@@ -87,6 +87,7 @@ export async function POST(request: Request, { params }: Props) {
 
     const body = (await request.json().catch(() => ({}))) as {
       personId?: unknown;
+      personIds?: unknown;
       personName?: unknown;
       linkName?: unknown;
       onlyPerson?: unknown;
@@ -97,12 +98,27 @@ export async function POST(request: Request, { params }: Props) {
       passcode?: unknown;
       expiresAt?: unknown;
     };
-    const personId = textField(body.personId, "Person");
-    const personName = textField(body.personName, "Person name");
-    const linkName = textField(body.linkName, "Shared link name");
-    if (!isUuid(personId)) {
+    const rawPersonIds = Array.isArray(body.personIds)
+      ? body.personIds
+      : body.personId !== undefined
+        ? [body.personId]
+        : [];
+    const personIds = Array.from(
+      new Set(
+        rawPersonIds
+          .filter((id): id is string => typeof id === "string")
+          .map((id) => id.trim())
+          .filter(Boolean),
+      ),
+    );
+    if (!personIds.length) {
+      return NextResponse.json({ error: "Person is required" }, { status: 400 });
+    }
+    if (!personIds.every((id) => isUuid(id))) {
       return NextResponse.json({ error: "Person is invalid" }, { status: 400 });
     }
+    const personName = textField(body.personName, "Person name");
+    const linkName = textField(body.linkName, "Shared link name");
     if (!isShareBackgroundColor(body.backgroundColor)) {
       return NextResponse.json(
         { error: "Background color is invalid" },
@@ -136,19 +152,18 @@ export async function POST(request: Request, { params }: Props) {
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
 
-    const person = await queryOne<PersonRow>(
+    const matchedPeople = await query<PersonRow>(
       `
       SELECT id
       FROM people
-      WHERE id = $1::uuid
+      WHERE id = ANY($1::uuid[])
         AND album_id = $2::uuid
         AND COALESCE(is_hidden, false) = false
-      LIMIT 1
       `,
-      [personId, album.id],
+      [personIds, album.id],
     );
 
-    if (!person) {
+    if (matchedPeople.length !== personIds.length) {
       return NextResponse.json({ error: "Person not found" }, { status: 404 });
     }
 
@@ -171,6 +186,7 @@ export async function POST(request: Request, { params }: Props) {
         expires_at,
         passcode,
         person_id,
+        person_ids,
         person_name,
         link_name,
         only_person,
@@ -194,10 +210,11 @@ export async function POST(request: Request, { params }: Props) {
         $10::date,
         $11,
         $12::uuid,
-        $13,
+        $13::uuid[],
         $14,
         $15,
         $16,
+        $17,
         now(),
         now()
       )
@@ -215,7 +232,8 @@ export async function POST(request: Request, { params }: Props) {
         backgroundColor || DEFAULT_SHARE_BACKGROUND_COLOR,
         expiresAt,
         passcode,
-        person.id,
+        personIds[0],
+        personIds,
         personName,
         linkName,
         Boolean(body.onlyPerson),
@@ -234,7 +252,8 @@ export async function POST(request: Request, { params }: Props) {
       share: {
         token: share.token,
         url: shareUrl(request, share.token, album.customer_slug),
-        personId: person.id,
+        personId: personIds[0],
+        personIds,
         personName,
         linkName,
         onlyPerson: Boolean(body.onlyPerson),

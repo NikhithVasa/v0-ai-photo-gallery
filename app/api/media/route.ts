@@ -120,7 +120,7 @@ async function requireMediaAccess(request: Request, key: string) {
     if (accessDenied) return accessDenied;
 
     const shareAccess = await getShareLinkAccess(request, album.slug);
-    if (!shareAccess?.personId) return null;
+    if (!shareAccess?.personIds.length) return null;
 
     const scopedMedia = await queryOne<{ allowed: boolean }>(
       `
@@ -135,7 +135,7 @@ async function requireMediaAccess(request: Request, key: string) {
       FROM people pe
       JOIN albums a ON a.id = pe.album_id
       WHERE lower(a.slug) = lower($1)
-        AND pe.id = $3::uuid
+        AND pe.id = ANY($3::uuid[])
         AND pe.cover_face_s3_key = $2
 
       UNION ALL
@@ -156,22 +156,30 @@ async function requireMediaAccess(request: Request, key: string) {
           SELECT 1
           FROM photo_people scoped_pp
           WHERE scoped_pp.photo_id = p.id
-            AND scoped_pp.person_id = $3::uuid
+            AND scoped_pp.person_id = ANY($3::uuid[])
         )
         AND (
           $4::boolean = false
           OR (
-            SELECT COUNT(DISTINCT scoped_pp.person_id)
-            FROM photo_people scoped_pp
-            JOIN people scoped_pe
-              ON scoped_pe.id = scoped_pp.person_id
-             AND COALESCE(scoped_pe.is_hidden, false) = false
-            WHERE scoped_pp.photo_id = p.id
-          ) = 1
+            (
+              SELECT COUNT(DISTINCT scoped_pp.person_id)
+              FROM photo_people scoped_pp
+              WHERE scoped_pp.photo_id = p.id
+                AND scoped_pp.person_id = ANY($3::uuid[])
+            ) = cardinality($3::uuid[])
+            AND (
+              SELECT COUNT(DISTINCT scoped_pp.person_id)
+              FROM photo_people scoped_pp
+              JOIN people scoped_pe
+                ON scoped_pe.id = scoped_pp.person_id
+               AND COALESCE(scoped_pe.is_hidden, false) = false
+              WHERE scoped_pp.photo_id = p.id
+            ) = cardinality($3::uuid[])
+          )
         )
       LIMIT 1
       `,
-      [album.slug, key, shareAccess.personId, shareAccess.onlyPerson],
+      [album.slug, key, shareAccess.personIds, shareAccess.onlyPerson],
     );
 
     return scopedMedia

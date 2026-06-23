@@ -1031,6 +1031,503 @@ const cornerOptions = [
   { id: "bottom_right", label: "Bottom right" },
 ];
 
+function peopleShareDefaultName(people: Person[]) {
+  const names = people.map((person) => person.displayName || person.defaultName);
+  if (names.length === 0) return "People";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} & ${names[1]}`;
+  return `${names[0]} & ${names.length - 1} more`;
+}
+
+function PeopleShareDialog({
+  albumSlug,
+  people,
+  onlyPeople,
+}: {
+  albumSlug: string;
+  people: Person[];
+  onlyPeople: boolean;
+}) {
+  const defaultName = useMemo(() => peopleShareDefaultName(people), [people]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [linkName, setLinkName] = useState(`${defaultName}'s photos`);
+  const [onlyPerson, setOnlyPerson] = useState(onlyPeople);
+  const [backgroundColor, setBackgroundColor] = useState(
+    DEFAULT_SHARE_BACKGROUND_COLOR,
+  );
+  const [allowDownloads, setAllowDownloads] = useState(false);
+  const [watermarkEnabled, setWatermarkEnabled] = useState(false);
+  const [allowEventTabs, setAllowEventTabs] = useState(true);
+  const [passcode, setPasscode] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [shareUrl, setShareUrl] = useState("");
+  const [status, setStatus] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const personIds = useMemo(() => people.map((person) => person.id), [people]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setLinkName(`${defaultName}'s photos`);
+    setOnlyPerson(onlyPeople);
+    setBackgroundColor(DEFAULT_SHARE_BACKGROUND_COLOR);
+    setAllowDownloads(false);
+    setWatermarkEnabled(false);
+    setAllowEventTabs(true);
+    setPasscode("");
+    setExpiresAt("");
+    setShareUrl("");
+    setStatus("");
+  }, [defaultName, isOpen, onlyPeople]);
+
+  const createLink = async () => {
+    if (!linkName.trim() || !personIds.length || isSaving) return;
+    const nextPasscode = passcode.trim();
+    if (nextPasscode && nextPasscode.length < 4) {
+      setStatus("Passcode must be at least 4 characters");
+      return;
+    }
+
+    setIsSaving(true);
+    setStatus("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/share/person`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            personIds,
+            personName: defaultName,
+            linkName,
+            onlyPerson,
+            backgroundColor,
+            allowDownloads,
+            watermarkEnabled,
+            allowEventTabs,
+            passcode: nextPasscode || null,
+            expiresAt: expiresAt || null,
+          }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        share?: { url?: string };
+        error?: string;
+      };
+
+      if (!response.ok || !payload.share?.url) {
+        throw new Error(payload.error || "Failed to create share link");
+      }
+
+      setShareUrl(payload.share.url);
+      setStatus("Link created");
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Failed to create share link",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const copyLink = async () => {
+    if (!shareUrl) return;
+    await navigator.clipboard?.writeText(shareUrl);
+    setStatus("Copied");
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className={`${navPillButtonClass} min-w-[120px]`}
+          aria-label="Share selected people"
+        >
+          <Share2 className="h-4 w-4 shrink-0" />
+          <span>Share people</span>
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share people photos</DialogTitle>
+          <DialogDescription>
+            {people.length === 1
+              ? "Create a link for this person."
+              : `Create a link for ${people.length} selected people.`}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {people.map((person) => (
+              <span
+                key={person.id}
+                className="inline-flex items-center gap-2 rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700"
+              >
+                <PersonAvatar person={person} size="sm" />
+                {person.displayName || person.defaultName}
+              </span>
+            ))}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="people-share-link-name">Shared link name</Label>
+            <Input
+              id="people-share-link-name"
+              value={linkName}
+              onChange={(event) => setLinkName(event.target.value)}
+              placeholder="Gallery name shown to visitors"
+              maxLength={120}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+            <div>
+              <Label htmlFor="people-share-only">Only them</Label>
+              <p className="text-xs leading-5 text-zinc-500">
+                {people.length === 1
+                  ? "Only photos where this person appears alone."
+                  : "Only photos containing exactly these people."}
+              </p>
+            </div>
+            <Switch
+              id="people-share-only"
+              checked={onlyPerson}
+              onCheckedChange={setOnlyPerson}
+            />
+          </div>
+
+          <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+            <Label className="text-sm font-medium">Background</Label>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-9">
+              {SHARE_BACKGROUND_COLORS.map((color) => {
+                const isSelected = backgroundColor === color.value;
+
+                return (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => setBackgroundColor(color.value)}
+                    aria-label={`${color.label} background`}
+                    aria-pressed={isSelected}
+                    className={`flex aspect-square min-h-8 cursor-pointer items-center justify-center rounded-full shadow-sm ring-offset-2 transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
+                      isSelected
+                        ? "ring-2 ring-zinc-950"
+                        : "ring-1 ring-black/10 hover:ring-zinc-400"
+                    }`}
+                    style={{ backgroundColor: color.value }}
+                  >
+                    {isSelected && (
+                      <span className="h-2 w-2 rounded-full bg-zinc-950" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+              <Label htmlFor="people-share-downloads">Allow downloads</Label>
+              <Switch
+                id="people-share-downloads"
+                checked={allowDownloads}
+                onCheckedChange={setAllowDownloads}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+              <Label htmlFor="people-share-watermark">Watermark</Label>
+              <Switch
+                id="people-share-watermark"
+                checked={watermarkEnabled}
+                onCheckedChange={setWatermarkEnabled}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+              <Label htmlFor="people-share-event-tabs">Allow event tabs</Label>
+              <Switch
+                id="people-share-event-tabs"
+                checked={allowEventTabs}
+                onCheckedChange={setAllowEventTabs}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="people-share-passcode"
+              className="flex items-center gap-2"
+            >
+              <Lock className="h-4 w-4 text-zinc-500" />
+              Passcode
+            </Label>
+            <Input
+              id="people-share-passcode"
+              value={passcode}
+              onChange={(event) => {
+                setPasscode(event.target.value);
+                if (status) setStatus("");
+              }}
+              placeholder="Add a passcode"
+              maxLength={64}
+              autoComplete="off"
+              className="font-mono"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="people-share-expires-at">Expires on</Label>
+            <Input
+              id="people-share-expires-at"
+              type="date"
+              min={todayIsoDate()}
+              value={expiresAt}
+              onChange={(event) => setExpiresAt(event.target.value)}
+            />
+          </div>
+
+          {shareUrl && (
+            <div className="flex min-w-0 gap-2">
+              <Input value={shareUrl} readOnly className="font-mono text-xs" />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={copyLink}
+                aria-label="Copy people share link"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {status && <p className="text-sm text-zinc-500">{status}</p>}
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            onClick={createLink}
+            disabled={!linkName.trim() || !personIds.length || isSaving}
+          >
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Create link
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface ShareLinkSummary {
+  token: string;
+  url: string;
+  type: "album" | "person";
+  name: string;
+  personName: string | null;
+  personIds: string[];
+  peopleCount: number;
+  onlyPerson: boolean;
+  allowDownloads: boolean;
+  backgroundColor: string;
+  expiresAt: string | null;
+  hasPasscode: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function ShareLinksManager({
+  albumSlug,
+  isOpen,
+  onAlbumLinkDeleted,
+}: {
+  albumSlug: string;
+  isOpen: boolean;
+  onAlbumLinkDeleted?: (token: string) => void;
+}) {
+  const { data, mutate, isLoading } = useSWR<{ links: ShareLinkSummary[] }>(
+    isOpen ? `/api/albums/${encodeURIComponent(albumSlug)}/share/links` : null,
+    fetcher,
+    { revalidateOnFocus: false },
+  );
+  const [deletingToken, setDeletingToken] = useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  const links = data?.links ?? [];
+
+  const copyLink = async (link: ShareLinkSummary) => {
+    await navigator.clipboard?.writeText(link.url);
+    setCopiedToken(link.token);
+    window.setTimeout(() => setCopiedToken(null), 1500);
+  };
+
+  const deleteLink = async (link: ShareLinkSummary) => {
+    if (deletingToken) return;
+    const confirmed = window.confirm(`Delete "${link.name}" link?`);
+    if (!confirmed) return;
+
+    setDeletingToken(link.token);
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/share/links?token=${encodeURIComponent(
+          link.token,
+        )}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) throw new Error("Failed to delete");
+
+      await mutate(
+        (current) =>
+          current
+            ? {
+                links: current.links.filter(
+                  (item) => item.token !== link.token,
+                ),
+              }
+            : current,
+        { revalidate: false },
+      );
+      if (link.type === "album") onAlbumLinkDeleted?.(link.token);
+    } catch (error) {
+      console.error("Failed to delete share link:", error);
+      window.alert("Could not delete this link.");
+    } finally {
+      setDeletingToken(null);
+    }
+  };
+
+  return (
+    <section className="mb-5 rounded-[24px] border border-white bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-600">
+          <Link2 className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-zinc-950">
+            All shared links
+          </h3>
+          <p className="text-xs text-zinc-500">
+            Every gallery and people link you have generated.
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+          {links.length}
+        </span>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 px-1 py-3 text-sm text-zinc-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading links...
+        </div>
+      ) : links.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white/65 px-4 py-3 text-sm text-zinc-500">
+          No share links yet.
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {links.map((link) => (
+            <li
+              key={link.token}
+              className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3 py-2.5"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-600">
+                {link.type === "person" ? (
+                  link.peopleCount > 1 ? (
+                    <Users className="h-4 w-4" />
+                  ) : (
+                    <User className="h-4 w-4" />
+                  )
+                ) : (
+                  <Images className="h-4 w-4" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-medium text-zinc-900">
+                    {link.name}
+                  </p>
+                  <span className="shrink-0 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    {link.type === "person"
+                      ? link.peopleCount > 1
+                        ? `${link.peopleCount} people`
+                        : "Person"
+                      : "Gallery"}
+                  </span>
+                </div>
+                <p className="truncate font-mono text-xs text-zinc-500">
+                  {link.url}
+                </p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-400">
+                  {link.hasPasscode && (
+                    <span className="inline-flex items-center gap-1">
+                      <Lock className="h-3 w-3" />
+                      Passcode
+                    </span>
+                  )}
+                  {link.allowDownloads && <span>Downloads</span>}
+                  {link.expiresAt && <span>Expires {link.expiresAt}</span>}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => copyLink(link)}
+                  aria-label="Copy link"
+                  className="rounded-xl"
+                >
+                  {copiedToken === link.token ? (
+                    <Check className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  asChild
+                  className="rounded-xl"
+                >
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open link"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => deleteLink(link)}
+                  disabled={deletingToken === link.token}
+                  aria-label="Delete link"
+                  className="rounded-xl text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                >
+                  {deletingToken === link.token ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function AlbumShareDialog({
   albumSlug,
   defaultWatermarkText,
@@ -1417,6 +1914,21 @@ function AlbumShareDialog({
               Change any setting below to create the client link.
             </div>
           )}
+
+          <ShareLinksManager
+            albumSlug={albumSlug}
+            isOpen={isOpen}
+            onAlbumLinkDeleted={() => {
+              setShareUrl("");
+              pendingSettingsRef.current = null;
+              hasInitializedSettingsRef.current = false;
+              pendingHydrationSnapshotRef.current = null;
+              void mutate(
+                { share: null, defaults: data?.defaults },
+                { revalidate: false },
+              );
+            }}
+          />
 
           <div className="grid gap-4 lg:grid-cols-2">
             <section className="rounded-[24px] border border-white bg-white/90 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
@@ -1866,18 +2378,24 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const shareSettings = publicShareData?.share ?? null;
   const hideAi =
     isShareView && (!shareSettings || Boolean(shareSettings.hideAi));
-  const isPersonShare = Boolean(shareSettings?.personId);
+  const sharePersonIds = useMemo(() => {
+    if (shareSettings?.personIds?.length) return shareSettings.personIds;
+    if (shareSettings?.personId) return [shareSettings.personId];
+    return [];
+  }, [shareSettings?.personIds, shareSettings?.personId]);
+  const sharePersonKey = sharePersonIds.join(",");
+  const isPersonShare = sharePersonIds.length > 0;
   const showPersonShareEventTabs =
     isPersonShare && Boolean(shareSettings?.allowEventTabs);
   const scopedPeopleIds = useMemo(
-    () =>
-      isPersonShare && shareSettings?.personId
-        ? [shareSettings.personId]
-        : selectedPeopleIds,
-    [isPersonShare, selectedPeopleIds, shareSettings?.personId],
+    () => (isPersonShare ? sharePersonIds : selectedPeopleIds),
+    [isPersonShare, selectedPeopleIds, sharePersonIds],
   );
-  const scopedPeopleMode =
-    isPersonShare && shareSettings?.onlyPerson ? "only" : peopleMatchMode;
+  const scopedPeopleMode = isPersonShare
+    ? shareSettings?.onlyPerson
+      ? "only"
+      : "any"
+    : peopleMatchMode;
   const pageName = shareSettings?.linkName || album?.name || "";
   const coverTitle = pageName;
   const downloadsEnabled = isShareView
@@ -1892,11 +2410,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     : "rgba(255, 255, 255, 0.82)";
 
   useEffect(() => {
-    if (!shareSettings?.personId) return;
+    if (!sharePersonKey) return;
     setSelectedPerson(null);
     setApsaraTextSearch(null);
     setActiveTab("photos");
-  }, [shareSettings?.personId]);
+  }, [sharePersonKey]);
 
   useEffect(() => {
     if (!hideAi) return;
@@ -3258,6 +3776,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     >
                       Only them
                     </button>
+                  )}
+
+                  {!isShareView && selectedPeopleIds.length >= 1 && (
+                    <PeopleShareDialog
+                      albumSlug={albumSlug}
+                      people={selectedFilterPeople}
+                      onlyPeople={peopleMatchMode === "only"}
+                    />
                   )}
                 </div>
                 )}

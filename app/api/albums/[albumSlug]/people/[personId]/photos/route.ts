@@ -52,10 +52,10 @@ export async function GET(request: Request, { params }: Props) {
     }
 
     const shareAccess = await getShareLinkAccess(request, albumSlug);
-    if (shareAccess?.personId && shareAccess.personId !== personId) {
+    if (shareAccess?.personIds.length && !shareAccess.personIds.includes(personId)) {
       return NextResponse.json({ error: "Person not available" }, { status: 403 });
     }
-    const onlyPerson = shareAccess?.personId
+    const onlyPerson = shareAccess?.personIds.length
       ? shareAccess.onlyPerson
       : requestedOnlyPerson;
 

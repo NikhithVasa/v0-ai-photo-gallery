@@ -26,6 +26,7 @@ interface ShareTokenRow {
   background_color: string | null;
   passcode: string | null;
   person_id: string | null;
+  person_ids: string[] | null;
   person_name: string | null;
   link_name: string | null;
   only_person: boolean;
@@ -48,6 +49,12 @@ function serialize(row: ShareTokenRow) {
     backgroundColor: normalizeShareBackgroundColor(row.background_color),
     passcodeRequired: Boolean(row.passcode),
     personId: row.person_id,
+    personIds:
+      row.person_ids && row.person_ids.length
+        ? row.person_ids
+        : row.person_id
+          ? [row.person_id]
+          : [],
     personName: row.person_name,
     linkName: row.link_name,
     onlyPerson: row.only_person,
@@ -91,6 +98,7 @@ export async function GET(_request: Request, { params }: Props) {
         s.background_color,
         s.passcode,
         s.person_id,
+        s.person_ids,
         s.person_name,
         s.link_name,
         s.only_person,
