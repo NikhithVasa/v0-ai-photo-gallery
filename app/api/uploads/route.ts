@@ -57,7 +57,9 @@ function safeStem(fileName: string) {
 }
 
 function extensionFromFileName(fileName: string) {
-  const match = fileName.toLowerCase().match(/\.(jpe?g|png|webp|gif|avif|heic|heif)$/);
+  const match = fileName.toLowerCase().match(
+    /\.(jpe?g|jpe|png|webp|gif|avif|heic|heif|nef|cr2|arw|dng|tiff?|bmp|jfif)$/,
+  );
   return match ? `.${match[1]}` : ".jpg";
 }
 
@@ -69,12 +71,21 @@ function contentTypeFromFile(file: UploadFileInput) {
     {
       ".jpg": "image/jpeg",
       ".jpeg": "image/jpeg",
+      ".jpe": "image/jpeg",
       ".png": "image/png",
       ".webp": "image/webp",
       ".gif": "image/gif",
       ".avif": "image/avif",
       ".heic": "image/heic",
       ".heif": "image/heif",
+      ".nef": "image/x-nikon-nef",
+      ".cr2": "image/x-canon-cr2",
+      ".arw": "image/x-sony-arw",
+      ".dng": "image/x-adobe-dng",
+      ".tif": "image/tiff",
+      ".tiff": "image/tiff",
+      ".bmp": "image/bmp",
+      ".jfif": "image/jpeg",
     }[ext] ?? "application/octet-stream"
   );
 }
@@ -233,9 +244,9 @@ function buildPhotoKeys(
     photoUuid,
     originalS3Key: `${base}/originals/${photoUuid}_${stem}${ext}`,
     aiInputS3Key: `${base}/ai-input/${photoUuid}.webp`,
-    cleanPreviewS3Key: `${base}/previews-clean/${photoUuid}.webp`,
-    watermarkedPreviewS3Key: `${base}/previews-watermarked/${photoUuid}.webp`,
-    thumbnailS3Key: `${base}/thumbnails/${photoUuid}.webp`,
+    cleanPreviewS3Key: null,
+    watermarkedPreviewS3Key: null,
+    thumbnailS3Key: null,
     annotatedS3Key: `${base}/annotated/${photoUuid}.jpg`,
   };
 }

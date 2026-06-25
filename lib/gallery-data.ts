@@ -104,13 +104,37 @@ function readyAiInputKey(row: PhotoRow) {
   return row.compression_status === "completed" ? row.ai_input_s3_key : null;
 }
 
+// Extensions a browser can decode in an <img>. RAW originals (NEF/CR2/ARW/DNG)
+// and TIFF cannot be rendered client-side, so we must not point an <img> at
+// them — doing so just yields a broken image until compression produces a webp.
+const WEB_RENDERABLE_IMAGE_EXTS = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+  ".avif",
+]);
+
+function isWebRenderableKey(key?: string | null) {
+  if (!key) return false;
+  const dot = key.lastIndexOf(".");
+  if (dot === -1) return false;
+  return WEB_RENDERABLE_IMAGE_EXTS.has(key.slice(dot).toLowerCase());
+}
+
 function displayKey(row: PhotoRow) {
+  const renderableOriginal = isWebRenderableKey(row.original_s3_key)
+    ? row.original_s3_key
+    : null;
+
   return (
     readyAiInputKey(row) ??
-    row.original_s3_key ??
+    renderableOriginal ??
     row.clean_preview_s3_key ??
     row.watermarked_preview_s3_key ??
-    row.thumbnail_s3_key
+    row.thumbnail_s3_key ??
+    null
   );
 }
 

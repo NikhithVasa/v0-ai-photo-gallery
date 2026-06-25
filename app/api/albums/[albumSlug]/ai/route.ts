@@ -152,7 +152,7 @@ function stepsForAction(action: AiAction) {
   if (action === "reset_album_ai") {
     return {
       ingest: false,
-      compress: false,
+      compress: true,
       image_embedding: true,
       face_index: true,
       safe_people_reconcile: true,
@@ -641,6 +641,21 @@ export async function POST(request: Request, { params }: Props) {
       }));
     }
 
+    if (action === "reset_album_ai") {
+      await checkRunpodEndpoint();
+    }
+
+    const reset =
+      action === "reset_album_ai"
+        ? await resetAlbumAiData(album.id)
+        : action === "delete_album_ai"
+          ? await resetAlbumAiData(album.id)
+          : null;
+
+    if (action === "delete_album_ai") {
+      return NextResponse.json({ ok: true, reset });
+    }
+
     const shouldStartLambda = new Set<AiAction>([
       "run_event",
       "run_face_worker",
@@ -659,21 +674,6 @@ export async function POST(request: Request, { params }: Props) {
           input,
         )
       : null;
-
-    if (action === "reset_album_ai") {
-      await checkRunpodEndpoint();
-    }
-
-    const reset =
-      action === "reset_album_ai"
-        ? await resetAlbumAiData(album.id)
-        : action === "delete_album_ai"
-          ? await resetAlbumAiData(album.id)
-          : null;
-
-    if (action === "delete_album_ai") {
-      return NextResponse.json({ ok: true, reset });
-    }
 
     const runpod = await submitRunpodJob(input);
     return NextResponse.json({ ok: true, input, runpod, reset, lambda });

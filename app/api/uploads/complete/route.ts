@@ -13,6 +13,61 @@ function isUuid(value: string) {
   );
 }
 
+async function invokePhotoWorker(photoIds: string[]) {
+  const lambdaUrl =
+    process.env.PHOTO_WORKER_LAMBDA_URL?.trim() ||
+    process.env.RAW_PREVIEW_LAMBDA_URL?.trim();
+
+  if (!lambdaUrl) {
+    return { configured: false };
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const adminKey =
+    process.env.PHOTO_WORKER_ADMIN_KEY?.trim() ||
+    process.env.RAW_PREVIEW_WORKER_ADMIN_KEY?.trim() ||
+    process.env.ADMIN_KEY?.trim();
+  if (adminKey) headers["x-admin-key"] = adminKey;
+
+  const timeoutMs = Math.max(
+    1000,
+    Number.parseInt(process.env.PHOTO_WORKER_INVOKE_TIMEOUT_MS || "30000", 10) ||
+      30000,
+  );
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(lambdaUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ action: "render_raw_previews", photoIds }),
+      signal: controller.signal,
+    });
+    const payload = (await response.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+
+    return {
+      configured: true,
+      ok: response.ok && payload.ok !== false,
+      status: response.status,
+      payload,
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      ok: false,
+      error: error instanceof Error ? error.message : "Photo worker invocation failed",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CompleteRequestBody;
@@ -104,7 +159,9 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true });
+    const photoWorker = await invokePhotoWorker(photoIds);
+
+    return NextResponse.json({ ok: true, photoWorker });
   } catch (error) {
     console.error("Error completing uploads:", error);
     return NextResponse.json(

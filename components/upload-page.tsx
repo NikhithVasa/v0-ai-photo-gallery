@@ -28,6 +28,36 @@ import type { AlbumDetail, AlbumSummary } from "@/lib/types";
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 const PREVIEW_FILE_LIMIT = 20;
+// Prepare presigned URLs in batches so uploads start almost immediately on
+// large selections instead of waiting for the whole set to be prepared first.
+const PREPARE_BATCH_SIZE = 100;
+// How many files are uploaded to S3 in parallel.
+const UPLOAD_CONCURRENCY = 5;
+// Cap how many rows we mount in the DOM. Selecting thousands of files and
+// rendering a row each otherwise freezes the main thread; the full set is
+// still tracked in state and uploaded.
+const MAX_RENDERED_ROWS = 200;
+
+// Simple worker pool: runs `worker` for indices [0, total) with at most
+// `concurrency` promises in flight at once.
+async function runWithConcurrency(
+  total: number,
+  concurrency: number,
+  worker: (index: number) => Promise<void>,
+) {
+  let next = 0;
+  const runners = Array.from(
+    { length: Math.max(1, Math.min(concurrency, total)) },
+    async () => {
+      while (true) {
+        const index = next++;
+        if (index >= total) return;
+        await worker(index);
+      }
+    },
+  );
+  await Promise.all(runners);
+}
 
 type UploadMode = "existing" | "new";
 type EventMode = "existing" | "new";
@@ -254,6 +284,8 @@ export function UploadPage() {
   const queuedCount = queuedFiles.filter((file) => file.status === "queued").length;
   const failedFiles = queuedFiles.filter((file) => file.status === "failed");
   const showPreviews = queuedFiles.length <= PREVIEW_FILE_LIMIT;
+  const visibleQueuedFiles = queuedFiles.slice(0, MAX_RENDERED_ROWS);
+  const hiddenQueuedCount = queuedFiles.length - visibleQueuedFiles.length;
   const uploadPercent = queuedFiles.length
     ? Math.round(
         (queuedFiles.reduce((acc, file) => {
@@ -452,99 +484,143 @@ export function UploadPage() {
       })
     );
 
-    try {
-      const prepareResponse = await fetch("/api/uploads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode,
-          albumSlug: mode === "existing" ? selectedAlbumSlug : undefined,
-          albumName: mode === "new" ? newAlbumName.trim() : undefined,
-          eventSlug:
-            mode === "existing" && eventMode === "existing"
-              ? selectedEventSlug
-              : undefined,
-          eventName:
-            mode === "new" || eventMode === "new" ? newEventName.trim() : undefined,
-          files: filesToUpload.map((item) => ({
-            fileName: item.file.name,
-            size: item.file.size,
-            contentType: item.file.type || "application/octet-stream",
-          })),
-        }),
-      });
+    const uploadPreparedFile = async (
+      item: QueuedFile,
+      upload: PreparedUpload,
+    ): Promise<string | null> => {
+      let uploadSucceeded = false;
+      let lastError = "S3 upload failed";
 
-      const prepared = (await prepareResponse.json()) as PreparedUploadsResponse;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        updateFile(item.localId, {
+          status: attempt === 1 ? "uploading" : "retrying",
+          s3Key: upload.originalS3Key,
+          photoId: upload.id,
+          progress: 0,
+          attempt,
+        });
 
-      if (!prepareResponse.ok || !prepared.uploads?.length) {
-        throw new Error(prepared.error || "Could not prepare uploads");
-      }
-
-      const completedPhotoIds: string[] = [];
-
-      for (const [index, upload] of prepared.uploads.entries()) {
-        const item = filesToUpload[index];
-        if (!item) continue;
-
-        let uploadSucceeded = false;
-        let lastError = "S3 upload failed";
-
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          updateFile(item.localId, {
-            status: attempt === 1 ? "uploading" : "retrying",
-            s3Key: upload.originalS3Key,
-            photoId: upload.id,
-            progress: 0,
-            attempt,
-          });
-
-          uploadSucceeded = await uploadToUrl(
-            upload.uploadUrl,
-            item.file,
-            upload.contentType,
-            (progress) => updateFile(item.localId, { progress }),
-          );
-
-          if (!uploadSucceeded) {
-            try {
-              const fallbackResponse = await fetch(
-                `/api/uploads/${encodeURIComponent(upload.id)}/file`,
-                {
-                  method: "PUT",
-                  headers: { "Content-Type": upload.contentType },
-                  body: item.file,
-                },
-              );
-              uploadSucceeded = fallbackResponse.ok;
-              if (!uploadSucceeded) {
-                const fallbackPayload = (await fallbackResponse
-                  .json()
-                  .catch(() => ({}))) as { error?: string };
-                lastError = fallbackPayload.error || lastError;
-              }
-            } catch {
-              uploadSucceeded = false;
-            }
-          }
-
-          if (uploadSucceeded) break;
-        }
+        uploadSucceeded = await uploadToUrl(
+          upload.uploadUrl,
+          item.file,
+          upload.contentType,
+          (progress) => updateFile(item.localId, { progress }),
+        );
 
         if (!uploadSucceeded) {
-          updateFile(item.localId, {
-            status: "failed",
-            progress: 0,
-            error: lastError,
-          });
-          continue;
+          try {
+            const fallbackResponse = await fetch(
+              `/api/uploads/${encodeURIComponent(upload.id)}/file`,
+              {
+                method: "PUT",
+                headers: { "Content-Type": upload.contentType },
+                body: item.file,
+              },
+            );
+            uploadSucceeded = fallbackResponse.ok;
+            if (!uploadSucceeded) {
+              const fallbackPayload = (await fallbackResponse
+                .json()
+                .catch(() => ({}))) as { error?: string };
+              lastError = fallbackPayload.error || lastError;
+            }
+          } catch {
+            uploadSucceeded = false;
+          }
         }
 
-        completedPhotoIds.push(upload.id);
+        if (uploadSucceeded) break;
+      }
+
+      if (!uploadSucceeded) {
         updateFile(item.localId, {
-          status: "uploaded",
-          photoId: upload.id,
-          progress: 100,
-          error: undefined,
+          status: "failed",
+          progress: 0,
+          error: lastError,
+        });
+        return null;
+      }
+
+      updateFile(item.localId, {
+        status: "uploaded",
+        photoId: upload.id,
+        progress: 100,
+        error: undefined,
+      });
+      return upload.id;
+    };
+
+    const completedPhotoIds: string[] = [];
+    const completedLocalIds = new Set<string>();
+    let album: PreparedUploadsResponse["album"];
+    let event: PreparedUploadsResponse["event"];
+
+    try {
+      for (
+        let start = 0;
+        start < filesToUpload.length;
+        start += PREPARE_BATCH_SIZE
+      ) {
+        const batch = filesToUpload.slice(start, start + PREPARE_BATCH_SIZE);
+        const batchFiles = batch.map((item) => ({
+          fileName: item.file.name,
+          size: item.file.size,
+          contentType: item.file.type || "application/octet-stream",
+        }));
+
+        // After the first batch, reference the album/event the server returned
+        // so we never re-create them and each batch can start uploading as soon
+        // as its presigned URLs arrive.
+        const requestBody =
+          album && event
+            ? {
+                mode: "existing" as UploadMode,
+                albumSlug: album.slug,
+                eventSlug: event.slug,
+                files: batchFiles,
+              }
+            : {
+                mode,
+                albumSlug: mode === "existing" ? selectedAlbumSlug : undefined,
+                albumName: mode === "new" ? newAlbumName.trim() : undefined,
+                eventSlug:
+                  mode === "existing" && eventMode === "existing"
+                    ? selectedEventSlug
+                    : undefined,
+                eventName:
+                  mode === "new" || eventMode === "new"
+                    ? newEventName.trim()
+                    : undefined,
+                files: batchFiles,
+              };
+
+        const prepareResponse = await fetch("/api/uploads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+
+        const prepared = (await prepareResponse.json()) as PreparedUploadsResponse;
+
+        if (!prepareResponse.ok || !prepared.uploads?.length) {
+          throw new Error(prepared.error || "Could not prepare uploads");
+        }
+
+        if (!album || !event) {
+          album = prepared.album;
+          event = prepared.event;
+        }
+
+        const uploads = prepared.uploads;
+        await runWithConcurrency(uploads.length, UPLOAD_CONCURRENCY, async (index) => {
+          const item = batch[index];
+          const upload = uploads[index];
+          if (!item || !upload) return;
+          const photoId = await uploadPreparedFile(item, upload);
+          if (photoId) {
+            completedPhotoIds.push(photoId);
+            completedLocalIds.add(item.localId);
+          }
         });
       }
 
@@ -579,10 +655,10 @@ export function UploadPage() {
         `Upload complete: ${completedPhotoIds.length} / ${filesToUpload.length}`
       );
 
-      if (prepared.album?.id && prepared.event?.id) {
+      if (album?.id && event?.id) {
         const context = {
-          albumId: prepared.album.id,
-          eventId: prepared.event.id,
+          albumId: album.id,
+          eventId: event.id,
           photoIds: completedPhotoIds,
         };
         setWorkerContext(context);
@@ -593,6 +669,7 @@ export function UploadPage() {
         error instanceof Error ? error.message : "Upload failed unexpectedly";
       setMessage(errorMessage);
       filesToUpload.forEach((item) => {
+        if (completedLocalIds.has(item.localId)) return;
         updateFile(item.localId, { status: "failed", error: errorMessage });
       });
     } finally {
@@ -795,7 +872,7 @@ export function UploadPage() {
                       : "space-y-2"
                   }
                 >
-                  {queuedFiles.map((item) => (
+                  {visibleQueuedFiles.map((item) => (
                     <div
                       key={item.localId}
                       className={
@@ -872,6 +949,11 @@ export function UploadPage() {
                       </div>
                     </div>
                   ))}
+                  {hiddenQueuedCount > 0 && (
+                    <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3 py-2.5 text-center text-xs text-zinc-500">
+                      + {hiddenQueuedCount} more file{hiddenQueuedCount === 1 ? "" : "s"} not shown
+                    </div>
+                  )}
                 </div>
               </div>
             )}
