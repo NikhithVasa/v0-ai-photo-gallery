@@ -7,6 +7,27 @@ interface CompleteRequestBody {
   runAi?: unknown;
 }
 
+function safeJson(value: unknown) {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({ unserializable: true, error: String(error) });
+  }
+}
+
+function uploadCompleteLog(event: string, fields: Record<string, unknown> = {}) {
+  console.log(`[UPLOAD_COMPLETE] ${event} ${safeJson(fields)}`);
+}
+
+function parseJsonPayload(text: string) {
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return { rawBody: text.slice(0, 4000) };
+  }
+}
+
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
@@ -14,11 +35,13 @@ function isUuid(value: string) {
 }
 
 async function invokePhotoWorker(photoIds: string[]) {
+  const startedAt = Date.now();
   const lambdaUrl =
     process.env.PHOTO_WORKER_LAMBDA_URL?.trim() ||
     process.env.RAW_PREVIEW_LAMBDA_URL?.trim();
 
   if (!lambdaUrl) {
+    uploadCompleteLog("photo_worker_not_configured", { photoIds });
     return { configured: false };
   }
 
@@ -38,26 +61,51 @@ async function invokePhotoWorker(photoIds: string[]) {
   );
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const requestBody = { action: "render_raw_previews", photoIds };
+
+  uploadCompleteLog("photo_worker_invoke_start", {
+    lambdaUrl,
+    photoIds,
+    requestBody,
+    timeoutMs,
+    adminKeyConfigured: Boolean(adminKey),
+  });
 
   try {
     const response = await fetch(lambdaUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify({ action: "render_raw_previews", photoIds }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
-    const payload = (await response.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
+    const responseText = await response.text();
+    const payload = parseJsonPayload(responseText);
+    const durationMs = Date.now() - startedAt;
+
+    uploadCompleteLog("photo_worker_invoke_done", {
+      lambdaUrl,
+      status: response.status,
+      responseOk: response.ok,
+      payloadOk: payload.ok,
+      durationMs,
+      responseBody: payload,
+    });
 
     return {
       configured: true,
       ok: response.ok && payload.ok !== false,
       status: response.status,
       payload,
+      durationMs,
     };
   } catch (error) {
+    uploadCompleteLog("photo_worker_invoke_error", {
+      lambdaUrl,
+      photoIds,
+      durationMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : undefined,
+    });
     return {
       configured: true,
       ok: false,
@@ -69,22 +117,49 @@ async function invokePhotoWorker(photoIds: string[]) {
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
   try {
     const body = (await request.json()) as CompleteRequestBody;
+    uploadCompleteLog("request_received", {
+      body,
+      contentType: request.headers.get("content-type"),
+      referer: request.headers.get("referer"),
+      userAgent: request.headers.get("user-agent"),
+    });
+
     const photoIds = Array.isArray(body.photoIds)
       ? body.photoIds.filter(
           (id): id is string => typeof id === "string" && isUuid(id)
         )
       : [];
 
+    uploadCompleteLog("photo_ids_normalized", {
+      rawPhotoIds: body.photoIds,
+      validPhotoIds: photoIds,
+      validCount: photoIds.length,
+    });
+
     if (!photoIds.length) {
+      uploadCompleteLog("request_rejected", {
+        reason: "photoIds are required",
+        durationMs: Date.now() - startedAt,
+      });
       return NextResponse.json({ error: "photoIds are required" }, { status: 400 });
     }
 
     const accessDenied = await requirePhotoIdsAccess(photoIds);
-    if (accessDenied) return accessDenied;
+    if (accessDenied) {
+      uploadCompleteLog("access_denied", {
+        photoIds,
+        durationMs: Date.now() - startedAt,
+      });
+      return accessDenied;
+    }
+
+    uploadCompleteLog("access_granted", { photoIds });
 
     const runAi = body.runAi !== false;
+    uploadCompleteLog("db_mark_upload_complete_start", { photoIds, runAi });
 
     await query(
       `
@@ -98,6 +173,10 @@ export async function POST(request: Request) {
       `,
       [photoIds, runAi]
     );
+
+    uploadCompleteLog("db_mark_upload_complete_done", { photoIds, runAi });
+
+    uploadCompleteLog("db_upsert_compress_jobs_start", { photoIds });
 
     await query(
       `
@@ -128,7 +207,10 @@ export async function POST(request: Request) {
       [photoIds]
     );
 
+    uploadCompleteLog("db_upsert_compress_jobs_done", { photoIds });
+
     if (runAi) {
+      uploadCompleteLog("db_upsert_face_jobs_start", { photoIds });
       await query(
         `
         INSERT INTO processing_jobs(
@@ -157,13 +239,26 @@ export async function POST(request: Request) {
         `,
         [photoIds]
       );
+      uploadCompleteLog("db_upsert_face_jobs_done", { photoIds });
+    } else {
+      uploadCompleteLog("db_upsert_face_jobs_skipped", { photoIds, runAi });
     }
 
     const photoWorker = await invokePhotoWorker(photoIds);
 
+    uploadCompleteLog("request_done", {
+      photoIds,
+      runAi,
+      photoWorker,
+      durationMs: Date.now() - startedAt,
+    });
+
     return NextResponse.json({ ok: true, photoWorker });
   } catch (error) {
-    console.error("Error completing uploads:", error);
+    console.error("[UPLOAD_COMPLETE] request_error", {
+      durationMs: Date.now() - startedAt,
+      error,
+    });
     return NextResponse.json(
       { error: "Failed to complete uploads" },
       { status: 500 }
