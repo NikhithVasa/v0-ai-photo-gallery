@@ -8,6 +8,19 @@ export interface FaceMatch {
   similarity?: number;
 }
 
+export interface SelfieMatchedPhoto {
+  id: string;
+  fileName: string | null;
+  eventSlug: string;
+  similarity: number | null;
+  vectorDistance: number | null;
+}
+
+export interface FindPeopleBySelfieResult {
+  matches: FaceMatch[];
+  matchedPhoto: SelfieMatchedPhoto | null;
+}
+
 interface FindPeopleBySelfieOptions {
   albumSlug: string;
   shareToken?: string;
@@ -17,6 +30,7 @@ interface FindPeopleBySelfieOptions {
 
 interface MatchPayload {
   error?: string;
+  matchedPhoto?: SelfieMatchedPhoto | null;
   matches?: Array<{
     personId?: string;
     person_id?: string;
@@ -30,7 +44,7 @@ export async function findPeopleBySelfie({
   shareToken = "",
   selectedEventSlug,
   image,
-}: FindPeopleBySelfieOptions) {
+}: FindPeopleBySelfieOptions): Promise<FindPeopleBySelfieResult> {
   const params = new URLSearchParams();
   if (selectedEventSlug) params.set("event", selectedEventSlug);
   if (shareToken) params.set("share", shareToken);
@@ -54,7 +68,7 @@ export async function findPeopleBySelfie({
     throw new Error(payload.error || "Could not search for this person.");
   }
 
-  return (
+  const matches =
     payload.matches
       ?.map((match) => ({
         personId: match.personId || match.person_id || "",
@@ -62,8 +76,12 @@ export async function findPeopleBySelfie({
       }))
       .filter((match) => match.personId) ??
     payload.personIds?.map((personId) => ({ personId })) ??
-    []
-  );
+    [];
+
+  return {
+    matches,
+    matchedPhoto: payload.matchedPhoto ?? null,
+  };
 }
 
 interface FindYourselfUploadProps {

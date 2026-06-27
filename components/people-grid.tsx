@@ -146,13 +146,13 @@ export function PeopleGrid({
     setFindPersonError("");
 
     try {
-      const matches = await findPeopleBySelfie({
+      const result = await findPeopleBySelfie({
         albumSlug,
         shareToken,
         selectedEventSlug,
         image: file,
       });
-      setFaceMatches(matches);
+      setFaceMatches(result.matches);
       resetFindPersonDialog();
     } catch (error) {
       setFindPersonError(

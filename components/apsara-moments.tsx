@@ -18,6 +18,7 @@ import {
 import {
   FindYourselfUpload,
   findPeopleBySelfie,
+  type SelfieMatchedPhoto,
 } from "@/components/find-yourself-upload";
 import type { PeopleMatchMode } from "@/components/photos-grid";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
@@ -75,6 +76,51 @@ async function getDownloadUrl(albumSlug: string, photo: Photo, shareToken = "") 
     urls?: Record<string, { downloadUrl: string | null }>;
   };
   return data.urls?.[photo.id]?.downloadUrl ?? null;
+}
+
+async function photoFromSelfieMatch(
+  albumSlug: string,
+  matchedPhoto: SelfieMatchedPhoto,
+  shareToken = "",
+): Promise<Photo> {
+  const response = await fetch(
+    albumApiUrl(albumSlug, "/photos/signed-urls", shareToken),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoIds: [matchedPhoto.id] }),
+    },
+  );
+  const data = response.ok
+    ? ((await response.json()) as {
+        urls?: Record<
+          string,
+          {
+            previewUrl: string | null;
+            downloadUrl: string | null;
+            thumbnailUrl: string | null;
+          }
+        >;
+      })
+    : { urls: {} };
+  const urls = data.urls?.[matchedPhoto.id];
+
+  return {
+    id: matchedPhoto.id,
+    albumId: "",
+    albumSlug,
+    eventId: "",
+    eventSlug: matchedPhoto.eventSlug,
+    eventName: "Closest match",
+    fileName: matchedPhoto.fileName,
+    caption: null,
+    searchText: null,
+    previewUrl: urls?.previewUrl ?? urls?.thumbnailUrl ?? null,
+    thumbnailUrl: urls?.thumbnailUrl ?? urls?.previewUrl ?? null,
+    downloadUrl: urls?.downloadUrl ?? null,
+    width: null,
+    height: null,
+  };
 }
 
 function PersonAvatarButton({
@@ -360,6 +406,7 @@ export function ApsaraMomentsOverlay({
 }: ApsaraMomentsOverlayProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [resultsTitle, setResultsTitle] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<Photo[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -393,6 +440,7 @@ export function ApsaraMomentsOverlay({
   useEffect(() => {
     if (!isOpen) {
       setQuery("");
+      setResultsTitle("");
       setResults([]);
       setHasSearched(false);
       setSelectedSearchPeopleIds([]);
@@ -485,6 +533,13 @@ export function ApsaraMomentsOverlay({
       if (!response.ok) throw new Error("Search request failed");
       const data = (await response.json()) as { results?: Photo[] };
       setResults(data.results ?? []);
+      setResultsTitle(
+        activeQuery ||
+          selectedSearchPeople
+            .map((person) => person.displayName || person.defaultName)
+            .join(", ") ||
+          "Selected people",
+      );
     } catch (error) {
       console.error("SaathiDesk AI search failed:", error);
       setResults([]);
@@ -510,19 +565,34 @@ export function ApsaraMomentsOverlay({
     setFindPersonMessage("");
 
     try {
-      const matches = await findPeopleBySelfie({
+      const result = await findPeopleBySelfie({
         albumSlug,
         shareToken,
         selectedEventSlug,
         image: file,
       });
+      const matches = result.matches;
       const matchIds = matches.map((match) => match.personId);
       const matchedIdSet = new Set(matchIds);
-      const matchedPeople = people.filter((person) => matchedIdSet.has(person.id));
+      const matchedPeople = people.filter((person) =>
+        matchedIdSet.has(person.id),
+      );
 
       if (!matchIds.length) {
         setSelectedSearchPeopleIds([]);
-        setFindPersonError("No labeled people were found in the closest photo.");
+        if (result.matchedPhoto) {
+          const photo = await photoFromSelfieMatch(
+            albumSlug,
+            result.matchedPhoto,
+            shareToken,
+          );
+          setResults([photo]);
+          setResultsTitle("Closest photo match");
+          setHasSearched(true);
+          return;
+        }
+
+        setFindPersonError("No matching embedded photo was found.");
         return;
       }
 
@@ -711,9 +781,7 @@ export function ApsaraMomentsOverlay({
                 </p>
                 <h3 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">
                   {query.trim() ||
-                    selectedSearchPeople
-                      .map((person) => person.displayName || person.defaultName)
-                      .join(", ") ||
+                    resultsTitle ||
                     "Selected people"}
                 </h3>
               </div>

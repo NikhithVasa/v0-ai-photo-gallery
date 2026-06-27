@@ -43,7 +43,10 @@ interface MatchedPersonRow {
   person_number: number;
   default_name: string;
   display_name: string | null;
-  photo_id: string;
+}
+
+interface NearestPhotoRow {
+  id: string;
   file_name: string | null;
   event_slug: string;
   similarity: number | string;
@@ -292,62 +295,90 @@ export async function POST(request: Request, { params }: Props) {
       dataUrl: preparedImage.dataUrl,
     });
 
-    const rows = await query<MatchedPersonRow>(
+    const nearestPhoto = await queryOne<NearestPhotoRow>(
       `
-      WITH nearest_photo AS (
-        SELECT
-          p.id,
-          p.file_name,
-          e.slug AS event_slug,
-          p.image_embedding <=> $3::vector AS vector_distance
-        FROM photos p
-        JOIN albums a ON a.id = p.album_id
-        JOIN album_events e ON e.id = p.album_event_id
-        WHERE lower(a.slug) = lower($1)
-          AND ($2::text IS NULL OR e.slug = $2)
-          AND COALESCE(a.is_deleted, false) = false
-          AND COALESCE(e.is_deleted, false) = false
-          AND COALESCE(p.is_deleted, false) = false
-          AND p.upload_status = 'completed'
-          AND p.image_embedding IS NOT NULL
-          AND p.image_embedding_model = $4
-          AND EXISTS (
-            SELECT 1
-            FROM photo_people indexed_pp
-            WHERE indexed_pp.photo_id = p.id
-          )
-        ORDER BY p.image_embedding <=> $3::vector, p.created_at ASC
-        LIMIT 1
-      )
       SELECT
-        pe.id AS person_id,
-        pe.person_number,
-        pe.default_name,
-        pe.display_name,
-        nearest_photo.id AS photo_id,
-        nearest_photo.file_name,
-        nearest_photo.event_slug,
-        1 - nearest_photo.vector_distance AS similarity,
-        nearest_photo.vector_distance
-      FROM nearest_photo
-      JOIN photo_people pp ON pp.photo_id = nearest_photo.id
-      JOIN people pe ON pe.id = pp.person_id
-      WHERE COALESCE(pe.is_hidden, false) = false
-        AND ($5::uuid IS NULL OR pe.id = $5::uuid)
-      ORDER BY pe.person_number ASC
+        p.id,
+        p.file_name,
+        e.slug AS event_slug,
+        1 - (p.image_embedding <=> $3::vector) AS similarity,
+        p.image_embedding <=> $3::vector AS vector_distance
+      FROM photos p
+      JOIN albums a ON a.id = p.album_id
+      JOIN album_events e ON e.id = p.album_event_id
+      WHERE lower(a.slug) = lower($1)
+        AND ($2::text IS NULL OR e.slug = $2)
+        AND (
+          $5::uuid[] IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM photo_people scoped_pp
+            WHERE scoped_pp.photo_id = p.id
+              AND scoped_pp.person_id = ANY($5::uuid[])
+          )
+        )
+        AND (
+          $5::uuid[] IS NULL
+          OR $6::boolean = false
+          OR (
+            SELECT COUNT(DISTINCT scoped_pp.person_id)
+            FROM photo_people scoped_pp
+            WHERE scoped_pp.photo_id = p.id
+              AND scoped_pp.person_id = ANY($5::uuid[])
+          ) = (
+            SELECT COUNT(DISTINCT scoped_pp.person_id)
+            FROM photo_people scoped_pp
+            JOIN people scoped_pe
+              ON scoped_pe.id = scoped_pp.person_id
+             AND COALESCE(scoped_pe.is_hidden, false) = false
+            WHERE scoped_pp.photo_id = p.id
+          )
+        )
+        AND COALESCE(a.is_deleted, false) = false
+        AND COALESCE(e.is_deleted, false) = false
+        AND COALESCE(p.is_deleted, false) = false
+        AND p.upload_status = 'completed'
+        AND p.image_embedding IS NOT NULL
+        AND p.image_embedding_model = $4
+      ORDER BY p.image_embedding <=> $3::vector, p.created_at ASC
+      LIMIT 1
       `,
       [
         albumSlug,
         eventSlug,
         embedding.pgVector,
         profile.model,
-        shareAccess?.personId ?? null,
+        shareAccess?.personIds.length ? shareAccess.personIds : null,
+        Boolean(shareAccess?.personIds.length && shareAccess.onlyPerson),
       ]
     );
 
-    const firstRow = rows[0];
-    const similarity = firstRow ? Number(firstRow.similarity) : null;
-    const vectorDistance = firstRow ? Number(firstRow.vector_distance) : null;
+    const rows = nearestPhoto
+      ? await query<MatchedPersonRow>(
+          `
+      SELECT
+        pe.id AS person_id,
+        pe.person_number,
+        pe.default_name,
+        pe.display_name
+      FROM photo_people pp
+      JOIN people pe ON pe.id = pp.person_id
+      WHERE pp.photo_id = $1
+        AND COALESCE(pe.is_hidden, false) = false
+        AND ($2::uuid[] IS NULL OR pe.id = ANY($2::uuid[]))
+      ORDER BY pe.person_number ASC
+      `,
+          [
+            nearestPhoto.id,
+            shareAccess?.personIds.length ? shareAccess.personIds : null,
+          ]
+        )
+      : [];
+
+    const similarity = nearestPhoto ? Number(nearestPhoto.similarity) : null;
+    const vectorDistance = nearestPhoto
+      ? Number(nearestPhoto.vector_distance)
+      : null;
 
     console.info(
       JSON.stringify({
@@ -369,8 +400,8 @@ export async function POST(request: Request, { params }: Props) {
           normAfter: embedding.normAfter,
           preview: embedding.preview,
         },
-        matchedPhotoId: firstRow?.photo_id ?? null,
-        matchedFileName: firstRow?.file_name ?? null,
+        matchedPhotoId: nearestPhoto?.id ?? null,
+        matchedFileName: nearestPhoto?.file_name ?? null,
         similarity,
         vectorDistance,
         matchedPeople: rows.map((row) => ({
@@ -384,11 +415,11 @@ export async function POST(request: Request, { params }: Props) {
     return NextResponse.json({
       model: profile.model,
       dimensions,
-      matchedPhoto: firstRow
+      matchedPhoto: nearestPhoto
         ? {
-            id: firstRow.photo_id,
-            fileName: firstRow.file_name,
-            eventSlug: firstRow.event_slug,
+            id: nearestPhoto.id,
+            fileName: nearestPhoto.file_name,
+            eventSlug: nearestPhoto.event_slug,
             similarity,
             vectorDistance,
           }
