@@ -7,6 +7,36 @@ interface CompleteRequestBody {
   runAi?: unknown;
 }
 
+interface PreviewCandidateRow {
+  id: string;
+  file_name: string | null;
+  original_s3_key: string | null;
+  source_s3_key: string | null;
+}
+
+const RAW_PREVIEW_EXTS = new Set([
+  ".nef",
+  ".cr2",
+  ".cr3",
+  ".arw",
+  ".dng",
+  ".raf",
+  ".orf",
+  ".rw2",
+]);
+
+const WEB_RENDERABLE_IMAGE_EXTS = new Set([
+  ".jpg",
+  ".jpeg",
+  ".jpe",
+  ".jfif",
+  ".png",
+  ".webp",
+  ".gif",
+  ".avif",
+  ".bmp",
+]);
+
 function safeJson(value: unknown) {
   try {
     return JSON.stringify(value);
@@ -32,6 +62,53 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
   );
+}
+
+function extensionFromPath(value: string | null | undefined) {
+  if (!value) return "";
+  const path = value.split(/[?#]/, 1)[0] ?? value;
+  const name = path.split("/").pop() ?? path;
+  const dotIndex = name.lastIndexOf(".");
+  return dotIndex >= 0 ? name.slice(dotIndex).toLowerCase() : "";
+}
+
+function needsRawPreview(row: PreviewCandidateRow) {
+  const ext =
+    extensionFromPath(row.file_name) ||
+    extensionFromPath(row.original_s3_key) ||
+    extensionFromPath(row.source_s3_key);
+
+  if (RAW_PREVIEW_EXTS.has(ext)) return true;
+  if (WEB_RENDERABLE_IMAGE_EXTS.has(ext)) return false;
+  return Boolean(ext);
+}
+
+async function photoIdsNeedingRawPreview(photoIds: string[]) {
+  const rows = await query<PreviewCandidateRow>(
+    `
+    SELECT id::text, file_name, original_s3_key, source_s3_key
+    FROM photos
+    WHERE id = ANY($1::uuid[])
+      AND COALESCE(is_deleted, false) = false
+    `,
+    [photoIds]
+  );
+
+  const ids = rows.filter(needsRawPreview).map((row) => row.id);
+  uploadCompleteLog("photo_worker_candidate_filter", {
+    requestedPhotoIds: photoIds,
+    candidatePhotoIds: ids,
+    rows: rows.map((row) => ({
+      id: row.id,
+      fileName: row.file_name,
+      originalExt: extensionFromPath(row.original_s3_key),
+      sourceExt: extensionFromPath(row.source_s3_key),
+      fileExt: extensionFromPath(row.file_name),
+      needsRawPreview: needsRawPreview(row),
+    })),
+  });
+
+  return ids;
 }
 
 async function invokePhotoWorker(photoIds: string[]) {
@@ -244,10 +321,21 @@ export async function POST(request: Request) {
       uploadCompleteLog("db_upsert_face_jobs_skipped", { photoIds, runAi });
     }
 
-    const photoWorker = await invokePhotoWorker(photoIds);
+    const rawPreviewPhotoIds = await photoIdsNeedingRawPreview(photoIds);
+    const photoWorker = rawPreviewPhotoIds.length
+      ? await invokePhotoWorker(rawPreviewPhotoIds)
+      : {
+          configured: Boolean(
+            process.env.PHOTO_WORKER_LAMBDA_URL?.trim() ||
+              process.env.RAW_PREVIEW_LAMBDA_URL?.trim(),
+          ),
+          skipped: true,
+          reason: "all_uploaded_images_web_renderable",
+        };
 
     uploadCompleteLog("request_done", {
       photoIds,
+      rawPreviewPhotoIds,
       runAi,
       photoWorker,
       durationMs: Date.now() - startedAt,
