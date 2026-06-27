@@ -162,7 +162,7 @@ export function FindYourselfUpload({
         onClick={() => inputRef.current?.click()}
         disabled={isSubmitting}
         className={`group relative flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-zinc-300 bg-zinc-50 transition hover:border-zinc-400 hover:bg-zinc-100 disabled:cursor-wait ${
-          compact ? "min-h-28" : "aspect-[4/3]"
+          compact ? "h-36" : "aspect-[4/3]"
         }`}
       >
         {previewUrl ? (
@@ -170,7 +170,7 @@ export function FindYourselfUpload({
           <img
             src={previewUrl}
             alt="Selected portrait preview"
-            className="h-full w-full object-contain"
+            className="absolute inset-0 h-full w-full object-contain"
           />
         ) : (
           <span className="flex flex-col items-center gap-2 px-6 text-center">

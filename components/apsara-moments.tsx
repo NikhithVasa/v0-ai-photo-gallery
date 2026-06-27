@@ -18,6 +18,7 @@ import {
 import {
   FindYourselfUpload,
   findPeopleBySelfie,
+  type FaceMatch,
   type SelfieMatchedPhoto,
 } from "@/components/find-yourself-upload";
 import type { PeopleMatchMode } from "@/components/photos-grid";
@@ -416,6 +417,7 @@ export function ApsaraMomentsOverlay({
   const [isFindYourselfOpen, setIsFindYourselfOpen] = useState(false);
   const [findPersonError, setFindPersonError] = useState("");
   const [findPersonMessage, setFindPersonMessage] = useState("");
+  const [faceMatches, setFaceMatches] = useState<FaceMatch[] | null>(null);
   const [selectedSearchPeopleIds, setSelectedSearchPeopleIds] = useState<
     string[]
   >([]);
@@ -432,6 +434,12 @@ export function ApsaraMomentsOverlay({
     return people.filter((person) => selectedIds.has(person.id));
   }, [people, selectedSearchPeopleIds]);
 
+  const visibleSearchPeople = useMemo(() => {
+    if (faceMatches === null) return people;
+    const faceMatchIds = new Set(faceMatches.map((match) => match.personId));
+    return people.filter((person) => faceMatchIds.has(person.id));
+  }, [faceMatches, people]);
+
   const searchLabel = selectedPeopleCount
     ? `Search (${selectedPeopleCount})`
     : "Search";
@@ -445,6 +453,7 @@ export function ApsaraMomentsOverlay({
       setResults([]);
       setHasSearched(false);
       setSelectedSearchPeopleIds([]);
+      setFaceMatches(null);
       setIsFindYourselfOpen(false);
       setFindPersonError("");
       setFindPersonMessage("");
@@ -582,6 +591,7 @@ export function ApsaraMomentsOverlay({
 
       if (!matchIds.length) {
         setSelectedSearchPeopleIds([]);
+        setFaceMatches([]);
         if (result.matchedPhoto) {
           const photo = await photoFromSelfieMatch(
             albumSlug,
@@ -598,15 +608,16 @@ export function ApsaraMomentsOverlay({
         return;
       }
 
-      setSelectedSearchPeopleIds(matchIds);
+      setSelectedSearchPeopleIds([]);
+      setFaceMatches(matches);
       setFindPersonMessage(
         matchedPeople.length
           ? `${matchedPeople.length} matched ${
               matchedPeople.length === 1 ? "person" : "people"
-            } selected below.`
+            } shown below.`
           : `${matchIds.length} matched ${
               matchIds.length === 1 ? "person" : "people"
-            } selected below.`,
+            } shown below.`,
       );
     } catch (error) {
       setFindPersonError(
@@ -769,14 +780,45 @@ export function ApsaraMomentsOverlay({
                   </div>
                 )}
 
+                {faceMatches !== null ? (
+                  <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-950">
+                        {visibleSearchPeople.length
+                          ? `${visibleSearchPeople.length} matched ${
+                              visibleSearchPeople.length === 1
+                                ? "person"
+                                : "people"
+                            }`
+                          : "No labeled people found"}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {visibleSearchPeople.length
+                          ? "Only these people are shown below. Select anyone you want to search."
+                          : "The closest photo has no labeled people yet."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFaceMatches(null);
+                        setFindPersonMessage("");
+                      }}
+                      className="inline-flex h-9 items-center justify-center rounded-full border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-600 transition hover:text-zinc-950"
+                    >
+                      Show all people
+                    </button>
+                  </div>
+                ) : null}
+
                 {isLoadingPeople ? (
                   <div className="flex items-center gap-2 text-sm text-zinc-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Loading people...
                   </div>
-                ) : people.length ? (
+                ) : visibleSearchPeople.length ? (
                   <div className="grid grid-cols-4 gap-x-2 gap-y-5 sm:flex sm:flex-wrap sm:gap-x-7 sm:gap-y-7">
-                    {people.map((person) => (
+                    {visibleSearchPeople.map((person) => (
                       <PersonAvatarButton
                         key={person.id}
                         person={person}
@@ -799,6 +841,8 @@ export function ApsaraMomentsOverlay({
                 onClick={() => {
                   setHasSearched(false);
                   setResults([]);
+                  setFaceMatches(null);
+                  setFindPersonMessage("");
                 }}
                 className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 transition hover:text-zinc-950"
               >
