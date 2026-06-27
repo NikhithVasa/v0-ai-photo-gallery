@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import {
   Camera,
@@ -8,10 +8,14 @@ import {
   GitMerge,
   Images,
   Loader2,
-  Upload,
   Users,
   X,
 } from "lucide-react";
+import {
+  FindYourselfUpload,
+  findPeopleBySelfie,
+  type FaceMatch,
+} from "@/components/find-yourself-upload";
 import { PersonCard } from "./person-card";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,11 +30,6 @@ const fetcher = async (url: string) => {
 };
 
 type PeopleSelectionMode = "any" | "all";
-
-interface FaceMatch {
-  personId: string;
-  similarity?: number;
-}
 
 interface PeopleGridProps {
   albumSlug: string;
@@ -83,12 +82,9 @@ export function PeopleGrid({
   const [isMergingPeople, setIsMergingPeople] = useState(false);
   const [mergeError, setMergeError] = useState("");
   const [isFindPersonDialogOpen, setIsFindPersonDialogOpen] = useState(false);
-  const [selfieFile, setSelfieFile] = useState<File | null>(null);
-  const [selfiePreviewUrl, setSelfiePreviewUrl] = useState("");
   const [isFindingPerson, setIsFindingPerson] = useState(false);
   const [findPersonError, setFindPersonError] = useState("");
   const [faceMatches, setFaceMatches] = useState<FaceMatch[] | null>(null);
-  const selfieInputRef = useRef<HTMLInputElement | null>(null);
 
   const people = data?.people ?? [];
   const faceMatchIdSet = useMemo(
@@ -115,13 +111,6 @@ export function PeopleGrid({
 
   useBodyScrollLock(isMergeDialogOpen || isFindPersonDialogOpen);
 
-  useEffect(
-    () => () => {
-      if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
-    },
-    [selfiePreviewUrl]
-  );
-
   useEffect(() => {
     if (!isMergeDialogOpen) return;
     if (selectedPeople.some((person) => person.id === mergeCoverPersonId)) {
@@ -142,11 +131,7 @@ export function PeopleGrid({
 
   const resetFindPersonDialog = () => {
     setIsFindPersonDialogOpen(false);
-    setSelfieFile(null);
     setFindPersonError("");
-    if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
-    setSelfiePreviewUrl("");
-    if (selfieInputRef.current) selfieInputRef.current.value = "";
   };
 
   const closeFindPersonDialog = () => {
@@ -154,79 +139,19 @@ export function PeopleGrid({
     resetFindPersonDialog();
   };
 
-  const selectSelfie = (file: File | null) => {
-    setFindPersonError("");
-
-    if (!file) {
-      setSelfieFile(null);
-      if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
-      setSelfiePreviewUrl("");
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      setFindPersonError("Choose a JPG, PNG, WebP, or HEIC photo.");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setFindPersonError("Choose an image smaller than 10 MB.");
-      return;
-    }
-
-    if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
-    setSelfieFile(file);
-    setSelfiePreviewUrl(URL.createObjectURL(file));
-  };
-
-  const findPerson = async () => {
-    if (!selfieFile || isFindingPerson) return;
+  const findPerson = async (file: File) => {
+    if (isFindingPerson) return;
 
     setIsFindingPerson(true);
     setFindPersonError("");
 
     try {
-      const params = new URLSearchParams();
-      if (selectedEventSlug) params.set("event", selectedEventSlug);
-      if (shareToken) params.set("share", shareToken);
-
-      const formData = new FormData();
-      formData.set("image", selfieFile);
-
-      const query = params.toString();
-      const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/people/match${
-          query ? `?${query}` : ""
-        }`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        matches?: Array<{
-          personId?: string;
-          person_id?: string;
-          similarity?: number;
-        }>;
-        personIds?: string[];
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Could not search for this person.");
-      }
-
-      const matches =
-        payload.matches
-          ?.map((match) => ({
-            personId: match.personId || match.person_id || "",
-            similarity: match.similarity,
-          }))
-          .filter((match) => match.personId) ??
-        payload.personIds?.map((personId) => ({ personId })) ??
-        [];
-
+      const matches = await findPeopleBySelfie({
+        albumSlug,
+        shareToken,
+        selectedEventSlug,
+        image: file,
+      });
       setFaceMatches(matches);
       resetFindPersonDialog();
     } catch (error) {
@@ -633,96 +558,14 @@ export function PeopleGrid({
               </button>
             </div>
 
-            <div className="space-y-4 p-5">
-              <input
-                ref={selfieInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                className="sr-only"
-                onChange={(event) => selectSelfie(event.target.files?.[0] ?? null)}
+            <div className="border-t border-zinc-200 p-5">
+              <FindYourselfUpload
+                isSubmitting={isFindingPerson}
+                error={findPersonError}
+                onErrorChange={setFindPersonError}
+                onSubmit={findPerson}
+                onCancel={closeFindPersonDialog}
               />
-
-              <button
-                type="button"
-                onClick={() => selfieInputRef.current?.click()}
-                disabled={isFindingPerson}
-                className="group relative flex aspect-[4/3] w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-zinc-300 bg-zinc-50 transition hover:border-zinc-400 hover:bg-zinc-100 disabled:cursor-wait"
-              >
-                {selfiePreviewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={selfiePreviewUrl}
-                    alt="Selected portrait preview"
-                    className="h-full w-full object-contain"
-                  />
-                ) : (
-                  <span className="flex flex-col items-center gap-2 px-6 text-center">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-zinc-700 shadow-sm ring-1 ring-zinc-200">
-                      <Upload className="h-5 w-5" />
-                    </span>
-                    <span className="text-sm font-medium text-zinc-800">
-                      Choose a selfie or portrait
-                    </span>
-                    <span className="text-xs text-zinc-500">
-                      JPG, PNG, WebP, or HEIC · up to 10 MB
-                    </span>
-                  </span>
-                )}
-              </button>
-
-              {selfiePreviewUrl ? (
-                <button
-                  type="button"
-                  onClick={() => selfieInputRef.current?.click()}
-                  disabled={isFindingPerson}
-                  className="text-sm font-medium text-zinc-600 transition hover:text-zinc-950 disabled:opacity-40"
-                >
-                  Choose a different photo
-                </button>
-              ) : null}
-
-              {findPersonError ? (
-                <p
-                  role="alert"
-                  className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
-                >
-                  {findPersonError}
-                </p>
-              ) : null}
-
-              <p className="text-xs leading-5 text-zinc-500">
-                This compares the whole image, so a similar background, outfit,
-                and moment can improve the match.
-              </p>
-            </div>
-
-            <div className="flex flex-col-reverse gap-2 border-t border-zinc-200 px-5 py-4 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeFindPersonDialog}
-                disabled={isFindingPerson}
-                className="inline-flex h-10 items-center justify-center rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 transition hover:text-zinc-950 disabled:opacity-40"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={findPerson}
-                disabled={!selfieFile || isFindingPerson}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {isFindingPerson ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Finding matches...
-                  </>
-                ) : (
-                  <>
-                    <Camera className="h-4 w-4" />
-                    Find matches
-                  </>
-                )}
-              </button>
             </div>
           </div>
         </div>

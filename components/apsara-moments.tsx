@@ -15,6 +15,10 @@ import {
   User,
   X,
 } from "lucide-react";
+import {
+  FindYourselfUpload,
+  findPeopleBySelfie,
+} from "@/components/find-yourself-upload";
 import type { PeopleMatchMode } from "@/components/photos-grid";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import type { Person, Photo } from "@/lib/types";
@@ -361,6 +365,9 @@ export function ApsaraMomentsOverlay({
   const [hasSearched, setHasSearched] = useState(false);
   const [people, setPeople] = useState<Person[]>([]);
   const [isLoadingPeople, setIsLoadingPeople] = useState(false);
+  const [isFindingPerson, setIsFindingPerson] = useState(false);
+  const [findPersonError, setFindPersonError] = useState("");
+  const [findPersonMessage, setFindPersonMessage] = useState("");
   const [selectedSearchPeopleIds, setSelectedSearchPeopleIds] = useState<
     string[]
   >([]);
@@ -389,6 +396,8 @@ export function ApsaraMomentsOverlay({
       setResults([]);
       setHasSearched(false);
       setSelectedSearchPeopleIds([]);
+      setFindPersonError("");
+      setFindPersonMessage("");
       setSelectedPhotoIndex(null);
       return;
     }
@@ -485,11 +494,57 @@ export function ApsaraMomentsOverlay({
   };
 
   const togglePerson = (personId: string) => {
+    setFindPersonMessage("");
     setSelectedSearchPeopleIds((current) =>
       current.includes(personId)
         ? current.filter((id) => id !== personId)
         : [...current, personId]
     );
+  };
+
+  const findPersonByUpload = async (file: File) => {
+    if (isFindingPerson) return;
+
+    setIsFindingPerson(true);
+    setFindPersonError("");
+    setFindPersonMessage("");
+
+    try {
+      const matches = await findPeopleBySelfie({
+        albumSlug,
+        shareToken,
+        selectedEventSlug,
+        image: file,
+      });
+      const matchIds = matches.map((match) => match.personId);
+      const matchedIdSet = new Set(matchIds);
+      const matchedPeople = people.filter((person) => matchedIdSet.has(person.id));
+
+      if (!matchIds.length) {
+        setSelectedSearchPeopleIds([]);
+        setFindPersonError("No labeled people were found in the closest photo.");
+        return;
+      }
+
+      setSelectedSearchPeopleIds(matchIds);
+      setFindPersonMessage(
+        matchedPeople.length
+          ? `${matchedPeople.length} matched ${
+              matchedPeople.length === 1 ? "person" : "people"
+            } selected below.`
+          : `${matchIds.length} matched ${
+              matchIds.length === 1 ? "person" : "people"
+            } selected below.`,
+      );
+    } catch (error) {
+      setFindPersonError(
+        error instanceof Error
+          ? error.message
+          : "Could not search for this person.",
+      );
+    } finally {
+      setIsFindingPerson(false);
+    }
   };
 
   const handleSubmitSearch = () => {
@@ -589,6 +644,23 @@ export function ApsaraMomentsOverlay({
                 <h3 className="text-2xl font-normal tracking-normal text-zinc-900 sm:text-3xl">
                   Find Yourself and others
                 </h3>
+
+                <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+                  <FindYourselfUpload
+                    compact
+                    isSubmitting={isFindingPerson}
+                    error={findPersonError}
+                    onErrorChange={setFindPersonError}
+                    onSubmit={findPersonByUpload}
+                    submitLabel="Find yourself"
+                    submittingLabel="Finding..."
+                  />
+                  {findPersonMessage ? (
+                    <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+                      {findPersonMessage}
+                    </p>
+                  ) : null}
+                </div>
 
                 {isLoadingPeople ? (
                   <div className="flex items-center gap-2 text-sm text-zinc-500">
