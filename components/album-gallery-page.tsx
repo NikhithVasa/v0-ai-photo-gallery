@@ -3578,7 +3578,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       <header
         id="album-gallery-shell"
         className={`sticky top-0 z-30 px-0 pt-0 transition-transform duration-300 ease-out will-change-transform sm:px-5 sm:pt-2 ${
-          !isMobileViewport && !isCoverDismissed ? "md:hidden" : ""
+          !isMobileViewport && !isCoverDismissed && !isCoverTransitioning
+            ? "md:hidden"
+            : ""
         } ${
           isNavHidden ? "sm:-translate-y-[calc(100%+0.75rem)]" : "translate-y-0"
         }`}
