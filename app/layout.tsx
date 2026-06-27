@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter, Playfair_Display } from "next/font/google";
+import {
+  Cormorant_Garamond,
+  Geist,
+  Geist_Mono,
+  Inter,
+  Playfair_Display,
+} from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { DialRoot } from "dialkit";
 import { Toaster } from "@/components/ui/toaster";
@@ -35,6 +41,13 @@ const inter = Inter({
 const playfair = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-playfair",
+});
+
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: "--font-cormorant",
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -148,7 +161,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} bg-background`}
+      className={`${inter.variable} ${playfair.variable} ${cormorant.variable} bg-background`}
     >
       <body className="font-sans antialiased">
         <AuthProvider>

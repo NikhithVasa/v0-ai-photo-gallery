@@ -620,29 +620,29 @@ function Hero({ reveal }: { reveal: MotionProps }) {
   const prefersReducedMotion = useReducedMotion();
 
   return (
-    <section className="relative isolate min-h-[calc(100svh-10rem)] overflow-hidden bg-[#090806] text-[#FFF8EC] sm:min-h-[calc(100svh-9rem)]">
+    <section className="relative isolate min-h-[calc(100svh-10rem)] overflow-hidden bg-[#F6F0E9] text-[#1F1B16] sm:min-h-[calc(100svh-9rem)]">
       <Image
         src="/glow_1.png"
         alt="SaathiDesk wedding gallery moment"
         fill
         priority
         sizes="100vw"
-        className="-z-30 object-cover object-[72%_48%] opacity-[0.84] brightness-[0.58] saturate-[0.86] contrast-[1.08]"
+        className="-z-30 object-cover object-[72%_48%] opacity-[0.34] brightness-[1.08] saturate-[0.78] contrast-[0.98]"
       />
 
       <div
         aria-hidden
-        className="absolute inset-0 -z-20 bg-[linear-gradient(90deg,rgba(7,6,5,0.94)_0%,rgba(10,8,6,0.78)_38%,rgba(11,9,6,0.66)_62%,rgba(9,7,5,0.72)_100%)]"
+        className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(246,240,233,0.96)_0%,rgba(246,240,233,0.9)_54%,rgba(22,17,12,0.58)_100%)]"
       />
       <div
         aria-hidden
-        className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_28%_18%,rgba(231,204,145,0.28)_0%,rgba(231,204,145,0)_34%),radial-gradient(ellipse_at_82%_14%,rgba(255,244,218,0.18)_0%,rgba(255,244,218,0)_31%),linear-gradient(180deg,rgba(0,0,0,0.14)_0%,rgba(0,0,0,0.34)_82%,#090806_100%)]"
+        className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_50%_18%,rgba(232,199,126,0.28)_0%,rgba(232,199,126,0)_38%),radial-gradient(ellipse_at_18%_78%,rgba(89,38,47,0.2)_0%,rgba(89,38,47,0)_32%),linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_48%,rgba(0,0,0,0.42)_100%)]"
       />
 
       {!prefersReducedMotion ? (
         <motion.div
           aria-hidden
-          className="pointer-events-none absolute -left-24 top-0 -z-10 h-full w-[42rem] rotate-[-13deg] bg-[linear-gradient(90deg,rgba(255,247,226,0)_0%,rgba(255,247,226,0.2)_38%,rgba(216,177,101,0.18)_50%,rgba(255,247,226,0)_72%)] blur-2xl"
+          className="pointer-events-none absolute -left-24 top-0 -z-10 h-full w-[42rem] rotate-[-13deg] bg-[linear-gradient(90deg,rgba(255,247,226,0)_0%,rgba(255,247,226,0.42)_38%,rgba(216,177,101,0.2)_50%,rgba(255,247,226,0)_72%)] blur-2xl"
           animate={{ x: ["-10%", "18%", "-6%"], opacity: [0.25, 0.72, 0.3] }}
           transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
         />
@@ -650,7 +650,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
 
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(116deg,rgba(255,248,233,0.12)_0%,rgba(255,248,233,0.03)_26%,rgba(255,248,233,0)_42%),repeating-linear-gradient(100deg,rgba(255,255,255,0.07)_0px,rgba(255,255,255,0.07)_1px,rgba(255,255,255,0)_1px,rgba(255,255,255,0)_10px)] opacity-50 mix-blend-screen"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(116deg,rgba(255,248,233,0.18)_0%,rgba(255,248,233,0.04)_26%,rgba(255,248,233,0)_42%),repeating-linear-gradient(100deg,rgba(89,38,47,0.08)_0px,rgba(89,38,47,0.08)_1px,rgba(255,255,255,0)_1px,rgba(255,255,255,0)_10px)] opacity-45 mix-blend-multiply"
       />
 
       {!prefersReducedMotion ? (
@@ -692,19 +692,19 @@ function Hero({ reveal }: { reveal: MotionProps }) {
         </div>
       ) : null}
 
-      <div className="relative mx-auto flex min-h-[calc(100svh-10rem)] max-w-7xl items-end px-5 pb-12 pt-16 sm:min-h-[calc(100svh-9rem)] sm:px-8 sm:pb-14 lg:pb-16">
-        <motion.div {...reveal} className="max-w-3xl">
-          <p className="text-xs font-medium uppercase tracking-[0.28em] text-[#E8C77E]">
+      <div className="relative mx-auto flex min-h-[calc(100svh-10rem)] max-w-7xl items-start justify-center px-5 pb-12 pt-20 text-center sm:min-h-[calc(100svh-9rem)] sm:px-8 sm:pt-28 lg:pt-32">
+        <motion.div {...reveal} className="mx-auto max-w-[880px]">
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-[#B88A2D]">
             Private AI wedding galleries
           </p>
-          <h1 className="mt-5 font-serif text-[3.6rem] leading-[0.9] text-[#FFF8EC] drop-shadow-[0_8px_32px_rgba(0,0,0,0.45)] sm:text-[5rem] lg:text-[5.9rem]">
+          <h1 className="mt-7 [font-family:var(--font-editorial),Georgia,serif] text-[4.25rem] font-medium leading-[0.96] tracking-normal text-[#59262F] [text-wrap:balance] sm:text-[4.75rem]">
             SaathiDesk
           </h1>
-          <p className="mt-5 max-w-2xl font-serif text-2xl leading-tight text-[#F7E9C8] sm:text-4xl">
+          <p className="mx-auto mt-3 max-w-[760px] [font-family:var(--font-editorial),Georgia,serif] text-[2.65rem] font-light italic leading-[0.98] tracking-normal text-[#1F1B16]/65 [text-wrap:balance] sm:text-[3.4rem]">
             A cinematic gallery where every face, feeling, and frame stays
             beautifully findable.
           </p>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-[#F4EBDC]/80 sm:text-lg">
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-[#2F2924]/78 sm:text-lg">
             Curate wedding albums with semantic search, people filters, AI
             finishing, private sharing, and downloads wrapped in a polished
             ivory, gold, and black delivery experience.
@@ -715,7 +715,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
             iconClassName="text-[#E8C77E]"
           />
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/login"
               className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#F4D795] px-6 text-sm font-semibold text-[#120F0A] shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition duration-500 hover:bg-[#FFE8A8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/60"
