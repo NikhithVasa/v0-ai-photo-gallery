@@ -2191,6 +2191,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [selectedPeopleIds, setSelectedPeopleIds] = useState<string[]>([]);
   const [peopleMatchMode, setPeopleMatchMode] =
     useState<PeopleMatchMode>("all");
+  const [peopleMatchModeBeforeOnly, setPeopleMatchModeBeforeOnly] =
+    useState<PeopleMatchMode>("all");
+  const [peopleMatchModeBeforeGroup, setPeopleMatchModeBeforeGroup] =
+    useState<PeopleMatchMode>("all");
   const [selectedEventSlug, setSelectedEventSlug] = useState<string | null>(
     null
   );
@@ -2990,6 +2994,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   useEffect(() => {
     if (selectedPeopleIds.length === 0 && peopleMatchMode !== "all") {
       setPeopleMatchMode("all");
+      setPeopleMatchModeBeforeOnly("all");
+      setPeopleMatchModeBeforeGroup("all");
+    }
+
+    if (selectedPeopleIds.length < 2 && peopleMatchMode === "group") {
+      setPeopleMatchMode("all");
+      setPeopleMatchModeBeforeOnly("all");
     }
   }, [peopleMatchMode, selectedPeopleIds.length]);
 
@@ -3056,6 +3067,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setApsaraTextSearch(null);
     setSelectedPeopleIds([personId]);
     setPeopleMatchMode("all");
+    setPeopleMatchModeBeforeOnly("all");
+    setPeopleMatchModeBeforeGroup("all");
     setSelectedPerson(null);
     setActiveTab("photos");
     scrollToGalleryTop("instant");
@@ -3063,10 +3076,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   const filterByPeopleSelection = (people: Person[], mode: PeopleMatchMode) => {
     const ids = people.map((person) => person.id);
+    const nextMode = ids.length > 1 ? mode : "all";
 
     setApsaraTextSearch(null);
     setSelectedPeopleIds(ids);
-    setPeopleMatchMode(ids.length > 1 ? mode : "all");
+    setPeopleMatchMode(nextMode);
+    setPeopleMatchModeBeforeOnly(nextMode);
+    if (nextMode !== "group") setPeopleMatchModeBeforeGroup(nextMode);
     setSelectedPerson(null);
     setActiveTab("photos");
     scrollToGalleryTop("instant");
@@ -3077,13 +3093,49 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     const next = selectedPeopleIds.includes(personId)
       ? selectedPeopleIds.filter((id) => id !== personId)
       : [...selectedPeopleIds, personId];
+    const nextMode =
+      next.length > 1
+        ? peopleMatchMode === "only" || peopleMatchMode === "group"
+          ? peopleMatchMode
+          : "subset"
+        : "all";
+
     setSelectedPeopleIds(next);
-    setPeopleMatchMode((current) =>
-      current === "only" ? "only" : next.length > 1 ? "subset" : "all"
-    );
+    setPeopleMatchMode(nextMode);
+    if (nextMode !== "only") setPeopleMatchModeBeforeOnly(nextMode);
+    if (nextMode !== "group") setPeopleMatchModeBeforeGroup(nextMode);
     setSelectedPerson(null);
     setActiveTab("photos");
     scrollToGalleryTop("instant");
+  };
+
+  const toggleOnlyPeopleMode = () => {
+    if (peopleMatchMode === "only") {
+      setPeopleMatchMode(
+        peopleMatchModeBeforeOnly === "only" ? "all" : peopleMatchModeBeforeOnly,
+      );
+      return;
+    }
+
+    setPeopleMatchModeBeforeOnly(peopleMatchMode);
+    setPeopleMatchMode("only");
+  };
+
+  const toggleExcludeSoloPhotos = () => {
+    if (peopleMatchMode === "group") {
+      setPeopleMatchMode(
+        peopleMatchModeBeforeGroup === "group" || peopleMatchModeBeforeGroup === "only"
+          ? "all"
+          : peopleMatchModeBeforeGroup,
+      );
+      return;
+    }
+
+    setPeopleMatchModeBeforeGroup(
+      peopleMatchMode === "only" ? peopleMatchModeBeforeOnly : peopleMatchMode,
+    );
+    setPeopleMatchModeBeforeOnly("group");
+    setPeopleMatchMode("group");
   };
 
   const toggleSelectedDownloadPhotoId = (photoId: string) => {
@@ -3722,6 +3774,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     onClear={() => {
                       setSelectedPeopleIds([]);
                       setPeopleMatchMode("all");
+                      setPeopleMatchModeBeforeOnly("all");
+                      setPeopleMatchModeBeforeGroup("all");
                       scrollToGalleryTop("instant");
                     }}
                   />
@@ -3729,15 +3783,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   {selectedPeopleIds.length >= 1 && (
                     <button
                       type="button"
-                      onClick={() =>
-                        setPeopleMatchMode((current) =>
-                          current === "only"
-                            ? selectedPeopleIds.length > 1
-                              ? "subset"
-                              : "all"
-                            : "only"
-                        )
-                      }
+                      onClick={toggleOnlyPeopleMode}
                       aria-pressed={peopleMatchMode === "only"}
                       className={`h-10 shrink-0 cursor-pointer rounded-full px-4 text-sm font-medium shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
                         peopleMatchMode === "only"
@@ -3755,6 +3801,21 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                       people={selectedFilterPeople}
                       onlyPeople={peopleMatchMode === "only"}
                     />
+                  )}
+
+                  {selectedPeopleIds.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={toggleExcludeSoloPhotos}
+                      aria-pressed={peopleMatchMode === "group"}
+                      className={`h-10 shrink-0 cursor-pointer rounded-full px-4 text-sm font-medium shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
+                        peopleMatchMode === "group"
+                          ? "bg-[#1d1d1f] text-white ring-[#1d1d1f]"
+                          : "bg-white/80 text-zinc-700 ring-black/10 hover:bg-white hover:text-zinc-950"
+                      }`}
+                    >
+                      Exclude solo photos
+                    </button>
                   )}
                 </div>
                 )}

@@ -295,7 +295,7 @@ async function fetchDownloadRows(
   albumSlug: string,
   eventSlug: string | null,
   personIds: string[],
-  peopleMode: "all" | "any" | "only" | "subset",
+  peopleMode: "all" | "any" | "only" | "subset" | "group",
   photoIds: string[],
 ) {
   return query<DownloadPhotoRow>(
@@ -338,6 +338,12 @@ async function fetchDownloadRows(
             WHERE pp.photo_id = p.id
               AND pp.person_id = ANY($3::uuid[])
           ) = cardinality($3::uuid[])
+          WHEN $4::text = 'group' THEN (
+            SELECT COUNT(DISTINCT pp.person_id)
+            FROM photo_people pp
+            WHERE pp.photo_id = p.id
+              AND pp.person_id = ANY($3::uuid[])
+          ) >= 2
           WHEN $4::text = 'subset' THEN (
             SELECT COUNT(DISTINCT pp.person_id)
             FROM photo_people pp
@@ -389,9 +395,10 @@ export async function GET(request: Request, { params }: Props) {
     const eventSlug = searchParams.get("event") || null;
     const format = parseDownloadFormat(searchParams.get("format"));
     const rawPeopleMode = searchParams.get("peopleMode");
-    let peopleMode: "all" | "any" | "only" | "subset" =
+    let peopleMode: "all" | "any" | "only" | "subset" | "group" =
       rawPeopleMode === "any" ||
       rawPeopleMode === "only" ||
+      rawPeopleMode === "group" ||
       rawPeopleMode === "subset"
         ? rawPeopleMode
         : "all";

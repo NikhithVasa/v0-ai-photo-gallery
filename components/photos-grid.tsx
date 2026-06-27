@@ -23,7 +23,7 @@ import type {
   PhotoSortMode,
 } from "@/lib/types";
 
-export type PeopleMatchMode = "all" | "any" | "only" | "subset";
+export type PeopleMatchMode = "all" | "any" | "only" | "subset" | "group";
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
@@ -921,6 +921,8 @@ export function PhotosGrid({
           : "No photos found with only this person."
         : peopleMatchMode === "subset"
         ? "No photos found containing only the selected people."
+        : peopleMatchMode === "group"
+        ? "No photos found with multiple selected people together."
         : peopleMatchMode === "any" && selectedPeopleIds.length > 1
         ? "No photos found for any of the selected people."
         : "No photos found with all selected people."

@@ -53,6 +53,7 @@ export async function GET(request: Request, { params }: Props) {
     const requestedPeopleMode =
       rawPeopleMode === "any" ||
       rawPeopleMode === "only" ||
+      rawPeopleMode === "group" ||
       rawPeopleMode === "subset"
         ? rawPeopleMode
         : "all";
@@ -164,6 +165,12 @@ export async function GET(request: Request, { params }: Props) {
               WHERE pp.photo_id = p.id
                 AND pp.person_id = ANY($3::uuid[])
             ) = cardinality($3::uuid[])
+            WHEN $4::text = 'group' THEN (
+              SELECT COUNT(DISTINCT pp.person_id)
+              FROM photo_people pp
+              WHERE pp.photo_id = p.id
+                AND pp.person_id = ANY($3::uuid[])
+            ) >= 2
             WHEN $4::text = 'subset' THEN (
               SELECT COUNT(DISTINCT pp.person_id)
               FROM photo_people pp
