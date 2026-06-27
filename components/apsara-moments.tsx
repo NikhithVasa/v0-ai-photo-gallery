@@ -413,6 +413,7 @@ export function ApsaraMomentsOverlay({
   const [people, setPeople] = useState<Person[]>([]);
   const [isLoadingPeople, setIsLoadingPeople] = useState(false);
   const [isFindingPerson, setIsFindingPerson] = useState(false);
+  const [isFindYourselfOpen, setIsFindYourselfOpen] = useState(false);
   const [findPersonError, setFindPersonError] = useState("");
   const [findPersonMessage, setFindPersonMessage] = useState("");
   const [selectedSearchPeopleIds, setSelectedSearchPeopleIds] = useState<
@@ -444,6 +445,7 @@ export function ApsaraMomentsOverlay({
       setResults([]);
       setHasSearched(false);
       setSelectedSearchPeopleIds([]);
+      setIsFindYourselfOpen(false);
       setFindPersonError("");
       setFindPersonMessage("");
       setSelectedPhotoIndex(null);
@@ -715,22 +717,57 @@ export function ApsaraMomentsOverlay({
                   Find Yourself and others
                 </h3>
 
-                <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-                  <FindYourselfUpload
-                    compact
-                    isSubmitting={isFindingPerson}
-                    error={findPersonError}
-                    onErrorChange={setFindPersonError}
-                    onSubmit={findPersonByUpload}
-                    submitLabel="Find yourself"
-                    submittingLabel="Finding..."
-                  />
-                  {findPersonMessage ? (
-                    <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
-                      {findPersonMessage}
-                    </p>
-                  ) : null}
-                </div>
+                {!isFindYourselfOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsFindYourselfOpen(true);
+                      setFindPersonError("");
+                      setFindPersonMessage("");
+                    }}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-zinc-950 px-4 text-base font-light text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:w-fit"
+                  >
+                    <User className="h-5 w-5" />
+                    Find yourself
+                  </button>
+                ) : (
+                  <div className="origin-top rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition duration-200 animate-in fade-in zoom-in-95">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-zinc-800">
+                        Find yourself
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isFindingPerson) return;
+                          setIsFindYourselfOpen(false);
+                          setFindPersonError("");
+                          setFindPersonMessage("");
+                        }}
+                        disabled={isFindingPerson}
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:opacity-40"
+                        aria-label="Collapse find yourself upload"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <FindYourselfUpload
+                      compact
+                      isSubmitting={isFindingPerson}
+                      error={findPersonError}
+                      onErrorChange={setFindPersonError}
+                      onSubmit={findPersonByUpload}
+                      submitLabel="Find yourself"
+                      submittingLabel="Finding..."
+                    />
+                    {findPersonMessage ? (
+                      <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+                        {findPersonMessage}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
 
                 {isLoadingPeople ? (
                   <div className="flex items-center gap-2 text-sm text-zinc-500">
