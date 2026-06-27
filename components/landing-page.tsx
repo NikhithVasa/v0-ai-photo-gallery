@@ -34,7 +34,6 @@ import {
   type MotionProps,
   type Variants,
 } from "framer-motion";
-import { useDialKit } from "dialkit";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
@@ -599,216 +598,157 @@ export function MarketingHeader() {
   );
 }
 
+const heroPetals = [
+  { left: "8%", top: "18%", delay: 0.4, duration: 18, scale: 0.85 },
+  { left: "18%", top: "62%", delay: 2.8, duration: 22, scale: 1.05 },
+  { left: "34%", top: "24%", delay: 1.6, duration: 19, scale: 0.7 },
+  { left: "58%", top: "14%", delay: 3.4, duration: 24, scale: 1.2 },
+  { left: "72%", top: "72%", delay: 0.9, duration: 21, scale: 0.9 },
+  { left: "86%", top: "34%", delay: 2.1, duration: 20, scale: 0.75 },
+];
+
+const heroParticles = [
+  { left: "12%", top: "38%", delay: 0.2 },
+  { left: "24%", top: "78%", delay: 1.3 },
+  { left: "43%", top: "18%", delay: 2.4 },
+  { left: "66%", top: "52%", delay: 0.9 },
+  { left: "79%", top: "21%", delay: 1.8 },
+  { left: "91%", top: "67%", delay: 2.9 },
+];
+
 function Hero({ reveal }: { reveal: MotionProps }) {
   const prefersReducedMotion = useReducedMotion();
-  const heroControls = useDialKit("Landing Hero", {
-    glow: {
-      _collapsed: true,
-      warm: [0.45, 0, 0.8, 0.01],
-      side: [0.35, 0, 0.8, 0.01],
-      floor: [0.45, 0, 0.8, 0.01],
-    },
-    preview: {
-      radius: [24, 12, 40, 1],
-      saturation: [1, 0.7, 1.35, 0.01],
-      badgeOffset: [0, -16, 16, 1],
-    },
-    showBadges: true,
-    entrance: {
-      type: "spring",
-      visualDuration: 0.9,
-      bounce: 0.12,
-    },
-  });
-  const entranceTransition =
-    heroControls.entrance.type === "spring"
-      ? {
-          type: "spring" as const,
-          visualDuration: heroControls.entrance.visualDuration,
-          bounce: heroControls.entrance.bounce,
-        }
-      : { duration: 0.9, ease: EASE_OUT };
 
   return (
-    <section className="relative isolate overflow-hidden border-b border-black/[0.06]">
+    <section className="relative isolate min-h-[calc(100svh-10rem)] overflow-hidden bg-[#090806] text-[#FFF8EC] sm:min-h-[calc(100svh-9rem)]">
+      <Image
+        src="/glow_1.png"
+        alt="SaathiDesk wedding gallery moment"
+        fill
+        priority
+        sizes="100vw"
+        className="-z-30 object-cover object-[72%_48%] opacity-[0.84] brightness-[0.58] saturate-[0.86] contrast-[1.08]"
+      />
+
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-20 bg-[linear-gradient(90deg,rgba(7,6,5,0.94)_0%,rgba(10,8,6,0.78)_38%,rgba(11,9,6,0.66)_62%,rgba(9,7,5,0.72)_100%)]"
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_28%_18%,rgba(231,204,145,0.28)_0%,rgba(231,204,145,0)_34%),radial-gradient(ellipse_at_82%_14%,rgba(255,244,218,0.18)_0%,rgba(255,244,218,0)_31%),linear-gradient(180deg,rgba(0,0,0,0.14)_0%,rgba(0,0,0,0.34)_82%,#090806_100%)]"
+      />
+
       {!prefersReducedMotion ? (
-        <AnimatedGridPattern
-          width={64}
-          height={64}
-          numSquares={14}
-          maxOpacity={0.07}
-          duration={5}
-          repeatDelay={2}
-          className="inset-x-0 inset-y-[-25%] h-[150%] fill-[#7C6B55]/10 stroke-[#7C6B55]/15 [mask-image:linear-gradient(to_bottom,black,transparent_82%)]"
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute -left-24 top-0 -z-10 h-full w-[42rem] rotate-[-13deg] bg-[linear-gradient(90deg,rgba(255,247,226,0)_0%,rgba(255,247,226,0.2)_38%,rgba(216,177,101,0.18)_50%,rgba(255,247,226,0)_72%)] blur-2xl"
+          animate={{ x: ["-10%", "18%", "-6%"], opacity: [0.25, 0.72, 0.3] }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
         />
       ) : null}
+
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-1/2 bg-[#EDE8DE]/60"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(116deg,rgba(255,248,233,0.12)_0%,rgba(255,248,233,0.03)_26%,rgba(255,248,233,0)_42%),repeating-linear-gradient(100deg,rgba(255,255,255,0.07)_0px,rgba(255,255,255,0.07)_1px,rgba(255,255,255,0)_1px,rgba(255,255,255,0)_10px)] opacity-50 mix-blend-screen"
       />
 
-      <div className="relative mx-auto max-w-7xl px-5 pb-16 sm:px-8 sm:pb-24 lg:pb-28">
-        <div className="grid items-center gap-14 lg:grid-cols-[0.92fr_1.08fr] lg:gap-20">
-          <div>
-            <h1 className="max-w-2xl font-serif text-[2.8rem] leading-[0.98] tracking-[-0.035em] text-[#1C1B18] sm:text-6xl lg:text-[4.6rem]">
-              Every moment,
-              <br />
-              <span className="italic text-[#655443]">beautifully</span> findable.
-            </h1>
-
-            <p className="mt-6 max-w-xl text-base leading-7 text-[#625D55] sm:text-lg">
-              A free, open-source private gallery for your wedding day with
-              people filters, semantic search, AI photo edits, collage exports,
-              flexible downloads, and share links you can protect with
-              watermarks. No monthly plans, store commission, penny, or cent.
-            </p>
-
-            <AiPrivacyNotice
-              className="mt-5 max-w-xl border-[#E8DED2] bg-white/75 text-[#5F564D]"
-              iconClassName="text-[#A77C45]"
+      {!prefersReducedMotion ? (
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+          {heroPetals.map((petal, index) => (
+            <motion.span
+              key={`petal-${index}`}
+              className="absolute h-3 w-1.5 rounded-full bg-[#E8CFC3]/70 shadow-[0_0_18px_rgba(255,235,202,0.25)]"
+              style={{ left: petal.left, top: petal.top, scale: petal.scale }}
+              animate={{
+                x: [0, 24, -18, 12],
+                y: [0, -28, 30, 0],
+                rotate: [0, 42, -24, 12],
+                opacity: [0.16, 0.6, 0.26, 0.16],
+              }}
+              transition={{
+                duration: petal.duration,
+                delay: petal.delay,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
             />
+          ))}
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link
-                href="/login"
-                className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#1C1B18] px-6 text-sm font-medium text-[#F7F5F0] shadow-md shadow-black/10 transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
-              >
-                Open your album
-                <ArrowRight
-                  className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5"
-                  strokeWidth={1.75}
-                />
-              </Link>
-
-              <Link
-                href="/login?mode=signup"
-                className="inline-flex h-12 items-center rounded-full border border-[#D6C8B8] bg-white/80 px-6 text-sm font-medium text-[#3A2A22] backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
-              >
-                Sign Up
-              </Link>
-
-              <Link
-                href="/docs"
-                className="inline-flex h-12 items-center rounded-full border border-[#D6C8B8] bg-white/80 px-6 text-sm font-medium text-[#3A2A22] backdrop-blur transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
-              >
-                Read the docs
-              </Link>
-            </div>
-
-            <dl className="mt-12 grid max-w-md grid-cols-3 gap-6 border-t border-black/10 pt-6">
-              {[
-                { value: "People", label: "Face filters" },
-                { value: "Ask AI", label: "Search prompts" },
-                { value: "Private", label: "Share controls" },
-              ].map((stat) => (
-                <div key={stat.label}>
-                  <dt className="font-serif text-2xl text-[#1F1B16]">
-                    {stat.value}
-                  </dt>
-                  <dd className="mt-1 text-xs text-[#8B8176]">{stat.label}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-
-          <div className="relative mx-auto w-full max-w-xl">
-            <HeroPreview
-              badgeOffset={heroControls.preview.badgeOffset}
-              radius={heroControls.preview.radius}
-              saturation={heroControls.preview.saturation}
-              showBadges={heroControls.showBadges}
-              animateBorder={!prefersReducedMotion}
+          {heroParticles.map((particle, index) => (
+            <motion.span
+              key={`particle-${index}`}
+              className="absolute h-1 w-1 rounded-full bg-[#F4D795]/75"
+              style={{ left: particle.left, top: particle.top }}
+              animate={{ opacity: [0.12, 0.65, 0.18], y: [0, -18, 0] }}
+              transition={{
+                duration: 8 + index,
+                delay: particle.delay,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
             />
-          </div>
+          ))}
         </div>
-      </div>
-    </section>
-  );
-}
-
-function HeroPreview({
-  badgeOffset,
-  radius,
-  saturation,
-  showBadges,
-  animateBorder,
-}: {
-  badgeOffset: number;
-  radius: number;
-  saturation: number;
-  showBadges: boolean;
-  animateBorder: boolean;
-}) {
-  return (
-    <div className="relative">
-      <div
-        aria-hidden
-        className="absolute -inset-8 -z-10 rounded-[2.5rem] bg-[#CFC7B9]/45 blur-3xl"
-      />
-
-      <div
-        className="relative w-full overflow-hidden border border-white/10 bg-[#1C1B18] p-2 shadow-[0_32px_80px_-36px_rgba(20,18,15,0.55)]"
-        style={{
-          borderRadius: radius,
-          filter: `saturate(${saturation})`,
-        }}
-      >
-        <div className="relative min-h-[30rem] overflow-hidden rounded-[calc(1.5rem-2px)] bg-[#F4F1EB] sm:min-h-[34rem]">
-          <Image
-            src="/hero_one.png"
-            alt="Wedding photo gallery preview"
-            fill
-            priority
-            sizes="(min-width: 1024px) 36rem, 100vw"
-            className="object-cover"
-          />
-        </div>
-
-        {animateBorder ? (
-          <BorderBeam
-            size={120}
-            duration={12}
-            colorFrom="#D8C7A4"
-            colorTo="#7E8B73"
-            borderWidth={1}
-          />
-        ) : null}
-      </div>
-
-      {showBadges ? (
-        <>
-          <div
-            className="absolute -right-3 -top-4 hidden w-56 rounded-2xl border border-black/10 bg-white/95 p-3 shadow-xl shadow-black/5 backdrop-blur sm:block"
-            style={{ transform: `translateY(${badgeOffset}px)` }}
-          >
-            <div className="flex items-center gap-2 rounded-xl bg-[#F2EFE9] px-3 py-2 ring-1 ring-black/[0.06]">
-              <Search className="h-4 w-4 text-[#8B8176]" strokeWidth={1.75} />
-              <span className="truncate text-sm text-[#4F473F]">
-                “Bride happy looking at groom”
-              </span>
-            </div>
-            <p className="mt-2 px-1 text-[11px] text-[#8B8176]">
-              12 matches · sorted by best moment
-            </p>
-          </div>
-
-          <div
-            className="absolute -bottom-4 -left-2 hidden items-center gap-3 rounded-2xl border border-black/10 bg-white/95 px-3 py-2.5 shadow-xl shadow-black/5 backdrop-blur sm:flex"
-            style={{ transform: `translateY(${-badgeOffset}px)` }}
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFF2EF] text-[#A85D50] ring-1 ring-[#E8CFC3]">
-              <Heart className="h-4 w-4" strokeWidth={2} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold text-[#1F1B16]">
-                Saved to favourites
-              </p>
-              <p className="text-[11px] text-[#8B8176]">Synced to your album</p>
-            </div>
-          </div>
-        </>
       ) : null}
-    </div>
+
+      <div className="relative mx-auto flex min-h-[calc(100svh-10rem)] max-w-7xl items-end px-5 pb-12 pt-16 sm:min-h-[calc(100svh-9rem)] sm:px-8 sm:pb-14 lg:pb-16">
+        <motion.div {...reveal} className="max-w-3xl">
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-[#E8C77E]">
+            Private AI wedding galleries
+          </p>
+          <h1 className="mt-5 font-serif text-[3.6rem] leading-[0.9] text-[#FFF8EC] drop-shadow-[0_8px_32px_rgba(0,0,0,0.45)] sm:text-[5rem] lg:text-[5.9rem]">
+            SaathiDesk
+          </h1>
+          <p className="mt-5 max-w-2xl font-serif text-2xl leading-tight text-[#F7E9C8] sm:text-4xl">
+            A cinematic gallery where every face, feeling, and frame stays
+            beautifully findable.
+          </p>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-[#F4EBDC]/80 sm:text-lg">
+            Curate wedding albums with semantic search, people filters, AI
+            finishing, private sharing, and downloads wrapped in a polished
+            ivory, gold, and black delivery experience.
+          </p>
+
+          <AiPrivacyNotice
+            className="mt-6 max-w-2xl border-[#E8C77E]/35 bg-[#0E0C09]/55 text-[#F7EBDD] backdrop-blur-md"
+            iconClassName="text-[#E8C77E]"
+          />
+
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link
+              href="/login"
+              className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#F4D795] px-6 text-sm font-semibold text-[#120F0A] shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition duration-500 hover:bg-[#FFE8A8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/60"
+            >
+              Open your album
+              <ArrowRight
+                className="h-4 w-4 transition-transform duration-500 group-hover:translate-x-1"
+                strokeWidth={1.75}
+              />
+            </Link>
+
+            <Link
+              href="/login?mode=signup"
+              className="inline-flex h-12 items-center rounded-full border border-[#F4D795]/45 bg-[#090806]/40 px-6 text-sm font-medium text-[#FFF8EC] backdrop-blur-md transition duration-500 hover:border-[#F4D795]/80 hover:bg-[#090806]/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/45"
+            >
+              Sign Up
+            </Link>
+
+            <Link
+              href="/docs"
+              className="inline-flex h-12 items-center rounded-full border border-[#FFF8EC]/25 bg-[#FFF8EC]/10 px-6 text-sm font-medium text-[#FFF8EC] backdrop-blur-md transition duration-500 hover:bg-[#FFF8EC]/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/45"
+            >
+              Read the docs
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#F7F5F0] via-[#F7F5F0]/55 to-transparent"
+      />
+    </section>
   );
 }
 
