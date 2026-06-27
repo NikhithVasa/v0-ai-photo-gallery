@@ -132,8 +132,8 @@ const AI_ACTION_OPTIONS: Array<{
   },
   {
     value: "rebuild_search",
-    label: "Rebuild search index",
-    description: "Regenerates image embeddings used by album search.",
+    label: "Full-photo embeddings only",
+    description: "Generates missing full-photo image embeddings for search and Find Yourself. No faces, captions, people, culling, or text embeddings.",
   },
   {
     value: "check_status",

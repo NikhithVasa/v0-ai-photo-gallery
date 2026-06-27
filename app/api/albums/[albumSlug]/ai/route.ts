@@ -662,6 +662,7 @@ export async function POST(request: Request, { params }: Props) {
       "run_image_text_worker",
       "best_photos_full",
       "process_new",
+      "rebuild_search",
       "reset_album_ai",
     ]).has(action as AiAction);
     const lambda = shouldStartLambda
@@ -675,7 +676,8 @@ export async function POST(request: Request, { params }: Props) {
         )
       : null;
 
-    const runpod = await submitRunpodJob(input);
+    const shouldSubmitRunpod = action !== "rebuild_search";
+    const runpod = shouldSubmitRunpod ? await submitRunpodJob(input) : null;
     return NextResponse.json({ ok: true, input, runpod, reset, lambda });
   } catch (error) {
     console.error("Error submitting AI job:", error);
