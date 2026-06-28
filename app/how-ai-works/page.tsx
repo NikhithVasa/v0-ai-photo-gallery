@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { HowAiWorksPage } from "@/components/how-ai-works-page";
+import { PreAuthMotionBoundary } from "@/components/pre-auth-motion-boundary";
 
 export const metadata: Metadata = {
   title: "How AI Works",
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function HowAiWorksRoute() {
-  return <HowAiWorksPage />;
+  return (
+    <PreAuthMotionBoundary>
+      <HowAiWorksPage />
+    </PreAuthMotionBoundary>
+  );
 }
