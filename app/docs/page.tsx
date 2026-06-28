@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DocsPage } from "@/components/docs-page";
+import { PreAuthMotionBoundary } from "@/components/pre-auth-motion-boundary";
 
 export const metadata: Metadata = {
   title: "Documentation",
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function DocsRoute() {
-  return <DocsPage />;
+  return (
+    <PreAuthMotionBoundary>
+      <DocsPage />
+    </PreAuthMotionBoundary>
+  );
 }
