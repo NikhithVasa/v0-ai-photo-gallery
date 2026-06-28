@@ -1,4 +1,5 @@
 import { LandingPage } from "@/components/landing-page";
+import { PreAuthMotionBoundary } from "@/components/pre-auth-motion-boundary";
 import { getHomeStructuredData } from "@/lib/seo";
 
 export default function HomePage() {
@@ -11,7 +12,9 @@ export default function HomePage() {
           __html: JSON.stringify(getHomeStructuredData()),
         }}
       />
-      <LandingPage />
+      <PreAuthMotionBoundary>
+        <LandingPage />
+      </PreAuthMotionBoundary>
     </>
   );
 }
