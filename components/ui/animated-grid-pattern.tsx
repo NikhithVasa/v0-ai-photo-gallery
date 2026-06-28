@@ -8,7 +8,6 @@ import {
   useState,
   type ComponentPropsWithoutRef,
 } from "react"
-import { motion } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
@@ -27,7 +26,6 @@ export interface AnimatedGridPatternProps extends ComponentPropsWithoutRef<"svg"
 type Square = {
   id: number
   pos: [number, number]
-  iteration: number
 }
 
 export function AnimatedGridPattern({
@@ -39,8 +37,8 @@ export function AnimatedGridPattern({
   numSquares = 50,
   className,
   maxOpacity = 0.5,
-  duration = 4,
-  repeatDelay = 0.5,
+  duration: _duration,
+  repeatDelay: _repeatDelay,
   ...props
 }: AnimatedGridPatternProps) {
   const id = useId()
@@ -60,27 +58,7 @@ export function AnimatedGridPattern({
       return Array.from({ length: count }, (_, i) => ({
         id: i,
         pos: getPos(),
-        iteration: 0,
       }))
-    },
-    [getPos]
-  )
-
-  const updateSquarePosition = useCallback(
-    (squareId: number) => {
-      setSquares((currentSquares) => {
-        const current = currentSquares[squareId]
-        if (!current || current.id !== squareId) return currentSquares
-
-        const nextSquares = currentSquares.slice()
-        nextSquares[squareId] = {
-          ...current,
-          pos: getPos(),
-          iteration: current.iteration + 1,
-        }
-
-        return nextSquares
-      })
     },
     [getPos]
   )
@@ -150,25 +128,16 @@ export function AnimatedGridPattern({
       </defs>
       <rect width="100%" height="100%" fill={`url(#${id})`} />
       <svg x={x} y={y} className="overflow-visible">
-        {squares.map(({ pos: [squareX, squareY], id, iteration }, index) => (
-          <motion.rect
-            initial={{ opacity: 0 }}
-            animate={{ opacity: maxOpacity }}
-            transition={{
-              duration,
-              repeat: 1,
-              delay: index * 0.1,
-              repeatType: "reverse",
-              repeatDelay,
-            }}
-            onAnimationComplete={() => updateSquarePosition(id)}
-            key={`${id}-${iteration}`}
+        {squares.map(({ pos: [squareX, squareY], id }) => (
+          <rect
+            key={id}
             width={width - 1}
             height={height - 1}
             x={squareX * width + 1}
             y={squareY * height + 1}
             fill="currentColor"
             strokeWidth="0"
+            opacity={maxOpacity * 0.55}
           />
         ))}
       </svg>
