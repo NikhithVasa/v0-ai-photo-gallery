@@ -3,7 +3,7 @@
 import { MotionConfig } from "framer-motion";
 import type { ReactNode } from "react";
 
-const PRE_AUTH_EASE = [0.175, 0.885, 0.32, 1.1] as const;
+const PRE_AUTH_EASE = [0.175, 0.885, 0.32, 1.1];
 
 export function PreAuthMotionBoundary({ children }: { children: ReactNode }) {
   return (
