@@ -2173,6 +2173,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverRevealAnimationFrameRef = useRef<number | null>(null);
   const coverRevealTimerRef = useRef<number | null>(null);
   const coverScrollAnimationFrameRef = useRef<number | null>(null);
+  const coverScrollTrapTimerRef = useRef<number | null>(null);
+  const coverScrollTrapRef = useRef(false);
   const coverTouchStartYRef = useRef<number | null>(null);
   const coverGestureTriggeredRef = useRef(false);
   const coverSectionRef = useRef<HTMLElement | null>(null);
@@ -2446,6 +2448,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       isCoverTransitioning,
       isCoverSliding,
       coverGestureTriggered: coverGestureTriggeredRef.current,
+      coverScrollTrap: coverScrollTrapRef.current,
       isPhotoSelectionMode,
       albumPhotoCount: album?.photoCount ?? null,
       eventCount: album?.events.length ?? null,
@@ -2506,7 +2509,51 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   };
 
-  const enterLockedGalleryView = (reason = "unknown") => {
+  const releaseCoverScrollTrap = (reason = "unknown") => {
+    if (coverScrollTrapTimerRef.current !== null) {
+      window.clearTimeout(coverScrollTrapTimerRef.current);
+      coverScrollTrapTimerRef.current = null;
+    }
+
+    if (!coverScrollTrapRef.current) return;
+
+    coverScrollTrapRef.current = false;
+    logScrollDebug("cover scroll trap released", { reason });
+  };
+
+  const scheduleCoverScrollTrapRelease = (
+    reason = "unknown",
+    delay = 220,
+  ) => {
+    if (!coverScrollTrapRef.current) return;
+
+    if (coverScrollTrapTimerRef.current !== null) {
+      window.clearTimeout(coverScrollTrapTimerRef.current);
+    }
+
+    coverScrollTrapTimerRef.current = window.setTimeout(() => {
+      coverScrollTrapTimerRef.current = null;
+      releaseCoverScrollTrap(reason);
+    }, delay);
+  };
+
+  const armCoverScrollTrap = (reason = "unknown") => {
+    coverScrollTrapRef.current = true;
+    logScrollDebug("cover scroll trap armed", { reason });
+    scheduleCoverScrollTrapRelease(`${reason}:fallback`, 320);
+  };
+
+  const holdCoverScrollAtTop = (reason = "unknown") => {
+    if (!coverScrollTrapRef.current) return;
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    logScrollDebug("cover scroll trap held", { reason });
+  };
+
+  const enterLockedGalleryView = (
+    reason = "unknown",
+    trapCurrentGesture = false,
+  ) => {
     isCoverDismissedRef.current = true;
     coverGestureTriggeredRef.current = false;
     clearAutoCoverScroll();
@@ -2516,6 +2563,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setIsCoverDismissed(true);
     setIsCoverTransitioning(false);
     setIsCoverSliding(false);
+    if (trapCurrentGesture) {
+      armCoverScrollTrap(reason);
+    } else {
+      releaseCoverScrollTrap(reason);
+    }
     requestAnimationFrame(() => {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       logScrollDebug("enter gallery view after scroll reset", { reason });
@@ -2557,7 +2609,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
     coverRevealTimerRef.current = window.setTimeout(() => {
       coverRevealTimerRef.current = null;
-      enterLockedGalleryView("cover reveal timer");
+      enterLockedGalleryView("cover reveal timer", true);
     }, 920);
   };
 
@@ -2676,8 +2728,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   useEffect(() => {
-    if (isCoverDismissed) return;
-
     const isCoverScrollRunning = () =>
       coverGestureTriggeredRef.current ||
       coverScrollAnimationFrameRef.current !== null;
@@ -2685,10 +2735,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     const handleNativeWheel = (event: WheelEvent) => {
       const fromCover = isEventFromCover(event);
       if (isCoverDismissedRef.current) {
+        if (coverScrollTrapRef.current) {
+          if (event.cancelable) event.preventDefault();
+          holdCoverScrollAtTop("wheel after cover");
+          scheduleCoverScrollTrapRelease("wheel idle");
+        }
         logScrollDebug("native cover wheel ignored after gallery entered", {
           deltaY: event.deltaY,
           cancelable: event.cancelable,
           fromCover,
+          trapped: coverScrollTrapRef.current,
         });
         return;
       }
@@ -2714,9 +2770,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     const handleNativeTouchStart = (event: TouchEvent) => {
       const fromCover = isEventFromCover(event);
       if (isCoverDismissedRef.current) {
+        if (coverScrollTrapRef.current) {
+          holdCoverScrollAtTop("touchstart after cover");
+        }
         logScrollDebug("native cover touchstart ignored after gallery entered", {
           touchCount: event.touches.length,
           fromCover,
+          trapped: coverScrollTrapRef.current,
         });
         return;
       }
@@ -2740,10 +2800,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     const handleNativeTouchMove = (event: TouchEvent) => {
       const fromCover = isEventFromCover(event);
       if (isCoverDismissedRef.current) {
+        if (coverScrollTrapRef.current) {
+          if (event.cancelable) event.preventDefault();
+          holdCoverScrollAtTop("touchmove after cover");
+        }
         logScrollDebug("native cover touchmove ignored after gallery entered", {
           touchCount: event.touches.length,
           cancelable: event.cancelable,
           fromCover,
+          trapped: coverScrollTrapRef.current,
         });
         return;
       }
@@ -2778,6 +2843,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       }
     };
 
+    const handleNativeTouchEnd = () => {
+      if (!coverScrollTrapRef.current) return;
+      holdCoverScrollAtTop("touchend after cover");
+      releaseCoverScrollTrap("touchend");
+    };
+
     logScrollDebug("native cover scroll interceptors attached");
 
     window.addEventListener("wheel", handleNativeWheel, {
@@ -2792,6 +2863,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       capture: true,
       passive: false,
     });
+    window.addEventListener("touchend", handleNativeTouchEnd, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("touchcancel", handleNativeTouchEnd, {
+      capture: true,
+      passive: true,
+    });
 
     return () => {
       logScrollDebug("native cover scroll interceptors detached");
@@ -2800,6 +2879,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         capture: true,
       });
       window.removeEventListener("touchmove", handleNativeTouchMove, {
+        capture: true,
+      });
+      window.removeEventListener("touchend", handleNativeTouchEnd, {
+        capture: true,
+      });
+      window.removeEventListener("touchcancel", handleNativeTouchEnd, {
         capture: true,
       });
     };
@@ -2925,6 +3010,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         window.clearTimeout(programmaticNavScrollTimerRef.current);
         programmaticNavScrollTimerRef.current = null;
       }
+      if (coverScrollTrapTimerRef.current !== null) {
+        window.clearTimeout(coverScrollTrapTimerRef.current);
+        coverScrollTrapTimerRef.current = null;
+      }
+      coverScrollTrapRef.current = false;
       programmaticNavScrollRef.current = false;
       clearCoverRevealTransition();
       cancelGalleryScrollAnimation();
