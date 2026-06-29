@@ -43,6 +43,30 @@ const FORCE_CLOUDFRONT_IMAGES =
   process.env.NEXT_PUBLIC_FORCE_CLOUDFRONT_IMAGES === "true" ||
   process.env.FORCE_CLOUDFRONT_IMAGES === "true";
 
+function encodeRfc5987Value(value: string) {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (char) =>
+    `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
+function asciiDownloadFilename(value: string) {
+  const fallback = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, "_")
+    .replace(/["\\]/g, "_")
+    .replace(/[\x00-\x1F\x7F]+/g, "_")
+    .trim();
+
+  return fallback || "download";
+}
+
+function downloadContentDisposition(filename?: string) {
+  if (!filename) return "attachment";
+
+  return `attachment; filename="${asciiDownloadFilename(filename)}"; filename*=UTF-8''${encodeRfc5987Value(filename)}`;
+}
+
 async function cachedSignedUrl(
   cacheKey: string,
   createUrl: () => Promise<string>
@@ -147,13 +171,11 @@ export async function signedDownloadUrl(
 ): Promise<string | null> {
   if (!key) return null;
 
-  return cachedSignedUrl(`download:${key}:${filename ?? ""}`, () => {
+  return cachedSignedUrl(`download:v2:${key}:${filename ?? ""}`, () => {
     const command = new GetObjectCommand({
       Bucket: process.env.S3_BUCKET!,
       Key: key,
-      ResponseContentDisposition: filename
-        ? `attachment; filename="${filename}"`
-        : "attachment",
+      ResponseContentDisposition: downloadContentDisposition(filename),
     });
 
     return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
