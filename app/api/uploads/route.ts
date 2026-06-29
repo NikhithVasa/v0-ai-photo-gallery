@@ -11,6 +11,8 @@ interface UploadFileInput {
   fileName: string;
   size: number;
   contentType: string;
+  width?: number | null;
+  height?: number | null;
 }
 
 interface UploadRequestBody {
@@ -267,6 +269,12 @@ function validateFiles(files: unknown) {
     });
 }
 
+function imageDimensionValue(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value <= 0 || value > 100_000) return null;
+  return Math.round(value);
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as UploadRequestBody;
@@ -320,6 +328,8 @@ export async function POST(request: Request) {
                   storage_event_slug,
                   file_name,
                   file_size_bytes,
+                  width,
+                  height,
                   original_s3_key,
                   ai_input_s3_key,
                   clean_preview_s3_key,
@@ -350,6 +360,8 @@ export async function POST(request: Request) {
                   $12,
                   $13,
                   $14,
+                  $15,
+                  $16,
                   'pending',
                   'pending',
                   'pending',
@@ -370,6 +382,8 @@ export async function POST(request: Request) {
                   event.slug,
                   file.fileName,
                   file.size,
+                  imageDimensionValue(file.width),
+                  imageDimensionValue(file.height),
                   keys.originalS3Key,
                   keys.aiInputS3Key,
                   keys.cleanPreviewS3Key,

@@ -59,6 +59,70 @@ async function runWithConcurrency(
   await Promise.all(runners);
 }
 
+interface ImageDimensions {
+  width?: number;
+  height?: number;
+}
+
+const imageDimensionsCache = new WeakMap<File, Promise<ImageDimensions>>();
+
+function normalizeImageDimensions(width: number, height: number): ImageDimensions {
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return {};
+  if (width <= 0 || height <= 0) return {};
+  return { width: Math.round(width), height: Math.round(height) };
+}
+
+async function readImageDimensions(file: File): Promise<ImageDimensions> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file, {
+        imageOrientation: "from-image",
+      });
+      const dimensions = normalizeImageDimensions(bitmap.width, bitmap.height);
+      bitmap.close();
+      return dimensions;
+    } catch {
+      // Fall through to the <img> loader for browsers/formats unsupported by createImageBitmap.
+    }
+  }
+
+  if (typeof Image === "undefined" || typeof URL === "undefined") return {};
+
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+      image.onload = null;
+      image.onerror = null;
+    };
+
+    image.onload = () => {
+      const dimensions = normalizeImageDimensions(
+        image.naturalWidth,
+        image.naturalHeight,
+      );
+      cleanup();
+      resolve(dimensions);
+    };
+    image.onerror = () => {
+      cleanup();
+      resolve({});
+    };
+    image.src = objectUrl;
+  });
+}
+
+function imageDimensions(file: File) {
+  const cached = imageDimensionsCache.get(file);
+  if (cached) return cached;
+
+  const dimensions = readImageDimensions(file).catch(() => ({}));
+  imageDimensionsCache.set(file, dimensions);
+  return dimensions;
+}
+
 type UploadMode = "existing" | "new";
 type EventMode = "existing" | "new";
 type UploadStatus =
@@ -114,6 +178,14 @@ interface PreparedUploadsResponse {
   album?: { id: string; slug: string; name: string };
   event?: { id: string; slug: string; name: string };
   uploads?: PreparedUpload[];
+}
+
+interface UploadFileRequest {
+  fileName: string;
+  size: number;
+  contentType: string;
+  width?: number;
+  height?: number;
 }
 
 interface ProcessingStatusResponse {
@@ -562,11 +634,21 @@ export function UploadPage() {
         start += PREPARE_BATCH_SIZE
       ) {
         const batch = filesToUpload.slice(start, start + PREPARE_BATCH_SIZE);
-        const batchFiles = batch.map((item) => ({
-          fileName: item.file.name,
-          size: item.file.size,
-          contentType: item.file.type || "application/octet-stream",
-        }));
+        const batchFiles: UploadFileRequest[] = [];
+        await runWithConcurrency(
+          batch.length,
+          UPLOAD_CONCURRENCY,
+          async (index) => {
+            const item = batch[index];
+            if (!item) return;
+            batchFiles[index] = {
+              fileName: item.file.name,
+              size: item.file.size,
+              contentType: item.file.type || "application/octet-stream",
+              ...(await imageDimensions(item.file)),
+            };
+          },
+        );
 
         // After the first batch, reference the album/event the server returned
         // so we never re-create them and each batch can start uploading as soon
