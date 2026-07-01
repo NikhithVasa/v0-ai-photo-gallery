@@ -280,21 +280,37 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
         imageUrl: person?.coverFaceUrl || target.url,
         label: person ? personName(person) : `Uploaded target ${index + 1}`,
         known: true,
+        originalOrder: index,
       };
     });
 
     const unknownTargets = (timelineVideo.discoveredPeople ?? [])
       .filter((person) => !knownTargets.some((target) => target.index === person.index))
-      .map((person) => ({
+      .map((person, index) => ({
         index: person.index,
         key: `unknown-${person.index}`,
         personId: null,
         imageUrl: person.imageUrl,
         label: person.label,
         known: person.known,
+        originalOrder: knownTargets.length + index,
       }));
 
-    return [...knownTargets, ...unknownTargets];
+    return [...knownTargets, ...unknownTargets]
+      .map((target) => ({
+        ...target,
+        occurrenceCount: timelineVideo.matches.filter((match) => (
+          match.targetIndex === target.index ||
+          match.targetS3Key === target.key ||
+          (Boolean(target.personId) && match.personId === target.personId)
+        )).length,
+      }))
+      .sort((left, right) => {
+        if (right.occurrenceCount !== left.occurrenceCount) {
+          return right.occurrenceCount - left.occurrenceCount;
+        }
+        return left.originalOrder - right.originalOrder;
+      });
   }, [peopleById, timelineVideo]);
 
   const activeTimelineTarget = useMemo(
@@ -1078,6 +1094,9 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                               className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full"
                               style={{ backgroundColor: targetColors[target.index % targetColors.length] }}
                             />
+                            <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-zinc-950 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                              {target.occurrenceCount}
+                            </span>
                           </button>
                         );
                       })}
@@ -1106,11 +1125,13 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                             width: `${Math.max(1, Math.min(100, ((end - start) / duration) * 100))}%`,
                           }}
                         >
-                          {label ? (
-                            <div className="mb-1 max-w-[9rem] truncate rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-semibold text-zinc-700 shadow-sm ring-1 ring-black/5 sm:max-w-[12rem]">
-                              {label}
-                            </div>
-                          ) : null}
+                          <div className="mb-1 flex h-7 w-7 items-center justify-center rounded-full bg-white p-0.5 shadow-sm ring-1 ring-black/10" title={label}>
+                            {target?.imageUrl ? (
+                              <img src={target.imageUrl} alt="" className="h-full w-full rounded-full object-cover" />
+                            ) : (
+                              <User className="h-3.5 w-3.5 text-zinc-500" />
+                            )}
+                          </div>
                           <button
                             type="button"
                             aria-label={`Play match ${index + 1}${label ? ` for ${label}` : ""}`}
