@@ -16,6 +16,7 @@ import {
   Sparkles,
   Upload,
   User,
+  X,
   VideoIcon,
 } from "lucide-react";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
@@ -195,6 +196,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const [aiVideo, setAiVideo] = useState<AlbumVideo | null>(null);
   const [timelineVideo, setTimelineVideo] = useState<AlbumVideo | null>(null);
   const [activeTimelineTargetId, setActiveTimelineTargetId] = useState<string | null>(null);
+  const [previewFace, setPreviewFace] = useState<{ imageUrl: string; label: string } | null>(null);
   const [isTimelinePanelOpen, setIsTimelinePanelOpen] = useState(false);
   const [pendingSeekSec, setPendingSeekSec] = useState<number | null>(null);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
@@ -1134,7 +1136,17 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                             width: `${Math.max(1, Math.min(100, ((end - start) / duration) * 100))}%`,
                           }}
                         >
-                          <div className="mb-1 flex h-7 w-7 origin-bottom items-center justify-center rounded-full bg-white p-0.5 shadow-sm ring-1 ring-black/10 transition-all duration-200 ease-out group-hover:-translate-y-1.5 group-hover:scale-125 group-hover:shadow-[0_10px_24px_rgba(24,24,27,0.22)] group-hover:ring-2 group-hover:ring-white group-focus-within:-translate-y-1.5 group-focus-within:scale-125 group-focus-within:shadow-[0_10px_24px_rgba(24,24,27,0.22)] group-focus-within:ring-2 group-focus-within:ring-white" title={label}>
+                          <div
+                            className="mb-1 flex h-7 w-7 origin-bottom items-center justify-center rounded-full bg-white p-0.5 shadow-sm ring-1 ring-black/10 transition-all duration-200 ease-out group-hover:-translate-y-1.5 group-hover:scale-125 group-hover:shadow-[0_10px_24px_rgba(24,24,27,0.22)] group-hover:ring-2 group-hover:ring-white group-focus-within:-translate-y-1.5 group-focus-within:scale-125 group-focus-within:shadow-[0_10px_24px_rgba(24,24,27,0.22)] group-focus-within:ring-2 group-focus-within:ring-white"
+                            title={target?.imageUrl ? `${label || "Face"} - double-click to preview` : label}
+                            onDoubleClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              if (target?.imageUrl) {
+                                setPreviewFace({ imageUrl: target.imageUrl, label: label || "Face" });
+                              }
+                            }}
+                          >
                             {target?.imageUrl ? (
                               <img src={target.imageUrl} alt="" className="h-full w-full rounded-full object-cover" />
                             ) : (
@@ -1217,6 +1229,28 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
               </aside>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(previewFace)} onOpenChange={(open) => !open && setPreviewFace(null)}>
+        <DialogContent className="w-[min(92vw,560px)] overflow-hidden border-black/10 bg-zinc-950 p-0 text-white shadow-2xl sm:max-w-none">
+          <DialogTitle className="sr-only">{previewFace?.label || "Face preview"}</DialogTitle>
+          <button
+            type="button"
+            onClick={() => setPreviewFace(null)}
+            className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/65"
+            aria-label="Close face preview"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <div className="flex min-h-[320px] items-center justify-center bg-black sm:min-h-[420px]">
+            {previewFace?.imageUrl ? (
+              <img src={previewFace.imageUrl} alt={previewFace.label} className="max-h-[78vh] w-full object-contain" />
+            ) : null}
+          </div>
+          <div className="border-t border-white/10 px-4 py-3 text-sm font-medium text-zinc-100">
+            {previewFace?.label || "Face preview"}
+          </div>
         </DialogContent>
       </Dialog>
     </main>
