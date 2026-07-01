@@ -291,8 +291,8 @@ export async function GET(request: Request, { params }: Props) {
               'framesMatched', m.frames_matched,
               'verified', m.verified,
               'personId', m.person_id,
-              'targetIndex', m.target_index,
-              'targetS3Key', m.target_s3_key
+              'targetIndex', NULLIF(to_jsonb(m)->>'target_index', '')::int,
+              'targetS3Key', to_jsonb(m)->>'target_s3_key'
             )
             ORDER BY m.start_sec ASC
           ) FILTER (WHERE m.id IS NOT NULL),
