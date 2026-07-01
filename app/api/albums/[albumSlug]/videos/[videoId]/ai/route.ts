@@ -199,6 +199,7 @@ export async function POST(request: Request, { params }: Props) {
           storage_album_slug: video.storage_album_slug || albumSlug,
           storage_event_slug: video.storage_event_slug || video.event_slug,
           target_s3_keys: targetKeys,
+          selected_person_ids: uniquePersonIds,
           persist_results: true,
           video_url: videoUrl,
           target_urls: targetUrls,

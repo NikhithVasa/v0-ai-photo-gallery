@@ -10,6 +10,7 @@ import {
   Clock3,
   ImageUp,
   Loader2,
+  Maximize2,
   PlayCircle,
   Sparkles,
   Upload,
@@ -66,6 +67,7 @@ interface AlbumVideo {
   originalS3Key: string | null;
   videoUrl: string | null;
   durationSec: number;
+  detectionParams: Record<string, unknown>;
   targetPersonId: string | null;
   detectionStatus: string;
   detectionError: string | null;
@@ -145,13 +147,22 @@ function personName(person: Person) {
   return person.displayName || person.defaultName || `Person ${person.personNumber}`;
 }
 
+function selectedPersonIdsFromVideo(video?: AlbumVideo | null) {
+  const value = video?.detectionParams?.selected_person_ids;
+  if (!Array.isArray(value)) return video?.targetPersonId ? [video.targetPersonId] : [];
+  return value.filter((item): item is string => typeof item === "string" && item.length > 0);
+}
+
 export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const selfieInputRef = useRef<HTMLInputElement>(null);
+  const timelineVideoRef = useRef<HTMLVideoElement>(null);
   const [selectedEventSlug, setSelectedEventSlug] = useState("");
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [aiVideo, setAiVideo] = useState<AlbumVideo | null>(null);
-  const [selectedPersonId, setSelectedPersonId] = useState<string>("");
+  const [timelineVideo, setTimelineVideo] = useState<AlbumVideo | null>(null);
+  const [pendingSeekSec, setPendingSeekSec] = useState<number | null>(null);
+  const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isRunningAi, setIsRunningAi] = useState(false);
@@ -186,6 +197,56 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     () => videos.find((video) => video.id === selectedVideoId) ?? videos[0] ?? null,
     [selectedVideoId, videos],
   );
+
+  const selectedAiPeople = useMemo(() => {
+    const ids = new Set(selectedPersonIds);
+    return people.filter((person) => ids.has(person.id));
+  }, [people, selectedPersonIds]);
+
+  const selectedVideoPeople = useMemo(() => {
+    const ids = new Set(selectedPersonIdsFromVideo(selectedVideo));
+    return people.filter((person) => ids.has(person.id));
+  }, [people, selectedVideo]);
+
+  const timelineVideoPeople = useMemo(() => {
+    const ids = new Set(selectedPersonIdsFromVideo(timelineVideo));
+    return people.filter((person) => ids.has(person.id));
+  }, [people, timelineVideo]);
+
+  useEffect(() => {
+    if (!timelineVideo || pendingSeekSec === null) return;
+    const timer = window.setTimeout(() => {
+      void seekAndPlay(pendingSeekSec);
+      setPendingSeekSec(null);
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [pendingSeekSec, timelineVideo]);
+
+  function togglePersonSelection(personId: string) {
+    setSelectedPersonIds((current) =>
+      current.includes(personId)
+        ? current.filter((id) => id !== personId)
+        : [...current, personId],
+    );
+  }
+
+  async function seekAndPlay(seconds?: number | null) {
+    const video = timelineVideoRef.current;
+    if (!video || seconds === null || seconds === undefined) return;
+    video.currentTime = Math.max(0, seconds);
+    try {
+      await video.play();
+    } catch {
+      // Browser autoplay policies can block programmatic play until user interaction.
+    }
+  }
+
+  function openTimelineAt(video: AlbumVideo, seconds?: number | null) {
+    setTimelineVideo(video);
+    if (seconds !== null && seconds !== undefined) {
+      setPendingSeekSec(seconds);
+    }
+  }
 
   async function uploadVideo(file: File) {
     if (!selectedEventSlug) {
@@ -261,10 +322,10 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
   async function runAi() {
     if (!aiVideo) return;
-    if (!selectedPersonId && !selfieFile) {
+    if (!selectedPersonIds.length && !selfieFile) {
       toast({
         title: "Choose a target",
-        description: "Select a person from the album or upload a selfie.",
+        description: "Select one or more people from the album or upload a selfie.",
         variant: "destructive",
       });
       return;
@@ -279,7 +340,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            personId: selectedPersonId || null,
+            personIds: selectedPersonIds,
             selfieS3Keys,
           }),
         },
@@ -290,7 +351,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
       toast({ title: "Video AI started", description: "The timeline will update when the worker finishes." });
       setAiVideo(null);
       setSelfieFile(null);
-      setSelectedPersonId("");
+      setSelectedPersonIds([]);
       if (selfieInputRef.current) selfieInputRef.current.value = "";
       await mutate();
     } catch (runError) {
@@ -412,7 +473,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                       onClick={(event) => {
                         event.stopPropagation();
                         setAiVideo(video);
-                        setSelectedPersonId(video.targetPersonId ?? "");
+                        setSelectedPersonIds(video.targetPersonId ? [video.targetPersonId] : []);
                       }}
                     >
                       <Sparkles className="h-4 w-4" />
@@ -470,6 +531,29 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                   </div>
                 </div>
 
+                <Button
+                  type="button"
+                  className="h-11 rounded-xl bg-zinc-950 text-white hover:bg-zinc-800"
+                  onClick={() => openTimelineAt(selectedVideo)}
+                  disabled={!selectedVideo.videoUrl}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                  Open timeline player
+                </Button>
+
+                {selectedVideoPeople.length > 0 && (
+                  <div className="flex flex-wrap gap-2 rounded-xl bg-zinc-100 p-2">
+                    {selectedVideoPeople.map((person) => (
+                      <span key={person.id} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm">
+                        {person.coverFaceUrl ? (
+                          <img src={person.coverFaceUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
+                        ) : null}
+                        {personName(person)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <div className="relative h-5 overflow-hidden rounded-full bg-zinc-100">
                   {selectedVideo.matches.map((match) => {
                     const duration = Math.max(selectedVideo.durationSec, 1);
@@ -491,14 +575,15 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                 <div className="grid gap-2">
                   {selectedVideo.matches.length ? (
                     selectedVideo.matches.map((match, index) => (
-                      <a
+                      <button
                         key={match.id}
-                        href={selectedVideo.videoUrl || undefined}
-                        className="rounded-xl border border-black/10 bg-white p-3 transition hover:border-zinc-950/30"
+                        type="button"
+                        onClick={() => openTimelineAt(selectedVideo, match.startSec)}
+                        className="rounded-xl border border-black/10 bg-white p-3 text-left transition hover:border-zinc-950/30"
                       >
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-sm font-semibold">Match {index + 1}</span>
-                          <span className="text-xs text-zinc-500">
+                          <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-700">
                             {match.startTime || formatDuration(match.startSec)} - {match.endTime || formatDuration(match.endSec)}
                           </span>
                         </div>
@@ -507,7 +592,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                           <span>max {Number(match.maxSimilarity ?? 0).toFixed(3)}</span>
                           <span>avg {Number(match.avgSimilarity ?? 0).toFixed(3)}</span>
                         </div>
-                      </a>
+                      </button>
                     ))
                   ) : (
                     <div className="rounded-xl border border-dashed border-black/15 p-4 text-sm text-zinc-500">
@@ -528,21 +613,26 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
           <DialogHeader>
             <DialogTitle>Run video face AI</DialogTitle>
             <DialogDescription>
-              Choose an album person, upload a selfie, or use both as target images for this video.
+              Choose one or more album people, upload a selfie, or use both as target images for this video.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-5">
             <div className="grid gap-2">
-              <Label>Album people</Label>
+              <div className="flex items-center justify-between gap-3">
+                <Label>Album people</Label>
+                <span className="text-xs font-medium text-zinc-500">
+                  {selectedPersonIds.length} selected
+                </span>
+              </div>
               <div className="grid max-h-72 gap-2 overflow-auto rounded-xl border border-black/10 p-2 sm:grid-cols-2">
                 {people.length ? people.map((person) => {
-                  const active = selectedPersonId === person.id;
+                  const active = selectedPersonIds.includes(person.id);
                   return (
                     <button
                       key={person.id}
                       type="button"
-                      onClick={() => setSelectedPersonId(active ? "" : person.id)}
+                      onClick={() => togglePersonSelection(person.id)}
                       className={`flex items-center gap-3 rounded-xl border p-2 text-left transition ${
                         active ? "border-zinc-950 bg-zinc-950 text-white" : "border-transparent hover:bg-zinc-100"
                       }`}
@@ -570,6 +660,15 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                   <p className="p-3 text-sm text-zinc-500">No indexed people yet. Upload a selfie instead.</p>
                 )}
               </div>
+              {selectedAiPeople.length > 1 && (
+                <div className="flex flex-wrap gap-2 rounded-xl bg-zinc-100 p-2">
+                  {selectedAiPeople.map((person) => (
+                    <span key={person.id} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-zinc-700 shadow-sm">
+                      {personName(person)}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="grid gap-2 rounded-xl border border-black/10 p-4">
@@ -599,6 +698,117 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
               Start AI
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(timelineVideo)} onOpenChange={(open) => !open && setTimelineVideo(null)}>
+        <DialogContent className="grid h-[calc(100vh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden border-black/10 bg-[#111111] p-4 text-white sm:max-w-none">
+          <DialogHeader className="pr-8 text-left">
+            <DialogTitle className="text-xl text-white">{timelineVideo?.fileName || "Video timeline"}</DialogTitle>
+            <DialogDescription className="text-zinc-300">
+              Click an interval to jump to that moment and play the video.
+            </DialogDescription>
+          </DialogHeader>
+
+          {timelineVideo ? (
+            <div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+              <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
+                <div className="min-h-0 overflow-hidden rounded-2xl bg-black">
+                  {timelineVideo.videoUrl ? (
+                    <video
+                      ref={timelineVideoRef}
+                      src={timelineVideo.videoUrl}
+                      controls
+                      playsInline
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-zinc-500">
+                      <VideoIcon className="h-16 w-16" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="mb-3 flex items-center justify-between text-xs text-zinc-300">
+                    <span>0:00</span>
+                    <span>{formatDuration(timelineVideo.durationSec)}</span>
+                  </div>
+                  <div className="relative h-10 overflow-hidden rounded-full bg-white/10">
+                    {timelineVideo.matches.map((match, index) => {
+                      const duration = Math.max(timelineVideo.durationSec, 1);
+                      const start = Math.max(0, Number(match.startSec ?? 0));
+                      const end = Math.max(start + 0.5, Number(match.endSec ?? start + 0.5));
+                      return (
+                        <button
+                          key={match.id}
+                          type="button"
+                          aria-label={`Play match ${index + 1}`}
+                          className="absolute top-1 h-8 rounded-full bg-[#f7d35f] shadow-[0_0_24px_rgba(247,211,95,0.35)] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white"
+                          style={{
+                            left: `${Math.min(100, (start / duration) * 100)}%`,
+                            width: `${Math.max(1, Math.min(100, ((end - start) / duration) * 100))}%`,
+                          }}
+                          onClick={() => void seekAndPlay(match.startSec)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+
+              <aside className="min-h-0 overflow-auto rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs text-zinc-200">
+                  <div className="rounded-xl bg-white/10 p-3">{formatDuration(timelineVideo.durationSec)}</div>
+                  <div className="rounded-xl bg-white/10 p-3">{timelineVideo.matchCount} matches</div>
+                  <div className="rounded-xl bg-white/10 p-3 capitalize">{timelineVideo.detectionStatus}</div>
+                </div>
+
+                {timelineVideoPeople.length > 0 && (
+                  <div className="mb-4 flex flex-wrap gap-2 rounded-xl bg-white/10 p-2">
+                    {timelineVideoPeople.map((person) => (
+                      <span key={person.id} className="inline-flex items-center gap-2 rounded-full bg-black/30 px-3 py-1.5 text-xs font-semibold text-white">
+                        {person.coverFaceUrl ? (
+                          <img src={person.coverFaceUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
+                        ) : null}
+                        {personName(person)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid gap-2">
+                  {timelineVideo.matches.length ? timelineVideo.matches.map((match, index) => (
+                    <button
+                      key={match.id}
+                      type="button"
+                      onClick={() => void seekAndPlay(match.startSec)}
+                      className="rounded-xl border border-white/10 bg-black/25 p-3 text-left transition hover:border-[#f7d35f]/60 hover:bg-black/40"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-semibold">Match {index + 1}</span>
+                        <span className="rounded-full bg-white/10 px-2 py-1 text-xs text-zinc-200">
+                          {match.startTime || formatDuration(match.startSec)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs text-zinc-400">
+                        {match.startTime || formatDuration(match.startSec)} - {match.endTime || formatDuration(match.endSec)}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-300">
+                        <span>{match.framesMatched ?? 0} frames</span>
+                        <span>max {Number(match.maxSimilarity ?? 0).toFixed(3)}</span>
+                        <span>avg {Number(match.avgSimilarity ?? 0).toFixed(3)}</span>
+                      </div>
+                    </button>
+                  )) : (
+                    <div className="rounded-xl border border-dashed border-white/15 p-4 text-sm text-zinc-400">
+                      No AI intervals are available for this video yet.
+                    </div>
+                  )}
+                </div>
+              </aside>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </main>
