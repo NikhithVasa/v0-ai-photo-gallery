@@ -1011,46 +1011,16 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
       </Dialog>
 
       <Dialog open={Boolean(timelineVideo)} onOpenChange={(open) => !open && closeTimeline()}>
-        <DialogContent className="grid h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden border-black/10 bg-[#f5f5f7] p-3 text-zinc-950 shadow-2xl sm:h-[calc(100vh-1.5rem)] sm:w-[calc(100vw-1.5rem)] sm:gap-4 sm:p-4 sm:max-w-none">
-          <DialogHeader className="pr-8 text-left">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <DialogTitle className="truncate text-lg font-semibold tracking-tight text-zinc-950 sm:text-xl">{timelineVideo?.fileName || "Video timeline"}</DialogTitle>
-                <DialogDescription className="text-zinc-500">
-                  Click an interval to jump to that moment and play the video.
-                </DialogDescription>
-              </div>
-              {timelineVideo ? (
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="hidden h-9 rounded-full border-black/10 bg-white/80 px-3 text-zinc-800 hover:bg-white lg:inline-flex"
-                    onClick={() => setIsTimelinePanelOpen((open) => !open)}
-                  >
-                    {isTimelinePanelOpen ? "Hide details" : "Details"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-9 rounded-full border-black/10 bg-white/80 px-3 text-zinc-800 hover:bg-white"
-                    onClick={() => void shareTimeline(timelineVideo)}
-                    aria-label="Share timeline link"
-                  >
-                    <Share2 className="h-4 w-4" />
-                    <span className="hidden sm:inline">Share</span>
-                  </Button>
-                </div>
-              ) : null}
-            </div>
+        <DialogContent className="grid h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[minmax(0,1fr)] gap-3 overflow-hidden border-black/10 bg-[#f5f5f7] p-3 text-zinc-950 shadow-2xl sm:h-[calc(100vh-1.5rem)] sm:w-[calc(100vw-1.5rem)] sm:p-4 sm:max-w-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{timelineVideo?.fileName || "Video timeline"}</DialogTitle>
+            <DialogDescription>Click an interval to jump to that moment and play the video.</DialogDescription>
           </DialogHeader>
 
           {timelineVideo ? (
             <div className={`grid min-h-0 gap-4 ${isTimelinePanelOpen ? "lg:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
               <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
-                <div className="min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
+                <div className="group relative min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
                   {timelineVideo.videoUrl ? (
                     <video
                       ref={timelineVideoRef}
@@ -1064,6 +1034,40 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                       <VideoIcon className="h-16 w-16" />
                     </div>
                   )}
+                  <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/80 via-black/35 to-transparent p-3 text-white opacity-100 transition-opacity duration-200 sm:p-4 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+                    <div className="flex items-start justify-between gap-3 pr-8">
+                      <div className="min-w-0 drop-shadow">
+                        <p className="truncate text-sm font-semibold tracking-tight sm:text-base">{timelineVideo.fileName || "Video timeline"}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-medium text-white/75 sm:text-xs">
+                          <span className="capitalize">{timelineVideo.detectionStatus}</span>
+                          <span>{formatDuration(timelineVideo.durationSec)}</span>
+                          <span>{visibleTimelineMatches.length} matches</span>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="pointer-events-auto hidden h-9 rounded-full border-white/20 bg-black/35 px-3 text-white backdrop-blur hover:bg-black/55 lg:inline-flex"
+                          onClick={() => setIsTimelinePanelOpen((open) => !open)}
+                        >
+                          {isTimelinePanelOpen ? "Hide details" : "Details"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="pointer-events-auto h-9 rounded-full border-white/20 bg-black/35 px-3 text-white backdrop-blur hover:bg-black/55"
+                          onClick={() => void shareTimeline(timelineVideo)}
+                          aria-label="Share timeline link"
+                        >
+                          <Share2 className="h-4 w-4" />
+                          <span className="hidden sm:inline">Share</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="rounded-[1.35rem] border border-black/10 bg-white/80 p-3 shadow-sm backdrop-blur-xl sm:rounded-[1.75rem] sm:p-4">
