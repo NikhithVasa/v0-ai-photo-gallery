@@ -127,11 +127,30 @@ export async function POST(request: Request, { params }: Props) {
     if (uniquePersonIds.length) {
       const people = await query<PersonTargetRow>(
         `
-        SELECT id, cover_face_s3_key
-        FROM people
-        WHERE album_id = $1::uuid
-          AND id = ANY($2::uuid[])
-          AND COALESCE(is_hidden, false) = false
+        SELECT
+          pe.id,
+          COALESCE(
+            pe.cover_face_s3_key,
+            MIN(
+              COALESCE(
+                p.thumbnail_s3_key,
+                p.ai_input_s3_key,
+                p.clean_preview_s3_key,
+                p.watermarked_preview_s3_key
+              )
+            )
+          ) AS cover_face_s3_key
+        FROM people pe
+        LEFT JOIN photo_people pp
+          ON pp.person_id = pe.id
+        LEFT JOIN photos p
+          ON p.id = pp.photo_id
+         AND COALESCE(p.is_deleted, false) = false
+         AND p.upload_status = 'completed'
+        WHERE pe.album_id = $1::uuid
+          AND pe.id = ANY($2::uuid[])
+          AND COALESCE(pe.is_hidden, false) = false
+        GROUP BY pe.id, pe.cover_face_s3_key
         `,
         [video.album_id, uniquePersonIds],
       );

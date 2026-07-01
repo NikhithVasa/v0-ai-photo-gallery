@@ -226,6 +226,8 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     return people.filter((person) => ids.has(person.id));
   }, [people, selectedPersonIds]);
 
+  const allKnownPeopleSelected = people.length > 0 && selectedPersonIds.length === people.length;
+
   const selectedVideoPeople = useMemo(() => {
     const ids = new Set(selectedPersonIdsFromVideo(selectedVideo));
     return people.filter((person) => ids.has(person.id));
@@ -290,6 +292,10 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
         ? current.filter((id) => id !== personId)
         : [...current, personId],
     );
+  }
+
+  function selectAllKnownPeople() {
+    setSelectedPersonIds(people.map((person) => person.id));
   }
 
   async function seekAndPlay(seconds?: number | null) {
@@ -698,6 +704,30 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                   {selectedPersonIds.length} selected
                 </span>
               </div>
+              {people.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={allKnownPeopleSelected ? "default" : "outline"}
+                    size="sm"
+                    className="h-9 rounded-full px-3 text-xs"
+                    onClick={selectAllKnownPeople}
+                  >
+                    All known people
+                  </Button>
+                  {selectedPersonIds.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 rounded-full px-3 text-xs"
+                      onClick={() => setSelectedPersonIds([])}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              )}
               <div className="grid max-h-72 gap-2 overflow-auto rounded-xl border border-black/10 p-2 sm:grid-cols-2">
                 {people.length ? people.map((person) => {
                   const active = selectedPersonIds.includes(person.id);
