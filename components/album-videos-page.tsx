@@ -55,6 +55,16 @@ interface VideoMatch {
   avgSimilarity: number | null;
   framesMatched: number | null;
   verified: boolean | null;
+  personId: string | null;
+  targetIndex: number | null;
+  targetS3Key: string | null;
+}
+
+interface VideoTargetImage {
+  key: string;
+  index: number;
+  personId: string | null;
+  url: string | null;
 }
 
 interface AlbumVideo {
@@ -69,6 +79,7 @@ interface AlbumVideo {
   durationSec: number;
   detectionParams: Record<string, unknown>;
   targetPersonId: string | null;
+  targetImages: VideoTargetImage[];
   detectionStatus: string;
   detectionError: string | null;
   matchCount: number;
@@ -153,6 +164,16 @@ function selectedPersonIdsFromVideo(video?: AlbumVideo | null) {
   return value.filter((item): item is string => typeof item === "string" && item.length > 0);
 }
 
+function targetPersonIdsFromVideo(video?: AlbumVideo | null) {
+  const value = video?.detectionParams?.target_person_ids;
+  if (Array.isArray(value)) {
+    return value.map((item) => (typeof item === "string" && item.length > 0 ? item : null));
+  }
+  return selectedPersonIdsFromVideo(video);
+}
+
+const targetColors = ["#f7d35f", "#78dcca", "#f29ab2", "#9db7ff", "#f5a85f", "#d5a8ff"];
+
 export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const selfieInputRef = useRef<HTMLInputElement>(null);
@@ -161,6 +182,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [aiVideo, setAiVideo] = useState<AlbumVideo | null>(null);
   const [timelineVideo, setTimelineVideo] = useState<AlbumVideo | null>(null);
+  const [activeTimelineTargetIndex, setActiveTimelineTargetIndex] = useState<number | null>(null);
   const [pendingSeekSec, setPendingSeekSec] = useState<number | null>(null);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [selfieFiles, setSelfieFiles] = useState<File[]>([]);
@@ -180,6 +202,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const events = data?.events ?? [];
   const videos = data?.videos ?? [];
   const people = peopleData?.people ?? [];
+  const peopleById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
 
   useEffect(() => {
     if (!selectedEventSlug && events[0]) {
@@ -212,6 +235,37 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     const ids = new Set(selectedPersonIdsFromVideo(timelineVideo));
     return people.filter((person) => ids.has(person.id));
   }, [people, timelineVideo]);
+
+  const timelineTargets = useMemo(() => {
+    if (!timelineVideo) return [];
+    const targetPersonIds = targetPersonIdsFromVideo(timelineVideo);
+
+    return (timelineVideo.targetImages ?? []).map((target, index) => {
+      const personId = target.personId ?? targetPersonIds[index] ?? null;
+      const person = personId ? peopleById.get(personId) ?? null : null;
+      return {
+        index: target.index,
+        key: target.key,
+        imageUrl: person?.coverFaceUrl || target.url,
+        label: person ? personName(person) : `Uploaded target ${index + 1}`,
+      };
+    });
+  }, [peopleById, timelineVideo]);
+
+  const supportsTargetFiltering = useMemo(
+    () => Boolean(timelineVideo?.matches.some((match) => typeof match.targetIndex === "number")),
+    [timelineVideo],
+  );
+
+  const visibleTimelineMatches = useMemo(() => {
+    if (!timelineVideo) return [] as VideoMatch[];
+    if (activeTimelineTargetIndex === null || !supportsTargetFiltering) return timelineVideo.matches;
+    return timelineVideo.matches.filter((match) => match.targetIndex === activeTimelineTargetIndex);
+  }, [activeTimelineTargetIndex, supportsTargetFiltering, timelineVideo]);
+
+  useEffect(() => {
+    setActiveTimelineTargetIndex(null);
+  }, [timelineVideo?.id]);
 
   useEffect(() => {
     if (!timelineVideo || pendingSeekSec === null) return;
@@ -476,7 +530,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                       onClick={(event) => {
                         event.stopPropagation();
                         setAiVideo(video);
-                        setSelectedPersonIds(video.targetPersonId ? [video.targetPersonId] : []);
+                        setSelectedPersonIds(selectedPersonIdsFromVideo(video));
                       }}
                     >
                       <Sparkles className="h-4 w-4" />
@@ -752,24 +806,71 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  {timelineTargets.length > 0 && (
+                    <div className="mb-4 flex items-center gap-3 overflow-x-auto pb-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTimelineTargetIndex(null)}
+                        className={`flex h-11 min-w-11 items-center justify-center rounded-full border text-xs font-bold transition ${
+                          activeTimelineTargetIndex === null
+                            ? "border-[#f7d35f] bg-[#f7d35f] text-black"
+                            : "border-white/15 bg-white/10 text-white hover:bg-white/15"
+                        }`}
+                        aria-label="Show all targets"
+                      >
+                        All
+                      </button>
+                      {timelineTargets.map((target) => {
+                        const active = activeTimelineTargetIndex === target.index;
+                        return (
+                          <button
+                            key={`${target.key}-${target.index}`}
+                            type="button"
+                            onClick={() => setActiveTimelineTargetIndex(active ? null : target.index)}
+                            className={`relative h-12 w-12 shrink-0 rounded-full border-2 transition ${
+                              active ? "border-[#f7d35f]" : "border-white/20 hover:border-white/60"
+                            }`}
+                            title={target.label}
+                            aria-label={`Filter timeline to ${target.label}`}
+                            disabled={!supportsTargetFiltering}
+                          >
+                            {target.imageUrl ? (
+                              <img src={target.imageUrl} alt="" className="h-full w-full rounded-full object-cover" />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center rounded-full bg-white/10 text-white">
+                                <User className="h-4 w-4" />
+                              </span>
+                            )}
+                            <span
+                              className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full"
+                              style={{ backgroundColor: targetColors[target.index % targetColors.length] }}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <div className="mb-3 flex items-center justify-between text-xs text-zinc-300">
                     <span>0:00</span>
                     <span>{formatDuration(timelineVideo.durationSec)}</span>
                   </div>
                   <div className="relative h-10 overflow-hidden rounded-full bg-white/10">
-                    {timelineVideo.matches.map((match, index) => {
+                    {visibleTimelineMatches.map((match, index) => {
                       const duration = Math.max(timelineVideo.durationSec, 1);
                       const start = Math.max(0, Number(match.startSec ?? 0));
                       const end = Math.max(start + 0.5, Number(match.endSec ?? start + 0.5));
+                      const color = targetColors[(match.targetIndex ?? 0) % targetColors.length];
                       return (
                         <button
                           key={match.id}
                           type="button"
                           aria-label={`Play match ${index + 1}`}
-                          className="absolute top-1 h-8 rounded-full bg-[#f7d35f] shadow-[0_0_24px_rgba(247,211,95,0.35)] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white"
+                          className="absolute top-1 h-8 rounded-full shadow-[0_0_24px_rgba(247,211,95,0.25)] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white"
                           style={{
                             left: `${Math.min(100, (start / duration) * 100)}%`,
                             width: `${Math.max(1, Math.min(100, ((end - start) / duration) * 100))}%`,
+                            backgroundColor: color,
                           }}
                           onClick={() => void seekAndPlay(match.startSec)}
                         />
@@ -782,7 +883,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
               <aside className="min-h-0 overflow-auto rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs text-zinc-200">
                   <div className="rounded-xl bg-white/10 p-3">{formatDuration(timelineVideo.durationSec)}</div>
-                  <div className="rounded-xl bg-white/10 p-3">{timelineVideo.matchCount} matches</div>
+                  <div className="rounded-xl bg-white/10 p-3">{visibleTimelineMatches.length} matches</div>
                   <div className="rounded-xl bg-white/10 p-3 capitalize">{timelineVideo.detectionStatus}</div>
                 </div>
 
@@ -800,7 +901,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                 )}
 
                 <div className="grid gap-2">
-                  {timelineVideo.matches.length ? timelineVideo.matches.map((match, index) => (
+                  {visibleTimelineMatches.length ? visibleTimelineMatches.map((match, index) => (
                     <button
                       key={match.id}
                       type="button"
@@ -808,7 +909,13 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                       className="rounded-xl border border-white/10 bg-black/25 p-3 text-left transition hover:border-[#f7d35f]/60 hover:bg-black/40"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-semibold">Match {index + 1}</span>
+                        <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: targetColors[(match.targetIndex ?? 0) % targetColors.length] }}
+                          />
+                          Match {index + 1}
+                        </span>
                         <span className="rounded-full bg-white/10 px-2 py-1 text-xs text-zinc-200">
                           {match.startTime || formatDuration(match.startSec)}
                         </span>

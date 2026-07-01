@@ -58,6 +58,21 @@ interface VideoRow {
   matches: unknown;
 }
 
+interface MatchRow {
+  id?: unknown;
+  startSec?: unknown;
+  endSec?: unknown;
+  startTime?: unknown;
+  endTime?: unknown;
+  maxSimilarity?: unknown;
+  avgSimilarity?: unknown;
+  framesMatched?: unknown;
+  verified?: unknown;
+  personId?: unknown;
+  targetIndex?: unknown;
+  targetS3Key?: unknown;
+}
+
 function slugify(value: string) {
   return (
     value
@@ -113,6 +128,25 @@ function numberValue(value: number | string | null) {
   return 0;
 }
 
+function stringArrayValue(value: unknown) {
+  if (!Array.isArray(value)) return [] as string[];
+  return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function targetPersonIdsValue(value: Record<string, unknown> | null) {
+  const targetPersonIds = value?.target_person_ids;
+  if (Array.isArray(targetPersonIds)) {
+    return targetPersonIds.map((item) => (typeof item === "string" && item ? item : null));
+  }
+
+  const selectedPersonIds = value?.selected_person_ids;
+  if (Array.isArray(selectedPersonIds)) {
+    return selectedPersonIds.map((item) => (typeof item === "string" && item ? item : null));
+  }
+
+  return [] as Array<string | null>;
+}
+
 async function albumBySlug(albumSlug: string) {
   return queryOne<AlbumRow>(
     `
@@ -147,6 +181,8 @@ function buildVideoKey(album: AlbumRow, event: EventRow, videoId: string, fileNa
 
 async function toVideo(row: VideoRow) {
   const matches = Array.isArray(row.matches) ? row.matches : [];
+  const targetKeys = stringArrayValue(row.target_s3_keys);
+  const targetPersonIds = targetPersonIdsValue(row.detection_params);
 
   return {
     id: row.id,
@@ -163,13 +199,32 @@ async function toVideo(row: VideoRow) {
     detectionParams: row.detection_params ?? {},
     targetPersonId: row.target_person_id,
     targetS3Keys: row.target_s3_keys,
+    targetImages: await Promise.all(targetKeys.map(async (key, index) => ({
+      key,
+      index,
+      personId: targetPersonIds[index] ?? null,
+      url: await signedObjectUrl(key),
+    }))),
     runpodEndpointId: row.runpod_endpoint_id,
     runpodJobId: row.runpod_job_id,
     detectionStatus: row.detection_status ?? "pending",
     detectionError: row.detection_error,
     resultJson: row.result_json,
     matchCount: numberValue(row.match_count),
-    matches,
+    matches: (matches as MatchRow[]).map((match) => ({
+      id: String(match.id || ""),
+      startSec: numberValue(match.startSec as number | string | null),
+      endSec: numberValue(match.endSec as number | string | null),
+      startTime: typeof match.startTime === "string" ? match.startTime : null,
+      endTime: typeof match.endTime === "string" ? match.endTime : null,
+      maxSimilarity: numberValue(match.maxSimilarity as number | string | null),
+      avgSimilarity: numberValue(match.avgSimilarity as number | string | null),
+      framesMatched: Number.isFinite(Number(match.framesMatched)) ? Number(match.framesMatched) : null,
+      verified: typeof match.verified === "boolean" ? match.verified : null,
+      personId: typeof match.personId === "string" ? match.personId : null,
+      targetIndex: typeof match.targetIndex === "number" ? match.targetIndex : null,
+      targetS3Key: typeof match.targetS3Key === "string" ? match.targetS3Key : null,
+    })),
     createdAt: dateTimeValue(row.created_at),
     updatedAt: dateTimeValue(row.updated_at),
     completedAt: dateTimeValue(row.completed_at),
@@ -234,7 +289,10 @@ export async function GET(request: Request, { params }: Props) {
               'maxSimilarity', m.max_similarity,
               'avgSimilarity', m.avg_similarity,
               'framesMatched', m.frames_matched,
-              'verified', m.verified
+              'verified', m.verified,
+              'personId', m.person_id,
+              'targetIndex', m.target_index,
+              'targetS3Key', m.target_s3_key
             )
             ORDER BY m.start_sec ASC
           ) FILTER (WHERE m.id IS NOT NULL),

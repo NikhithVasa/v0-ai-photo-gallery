@@ -121,6 +121,7 @@ export async function POST(request: Request, { params }: Props) {
     }
 
     const targetKeys: string[] = [];
+    const targetPersonIds: Array<string | null> = [];
     let targetPersonId: string | null = uniquePersonIds[0] ?? null;
 
     if (uniquePersonIds.length) {
@@ -135,15 +136,18 @@ export async function POST(request: Request, { params }: Props) {
         [video.album_id, uniquePersonIds],
       );
 
-      targetKeys.push(
-        ...people
-          .map((person) => person.cover_face_s3_key)
-          .filter((key): key is string => Boolean(key)),
-      );
+      const peopleById = new Map(people.map((person) => [person.id, person]));
+      for (const personId of uniquePersonIds) {
+        const person = peopleById.get(personId);
+        if (!person?.cover_face_s3_key) continue;
+        targetKeys.push(person.cover_face_s3_key);
+        targetPersonIds.push(person.id);
+      }
       if (!targetPersonId && people[0]?.id) targetPersonId = people[0].id;
     }
 
     targetKeys.push(...selfieS3Keys);
+    targetPersonIds.push(...selfieS3Keys.map(() => null));
 
     const videoUrl = await signedObjectUrl(video.original_s3_key);
     const targetUrls = (
@@ -175,10 +179,16 @@ export async function POST(request: Request, { params }: Props) {
           detection_error = NULL,
           target_person_id = COALESCE($2::uuid, target_person_id),
           target_s3_keys = $3::jsonb,
+          detection_params = COALESCE(detection_params, '{}'::jsonb) || $4::jsonb,
           updated_at = now()
       WHERE id = $1::uuid
       `,
-      [video.id, targetPersonId, JSON.stringify(targetKeys)],
+      [
+        video.id,
+        targetPersonId,
+        JSON.stringify(targetKeys),
+        JSON.stringify({ selected_person_ids: uniquePersonIds, target_person_ids: targetPersonIds }),
+      ],
     );
 
     const response = await fetch(faceOccurrenceLambdaUrl(), {
@@ -199,6 +209,7 @@ export async function POST(request: Request, { params }: Props) {
           storage_album_slug: video.storage_album_slug || albumSlug,
           storage_event_slug: video.storage_event_slug || video.event_slug,
           target_s3_keys: targetKeys,
+          target_person_ids: targetPersonIds,
           selected_person_ids: uniquePersonIds,
           persist_results: true,
           video_url: videoUrl,
