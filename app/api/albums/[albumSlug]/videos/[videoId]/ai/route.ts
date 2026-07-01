@@ -198,9 +198,12 @@ export async function POST(request: Request, { params }: Props) {
       UPDATE videos
       SET detection_status = 'processing',
           detection_error = NULL,
-          target_person_id = COALESCE($2::uuid, target_person_id),
+          target_person_id = $2::uuid,
           target_s3_keys = $3::jsonb,
-          detection_params = COALESCE(detection_params, '{}'::jsonb) || $4::jsonb,
+          detection_params = $4::jsonb,
+          result_json = NULL,
+          match_count = 0,
+          completed_at = NULL,
           updated_at = now()
       WHERE id = $1::uuid
       `,
@@ -215,6 +218,7 @@ export async function POST(request: Request, { params }: Props) {
         }),
       ],
     );
+    await query("DELETE FROM video_face_matches WHERE video_id = $1::uuid", [video.id]);
 
     const response = await fetch(faceOccurrenceLambdaUrl(), {
       method: "POST",
