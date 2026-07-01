@@ -137,6 +137,24 @@ interface AlbumVideosPageProps {
   albumSlug: string;
 }
 
+interface TimelineTarget {
+  id: string;
+  index: number;
+  key: string;
+  personId: string | null;
+  imageUrl: string | null;
+  label: string;
+  known: boolean;
+  originalOrder: number;
+  occurrenceCount: number;
+}
+
+interface TimelineTargetLookup {
+  byIndex: Map<number, TimelineTarget>;
+  byKey: Map<string, TimelineTarget>;
+  byPersonId: Map<string, TimelineTarget>;
+}
+
 function formatDuration(seconds?: number | null) {
   if (!seconds || seconds <= 0) return "--:--";
   const total = Math.round(seconds);
@@ -182,6 +200,25 @@ function targetPersonIdsFromVideo(video?: AlbumVideo | null) {
     return value.map((item) => (typeof item === "string" && item.length > 0 ? item : null));
   }
   return selectedPersonIdsFromVideo(video);
+}
+
+function findTimelineTarget(match: VideoMatch, lookup: TimelineTargetLookup) {
+  if (match.targetIndex !== null) {
+    const target = lookup.byIndex.get(match.targetIndex);
+    if (target) return target;
+  }
+
+  if (match.targetS3Key) {
+    const target = lookup.byKey.get(match.targetS3Key);
+    if (target) return target;
+  }
+
+  if (match.personId) {
+    const target = lookup.byPersonId.get(match.personId);
+    if (target) return target;
+  }
+
+  return null;
 }
 
 const targetColors = ["#8e8e93", "#aeaeb2", "#6e6e73", "#c7c7cc", "#98989d", "#d1d1d6"];
@@ -268,11 +305,11 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     return people.filter((person) => ids.has(person.id));
   }, [people, timelineVideo]);
 
-  const timelineTargets = useMemo(() => {
+  const timelineTargetBase = useMemo(() => {
     if (!timelineVideo) return [];
     const targetPersonIds = targetPersonIdsFromVideo(timelineVideo);
 
-    const knownTargets = (timelineVideo.targetImages ?? []).map((target, index) => {
+    const knownTargets = (timelineVideo.targetImages ?? []).map<TimelineTarget>((target, index) => {
       const personId = target.personId ?? targetPersonIds[index] ?? null;
       const person = personId ? peopleById.get(personId) ?? null : null;
       return {
@@ -284,12 +321,14 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
         label: person ? personName(person) : `Uploaded target ${index + 1}`,
         known: true,
         originalOrder: index,
+        occurrenceCount: 0,
       };
     });
+    const knownTargetIndexes = new Set(knownTargets.map((target) => target.index));
 
     const unknownTargets = (timelineVideo.discoveredPeople ?? [])
-      .filter((person) => !knownTargets.some((target) => target.index === person.index))
-      .map((person, index) => ({
+      .filter((person) => !knownTargetIndexes.has(person.index))
+      .map<TimelineTarget>((person, index) => ({
         id: `unknown-${person.index}`,
         index: person.index,
         key: `unknown-${person.index}`,
@@ -298,16 +337,41 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
         label: person.label,
         known: person.known,
         originalOrder: knownTargets.length + index,
+        occurrenceCount: 0,
       }));
 
-    return [...knownTargets, ...unknownTargets]
+    return [...knownTargets, ...unknownTargets];
+  }, [peopleById, timelineVideo]);
+
+  const timelineTargetLookup = useMemo<TimelineTargetLookup>(() => {
+    const lookup: TimelineTargetLookup = {
+      byIndex: new Map(),
+      byKey: new Map(),
+      byPersonId: new Map(),
+    };
+
+    for (const target of timelineTargetBase) {
+      lookup.byIndex.set(target.index, target);
+      lookup.byKey.set(target.key, target);
+      if (target.personId) lookup.byPersonId.set(target.personId, target);
+    }
+
+    return lookup;
+  }, [timelineTargetBase]);
+
+  const timelineTargets = useMemo(() => {
+    if (!timelineVideo) return [];
+    const occurrenceCounts = new Map<string, number>();
+
+    for (const match of timelineVideo.matches) {
+      const target = findTimelineTarget(match, timelineTargetLookup);
+      if (target) occurrenceCounts.set(target.id, (occurrenceCounts.get(target.id) ?? 0) + 1);
+    }
+
+    return timelineTargetBase
       .map((target) => ({
         ...target,
-        occurrenceCount: timelineVideo.matches.filter((match) => (
-          match.targetIndex === target.index ||
-          match.targetS3Key === target.key ||
-          (Boolean(target.personId) && match.personId === target.personId)
-        )).length,
+        occurrenceCount: occurrenceCounts.get(target.id) ?? 0,
       }))
       .filter((target) => target.occurrenceCount > 0)
       .sort((left, right) => {
@@ -316,30 +380,19 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
         }
         return left.originalOrder - right.originalOrder;
       });
-  }, [peopleById, timelineVideo]);
+  }, [timelineTargetBase, timelineTargetLookup, timelineVideo]);
 
   const activeTimelineTarget = useMemo(
     () => timelineTargets.find((target) => target.id === activeTimelineTargetId) ?? null,
     [activeTimelineTargetId, timelineTargets],
   );
 
-  function timelineTargetMatches(
-    target: (typeof timelineTargets)[number],
-    match: VideoMatch,
-  ) {
-    return (
-      match.targetIndex === target.index ||
-      match.targetS3Key === target.key ||
-      (Boolean(target.personId) && match.personId === target.personId)
-    );
-  }
-
   const visibleTimelineMatches = useMemo(() => {
     if (!timelineVideo) return [] as VideoMatch[];
     if (!activeTimelineTarget) return timelineVideo.matches;
 
-    return timelineVideo.matches.filter((match) => timelineTargetMatches(activeTimelineTarget, match));
-  }, [activeTimelineTarget, timelineVideo]);
+    return timelineVideo.matches.filter((match) => findTimelineTarget(match, timelineTargetLookup)?.id === activeTimelineTarget.id);
+  }, [activeTimelineTarget, timelineTargetLookup, timelineVideo]);
 
   const timelineMatchesHaveTargetData = useMemo(
     () => Boolean(timelineVideo?.matches.some((match) => (
@@ -436,7 +489,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   }
 
   function targetForMatch(match: VideoMatch) {
-    return timelineTargets.find((target) => timelineTargetMatches(target, match)) ?? null;
+    return findTimelineTarget(match, timelineTargetLookup);
   }
 
   async function uploadVideo(file: File) {
@@ -788,7 +841,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                     {selectedVideoPeople.map((person) => (
                       <span key={person.id} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm">
                         {person.coverFaceUrl ? (
-                          <img src={person.coverFaceUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
+                            <img src={person.coverFaceUrl} alt="" loading="lazy" decoding="async" className="h-5 w-5 rounded-full object-cover" />
                         ) : null}
                         {personName(person)}
                       </span>
@@ -916,6 +969,8 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                         <img
                           src={person.coverFaceUrl}
                           alt={personName(person)}
+                          loading="lazy"
+                          decoding="async"
                           className="h-12 w-12 rounded-full object-cover"
                         />
                       ) : (
@@ -1099,7 +1154,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                             aria-label={`Filter timeline to ${target.label}`}
                           >
                             {target.imageUrl ? (
-                              <img src={target.imageUrl} alt="" className="h-full w-full rounded-full object-cover shadow-sm" />
+                              <img src={target.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full rounded-full object-cover shadow-sm" />
                             ) : (
                               <span className="flex h-full w-full items-center justify-center rounded-full bg-zinc-100 text-zinc-500 shadow-sm">
                                 <User className="h-4 w-4" />
@@ -1152,7 +1207,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                             }}
                           >
                             {target?.imageUrl ? (
-                              <img src={target.imageUrl} alt="" className="h-full w-full rounded-full object-cover" />
+                              <img src={target.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full rounded-full object-cover" />
                             ) : (
                               <User className="h-3.5 w-3.5 text-zinc-500" />
                             )}
@@ -1187,7 +1242,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                     {timelineVideoPeople.map((person) => (
                       <span key={person.id} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm">
                         {person.coverFaceUrl ? (
-                          <img src={person.coverFaceUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
+                          <img src={person.coverFaceUrl} alt="" loading="lazy" decoding="async" className="h-5 w-5 rounded-full object-cover" />
                         ) : null}
                         {personName(person)}
                       </span>

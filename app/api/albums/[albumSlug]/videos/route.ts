@@ -237,11 +237,17 @@ function targetImageIndexesForMatches(
   targetPersonIds: Array<string | null>,
 ) {
   const indexes = new Set<number>();
+  const targetKeyIndexes = new Map(targetKeys.map((key, index) => [key, index]));
 
   for (const match of matches) {
     if (match.targetIndex !== null && match.targetIndex >= 0 && match.targetIndex < targetKeys.length) {
       indexes.add(match.targetIndex);
       continue;
+    }
+
+    if (match.targetS3Key) {
+      const targetIndex = targetKeyIndexes.get(match.targetS3Key);
+      if (targetIndex !== undefined) indexes.add(targetIndex);
     }
 
     if (match.personId) {
