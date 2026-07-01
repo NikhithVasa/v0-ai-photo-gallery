@@ -73,6 +73,8 @@ interface DiscoveredVideoPerson {
   label: string;
   known: boolean;
   framesMatched: number | null;
+  thumbnailS3Key: string | null;
+  imageUrl: string | null;
 }
 
 interface AlbumVideo {
@@ -287,7 +289,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
         index: person.index,
         key: `unknown-${person.index}`,
         personId: null,
-        imageUrl: null,
+        imageUrl: person.imageUrl,
         label: person.label,
         known: person.known,
       }));

@@ -88,6 +88,8 @@ interface DiscoveredPersonRow {
   label?: unknown;
   known?: unknown;
   frames_matched?: unknown;
+  thumbnail_s3_key?: unknown;
+  thumbnailS3Key?: unknown;
 }
 
 function slugify(value: string) {
@@ -173,6 +175,10 @@ function discoveredPeopleValue(value: Record<string, unknown> | null) {
     label: typeof person.label === "string" && person.label ? person.label : `Unknown person ${index + 1}`,
     known: person.known === true,
     framesMatched: Number.isFinite(Number(person.frames_matched)) ? Number(person.frames_matched) : null,
+    thumbnailS3Key:
+      (typeof person.thumbnail_s3_key === "string" && person.thumbnail_s3_key) ||
+      (typeof person.thumbnailS3Key === "string" && person.thumbnailS3Key) ||
+      null,
   }));
 }
 
@@ -267,6 +273,7 @@ async function toVideo(row: VideoRow) {
   const dbHasTargetData = dbMatches.some((match) => match.targetIndex !== null || Boolean(match.targetS3Key));
   const resultHasTargetData = resultMatches.some((match) => match.targetIndex !== null || Boolean(match.targetS3Key));
   const timelineMatches = (!dbMatches.length || !dbHasTargetData) && resultHasTargetData ? resultMatches : dbMatches;
+  const discoveredPeople = discoveredPeopleValue(resultJson);
 
   return {
     id: row.id,
@@ -289,7 +296,10 @@ async function toVideo(row: VideoRow) {
       personId: targetPersonIds[index] ?? null,
       url: await signedObjectUrl(key),
     }))),
-    discoveredPeople: discoveredPeopleValue(resultJson),
+    discoveredPeople: await Promise.all(discoveredPeople.map(async (person) => ({
+      ...person,
+      imageUrl: await signedObjectUrl(person.thumbnailS3Key),
+    }))),
     runpodEndpointId: row.runpod_endpoint_id,
     runpodJobId: row.runpod_job_id,
     detectionStatus: row.detection_status ?? "pending",
