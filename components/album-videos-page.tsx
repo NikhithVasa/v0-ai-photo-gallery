@@ -234,7 +234,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   const [isTimelinePanelOpen, setIsTimelinePanelOpen] = useState(false);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [selfieFiles, setSelfieFiles] = useState<File[]>([]);
-  const [discoverPeople, setDiscoverPeople] = useState(true);
+  const [discoverPeople, setDiscoverPeople] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isRunningAi, setIsRunningAi] = useState(false);
 
@@ -407,11 +407,20 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
 
   function selectAllKnownPeople() {
     setSelectedPersonIds(people.map((person) => person.id));
+    setDiscoverPeople(false);
   }
 
   function selectAllKnownAndUnknownPeople() {
     setSelectedPersonIds(people.map((person) => person.id));
     setDiscoverPeople(true);
+  }
+
+  function openAiDialog(video: AlbumVideo) {
+    setAiVideo(video);
+    setSelectedPersonIds([]);
+    setSelfieFiles([]);
+    setDiscoverPeople(false);
+    if (selfieInputRef.current) selfieInputRef.current.value = "";
   }
 
   async function seekAndPlay(seconds?: number | null) {
@@ -559,7 +568,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
       toast({ title: "Video AI started", description: "The timeline will update when the worker finishes." });
       setAiVideo(null);
       setSelfieFiles([]);
-      setDiscoverPeople(true);
+      setDiscoverPeople(false);
       setSelectedPersonIds([]);
       if (selfieInputRef.current) selfieInputRef.current.value = "";
       await mutate();
@@ -971,8 +980,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                       className="absolute right-3 top-3 rounded-full bg-white text-zinc-950 shadow hover:bg-zinc-100"
                       onClick={(event) => {
                         event.stopPropagation();
-                        setAiVideo(video);
-                        setSelectedPersonIds(selectedPersonIdsFromVideo(video));
+                        openAiDialog(video);
                       }}
                     >
                       <Sparkles className="h-4 w-4" />
@@ -1118,7 +1126,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-zinc-900">Find people not already known</span>
                   <span className="block text-xs text-zinc-500">
-                    The worker will compare video faces against selected known people and group unmatched faces as unknown people.
+                    Slower full-video scan. Leave off for fast matching against selected people or uploaded target images.
                   </span>
                 </span>
               </label>
@@ -1131,7 +1139,11 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                   type="file"
                   multiple
                   accept="image/jpeg,image/png,image/webp,image/*"
-                  onChange={(event) => setSelfieFiles(Array.from(event.target.files ?? []))}
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    setSelfieFiles(files);
+                    if (files.length > 0) setDiscoverPeople(false);
+                  }}
                 />
                 <div className="flex min-w-0 items-center gap-2 text-sm text-zinc-500">
                   <ImageUp className="h-4 w-4 shrink-0" />
