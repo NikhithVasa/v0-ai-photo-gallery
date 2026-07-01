@@ -22,6 +22,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  HardDrive,
   Link2,
   Loader2,
   LayoutTemplate,
@@ -190,6 +191,15 @@ interface AlbumStatsResponse {
   stats: {
     photoCount: number;
     peopleCount: number;
+    storage?: {
+      prefix: string;
+      bytes: number;
+      objectCount: number;
+      gb: number;
+      estimatedMonthlyUsd: number;
+      pricePerGbMonth: number;
+      included: boolean;
+    };
     events: {
       eventId: string;
       photoCount: number;
@@ -249,6 +259,45 @@ function formatAlbumDate(value?: string | null) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(year, month - 1, day));
+}
+
+function formatStorageBytes(bytes?: number | null) {
+  const value = Math.max(0, bytes ?? 0);
+  if (value < 1024) return `${value} B`;
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = value / 1024;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${size >= 10 ? size.toFixed(1) : size.toFixed(2)} ${units[unitIndex]}`;
+}
+
+function formatUsd(value?: number | null) {
+  const amount = Math.max(0, value ?? 0);
+  if (amount > 0 && amount < 0.01) return "<$0.01";
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: amount < 10 ? 2 : 0,
+    maximumFractionDigits: amount < 10 ? 2 : 0,
+  }).format(amount);
+}
+
+function formatMonthlyStorageCost(value?: number | null) {
+  const amount = Math.max(0, value ?? 0);
+  if (amount > 0 && amount < 0.01) return "<$0.01/mo";
+
+  return `${formatUsd(amount)}/mo`;
+}
+
+function formatObjectCount(value?: number | null) {
+  return new Intl.NumberFormat("en-US").format(Math.max(0, value ?? 0));
 }
 
 function todayIsoDate() {
@@ -2347,6 +2396,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   }, [album?.events, moveTargetEventSlug, selectedEventSlug]);
 
   const albumDateLabel = formatAlbumDate(album?.albumDate);
+  const albumStorage = statsData?.stats.storage;
+  const albumStorageTitle = albumStorage?.included
+    ? `Estimated S3 Standard storage for ${albumStorage.prefix}: ${formatStorageBytes(albumStorage.bytes)} across ${formatObjectCount(albumStorage.objectCount)} objects at ${formatUsd(albumStorage.pricePerGbMonth)} per GB-month. Excludes requests, transfer, CloudFront, Lambda, and database costs.`
+    : "";
   const coverCreditName = album?.customer?.name || album?.name || "";
   const { data: publicShareData, isLoading: isLoadingPublicShare } =
     useSWR<PublicShareResponse>(
@@ -4060,6 +4113,22 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 >
                   <Search className="h-5 w-5" />
                 </button>
+              )}
+
+              {!isShareView && albumStorage?.included && (
+                <div
+                  className="hidden h-10 shrink-0 items-center gap-2 rounded-full bg-white/70 px-3 text-xs font-semibold text-zinc-700 ring-1 ring-inset ring-black/10 backdrop-blur md:flex"
+                  title={albumStorageTitle}
+                  aria-label={`Estimated storage cost ${formatMonthlyStorageCost(albumStorage.estimatedMonthlyUsd)}`}
+                >
+                  <HardDrive className="h-4 w-4 text-zinc-500" />
+                  <span className="text-zinc-950">
+                    {formatMonthlyStorageCost(albumStorage.estimatedMonthlyUsd)}
+                  </span>
+                  <span className="hidden text-zinc-500 xl:inline">
+                    {formatStorageBytes(albumStorage.bytes)}
+                  </span>
+                </div>
               )}
 
               {!isShareView && <AuthAvatarMenu />}

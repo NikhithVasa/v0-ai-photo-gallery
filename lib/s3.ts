@@ -12,6 +12,7 @@ const globalForS3 = globalThis as unknown as {
   s3Client: S3Client | undefined;
   signedUrlCache: Map<string, { url: string; expiresAt: number }> | undefined;
   s3ListCache: Map<string, { keys: string[]; expiresAt: number }> | undefined;
+  s3StatsCache: Map<string, { bytes: number; objectCount: number; expiresAt: number }> | undefined;
 };
 
 export const s3 =
@@ -30,10 +31,13 @@ const signedUrlCache =
   globalForS3.signedUrlCache ?? new Map<string, { url: string; expiresAt: number }>();
 const s3ListCache =
   globalForS3.s3ListCache ?? new Map<string, { keys: string[]; expiresAt: number }>();
+const s3StatsCache =
+  globalForS3.s3StatsCache ?? new Map<string, { bytes: number; objectCount: number; expiresAt: number }>();
 
 if (process.env.NODE_ENV !== "production") {
   globalForS3.signedUrlCache = signedUrlCache;
   globalForS3.s3ListCache = s3ListCache;
+  globalForS3.s3StatsCache = s3StatsCache;
 }
 
 const SIGNED_URL_SECONDS = 60 * 60;
@@ -96,6 +100,7 @@ function clearS3CachesForKey(key: string) {
     }
   }
   s3ListCache.clear();
+  s3StatsCache.clear();
 }
 
 export function derivedThumbnailKey(
@@ -152,6 +157,45 @@ export async function listS3Keys(prefix?: string | null) {
     expiresAt: Date.now() + S3_LIST_CACHE_MS,
   });
   return keys;
+}
+
+export async function s3PrefixStorageStats(prefix?: string | null) {
+  if (!prefix) return { bytes: 0, objectCount: 0 };
+
+  const cached = s3StatsCache.get(prefix);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { bytes: cached.bytes, objectCount: cached.objectCount };
+  }
+
+  let bytes = 0;
+  let objectCount = 0;
+  let continuationToken: string | undefined;
+
+  do {
+    const response = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: process.env.S3_BUCKET!,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      })
+    );
+
+    for (const object of response.Contents ?? []) {
+      if (!object.Key || object.Key.endsWith("/")) continue;
+      objectCount += 1;
+      bytes += object.Size ?? 0;
+    }
+
+    continuationToken = response.NextContinuationToken;
+  } while (continuationToken);
+
+  s3StatsCache.set(prefix, {
+    bytes,
+    objectCount,
+    expiresAt: Date.now() + S3_LIST_CACHE_MS,
+  });
+
+  return { bytes, objectCount };
 }
 
 export async function signedUrl(key?: string | null): Promise<string | null> {
