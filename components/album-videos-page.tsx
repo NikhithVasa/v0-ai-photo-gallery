@@ -246,22 +246,30 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
       return {
         index: target.index,
         key: target.key,
+        personId,
         imageUrl: person?.coverFaceUrl || target.url,
         label: person ? personName(person) : `Uploaded target ${index + 1}`,
       };
     });
   }, [peopleById, timelineVideo]);
 
-  const supportsTargetFiltering = useMemo(
-    () => Boolean(timelineVideo?.matches.some((match) => typeof match.targetIndex === "number")),
-    [timelineVideo],
+  const activeTimelineTarget = useMemo(
+    () => timelineTargets.find((target) => target.index === activeTimelineTargetIndex) ?? null,
+    [activeTimelineTargetIndex, timelineTargets],
   );
 
   const visibleTimelineMatches = useMemo(() => {
     if (!timelineVideo) return [] as VideoMatch[];
-    if (activeTimelineTargetIndex === null || !supportsTargetFiltering) return timelineVideo.matches;
-    return timelineVideo.matches.filter((match) => match.targetIndex === activeTimelineTargetIndex);
-  }, [activeTimelineTargetIndex, supportsTargetFiltering, timelineVideo]);
+    if (!activeTimelineTarget) return timelineVideo.matches;
+
+    const filtered = timelineVideo.matches.filter((match) => (
+      match.targetIndex === activeTimelineTarget.index ||
+      match.targetS3Key === activeTimelineTarget.key ||
+      (Boolean(activeTimelineTarget.personId) && match.personId === activeTimelineTarget.personId)
+    ));
+
+    return filtered.length ? filtered : timelineVideo.matches;
+  }, [activeTimelineTarget, timelineVideo]);
 
   useEffect(() => {
     setActiveTimelineTargetIndex(null);
@@ -300,6 +308,14 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     if (seconds !== null && seconds !== undefined) {
       setPendingSeekSec(seconds);
     }
+  }
+
+  function targetForMatch(match: VideoMatch) {
+    return timelineTargets.find((target) => (
+      match.targetIndex === target.index ||
+      match.targetS3Key === target.key ||
+      (Boolean(target.personId) && match.personId === target.personId)
+    )) ?? null;
   }
 
   async function uploadVideo(file: File) {
@@ -807,11 +823,11 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   {timelineTargets.length > 0 && (
-                    <div className="mb-4 flex items-center gap-3 overflow-x-auto pb-1">
+                    <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-2 sm:gap-3">
                       <button
                         type="button"
                         onClick={() => setActiveTimelineTargetIndex(null)}
-                        className={`flex h-11 min-w-11 items-center justify-center rounded-full border text-xs font-bold transition ${
+                        className={`flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border text-xs font-bold transition sm:h-12 sm:min-w-12 ${
                           activeTimelineTargetIndex === null
                             ? "border-[#f7d35f] bg-[#f7d35f] text-black"
                             : "border-white/15 bg-white/10 text-white hover:bg-white/15"
@@ -827,12 +843,11 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                             key={`${target.key}-${target.index}`}
                             type="button"
                             onClick={() => setActiveTimelineTargetIndex(active ? null : target.index)}
-                            className={`relative h-12 w-12 shrink-0 rounded-full border-2 transition ${
+                            className={`group relative flex h-14 w-14 shrink-0 cursor-pointer flex-col items-center justify-center rounded-full border-2 transition sm:h-16 sm:w-16 ${
                               active ? "border-[#f7d35f]" : "border-white/20 hover:border-white/60"
                             }`}
                             title={target.label}
                             aria-label={`Filter timeline to ${target.label}`}
-                            disabled={!supportsTargetFiltering}
                           >
                             {target.imageUrl ? (
                               <img src={target.imageUrl} alt="" className="h-full w-full rounded-full object-cover" />
@@ -855,25 +870,37 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                     <span>0:00</span>
                     <span>{formatDuration(timelineVideo.durationSec)}</span>
                   </div>
-                  <div className="relative h-10 overflow-hidden rounded-full bg-white/10">
+                  <div className="relative h-20 overflow-hidden rounded-2xl bg-white/10 sm:h-16">
                     {visibleTimelineMatches.map((match, index) => {
                       const duration = Math.max(timelineVideo.durationSec, 1);
                       const start = Math.max(0, Number(match.startSec ?? 0));
                       const end = Math.max(start + 0.5, Number(match.endSec ?? start + 0.5));
-                      const color = targetColors[(match.targetIndex ?? 0) % targetColors.length];
+                      const target = targetForMatch(match) ?? activeTimelineTarget;
+                      const targetIndex = target?.index ?? match.targetIndex ?? 0;
+                      const color = targetColors[targetIndex % targetColors.length];
+                      const label = target?.label;
                       return (
-                        <button
+                        <div
                           key={match.id}
-                          type="button"
-                          aria-label={`Play match ${index + 1}`}
-                          className="absolute top-1 h-8 rounded-full shadow-[0_0_24px_rgba(247,211,95,0.25)] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white"
+                          className="absolute top-2"
                           style={{
                             left: `${Math.min(100, (start / duration) * 100)}%`,
                             width: `${Math.max(1, Math.min(100, ((end - start) / duration) * 100))}%`,
-                            backgroundColor: color,
                           }}
-                          onClick={() => void seekAndPlay(match.startSec)}
-                        />
+                        >
+                          {label ? (
+                            <div className="mb-1 max-w-[9rem] truncate rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm sm:max-w-[12rem]">
+                              {label}
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            aria-label={`Play match ${index + 1}${label ? ` for ${label}` : ""}`}
+                            className="h-8 w-full rounded-full shadow-[0_0_24px_rgba(247,211,95,0.25)] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white"
+                            style={{ backgroundColor: color }}
+                            onClick={() => void seekAndPlay(match.startSec)}
+                          />
+                        </div>
                       );
                     })}
                   </div>
