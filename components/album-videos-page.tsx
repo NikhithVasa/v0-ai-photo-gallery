@@ -6,11 +6,8 @@ import useSWR from "swr";
 import {
   AlertCircle,
   ArrowLeft,
-  CheckCircle2,
-  Clock3,
   ImageUp,
   Loader2,
-  Maximize2,
   PlayCircle,
   Share2,
   Sparkles,
@@ -135,6 +132,7 @@ interface PreparedTargetUpload {
 
 interface AlbumVideosPageProps {
   albumSlug: string;
+  timelineVideoId?: string;
 }
 
 interface TimelineTarget {
@@ -223,19 +221,17 @@ function findTimelineTarget(match: VideoMatch, lookup: TimelineTargetLookup) {
 
 const targetColors = ["#8e8e93", "#aeaeb2", "#6e6e73", "#c7c7cc", "#98989d", "#d1d1d6"];
 
-export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
+export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageProps) {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const selfieInputRef = useRef<HTMLInputElement>(null);
   const timelineVideoRef = useRef<HTMLVideoElement>(null);
-  const openedTimelineFromUrlRef = useRef(false);
+  const isTimelineRoute = Boolean(timelineVideoId);
   const [selectedEventSlug, setSelectedEventSlug] = useState("");
-  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [aiVideo, setAiVideo] = useState<AlbumVideo | null>(null);
   const [timelineVideo, setTimelineVideo] = useState<AlbumVideo | null>(null);
   const [activeTimelineTargetId, setActiveTimelineTargetId] = useState<string | null>(null);
   const [previewFace, setPreviewFace] = useState<{ imageUrl: string; label: string } | null>(null);
   const [isTimelinePanelOpen, setIsTimelinePanelOpen] = useState(false);
-  const [pendingSeekSec, setPendingSeekSec] = useState<number | null>(null);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [selfieFiles, setSelfieFiles] = useState<File[]>([]);
   const [discoverPeople, setDiscoverPeople] = useState(true);
@@ -264,29 +260,22 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   }, [events, selectedEventSlug]);
 
   useEffect(() => {
-    if (!selectedVideoId && videos[0]) {
-      setSelectedVideoId(videos[0].id);
-    }
-  }, [selectedVideoId, videos]);
+    if (!timelineVideoId || !videos.length) return;
+    const video = videos.find((item) => item.id === timelineVideoId) ?? null;
+    setTimelineVideo(video);
+    setIsTimelinePanelOpen(false);
+  }, [timelineVideoId, videos]);
 
   useEffect(() => {
-    if (openedTimelineFromUrlRef.current || !videos.length || typeof window === "undefined") return;
-    const timelineVideoId = new URLSearchParams(window.location.search).get("timeline");
-    if (!timelineVideoId) return;
+    if (isTimelineRoute || !videos.length || typeof window === "undefined") return;
+    const legacyTimelineVideoId = new URLSearchParams(window.location.search).get("timeline");
+    if (!legacyTimelineVideoId) return;
 
-    const video = videos.find((item) => item.id === timelineVideoId);
+    const video = videos.find((item) => item.id === legacyTimelineVideoId);
     if (!video) return;
 
-    openedTimelineFromUrlRef.current = true;
-    setSelectedVideoId(video.id);
-    setIsTimelinePanelOpen(false);
-    setTimelineVideo(video);
-  }, [videos]);
-
-  const selectedVideo = useMemo(
-    () => videos.find((video) => video.id === selectedVideoId) ?? videos[0] ?? null,
-    [selectedVideoId, videos],
-  );
+    window.location.replace(`/albums/${encodeURIComponent(albumSlug)}/videos/${encodeURIComponent(video.id)}`);
+  }, [albumSlug, isTimelineRoute, videos]);
 
   const selectedAiPeople = useMemo(() => {
     const ids = new Set(selectedPersonIds);
@@ -294,11 +283,6 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   }, [people, selectedPersonIds]);
 
   const allKnownPeopleSelected = people.length > 0 && selectedPersonIds.length === people.length;
-
-  const selectedVideoPeople = useMemo(() => {
-    const ids = new Set(selectedPersonIdsFromVideo(selectedVideo));
-    return people.filter((person) => ids.has(person.id));
-  }, [people, selectedVideo]);
 
   const timelineVideoPeople = useMemo(() => {
     const ids = new Set(selectedPersonIdsFromVideo(timelineVideo));
@@ -413,15 +397,6 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     setActiveTimelineTargetId(null);
   }, [timelineVideo?.id]);
 
-  useEffect(() => {
-    if (!timelineVideo || pendingSeekSec === null) return;
-    const timer = window.setTimeout(() => {
-      void seekAndPlay(pendingSeekSec);
-      setPendingSeekSec(null);
-    }, 80);
-    return () => window.clearTimeout(timer);
-  }, [pendingSeekSec, timelineVideo]);
-
   function togglePersonSelection(personId: string) {
     setSelectedPersonIds((current) =>
       current.includes(personId)
@@ -450,19 +425,15 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     }
   }
 
-  function openTimelineAt(video: AlbumVideo, seconds?: number | null) {
-    setTimelineVideo(video);
-    setIsTimelinePanelOpen(false);
-    if (seconds !== null && seconds !== undefined) {
-      setPendingSeekSec(seconds);
-    }
+  function timelineHref(videoId: string) {
+    return `/albums/${encodeURIComponent(albumSlug)}/videos/${encodeURIComponent(videoId)}`;
   }
 
   function timelineShareUrl(video: AlbumVideo) {
     if (typeof window === "undefined") return "";
     const url = new URL(window.location.href);
-    url.pathname = `/albums/${encodeURIComponent(albumSlug)}/videos`;
-    url.searchParams.set("timeline", video.id);
+    url.pathname = timelineHref(video.id);
+    url.search = "";
     return url.toString();
   }
 
@@ -476,16 +447,6 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     } catch {
       toast({ title: "Could not copy link", description: url, variant: "destructive" });
     }
-  }
-
-  function closeTimeline() {
-    setTimelineVideo(null);
-    if (typeof window === "undefined") return;
-
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has("timeline")) return;
-    url.searchParams.delete("timeline");
-    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }
 
   function targetForMatch(match: VideoMatch) {
@@ -521,7 +482,6 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
       if (!uploadResponse.ok) throw new Error("S3 upload failed");
 
       toast({ title: "Video uploaded", description: prepared.video.fileName });
-      setSelectedVideoId(prepared.video.id);
       await mutate();
     } catch (uploadError) {
       toast({
@@ -614,6 +574,298 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     }
   }
 
+  if (isTimelineRoute) {
+    return (
+      <main className="min-h-screen bg-[#f5f5f7] text-zinc-950">
+        <div className="mx-auto grid min-h-screen w-full max-w-7xl grid-rows-[auto_minmax(0,1fr)] gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
+          <header className="flex items-center justify-between gap-3 rounded-[1.35rem] border border-black/10 bg-white/80 px-3 py-2 shadow-sm backdrop-blur-xl sm:rounded-[1.75rem] sm:px-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <Button asChild variant="ghost" size="icon" className="rounded-full">
+                <Link href={`/albums/${encodeURIComponent(albumSlug)}/videos`} aria-label="Back to videos">
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+              </Button>
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold tracking-tight sm:text-lg">
+                  {timelineVideo?.fileName || (isLoading ? "Loading video" : "Video")}
+                </p>
+                {timelineVideo ? (
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs font-medium text-zinc-500">
+                    <span className="capitalize">{timelineVideo.detectionStatus}</span>
+                    <span>{formatDuration(timelineVideo.durationSec)}</span>
+                    <span>{visibleTimelineMatches.length} matches</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            {timelineVideo ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-full border-black/10 bg-white px-3 text-zinc-800 hover:bg-zinc-50"
+                onClick={() => void shareTimeline(timelineVideo)}
+              >
+                <Share2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Share</span>
+              </Button>
+            ) : null}
+          </header>
+
+          {error ? (
+            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <AlertCircle className="h-4 w-4" />
+              {error.message}
+            </div>
+          ) : null}
+
+          {!timelineVideo ? (
+            <div className="flex min-h-[420px] items-center justify-center rounded-[1.75rem] border border-dashed border-black/15 bg-white/70 p-8 text-center text-sm font-medium text-zinc-500">
+              {isLoading ? "Loading video..." : "This video could not be found."}
+            </div>
+          ) : (
+            <div className={`grid min-h-0 gap-4 ${isTimelinePanelOpen ? "lg:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
+              <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
+                <div className="group relative min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
+                  {timelineVideo.videoUrl ? (
+                    <video
+                      ref={timelineVideoRef}
+                      src={timelineVideo.videoUrl}
+                      controls
+                      playsInline
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-zinc-500">
+                      <VideoIcon className="h-16 w-16" />
+                    </div>
+                  )}
+                  <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/80 via-black/35 to-transparent p-3 text-white opacity-100 transition-opacity duration-200 sm:p-4 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 drop-shadow">
+                        <p className="truncate text-sm font-semibold tracking-tight sm:text-base">{timelineVideo.fileName || "Video"}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-medium text-white/75 sm:text-xs">
+                          <span className="capitalize">{timelineVideo.detectionStatus}</span>
+                          <span>{formatDuration(timelineVideo.durationSec)}</span>
+                          <span>{visibleTimelineMatches.length} matches</span>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="pointer-events-auto hidden h-9 rounded-full border-white/20 bg-black/35 px-3 text-white backdrop-blur hover:bg-black/55 lg:inline-flex"
+                          onClick={() => setIsTimelinePanelOpen((open) => !open)}
+                        >
+                          {isTimelinePanelOpen ? "Hide details" : "Details"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="pointer-events-auto h-9 rounded-full border-white/20 bg-black/35 px-3 text-white backdrop-blur hover:bg-black/55"
+                          onClick={() => void shareTimeline(timelineVideo)}
+                          aria-label="Share video link"
+                        >
+                          <Share2 className="h-4 w-4" />
+                          <span className="hidden sm:inline">Share</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.35rem] border border-black/10 bg-white/80 p-3 shadow-sm backdrop-blur-xl sm:rounded-[1.75rem] sm:p-4">
+                  {timelineTargets.length > 0 && (
+                    <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-2 sm:gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTimelineTargetId(null)}
+                        className={`flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border text-xs font-bold transition sm:h-12 sm:min-w-12 ${
+                          activeTimelineTargetId === null
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm"
+                            : "border-black/10 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50"
+                        }`}
+                        aria-label="Show all targets"
+                      >
+                        All
+                      </button>
+                      {timelineTargets.map((target) => {
+                        const active = activeTimelineTargetId === target.id;
+                        return (
+                          <button
+                            key={`${target.key}-${target.index}`}
+                            type="button"
+                            onClick={() => setActiveTimelineTargetId(active ? null : target.id)}
+                            className={`group relative flex h-14 w-14 shrink-0 cursor-pointer flex-col items-center justify-center rounded-full border-2 transition sm:h-16 sm:w-16 ${
+                              active ? "border-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]" : "border-white hover:border-zinc-300"
+                            }`}
+                            title={target.label}
+                            aria-label={`Filter video to ${target.label}`}
+                          >
+                            {target.imageUrl ? (
+                              <img src={target.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full rounded-full object-cover shadow-sm" />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center rounded-full bg-zinc-100 text-zinc-500 shadow-sm">
+                                <User className="h-4 w-4" />
+                              </span>
+                            )}
+                            <span
+                              className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full"
+                              style={{ backgroundColor: active ? "#10b981" : targetColors[target.index % targetColors.length] }}
+                            />
+                            <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-zinc-950 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                              {target.occurrenceCount}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="mb-3 flex items-center justify-between text-xs font-medium text-zinc-500">
+                    <span>0:00</span>
+                    <span>{formatDuration(timelineVideo.durationSec)}</span>
+                  </div>
+                  <div className="relative h-20 overflow-visible rounded-[1.15rem] bg-zinc-100 sm:h-16">
+                    {visibleTimelineMatches.length ? visibleTimelineMatches.map((match, index) => {
+                      const duration = Math.max(timelineVideo.durationSec, 1);
+                      const start = Math.max(0, Number(match.startSec ?? 0));
+                      const end = Math.max(start + 0.5, Number(match.endSec ?? start + 0.5));
+                      const target = targetForMatch(match) ?? activeTimelineTarget;
+                      const targetIndex = target?.index ?? match.targetIndex ?? 0;
+                      const color = targetColors[targetIndex % targetColors.length];
+                      const label = target?.label;
+                      return (
+                        <div
+                          key={match.id}
+                          className="group absolute top-2 cursor-pointer"
+                          style={{
+                            left: `${Math.min(100, (start / duration) * 100)}%`,
+                            width: `${Math.max(1, Math.min(100, ((end - start) / duration) * 100))}%`,
+                          }}
+                        >
+                          <div
+                            className="mb-1 flex h-7 w-7 origin-bottom items-center justify-center rounded-full bg-white p-0.5 shadow-sm ring-1 ring-black/10 transition-all duration-200 ease-out group-hover:-translate-y-1.5 group-hover:scale-125 group-hover:shadow-[0_10px_24px_rgba(24,24,27,0.22)] group-hover:ring-2 group-hover:ring-white group-focus-within:-translate-y-1.5 group-focus-within:scale-125 group-focus-within:shadow-[0_10px_24px_rgba(24,24,27,0.22)] group-focus-within:ring-2 group-focus-within:ring-white"
+                            title={target?.imageUrl ? `${label || "Face"} - double-click to preview` : label}
+                            onDoubleClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              if (target?.imageUrl) {
+                                setPreviewFace({ imageUrl: target.imageUrl, label: label || "Face" });
+                              }
+                            }}
+                          >
+                            {target?.imageUrl ? (
+                              <img src={target.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full rounded-full object-cover" />
+                            ) : (
+                              <User className="h-3.5 w-3.5 text-zinc-500" />
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            aria-label={`Play match ${index + 1}${label ? ` for ${label}` : ""}`}
+                            className="h-8 w-full cursor-pointer rounded-full shadow-[0_8px_22px_rgba(113,113,122,0.16)] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-white"
+                            style={{ backgroundColor: color }}
+                            onClick={() => void seekAndPlay(match.startSec)}
+                          />
+                        </div>
+                      );
+                    }) : (
+                      <div className="flex h-full items-center justify-center px-4 text-center text-xs font-medium text-zinc-500">
+                        {emptyTimelineMessage}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <aside className={`hidden min-h-0 overflow-auto rounded-[1.75rem] border border-black/10 bg-white/80 p-4 shadow-sm backdrop-blur-xl ${isTimelinePanelOpen ? "lg:block" : "lg:hidden"}`}>
+                <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs text-zinc-600">
+                  <div className="rounded-2xl bg-zinc-100 p-3">{formatDuration(timelineVideo.durationSec)}</div>
+                  <div className="rounded-2xl bg-zinc-100 p-3">{visibleTimelineMatches.length} matches</div>
+                  <div className="rounded-2xl bg-zinc-100 p-3 capitalize">{timelineVideo.detectionStatus}</div>
+                </div>
+
+                {timelineVideoPeople.length > 0 && (
+                  <div className="mb-4 flex flex-wrap gap-2 rounded-2xl bg-zinc-100 p-2">
+                    {timelineVideoPeople.map((person) => (
+                      <span key={person.id} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm">
+                        {person.coverFaceUrl ? (
+                          <img src={person.coverFaceUrl} alt="" loading="lazy" decoding="async" className="h-5 w-5 rounded-full object-cover" />
+                        ) : null}
+                        {personName(person)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid gap-2">
+                  {visibleTimelineMatches.length ? visibleTimelineMatches.map((match, index) => (
+                    <button
+                      key={match.id}
+                      type="button"
+                      onClick={() => void seekAndPlay(match.startSec)}
+                      className="rounded-2xl border border-black/10 bg-white p-3 text-left shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-900">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: targetColors[(match.targetIndex ?? 0) % targetColors.length] }}
+                          />
+                          Match {index + 1}
+                        </span>
+                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">
+                          {match.startTime || formatDuration(match.startSec)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs text-zinc-500">
+                        {match.startTime || formatDuration(match.startSec)} - {match.endTime || formatDuration(match.endSec)}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
+                        <span>{match.framesMatched ?? 0} frames</span>
+                        <span>max {Number(match.maxSimilarity ?? 0).toFixed(3)}</span>
+                        <span>avg {Number(match.avgSimilarity ?? 0).toFixed(3)}</span>
+                      </div>
+                    </button>
+                  )) : (
+                    <div className="rounded-2xl border border-dashed border-black/15 p-4 text-sm text-zinc-500">
+                      {emptyTimelineMessage}
+                    </div>
+                  )}
+                </div>
+              </aside>
+            </div>
+          )}
+        </div>
+
+        <Dialog open={Boolean(previewFace)} onOpenChange={(open) => !open && setPreviewFace(null)}>
+          <DialogContent className="w-[min(92vw,560px)] overflow-hidden border-black/10 bg-zinc-950 p-0 text-white shadow-2xl sm:max-w-none">
+            <DialogTitle className="sr-only">{previewFace?.label || "Face preview"}</DialogTitle>
+            <button
+              type="button"
+              onClick={() => setPreviewFace(null)}
+              className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/65"
+              aria-label="Close face preview"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="flex min-h-[320px] items-center justify-center bg-black sm:min-h-[420px]">
+              {previewFace?.imageUrl ? (
+                <img src={previewFace.imageUrl} alt={previewFace.label} className="max-h-[78vh] w-full object-contain" />
+              ) : null}
+            </div>
+            <div className="border-t border-white/10 px-4 py-3 text-sm font-medium text-zinc-100">
+              {previewFace?.label || "Face preview"}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#f6f2ea] text-zinc-950">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
@@ -676,48 +928,43 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
           </div>
         )}
 
-        <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
-          <div className="grid content-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <section>
+          <div className="grid content-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {isLoading && !videos.length ? (
               Array.from({ length: 6 }).map((_, index) => (
                 <div key={index} className="h-64 animate-pulse rounded-2xl bg-white/70" />
               ))
             ) : videos.length ? (
               videos.map((video) => (
-                <button
+                <article
                   key={video.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedVideoId(video.id);
-                    openTimelineAt(video);
-                  }}
-                  className={`group overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
-                    selectedVideo?.id === video.id ? "border-zinc-950" : "border-black/10"
-                  }`}
+                  className="group overflow-hidden rounded-2xl border border-black/10 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div className="relative aspect-video bg-zinc-900">
-                    {video.videoUrl ? (
-                      <video
-                        src={video.videoUrl}
-                        preload="metadata"
-                        muted
-                        playsInline
-                        className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-zinc-400">
-                        <VideoIcon className="h-12 w-12" />
+                    <Link href={timelineHref(video.id)} className="block h-full" aria-label={`Open ${video.fileName || "video"}`}>
+                      {video.videoUrl ? (
+                        <video
+                          src={video.videoUrl}
+                          preload="metadata"
+                          muted
+                          playsInline
+                          className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-zinc-400">
+                          <VideoIcon className="h-12 w-12" />
+                        </div>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 to-transparent p-3 text-white">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                          <PlayCircle className="h-4 w-4" />
+                          {formatDuration(video.durationSec)}
+                        </span>
+                        <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold capitalize ${statusTone(video.detectionStatus)}`}>
+                          {video.detectionStatus}
+                        </span>
                       </div>
-                    )}
-                    <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 to-transparent p-3 text-white">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-                        <PlayCircle className="h-4 w-4" />
-                        {formatDuration(video.durationSec)}
-                      </span>
-                      <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold capitalize ${statusTone(video.detectionStatus)}`}>
-                        {video.detectionStatus}
-                      </span>
-                    </div>
+                    </Link>
                     <Button
                       type="button"
                       size="sm"
@@ -732,7 +979,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                       Run AI
                     </Button>
                   </div>
-                  <div className="grid gap-2 p-4">
+                  <Link href={timelineHref(video.id)} className="grid gap-2 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold">{video.fileName || "Untitled video"}</p>
@@ -746,8 +993,8 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                       <p className="line-clamp-2 text-xs text-rose-600">{video.detectionError}</p>
                     )}
                     <p className="text-xs text-zinc-500">Added {formatDate(video.createdAt)}</p>
-                  </div>
-                </button>
+                  </Link>
+                </article>
               ))
             ) : (
               <div className="col-span-full flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-black/15 bg-white/60 p-8 text-center">
@@ -759,147 +1006,6 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
               </div>
             )}
           </div>
-
-          <aside className="sticky top-4 grid max-h-[calc(100vh-2rem)] content-start gap-4 overflow-auto rounded-2xl border border-black/10 bg-white/75 p-4 shadow-sm backdrop-blur">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">Timeline</p>
-              <h2 className="mt-1 text-xl font-semibold">{selectedVideo?.fileName || "Select a video"}</h2>
-            </div>
-
-            {selectedVideo ? (
-              <>
-                <div className="relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/55 p-4 shadow-[0_18px_50px_rgba(24,24,27,0.10)] backdrop-blur-2xl">
-                  <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-white/90" />
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(255,255,255,0.44)_48%,rgba(228,228,231,0.72))]" />
-                  <div className="relative grid gap-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Now viewing</p>
-                        <p className="mt-1 truncate text-base font-semibold tracking-tight text-zinc-950">
-                          {selectedVideo.fileName || "Untitled video"}
-                        </p>
-                      </div>
-                      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize ${statusTone(selectedVideo.detectionStatus)}`}>
-                        {selectedVideo.detectionStatus}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-center text-xs text-zinc-600">
-                      <div className="rounded-2xl bg-white/65 p-3 shadow-sm ring-1 ring-black/5">
-                        <Clock3 className="mx-auto mb-1 h-4 w-4 text-zinc-500" />
-                        {formatDuration(selectedVideo.durationSec)}
-                      </div>
-                      <div className="rounded-2xl bg-white/65 p-3 shadow-sm ring-1 ring-black/5">
-                        <CheckCircle2 className="mx-auto mb-1 h-4 w-4 text-zinc-500" />
-                        {selectedVideo.matchCount} matches
-                      </div>
-                      <div className="rounded-2xl bg-white/65 p-3 shadow-sm ring-1 ring-black/5">
-                        <Sparkles className="mx-auto mb-1 h-4 w-4 text-zinc-500" />
-                        {selectedVideoPeople.length || selectedPersonIdsFromVideo(selectedVideo).length} targets
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded-xl bg-zinc-100 p-3">
-                    <Clock3 className="mx-auto mb-1 h-4 w-4 text-zinc-500" />
-                    {formatDuration(selectedVideo.durationSec)}
-                  </div>
-                  <div className="rounded-xl bg-zinc-100 p-3">
-                    <CheckCircle2 className="mx-auto mb-1 h-4 w-4 text-zinc-500" />
-                    {selectedVideo.matchCount} matches
-                  </div>
-                  <div className="rounded-xl bg-zinc-100 p-3 capitalize">
-                    <Sparkles className="mx-auto mb-1 h-4 w-4 text-zinc-500" />
-                    {selectedVideo.detectionStatus}
-                  </div>
-                </div>
-
-                <Button
-                  type="button"
-                  className="h-11 rounded-xl bg-zinc-950 text-white hover:bg-zinc-800"
-                  onClick={() => openTimelineAt(selectedVideo)}
-                  disabled={!selectedVideo.videoUrl}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                  Open timeline player
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 rounded-xl border-black/10 bg-white/75 text-zinc-800 hover:bg-white"
-                  onClick={() => void shareTimeline(selectedVideo)}
-                  disabled={!selectedVideo.videoUrl}
-                >
-                  <Share2 className="h-4 w-4" />
-                  Share timeline link
-                </Button>
-
-                {selectedVideoPeople.length > 0 && (
-                  <div className="flex flex-wrap gap-2 rounded-xl bg-zinc-100 p-2">
-                    {selectedVideoPeople.map((person) => (
-                      <span key={person.id} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm">
-                        {person.coverFaceUrl ? (
-                            <img src={person.coverFaceUrl} alt="" loading="lazy" decoding="async" className="h-5 w-5 rounded-full object-cover" />
-                        ) : null}
-                        {personName(person)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="relative h-5 overflow-hidden rounded-full bg-zinc-100">
-                  {selectedVideo.matches.map((match) => {
-                    const duration = Math.max(selectedVideo.durationSec, 1);
-                    const start = Math.max(0, Number(match.startSec ?? 0));
-                    const end = Math.max(start + 0.5, Number(match.endSec ?? start + 0.5));
-                    return (
-                      <div
-                        key={match.id}
-                        className="absolute top-0 h-full rounded-full bg-zinc-950"
-                        style={{
-                          left: `${Math.min(100, (start / duration) * 100)}%`,
-                          width: `${Math.max(1, Math.min(100, ((end - start) / duration) * 100))}%`,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-
-                <div className="grid gap-2">
-                  {selectedVideo.matches.length ? (
-                    selectedVideo.matches.map((match, index) => (
-                      <button
-                        key={match.id}
-                        type="button"
-                        onClick={() => openTimelineAt(selectedVideo, match.startSec)}
-                        className="rounded-xl border border-black/10 bg-white p-3 text-left transition hover:border-zinc-950/30"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-semibold">Match {index + 1}</span>
-                          <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-700">
-                            {match.startTime || formatDuration(match.startSec)} - {match.endTime || formatDuration(match.endSec)}
-                          </span>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-600">
-                          <span>{match.framesMatched ?? 0} frames</span>
-                          <span>max {Number(match.maxSimilarity ?? 0).toFixed(3)}</span>
-                          <span>avg {Number(match.avgSimilarity ?? 0).toFixed(3)}</span>
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-black/15 p-4 text-sm text-zinc-500">
-                      {selectedVideo.detectionStatus === "processing"
-                        ? "AI is processing this video. The timeline will refresh automatically."
-                        : "No timeline matches yet. Run AI from the video thumbnail."}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : null}
-          </aside>
         </section>
       </div>
 
@@ -1062,232 +1168,6 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
               Start AI
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(timelineVideo)} onOpenChange={(open) => !open && closeTimeline()}>
-        <DialogContent className="grid h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[minmax(0,1fr)] gap-3 overflow-hidden border-black/10 bg-[#f5f5f7] p-3 text-zinc-950 shadow-2xl sm:h-[calc(100vh-1.5rem)] sm:w-[calc(100vw-1.5rem)] sm:p-4 sm:max-w-none">
-          <DialogHeader className="sr-only">
-            <DialogTitle>{timelineVideo?.fileName || "Video timeline"}</DialogTitle>
-            <DialogDescription>Click an interval to jump to that moment and play the video.</DialogDescription>
-          </DialogHeader>
-
-          {timelineVideo ? (
-            <div className={`grid min-h-0 gap-4 ${isTimelinePanelOpen ? "lg:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
-              <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
-                <div className="group relative min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
-                  {timelineVideo.videoUrl ? (
-                    <video
-                      ref={timelineVideoRef}
-                      src={timelineVideo.videoUrl}
-                      controls
-                      playsInline
-                      className="h-full w-full object-contain"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-zinc-500">
-                      <VideoIcon className="h-16 w-16" />
-                    </div>
-                  )}
-                  <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/80 via-black/35 to-transparent p-3 text-white opacity-100 transition-opacity duration-200 sm:p-4 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
-                    <div className="flex items-start justify-between gap-3 pr-8">
-                      <div className="min-w-0 drop-shadow">
-                        <p className="truncate text-sm font-semibold tracking-tight sm:text-base">{timelineVideo.fileName || "Video timeline"}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-medium text-white/75 sm:text-xs">
-                          <span className="capitalize">{timelineVideo.detectionStatus}</span>
-                          <span>{formatDuration(timelineVideo.durationSec)}</span>
-                          <span>{visibleTimelineMatches.length} matches</span>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="pointer-events-auto hidden h-9 rounded-full border-white/20 bg-black/35 px-3 text-white backdrop-blur hover:bg-black/55 lg:inline-flex"
-                          onClick={() => setIsTimelinePanelOpen((open) => !open)}
-                        >
-                          {isTimelinePanelOpen ? "Hide details" : "Details"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="pointer-events-auto h-9 rounded-full border-white/20 bg-black/35 px-3 text-white backdrop-blur hover:bg-black/55"
-                          onClick={() => void shareTimeline(timelineVideo)}
-                          aria-label="Share timeline link"
-                        >
-                          <Share2 className="h-4 w-4" />
-                          <span className="hidden sm:inline">Share</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-[1.35rem] border border-black/10 bg-white/80 p-3 shadow-sm backdrop-blur-xl sm:rounded-[1.75rem] sm:p-4">
-                  {timelineTargets.length > 0 && (
-                    <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-2 sm:gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTimelineTargetId(null)}
-                        className={`flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border text-xs font-bold transition sm:h-12 sm:min-w-12 ${
-                          activeTimelineTargetId === null
-                            ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm"
-                            : "border-black/10 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50"
-                        }`}
-                        aria-label="Show all targets"
-                      >
-                        All
-                      </button>
-                      {timelineTargets.map((target) => {
-                        const active = activeTimelineTargetId === target.id;
-                        return (
-                          <button
-                            key={`${target.key}-${target.index}`}
-                            type="button"
-                            onClick={() => setActiveTimelineTargetId(active ? null : target.id)}
-                            className={`group relative flex h-14 w-14 shrink-0 cursor-pointer flex-col items-center justify-center rounded-full border-2 transition sm:h-16 sm:w-16 ${
-                              active ? "border-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]" : "border-white hover:border-zinc-300"
-                            }`}
-                            title={target.label}
-                            aria-label={`Filter timeline to ${target.label}`}
-                          >
-                            {target.imageUrl ? (
-                              <img src={target.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full rounded-full object-cover shadow-sm" />
-                            ) : (
-                              <span className="flex h-full w-full items-center justify-center rounded-full bg-zinc-100 text-zinc-500 shadow-sm">
-                                <User className="h-4 w-4" />
-                              </span>
-                            )}
-                            <span
-                              className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full"
-                              style={{ backgroundColor: active ? "#10b981" : targetColors[target.index % targetColors.length] }}
-                            />
-                            <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-zinc-950 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
-                              {target.occurrenceCount}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <div className="mb-3 flex items-center justify-between text-xs font-medium text-zinc-500">
-                    <span>0:00</span>
-                    <span>{formatDuration(timelineVideo.durationSec)}</span>
-                  </div>
-                  <div className="relative h-20 overflow-visible rounded-[1.15rem] bg-zinc-100 sm:h-16">
-                    {visibleTimelineMatches.length ? visibleTimelineMatches.map((match, index) => {
-                      const duration = Math.max(timelineVideo.durationSec, 1);
-                      const start = Math.max(0, Number(match.startSec ?? 0));
-                      const end = Math.max(start + 0.5, Number(match.endSec ?? start + 0.5));
-                      const target = targetForMatch(match) ?? activeTimelineTarget;
-                      const targetIndex = target?.index ?? match.targetIndex ?? 0;
-                      const color = targetColors[targetIndex % targetColors.length];
-                      const label = target?.label;
-                      return (
-                        <div
-                          key={match.id}
-                          className="group absolute top-2 cursor-pointer"
-                          style={{
-                            left: `${Math.min(100, (start / duration) * 100)}%`,
-                            width: `${Math.max(1, Math.min(100, ((end - start) / duration) * 100))}%`,
-                          }}
-                        >
-                          <div
-                            className="mb-1 flex h-7 w-7 origin-bottom items-center justify-center rounded-full bg-white p-0.5 shadow-sm ring-1 ring-black/10 transition-all duration-200 ease-out group-hover:-translate-y-1.5 group-hover:scale-125 group-hover:shadow-[0_10px_24px_rgba(24,24,27,0.22)] group-hover:ring-2 group-hover:ring-white group-focus-within:-translate-y-1.5 group-focus-within:scale-125 group-focus-within:shadow-[0_10px_24px_rgba(24,24,27,0.22)] group-focus-within:ring-2 group-focus-within:ring-white"
-                            title={target?.imageUrl ? `${label || "Face"} - double-click to preview` : label}
-                            onDoubleClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              if (target?.imageUrl) {
-                                setPreviewFace({ imageUrl: target.imageUrl, label: label || "Face" });
-                              }
-                            }}
-                          >
-                            {target?.imageUrl ? (
-                              <img src={target.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full rounded-full object-cover" />
-                            ) : (
-                              <User className="h-3.5 w-3.5 text-zinc-500" />
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            aria-label={`Play match ${index + 1}${label ? ` for ${label}` : ""}`}
-                            className="h-8 w-full cursor-pointer rounded-full shadow-[0_8px_22px_rgba(113,113,122,0.16)] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-white"
-                            style={{ backgroundColor: color }}
-                            onClick={() => void seekAndPlay(match.startSec)}
-                          />
-                        </div>
-                      );
-                    }) : (
-                      <div className="flex h-full items-center justify-center px-4 text-center text-xs font-medium text-zinc-500">
-                        {emptyTimelineMessage}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </section>
-
-              <aside className={`hidden min-h-0 overflow-auto rounded-[1.75rem] border border-black/10 bg-white/80 p-4 shadow-sm backdrop-blur-xl ${isTimelinePanelOpen ? "lg:block" : "lg:hidden"}`}>
-                <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs text-zinc-600">
-                  <div className="rounded-2xl bg-zinc-100 p-3">{formatDuration(timelineVideo.durationSec)}</div>
-                  <div className="rounded-2xl bg-zinc-100 p-3">{visibleTimelineMatches.length} matches</div>
-                  <div className="rounded-2xl bg-zinc-100 p-3 capitalize">{timelineVideo.detectionStatus}</div>
-                </div>
-
-                {timelineVideoPeople.length > 0 && (
-                  <div className="mb-4 flex flex-wrap gap-2 rounded-2xl bg-zinc-100 p-2">
-                    {timelineVideoPeople.map((person) => (
-                      <span key={person.id} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm">
-                        {person.coverFaceUrl ? (
-                          <img src={person.coverFaceUrl} alt="" loading="lazy" decoding="async" className="h-5 w-5 rounded-full object-cover" />
-                        ) : null}
-                        {personName(person)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="grid gap-2">
-                  {visibleTimelineMatches.length ? visibleTimelineMatches.map((match, index) => (
-                    <button
-                      key={match.id}
-                      type="button"
-                      onClick={() => void seekAndPlay(match.startSec)}
-                      className="rounded-2xl border border-black/10 bg-white p-3 text-left shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-900">
-                          <span
-                            className="h-2.5 w-2.5 rounded-full"
-                            style={{ backgroundColor: targetColors[(match.targetIndex ?? 0) % targetColors.length] }}
-                          />
-                          Match {index + 1}
-                        </span>
-                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">
-                          {match.startTime || formatDuration(match.startSec)}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-xs text-zinc-500">
-                        {match.startTime || formatDuration(match.startSec)} - {match.endTime || formatDuration(match.endSec)}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
-                        <span>{match.framesMatched ?? 0} frames</span>
-                        <span>max {Number(match.maxSimilarity ?? 0).toFixed(3)}</span>
-                        <span>avg {Number(match.avgSimilarity ?? 0).toFixed(3)}</span>
-                      </div>
-                    </button>
-                  )) : (
-                    <div className="rounded-2xl border border-dashed border-black/15 p-4 text-sm text-zinc-500">
-                      {emptyTimelineMessage}
-                    </div>
-                  )}
-                </div>
-              </aside>
-            </div>
-          ) : null}
         </DialogContent>
       </Dialog>
 
