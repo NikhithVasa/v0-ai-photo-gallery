@@ -133,6 +133,13 @@ interface PreparedTargetUpload {
 interface AlbumVideosPageProps {
   albumSlug: string;
   timelineVideoId?: string;
+  shareToken?: string;
+}
+
+interface AlbumShareResponse {
+  share: {
+    token: string;
+  } | null;
 }
 
 interface TimelineTarget {
@@ -221,7 +228,13 @@ function findTimelineTarget(match: VideoMatch, lookup: TimelineTargetLookup) {
 
 const targetColors = ["#8e8e93", "#aeaeb2", "#6e6e73", "#c7c7cc", "#98989d", "#d1d1d6"];
 
-export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageProps) {
+function withShareParam(url: string, shareToken = "") {
+  if (!shareToken) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}share=${encodeURIComponent(shareToken)}`;
+}
+
+export function AlbumVideosPage({ albumSlug, timelineVideoId, shareToken = "" }: AlbumVideosPageProps) {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const selfieInputRef = useRef<HTMLInputElement>(null);
   const timelineVideoRef = useRef<HTMLVideoElement>(null);
@@ -232,19 +245,21 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   const [activeTimelineTargetId, setActiveTimelineTargetId] = useState<string | null>(null);
   const [previewFace, setPreviewFace] = useState<{ imageUrl: string; label: string } | null>(null);
   const [isTimelinePanelOpen, setIsTimelinePanelOpen] = useState(false);
+  const [isCreatingPublicShare, setIsCreatingPublicShare] = useState(false);
+  const [shareVideo, setShareVideo] = useState<AlbumVideo | null>(null);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [selfieFiles, setSelfieFiles] = useState<File[]>([]);
   const [discoverPeople, setDiscoverPeople] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isRunningAi, setIsRunningAi] = useState(false);
 
-  const videosUrl = `/api/albums/${encodeURIComponent(albumSlug)}/videos`;
+  const videosUrl = withShareParam(`/api/albums/${encodeURIComponent(albumSlug)}/videos`, shareToken);
   const { data, error, isLoading, mutate } = useSWR<VideosResponse>(videosUrl, fetcher, {
     refreshInterval: (latest) =>
       latest?.videos.some((video) => video.detectionStatus === "processing") ? 5000 : 0,
   });
   const { data: peopleData } = useSWR<PeopleResponse>(
-    `/api/albums/${encodeURIComponent(albumSlug)}/people`,
+    withShareParam(`/api/albums/${encodeURIComponent(albumSlug)}/people`, shareToken),
     fetcher,
   );
 
@@ -438,23 +453,63 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
     return `/albums/${encodeURIComponent(albumSlug)}/videos/${encodeURIComponent(videoId)}`;
   }
 
-  function timelineShareUrl(video: AlbumVideo) {
+  function timelineShareApiHref(videoId: string) {
+    return `/api/albums/${encodeURIComponent(albumSlug)}/videos/${encodeURIComponent(videoId)}/share`;
+  }
+
+  function timelineShareUrl(video: AlbumVideo, token = "") {
     if (typeof window === "undefined") return "";
     const url = new URL(window.location.href);
     url.pathname = timelineHref(video.id);
     url.search = "";
+    if (token) url.searchParams.set("share", token);
     return url.toString();
   }
 
-  async function shareTimeline(video: AlbumVideo) {
-    const url = timelineShareUrl(video);
+  async function copyTimelineUrl(video: AlbumVideo, token = "") {
+    const url = timelineShareUrl(video, token);
     if (!url) return;
 
     try {
       await navigator.clipboard.writeText(url);
-      toast({ title: "Timeline link copied", description: "Anyone with album access can open this video timeline." });
+      toast({
+        title: "Video link copied",
+        description: token ? "Anyone with this share link can open it." : "Album access is required to open it.",
+      });
     } catch {
       toast({ title: "Could not copy link", description: url, variant: "destructive" });
+    }
+  }
+
+  async function copyProtectedTimelineUrl(video: AlbumVideo) {
+    await copyTimelineUrl(video);
+  }
+
+  async function copyPublicTimelineUrl(video: AlbumVideo) {
+    if (shareToken) {
+      await copyTimelineUrl(video, shareToken);
+      return;
+    }
+
+    setIsCreatingPublicShare(true);
+    try {
+      const response = await fetch(timelineShareApiHref(video.id), {
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => ({}))) as AlbumShareResponse & { error?: string };
+      if (!response.ok || !payload.share?.token) {
+        throw new Error(payload.error || "Could not create public share link");
+      }
+
+      await copyTimelineUrl(video, payload.share.token);
+    } catch (error) {
+      toast({
+        title: "Could not create public link",
+        description: error instanceof Error ? error.message : "Try again in a moment.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPublicShare(false);
     }
   }
 
@@ -613,7 +668,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                 variant="outline"
                 size="sm"
                 className="h-9 rounded-full border-black/10 bg-white px-3 text-zinc-800 hover:bg-zinc-50"
-                onClick={() => void shareTimeline(timelineVideo)}
+                onClick={() => setShareVideo(timelineVideo)}
               >
                 <Share2 className="h-4 w-4" />
                 <span className="hidden sm:inline">Share</span>
@@ -674,7 +729,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                           variant="outline"
                           size="sm"
                           className="pointer-events-auto h-9 rounded-full border-white/20 bg-black/35 px-3 text-white backdrop-blur hover:bg-black/55"
-                          onClick={() => void shareTimeline(timelineVideo)}
+                          onClick={() => setShareVideo(timelineVideo)}
                           aria-label="Share video link"
                         >
                           <Share2 className="h-4 w-4" />
@@ -1180,6 +1235,48 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
               Start AI
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(shareVideo)} onOpenChange={(open) => !open && setShareVideo(null)}>
+        <DialogContent className="border-black/10 bg-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share video</DialogTitle>
+            <DialogDescription>
+              Choose whether this link requires album access or opens publicly without login.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto justify-start rounded-2xl border-black/10 p-4 text-left"
+              onClick={() => {
+                if (!shareVideo) return;
+                void copyProtectedTimelineUrl(shareVideo).then(() => setShareVideo(null));
+              }}
+            >
+              <span>
+                <span className="block font-semibold">Copy private link</span>
+                <span className="block text-xs font-normal text-zinc-500">Requires the viewer to have album access.</span>
+              </span>
+            </Button>
+            <Button
+              type="button"
+              className="h-auto justify-start rounded-2xl bg-zinc-950 p-4 text-left text-white hover:bg-zinc-800"
+              disabled={isCreatingPublicShare}
+              onClick={() => {
+                if (!shareVideo) return;
+                void copyPublicTimelineUrl(shareVideo).then(() => setShareVideo(null));
+              }}
+            >
+              {isCreatingPublicShare ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+              <span>
+                <span className="block font-semibold">Copy public link</span>
+                <span className="block text-xs font-normal text-white/65">No login required for anyone with the link.</span>
+              </span>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
