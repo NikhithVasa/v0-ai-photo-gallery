@@ -68,6 +68,13 @@ interface VideoTargetImage {
   url: string | null;
 }
 
+interface DiscoveredVideoPerson {
+  index: number;
+  label: string;
+  known: boolean;
+  framesMatched: number | null;
+}
+
 interface AlbumVideo {
   id: string;
   albumId: string;
@@ -81,6 +88,7 @@ interface AlbumVideo {
   detectionParams: Record<string, unknown>;
   targetPersonId: string | null;
   targetImages: VideoTargetImage[];
+  discoveredPeople: DiscoveredVideoPerson[];
   detectionStatus: string;
   detectionError: string | null;
   matchCount: number;
@@ -189,6 +197,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const [pendingSeekSec, setPendingSeekSec] = useState<number | null>(null);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [selfieFiles, setSelfieFiles] = useState<File[]>([]);
+  const [discoverPeople, setDiscoverPeople] = useState(true);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isRunningAi, setIsRunningAi] = useState(false);
 
@@ -259,7 +268,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     if (!timelineVideo) return [];
     const targetPersonIds = targetPersonIdsFromVideo(timelineVideo);
 
-    return (timelineVideo.targetImages ?? []).map((target, index) => {
+    const knownTargets = (timelineVideo.targetImages ?? []).map((target, index) => {
       const personId = target.personId ?? targetPersonIds[index] ?? null;
       const person = personId ? peopleById.get(personId) ?? null : null;
       return {
@@ -268,8 +277,22 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
         personId,
         imageUrl: person?.coverFaceUrl || target.url,
         label: person ? personName(person) : `Uploaded target ${index + 1}`,
+        known: true,
       };
     });
+
+    const unknownTargets = (timelineVideo.discoveredPeople ?? [])
+      .filter((person) => !knownTargets.some((target) => target.index === person.index))
+      .map((person) => ({
+        index: person.index,
+        key: `unknown-${person.index}`,
+        personId: null,
+        imageUrl: null,
+        label: person.label,
+        known: person.known,
+      }));
+
+    return [...knownTargets, ...unknownTargets];
   }, [peopleById, timelineVideo]);
 
   const activeTimelineTarget = useMemo(
@@ -326,6 +349,11 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
   function selectAllKnownPeople() {
     setSelectedPersonIds(people.map((person) => person.id));
+  }
+
+  function selectAllKnownAndUnknownPeople() {
+    setSelectedPersonIds(people.map((person) => person.id));
+    setDiscoverPeople(true);
   }
 
   async function seekAndPlay(seconds?: number | null) {
@@ -462,10 +490,10 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
   async function runAi() {
     if (!aiVideo) return;
-    if (!selectedPersonIds.length && !selfieFiles.length) {
+    if (!discoverPeople && !selectedPersonIds.length && !selfieFiles.length) {
       toast({
         title: "Choose a target",
-        description: "Select one or more people from the album or upload one or more selfies.",
+        description: "Select album people, upload selfies, or enable unknown person discovery.",
         variant: "destructive",
       });
       return;
@@ -482,6 +510,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
           body: JSON.stringify({
             personIds: selectedPersonIds,
             selfieS3Keys,
+            discoverPeople,
           }),
         },
       );
@@ -490,7 +519,8 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
       toast({ title: "Video AI started", description: "The timeline will update when the worker finishes." });
       setAiVideo(null);
-        setSelfieFiles([]);
+      setSelfieFiles([]);
+      setDiscoverPeople(true);
       setSelectedPersonIds([]);
       if (selfieInputRef.current) selfieInputRef.current.value = "";
       await mutate();
@@ -796,7 +826,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
           <DialogHeader>
             <DialogTitle>Run video face AI</DialogTitle>
             <DialogDescription>
-              Choose one or more album people, upload a selfie, or use both as target images for this video.
+              Choose album people, scan for unknown people, upload selfies, or combine all targets for this video.
             </DialogDescription>
           </DialogHeader>
 
@@ -818,6 +848,15 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                     onClick={selectAllKnownPeople}
                   >
                     All known people
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={allKnownPeopleSelected && discoverPeople ? "default" : "outline"}
+                    size="sm"
+                    className="h-9 rounded-full px-3 text-xs"
+                    onClick={selectAllKnownAndUnknownPeople}
+                  >
+                    All known + unknown
                   </Button>
                   {selectedPersonIds.length > 0 && (
                     <Button
@@ -879,6 +918,21 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
             </div>
 
             <div className="grid gap-2 rounded-xl border border-black/10 p-4">
+              <label className="flex items-start gap-3 rounded-xl bg-zinc-50 p-3">
+                <input
+                  type="checkbox"
+                  checked={discoverPeople}
+                  onChange={(event) => setDiscoverPeople(event.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-zinc-300"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-zinc-900">Find people not already known</span>
+                  <span className="block text-xs text-zinc-500">
+                    The worker will compare video faces against selected known people and group unmatched faces as unknown people.
+                  </span>
+                </span>
+              </label>
+
               <Label htmlFor="selfie-upload">Selfie target</Label>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Input

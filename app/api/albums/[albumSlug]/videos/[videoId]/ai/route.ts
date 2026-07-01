@@ -14,6 +14,7 @@ interface RunVideoAiBody {
   personId?: unknown;
   personIds?: unknown;
   selfieS3Keys?: unknown;
+  discoverPeople?: unknown;
 }
 
 interface VideoRow {
@@ -90,6 +91,7 @@ export async function POST(request: Request, { params }: Props) {
     const personIds = uuidArray(body.personIds).concat(uuidArray(body.personId));
     const uniquePersonIds = [...new Set(personIds)];
     const selfieS3Keys = stringArray(body.selfieS3Keys);
+    const discoverPeople = body.discoverPeople === true;
 
     const video = await queryOne<VideoRow>(
       `
@@ -176,7 +178,7 @@ export async function POST(request: Request, { params }: Props) {
     if (!videoUrl) {
       return NextResponse.json({ error: "Could not create video URL" }, { status: 500 });
     }
-    if (!targetUrls.length) {
+    if (!targetUrls.length && !discoverPeople) {
       return NextResponse.json(
         { error: "Choose a person or upload a selfie before running AI" },
         { status: 400 },
@@ -206,7 +208,11 @@ export async function POST(request: Request, { params }: Props) {
         video.id,
         targetPersonId,
         JSON.stringify(targetKeys),
-        JSON.stringify({ selected_person_ids: uniquePersonIds, target_person_ids: targetPersonIds }),
+        JSON.stringify({
+          selected_person_ids: uniquePersonIds,
+          target_person_ids: targetPersonIds,
+          discover_people: discoverPeople,
+        }),
       ],
     );
 
@@ -230,6 +236,7 @@ export async function POST(request: Request, { params }: Props) {
           target_s3_keys: targetKeys,
           target_person_ids: targetPersonIds,
           selected_person_ids: uniquePersonIds,
+          discover_people: discoverPeople,
           persist_results: true,
           video_url: videoUrl,
           target_urls: targetUrls,

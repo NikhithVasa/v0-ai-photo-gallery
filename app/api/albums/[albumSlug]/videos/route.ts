@@ -61,16 +61,33 @@ interface VideoRow {
 interface MatchRow {
   id?: unknown;
   startSec?: unknown;
+  start_sec?: unknown;
   endSec?: unknown;
+  end_sec?: unknown;
   startTime?: unknown;
+  start_time?: unknown;
   endTime?: unknown;
+  end_time?: unknown;
   maxSimilarity?: unknown;
+  max_similarity?: unknown;
   avgSimilarity?: unknown;
+  avg_similarity?: unknown;
   framesMatched?: unknown;
+  frames_matched?: unknown;
   verified?: unknown;
   personId?: unknown;
+  person_id?: unknown;
   targetIndex?: unknown;
+  target_index?: unknown;
   targetS3Key?: unknown;
+  target_s3_key?: unknown;
+}
+
+interface DiscoveredPersonRow {
+  target_index?: unknown;
+  label?: unknown;
+  known?: unknown;
+  frames_matched?: unknown;
 }
 
 function slugify(value: string) {
@@ -147,6 +164,67 @@ function targetPersonIdsValue(value: Record<string, unknown> | null) {
   return [] as Array<string | null>;
 }
 
+function discoveredPeopleValue(value: Record<string, unknown> | null) {
+  const people = value?.discovered_people;
+  if (!Array.isArray(people)) return [];
+
+  return (people as DiscoveredPersonRow[]).map((person, index) => ({
+    index: typeof person.target_index === "number" ? person.target_index : index,
+    label: typeof person.label === "string" && person.label ? person.label : `Unknown person ${index + 1}`,
+    known: person.known === true,
+    framesMatched: Number.isFinite(Number(person.frames_matched)) ? Number(person.frames_matched) : null,
+  }));
+}
+
+function targetIndexValue(value: unknown) {
+  if (typeof value === "number" && Number.isInteger(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isInteger(parsed)) return parsed;
+  }
+  return null;
+}
+
+function matchesValue(
+  value: unknown,
+  targetKeys: string[],
+  targetPersonIds: Array<string | null>,
+  source: string,
+) {
+  if (!Array.isArray(value)) return [];
+
+  return (value as MatchRow[]).map((match, index) => {
+    const targetIndex = targetIndexValue(match.targetIndex ?? match.target_index);
+    const startSec = numberValue((match.startSec ?? match.start_sec) as number | string | null);
+    const endSec = numberValue((match.endSec ?? match.end_sec) as number | string | null);
+    const targetS3Key =
+      (typeof match.targetS3Key === "string" && match.targetS3Key) ||
+      (typeof match.target_s3_key === "string" && match.target_s3_key) ||
+      (targetIndex !== null ? targetKeys[targetIndex] : null) ||
+      null;
+    const personId =
+      (typeof match.personId === "string" && match.personId) ||
+      (typeof match.person_id === "string" && match.person_id) ||
+      (targetIndex !== null ? targetPersonIds[targetIndex] : null) ||
+      null;
+
+    return {
+      id: String(match.id || `${source}-${targetIndex ?? "match"}-${startSec}-${index}`),
+      startSec,
+      endSec,
+      startTime: typeof match.startTime === "string" ? match.startTime : typeof match.start_time === "string" ? match.start_time : null,
+      endTime: typeof match.endTime === "string" ? match.endTime : typeof match.end_time === "string" ? match.end_time : null,
+      maxSimilarity: numberValue((match.maxSimilarity ?? match.max_similarity) as number | string | null),
+      avgSimilarity: numberValue((match.avgSimilarity ?? match.avg_similarity) as number | string | null),
+      framesMatched: Number.isFinite(Number(match.framesMatched ?? match.frames_matched)) ? Number(match.framesMatched ?? match.frames_matched) : null,
+      verified: typeof match.verified === "boolean" ? match.verified : null,
+      personId,
+      targetIndex,
+      targetS3Key,
+    };
+  });
+}
+
 async function albumBySlug(albumSlug: string) {
   return queryOne<AlbumRow>(
     `
@@ -183,6 +261,12 @@ async function toVideo(row: VideoRow) {
   const matches = Array.isArray(row.matches) ? row.matches : [];
   const targetKeys = stringArrayValue(row.target_s3_keys);
   const targetPersonIds = targetPersonIdsValue(row.detection_params);
+  const resultJson = row.result_json ?? {};
+  const dbMatches = matchesValue(matches, targetKeys, targetPersonIds, "db");
+  const resultMatches = matchesValue(resultJson.matches, targetKeys, targetPersonIds, "result");
+  const dbHasTargetData = dbMatches.some((match) => match.targetIndex !== null || Boolean(match.targetS3Key));
+  const resultHasTargetData = resultMatches.some((match) => match.targetIndex !== null || Boolean(match.targetS3Key));
+  const timelineMatches = (!dbMatches.length || !dbHasTargetData) && resultHasTargetData ? resultMatches : dbMatches;
 
   return {
     id: row.id,
@@ -205,26 +289,14 @@ async function toVideo(row: VideoRow) {
       personId: targetPersonIds[index] ?? null,
       url: await signedObjectUrl(key),
     }))),
+    discoveredPeople: discoveredPeopleValue(resultJson),
     runpodEndpointId: row.runpod_endpoint_id,
     runpodJobId: row.runpod_job_id,
     detectionStatus: row.detection_status ?? "pending",
     detectionError: row.detection_error,
-    resultJson: row.result_json,
+    resultJson,
     matchCount: numberValue(row.match_count),
-    matches: (matches as MatchRow[]).map((match) => ({
-      id: String(match.id || ""),
-      startSec: numberValue(match.startSec as number | string | null),
-      endSec: numberValue(match.endSec as number | string | null),
-      startTime: typeof match.startTime === "string" ? match.startTime : null,
-      endTime: typeof match.endTime === "string" ? match.endTime : null,
-      maxSimilarity: numberValue(match.maxSimilarity as number | string | null),
-      avgSimilarity: numberValue(match.avgSimilarity as number | string | null),
-      framesMatched: Number.isFinite(Number(match.framesMatched)) ? Number(match.framesMatched) : null,
-      verified: typeof match.verified === "boolean" ? match.verified : null,
-      personId: typeof match.personId === "string" ? match.personId : null,
-      targetIndex: typeof match.targetIndex === "number" ? match.targetIndex : null,
-      targetS3Key: typeof match.targetS3Key === "string" ? match.targetS3Key : null,
-    })),
+    matches: timelineMatches,
     createdAt: dateTimeValue(row.created_at),
     updatedAt: dateTimeValue(row.updated_at),
     completedAt: dateTimeValue(row.completed_at),
