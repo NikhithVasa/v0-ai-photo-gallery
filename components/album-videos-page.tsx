@@ -194,7 +194,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [aiVideo, setAiVideo] = useState<AlbumVideo | null>(null);
   const [timelineVideo, setTimelineVideo] = useState<AlbumVideo | null>(null);
-  const [activeTimelineTargetIndex, setActiveTimelineTargetIndex] = useState<number | null>(null);
+  const [activeTimelineTargetId, setActiveTimelineTargetId] = useState<string | null>(null);
   const [isTimelinePanelOpen, setIsTimelinePanelOpen] = useState(false);
   const [pendingSeekSec, setPendingSeekSec] = useState<number | null>(null);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
@@ -274,6 +274,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
       const personId = target.personId ?? targetPersonIds[index] ?? null;
       const person = personId ? peopleById.get(personId) ?? null : null;
       return {
+        id: `known-${target.index}-${target.key}`,
         index: target.index,
         key: target.key,
         personId,
@@ -287,6 +288,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     const unknownTargets = (timelineVideo.discoveredPeople ?? [])
       .filter((person) => !knownTargets.some((target) => target.index === person.index))
       .map((person, index) => ({
+        id: `unknown-${person.index}`,
         index: person.index,
         key: `unknown-${person.index}`,
         personId: null,
@@ -315,19 +317,26 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   }, [peopleById, timelineVideo]);
 
   const activeTimelineTarget = useMemo(
-    () => timelineTargets.find((target) => target.index === activeTimelineTargetIndex) ?? null,
-    [activeTimelineTargetIndex, timelineTargets],
+    () => timelineTargets.find((target) => target.id === activeTimelineTargetId) ?? null,
+    [activeTimelineTargetId, timelineTargets],
   );
+
+  function timelineTargetMatches(
+    target: (typeof timelineTargets)[number],
+    match: VideoMatch,
+  ) {
+    return (
+      match.targetIndex === target.index ||
+      match.targetS3Key === target.key ||
+      (Boolean(target.personId) && match.personId === target.personId)
+    );
+  }
 
   const visibleTimelineMatches = useMemo(() => {
     if (!timelineVideo) return [] as VideoMatch[];
     if (!activeTimelineTarget) return timelineVideo.matches;
 
-    return timelineVideo.matches.filter((match) => (
-      match.targetIndex === activeTimelineTarget.index ||
-      match.targetS3Key === activeTimelineTarget.key ||
-      (Boolean(activeTimelineTarget.personId) && match.personId === activeTimelineTarget.personId)
-    ));
+    return timelineVideo.matches.filter((match) => timelineTargetMatches(activeTimelineTarget, match));
   }, [activeTimelineTarget, timelineVideo]);
 
   const timelineMatchesHaveTargetData = useMemo(
@@ -346,7 +355,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     : "No AI intervals are available for this video yet.";
 
   useEffect(() => {
-    setActiveTimelineTargetIndex(null);
+    setActiveTimelineTargetId(null);
   }, [timelineVideo?.id]);
 
   useEffect(() => {
@@ -425,11 +434,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   }
 
   function targetForMatch(match: VideoMatch) {
-    return timelineTargets.find((target) => (
-      match.targetIndex === target.index ||
-      match.targetS3Key === target.key ||
-      (Boolean(target.personId) && match.personId === target.personId)
-    )) ?? null;
+    return timelineTargets.find((target) => timelineTargetMatches(target, match)) ?? null;
   }
 
   async function uploadVideo(file: File) {
@@ -1061,10 +1066,10 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                     <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-2 sm:gap-3">
                       <button
                         type="button"
-                        onClick={() => setActiveTimelineTargetIndex(null)}
+                        onClick={() => setActiveTimelineTargetId(null)}
                         className={`flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border text-xs font-bold transition sm:h-12 sm:min-w-12 ${
-                          activeTimelineTargetIndex === null
-                            ? "border-zinc-300 bg-zinc-200 text-zinc-950 shadow-sm"
+                          activeTimelineTargetId === null
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-sm"
                             : "border-black/10 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50"
                         }`}
                         aria-label="Show all targets"
@@ -1072,14 +1077,14 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                         All
                       </button>
                       {timelineTargets.map((target) => {
-                        const active = activeTimelineTargetIndex === target.index;
+                        const active = activeTimelineTargetId === target.id;
                         return (
                           <button
                             key={`${target.key}-${target.index}`}
                             type="button"
-                            onClick={() => setActiveTimelineTargetIndex(active ? null : target.index)}
+                            onClick={() => setActiveTimelineTargetId(active ? null : target.id)}
                             className={`group relative flex h-14 w-14 shrink-0 cursor-pointer flex-col items-center justify-center rounded-full border-2 transition sm:h-16 sm:w-16 ${
-                              active ? "border-zinc-400 shadow-[0_0_0_4px_rgba(113,113,122,0.14)]" : "border-white hover:border-zinc-300"
+                              active ? "border-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]" : "border-white hover:border-zinc-300"
                             }`}
                             title={target.label}
                             aria-label={`Filter timeline to ${target.label}`}
@@ -1093,7 +1098,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                             )}
                             <span
                               className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full"
-                              style={{ backgroundColor: targetColors[target.index % targetColors.length] }}
+                              style={{ backgroundColor: active ? "#10b981" : targetColors[target.index % targetColors.length] }}
                             />
                             <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-zinc-950 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                               {target.occurrenceCount}
