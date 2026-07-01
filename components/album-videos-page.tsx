@@ -12,6 +12,7 @@ import {
   Loader2,
   Maximize2,
   PlayCircle,
+  Share2,
   Sparkles,
   Upload,
   User,
@@ -178,6 +179,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const selfieInputRef = useRef<HTMLInputElement>(null);
   const timelineVideoRef = useRef<HTMLVideoElement>(null);
+  const openedTimelineFromUrlRef = useRef(false);
   const [selectedEventSlug, setSelectedEventSlug] = useState("");
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [aiVideo, setAiVideo] = useState<AlbumVideo | null>(null);
@@ -215,6 +217,19 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
       setSelectedVideoId(videos[0].id);
     }
   }, [selectedVideoId, videos]);
+
+  useEffect(() => {
+    if (openedTimelineFromUrlRef.current || !videos.length || typeof window === "undefined") return;
+    const timelineVideoId = new URLSearchParams(window.location.search).get("timeline");
+    if (!timelineVideoId) return;
+
+    const video = videos.find((item) => item.id === timelineVideoId);
+    if (!video) return;
+
+    openedTimelineFromUrlRef.current = true;
+    setSelectedVideoId(video.id);
+    setTimelineVideo(video);
+  }, [videos]);
 
   const selectedVideo = useMemo(
     () => videos.find((video) => video.id === selectedVideoId) ?? videos[0] ?? null,
@@ -314,6 +329,36 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     if (seconds !== null && seconds !== undefined) {
       setPendingSeekSec(seconds);
     }
+  }
+
+  function timelineShareUrl(video: AlbumVideo) {
+    if (typeof window === "undefined") return "";
+    const url = new URL(window.location.href);
+    url.pathname = `/albums/${encodeURIComponent(albumSlug)}/videos`;
+    url.searchParams.set("timeline", video.id);
+    return url.toString();
+  }
+
+  async function shareTimeline(video: AlbumVideo) {
+    const url = timelineShareUrl(video);
+    if (!url) return;
+
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Timeline link copied", description: "Anyone with album access can open this video timeline." });
+    } catch {
+      toast({ title: "Could not copy link", description: url, variant: "destructive" });
+    }
+  }
+
+  function closeTimeline() {
+    setTimelineVideo(null);
+    if (typeof window === "undefined") return;
+
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("timeline")) return;
+    url.searchParams.delete("timeline");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }
 
   function targetForMatch(match: VideoMatch) {
@@ -429,7 +474,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
       toast({ title: "Video AI started", description: "The timeline will update when the worker finishes." });
       setAiVideo(null);
-  setSelfieFiles([]);
+        setSelfieFiles([]);
       setSelectedPersonIds([]);
       if (selfieInputRef.current) selfieInputRef.current.value = "";
       await mutate();
@@ -595,6 +640,38 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
             {selectedVideo ? (
               <>
+                <div className="relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/55 p-4 shadow-[0_18px_50px_rgba(24,24,27,0.10)] backdrop-blur-2xl">
+                  <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-white/90" />
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.86),rgba(255,255,255,0.38)_48%,rgba(0,122,255,0.10))]" />
+                  <div className="relative grid gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Now viewing</p>
+                        <p className="mt-1 truncate text-base font-semibold tracking-tight text-zinc-950">
+                          {selectedVideo.fileName || "Untitled video"}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize ${statusTone(selectedVideo.detectionStatus)}`}>
+                        {selectedVideo.detectionStatus}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs text-zinc-600">
+                      <div className="rounded-2xl bg-white/65 p-3 shadow-sm ring-1 ring-black/5">
+                        <Clock3 className="mx-auto mb-1 h-4 w-4 text-zinc-500" />
+                        {formatDuration(selectedVideo.durationSec)}
+                      </div>
+                      <div className="rounded-2xl bg-white/65 p-3 shadow-sm ring-1 ring-black/5">
+                        <CheckCircle2 className="mx-auto mb-1 h-4 w-4 text-zinc-500" />
+                        {selectedVideo.matchCount} matches
+                      </div>
+                      <div className="rounded-2xl bg-white/65 p-3 shadow-sm ring-1 ring-black/5">
+                        <Sparkles className="mx-auto mb-1 h-4 w-4 text-zinc-500" />
+                        {selectedVideoPeople.length || selectedPersonIdsFromVideo(selectedVideo).length} targets
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <div className="rounded-xl bg-zinc-100 p-3">
                     <Clock3 className="mx-auto mb-1 h-4 w-4 text-zinc-500" />
@@ -618,6 +695,17 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                 >
                   <Maximize2 className="h-4 w-4" />
                   Open timeline player
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 rounded-xl border-black/10 bg-white/75 text-zinc-800 hover:bg-white"
+                  onClick={() => void shareTimeline(selectedVideo)}
+                  disabled={!selectedVideo.videoUrl}
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share timeline link
                 </Button>
 
                 {selectedVideoPeople.length > 0 && (
@@ -823,13 +911,30 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(timelineVideo)} onOpenChange={(open) => !open && setTimelineVideo(null)}>
+      <Dialog open={Boolean(timelineVideo)} onOpenChange={(open) => !open && closeTimeline()}>
         <DialogContent className="grid h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden border-black/10 bg-[#f5f5f7] p-3 text-zinc-950 shadow-2xl sm:h-[calc(100vh-1.5rem)] sm:w-[calc(100vw-1.5rem)] sm:gap-4 sm:p-4 sm:max-w-none">
           <DialogHeader className="pr-8 text-left">
-            <DialogTitle className="text-lg font-semibold tracking-tight text-zinc-950 sm:text-xl">{timelineVideo?.fileName || "Video timeline"}</DialogTitle>
-            <DialogDescription className="text-zinc-500">
-              Click an interval to jump to that moment and play the video.
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-lg font-semibold tracking-tight text-zinc-950 sm:text-xl">{timelineVideo?.fileName || "Video timeline"}</DialogTitle>
+                <DialogDescription className="text-zinc-500">
+                  Click an interval to jump to that moment and play the video.
+                </DialogDescription>
+              </div>
+              {timelineVideo ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 rounded-full border-black/10 bg-white/80 px-3 text-zinc-800 hover:bg-white"
+                  onClick={() => void shareTimeline(timelineVideo)}
+                  aria-label="Share timeline link"
+                >
+                  <Share2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Share</span>
+                </Button>
+              ) : null}
+            </div>
           </DialogHeader>
 
           {timelineVideo ? (
