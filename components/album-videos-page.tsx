@@ -150,7 +150,7 @@ function formatDate(value?: string | null) {
 function statusTone(status: string) {
   if (status === "completed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (status === "failed") return "border-rose-200 bg-rose-50 text-rose-700";
-  if (status === "processing") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (status === "processing") return "border-blue-200 bg-blue-50 text-blue-700";
   return "border-zinc-200 bg-zinc-50 text-zinc-600";
 }
 
@@ -172,7 +172,7 @@ function targetPersonIdsFromVideo(video?: AlbumVideo | null) {
   return selectedPersonIdsFromVideo(video);
 }
 
-const targetColors = ["#f7d35f", "#78dcca", "#f29ab2", "#9db7ff", "#f5a85f", "#d5a8ff"];
+const targetColors = ["#007aff", "#34c759", "#ff2d55", "#5856d6", "#5ac8fa", "#8e8e93"];
 
 export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -824,10 +824,10 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
       </Dialog>
 
       <Dialog open={Boolean(timelineVideo)} onOpenChange={(open) => !open && setTimelineVideo(null)}>
-        <DialogContent className="grid h-[calc(100vh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden border-black/10 bg-[#111111] p-4 text-white sm:max-w-none">
+        <DialogContent className="grid h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden border-black/10 bg-[#f5f5f7] p-3 text-zinc-950 shadow-2xl sm:h-[calc(100vh-1.5rem)] sm:w-[calc(100vw-1.5rem)] sm:gap-4 sm:p-4 sm:max-w-none">
           <DialogHeader className="pr-8 text-left">
-            <DialogTitle className="text-xl text-white">{timelineVideo?.fileName || "Video timeline"}</DialogTitle>
-            <DialogDescription className="text-zinc-300">
+            <DialogTitle className="text-lg font-semibold tracking-tight text-zinc-950 sm:text-xl">{timelineVideo?.fileName || "Video timeline"}</DialogTitle>
+            <DialogDescription className="text-zinc-500">
               Click an interval to jump to that moment and play the video.
             </DialogDescription>
           </DialogHeader>
@@ -835,7 +835,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
           {timelineVideo ? (
             <div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
               <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
-                <div className="min-h-0 overflow-hidden rounded-2xl bg-black">
+                <div className="min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
                   {timelineVideo.videoUrl ? (
                     <video
                       ref={timelineVideoRef}
@@ -851,7 +851,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                   )}
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="rounded-[1.35rem] border border-black/10 bg-white/80 p-3 shadow-sm backdrop-blur-xl sm:rounded-[1.75rem] sm:p-4">
                   {timelineTargets.length > 0 && (
                     <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-2 sm:gap-3">
                       <button
@@ -859,8 +859,8 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                         onClick={() => setActiveTimelineTargetIndex(null)}
                         className={`flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border text-xs font-bold transition sm:h-12 sm:min-w-12 ${
                           activeTimelineTargetIndex === null
-                            ? "border-[#f7d35f] bg-[#f7d35f] text-black"
-                            : "border-white/15 bg-white/10 text-white hover:bg-white/15"
+                            ? "border-[#007aff] bg-[#007aff] text-white shadow-sm"
+                            : "border-black/10 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50"
                         }`}
                         aria-label="Show all targets"
                       >
@@ -874,15 +874,15 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                             type="button"
                             onClick={() => setActiveTimelineTargetIndex(active ? null : target.index)}
                             className={`group relative flex h-14 w-14 shrink-0 cursor-pointer flex-col items-center justify-center rounded-full border-2 transition sm:h-16 sm:w-16 ${
-                              active ? "border-[#f7d35f]" : "border-white/20 hover:border-white/60"
+                              active ? "border-[#007aff] shadow-[0_0_0_4px_rgba(0,122,255,0.14)]" : "border-white hover:border-zinc-300"
                             }`}
                             title={target.label}
                             aria-label={`Filter timeline to ${target.label}`}
                           >
                             {target.imageUrl ? (
-                              <img src={target.imageUrl} alt="" className="h-full w-full rounded-full object-cover" />
+                              <img src={target.imageUrl} alt="" className="h-full w-full rounded-full object-cover shadow-sm" />
                             ) : (
-                              <span className="flex h-full w-full items-center justify-center rounded-full bg-white/10 text-white">
+                              <span className="flex h-full w-full items-center justify-center rounded-full bg-zinc-100 text-zinc-500 shadow-sm">
                                 <User className="h-4 w-4" />
                               </span>
                             )}
@@ -896,11 +896,11 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                     </div>
                   )}
 
-                  <div className="mb-3 flex items-center justify-between text-xs text-zinc-300">
+                  <div className="mb-3 flex items-center justify-between text-xs font-medium text-zinc-500">
                     <span>0:00</span>
                     <span>{formatDuration(timelineVideo.durationSec)}</span>
                   </div>
-                  <div className="relative h-20 overflow-hidden rounded-2xl bg-white/10 sm:h-16">
+                  <div className="relative h-20 overflow-hidden rounded-[1.15rem] bg-zinc-100 sm:h-16">
                     {visibleTimelineMatches.map((match, index) => {
                       const duration = Math.max(timelineVideo.durationSec, 1);
                       const start = Math.max(0, Number(match.startSec ?? 0));
@@ -919,14 +919,14 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                           }}
                         >
                           {label ? (
-                            <div className="mb-1 max-w-[9rem] truncate rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm sm:max-w-[12rem]">
+                            <div className="mb-1 max-w-[9rem] truncate rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-semibold text-zinc-700 shadow-sm ring-1 ring-black/5 sm:max-w-[12rem]">
                               {label}
                             </div>
                           ) : null}
                           <button
                             type="button"
                             aria-label={`Play match ${index + 1}${label ? ` for ${label}` : ""}`}
-                            className="h-8 w-full rounded-full shadow-[0_0_24px_rgba(247,211,95,0.25)] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white"
+                            className="h-8 w-full rounded-full shadow-[0_8px_24px_rgba(0,122,255,0.18)] transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#007aff] focus:ring-offset-2 focus:ring-offset-white"
                             style={{ backgroundColor: color }}
                             onClick={() => void seekAndPlay(match.startSec)}
                           />
@@ -937,17 +937,17 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                 </div>
               </section>
 
-              <aside className="min-h-0 overflow-auto rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs text-zinc-200">
-                  <div className="rounded-xl bg-white/10 p-3">{formatDuration(timelineVideo.durationSec)}</div>
-                  <div className="rounded-xl bg-white/10 p-3">{visibleTimelineMatches.length} matches</div>
-                  <div className="rounded-xl bg-white/10 p-3 capitalize">{timelineVideo.detectionStatus}</div>
+              <aside className="hidden min-h-0 overflow-auto rounded-[1.75rem] border border-black/10 bg-white/80 p-4 shadow-sm backdrop-blur-xl lg:block">
+                <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs text-zinc-600">
+                  <div className="rounded-2xl bg-zinc-100 p-3">{formatDuration(timelineVideo.durationSec)}</div>
+                  <div className="rounded-2xl bg-zinc-100 p-3">{visibleTimelineMatches.length} matches</div>
+                  <div className="rounded-2xl bg-zinc-100 p-3 capitalize">{timelineVideo.detectionStatus}</div>
                 </div>
 
                 {timelineVideoPeople.length > 0 && (
-                  <div className="mb-4 flex flex-wrap gap-2 rounded-xl bg-white/10 p-2">
+                  <div className="mb-4 flex flex-wrap gap-2 rounded-2xl bg-zinc-100 p-2">
                     {timelineVideoPeople.map((person) => (
-                      <span key={person.id} className="inline-flex items-center gap-2 rounded-full bg-black/30 px-3 py-1.5 text-xs font-semibold text-white">
+                      <span key={person.id} className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm">
                         {person.coverFaceUrl ? (
                           <img src={person.coverFaceUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
                         ) : null}
@@ -963,31 +963,31 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                       key={match.id}
                       type="button"
                       onClick={() => void seekAndPlay(match.startSec)}
-                      className="rounded-xl border border-white/10 bg-black/25 p-3 text-left transition hover:border-[#f7d35f]/60 hover:bg-black/40"
+                      className="rounded-2xl border border-black/10 bg-white p-3 text-left shadow-sm transition hover:border-[#007aff]/40 hover:bg-zinc-50"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-900">
                           <span
                             className="h-2.5 w-2.5 rounded-full"
                             style={{ backgroundColor: targetColors[(match.targetIndex ?? 0) % targetColors.length] }}
                           />
                           Match {index + 1}
                         </span>
-                        <span className="rounded-full bg-white/10 px-2 py-1 text-xs text-zinc-200">
+                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">
                           {match.startTime || formatDuration(match.startSec)}
                         </span>
                       </div>
-                      <p className="mt-2 text-xs text-zinc-400">
+                      <p className="mt-2 text-xs text-zinc-500">
                         {match.startTime || formatDuration(match.startSec)} - {match.endTime || formatDuration(match.endSec)}
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-300">
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
                         <span>{match.framesMatched ?? 0} frames</span>
                         <span>max {Number(match.maxSimilarity ?? 0).toFixed(3)}</span>
                         <span>avg {Number(match.avgSimilarity ?? 0).toFixed(3)}</span>
                       </div>
                     </button>
                   )) : (
-                    <div className="rounded-xl border border-dashed border-white/15 p-4 text-sm text-zinc-400">
+                    <div className="rounded-2xl border border-dashed border-black/15 p-4 text-sm text-zinc-500">
                       No AI intervals are available for this video yet.
                     </div>
                   )}
