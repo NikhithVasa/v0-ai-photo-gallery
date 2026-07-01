@@ -305,6 +305,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
           (Boolean(target.personId) && match.personId === target.personId)
         )).length,
       }))
+      .filter((target) => target.occurrenceCount > 0)
       .sort((left, right) => {
         if (right.occurrenceCount !== left.occurrenceCount) {
           return right.occurrenceCount - left.occurrenceCount;
