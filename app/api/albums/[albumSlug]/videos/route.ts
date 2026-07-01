@@ -231,6 +231,29 @@ function matchesValue(
   });
 }
 
+function targetImageIndexesForMatches(
+  matches: ReturnType<typeof matchesValue>,
+  targetKeys: string[],
+  targetPersonIds: Array<string | null>,
+) {
+  const indexes = new Set<number>();
+
+  for (const match of matches) {
+    if (match.targetIndex !== null && match.targetIndex >= 0 && match.targetIndex < targetKeys.length) {
+      indexes.add(match.targetIndex);
+      continue;
+    }
+
+    if (match.personId) {
+      targetPersonIds.forEach((personId, index) => {
+        if (personId === match.personId && index < targetKeys.length) indexes.add(index);
+      });
+    }
+  }
+
+  return indexes;
+}
+
 async function albumBySlug(albumSlug: string) {
   return queryOne<AlbumRow>(
     `
@@ -274,6 +297,7 @@ async function toVideo(row: VideoRow) {
   const resultHasTargetData = resultMatches.some((match) => match.targetIndex !== null || Boolean(match.targetS3Key));
   const timelineMatches = (!dbMatches.length || !dbHasTargetData) && resultHasTargetData ? resultMatches : dbMatches;
   const discoveredPeople = discoveredPeopleValue(resultJson);
+  const targetImageIndexes = targetImageIndexesForMatches(timelineMatches, targetKeys, targetPersonIds);
 
   return {
     id: row.id,
@@ -290,11 +314,18 @@ async function toVideo(row: VideoRow) {
     detectionParams: row.detection_params ?? {},
     targetPersonId: row.target_person_id,
     targetS3Keys: row.target_s3_keys,
-    targetImages: await Promise.all(targetKeys.map(async (key, index) => ({
-      key,
-      index,
-      personId: targetPersonIds[index] ?? null,
-      url: await signedObjectUrl(key),
+    targetImages: await Promise.all(targetKeys.flatMap((key, index) => (
+      targetImageIndexes.has(index)
+        ? [{
+          key,
+          index,
+          personId: targetPersonIds[index] ?? null,
+          url: signedObjectUrl(key),
+        }]
+        : []
+    )).map(async (target) => ({
+      ...target,
+      url: await target.url,
     }))),
     discoveredPeople: await Promise.all(discoveredPeople.map(async (person) => ({
       ...person,
