@@ -281,14 +281,27 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     if (!timelineVideo) return [] as VideoMatch[];
     if (!activeTimelineTarget) return timelineVideo.matches;
 
-    const filtered = timelineVideo.matches.filter((match) => (
+    return timelineVideo.matches.filter((match) => (
       match.targetIndex === activeTimelineTarget.index ||
       match.targetS3Key === activeTimelineTarget.key ||
       (Boolean(activeTimelineTarget.personId) && match.personId === activeTimelineTarget.personId)
     ));
-
-    return filtered.length ? filtered : timelineVideo.matches;
   }, [activeTimelineTarget, timelineVideo]);
+
+  const timelineMatchesHaveTargetData = useMemo(
+    () => Boolean(timelineVideo?.matches.some((match) => (
+      match.targetIndex !== null ||
+      Boolean(match.targetS3Key) ||
+      Boolean(match.personId)
+    ))),
+    [timelineVideo],
+  );
+
+  const emptyTimelineMessage = activeTimelineTarget
+    ? timelineMatchesHaveTargetData
+      ? `No intervals found for ${activeTimelineTarget.label}.`
+      : "This run does not have per-face timeline data yet. Re-run AI to filter by a specific person."
+    : "No AI intervals are available for this video yet.";
 
   useEffect(() => {
     setActiveTimelineTargetIndex(null);
@@ -1020,7 +1033,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                     <span>{formatDuration(timelineVideo.durationSec)}</span>
                   </div>
                   <div className="relative h-20 overflow-hidden rounded-[1.15rem] bg-zinc-100 sm:h-16">
-                    {visibleTimelineMatches.map((match, index) => {
+                    {visibleTimelineMatches.length ? visibleTimelineMatches.map((match, index) => {
                       const duration = Math.max(timelineVideo.durationSec, 1);
                       const start = Math.max(0, Number(match.startSec ?? 0));
                       const end = Math.max(start + 0.5, Number(match.endSec ?? start + 0.5));
@@ -1051,7 +1064,11 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                           />
                         </div>
                       );
-                    })}
+                    }) : (
+                      <div className="flex h-full items-center justify-center px-4 text-center text-xs font-medium text-zinc-500">
+                        {emptyTimelineMessage}
+                      </div>
+                    )}
                   </div>
                 </div>
               </section>
@@ -1107,7 +1124,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                     </button>
                   )) : (
                     <div className="rounded-2xl border border-dashed border-black/15 p-4 text-sm text-zinc-500">
-                      No AI intervals are available for this video yet.
+                      {emptyTimelineMessage}
                     </div>
                   )}
                 </div>
