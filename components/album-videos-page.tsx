@@ -163,7 +163,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const [timelineVideo, setTimelineVideo] = useState<AlbumVideo | null>(null);
   const [pendingSeekSec, setPendingSeekSec] = useState<number | null>(null);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
-  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  const [selfieFiles, setSelfieFiles] = useState<File[]>([]);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [isRunningAi, setIsRunningAi] = useState(false);
 
@@ -291,9 +291,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     }
   }
 
-  async function uploadSelfieTarget(video: AlbumVideo) {
-    if (!selfieFile) return [] as string[];
-
+  async function uploadSelfieTarget(video: AlbumVideo, file: File) {
     const prepareResponse = await fetch(
       `/api/albums/${encodeURIComponent(albumSlug)}/video-targets`,
       {
@@ -301,9 +299,9 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eventSlug: video.eventSlug,
-          fileName: selfieFile.name,
-          size: selfieFile.size,
-          contentType: selfieFile.type || "image/jpeg",
+          fileName: file.name,
+          size: file.size,
+          contentType: file.type || "image/jpeg",
         }),
       },
     );
@@ -313,19 +311,24 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
     const uploadResponse = await fetch(prepared.uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": prepared.contentType },
-      body: selfieFile,
+      body: file,
     });
     if (!uploadResponse.ok) throw new Error("Selfie upload failed");
 
-    return [prepared.s3Key];
+    return prepared.s3Key;
+  }
+
+  async function uploadSelfieTargets(video: AlbumVideo) {
+    if (!selfieFiles.length) return [] as string[];
+    return Promise.all(selfieFiles.map((file) => uploadSelfieTarget(video, file)));
   }
 
   async function runAi() {
     if (!aiVideo) return;
-    if (!selectedPersonIds.length && !selfieFile) {
+    if (!selectedPersonIds.length && !selfieFiles.length) {
       toast({
         title: "Choose a target",
-        description: "Select one or more people from the album or upload a selfie.",
+        description: "Select one or more people from the album or upload one or more selfies.",
         variant: "destructive",
       });
       return;
@@ -333,7 +336,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
     setIsRunningAi(true);
     try {
-      const selfieS3Keys = await uploadSelfieTarget(aiVideo);
+      const selfieS3Keys = await uploadSelfieTargets(aiVideo);
       const response = await fetch(
         `/api/albums/${encodeURIComponent(albumSlug)}/videos/${encodeURIComponent(aiVideo.id)}/ai`,
         {
@@ -350,7 +353,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
       toast({ title: "Video AI started", description: "The timeline will update when the worker finishes." });
       setAiVideo(null);
-      setSelfieFile(null);
+  setSelfieFiles([]);
       setSelectedPersonIds([]);
       if (selfieInputRef.current) selfieInputRef.current.value = "";
       await mutate();
@@ -678,14 +681,33 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                   ref={selfieInputRef}
                   id="selfie-upload"
                   type="file"
+                  multiple
                   accept="image/jpeg,image/png,image/webp,image/*"
-                  onChange={(event) => setSelfieFile(event.target.files?.[0] ?? null)}
+                  onChange={(event) => setSelfieFiles(Array.from(event.target.files ?? []))}
                 />
                 <div className="flex min-w-0 items-center gap-2 text-sm text-zinc-500">
                   <ImageUp className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{selfieFile?.name || "Optional additional target image"}</span>
+                  <span className="truncate">
+                    {selfieFiles.length
+                      ? `${selfieFiles.length} target image${selfieFiles.length === 1 ? "" : "s"} selected`
+                      : "Optional additional target images"}
+                  </span>
                 </div>
               </div>
+              {selfieFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selfieFiles.map((file) => (
+                    <button
+                      key={`${file.name}-${file.size}-${file.lastModified}`}
+                      type="button"
+                      onClick={() => setSelfieFiles((current) => current.filter((item) => item !== file))}
+                      className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-200"
+                    >
+                      {file.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
