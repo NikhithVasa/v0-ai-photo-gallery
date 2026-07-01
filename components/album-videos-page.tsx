@@ -151,7 +151,7 @@ function formatDate(value?: string | null) {
 function statusTone(status: string) {
   if (status === "completed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (status === "failed") return "border-rose-200 bg-rose-50 text-rose-700";
-  if (status === "processing") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (status === "processing") return "border-zinc-200 bg-zinc-100 text-zinc-700";
   return "border-zinc-200 bg-zinc-50 text-zinc-600";
 }
 
@@ -173,7 +173,7 @@ function targetPersonIdsFromVideo(video?: AlbumVideo | null) {
   return selectedPersonIdsFromVideo(video);
 }
 
-const targetColors = ["#007aff", "#34c759", "#ff2d55", "#5856d6", "#5ac8fa", "#8e8e93"];
+const targetColors = ["#8e8e93", "#aeaeb2", "#6e6e73", "#c7c7cc", "#98989d", "#d1d1d6"];
 
 export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -185,6 +185,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
   const [aiVideo, setAiVideo] = useState<AlbumVideo | null>(null);
   const [timelineVideo, setTimelineVideo] = useState<AlbumVideo | null>(null);
   const [activeTimelineTargetIndex, setActiveTimelineTargetIndex] = useState<number | null>(null);
+  const [isTimelinePanelOpen, setIsTimelinePanelOpen] = useState(false);
   const [pendingSeekSec, setPendingSeekSec] = useState<number | null>(null);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [selfieFiles, setSelfieFiles] = useState<File[]>([]);
@@ -228,6 +229,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
     openedTimelineFromUrlRef.current = true;
     setSelectedVideoId(video.id);
+    setIsTimelinePanelOpen(false);
     setTimelineVideo(video);
   }, [videos]);
 
@@ -326,6 +328,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
 
   function openTimelineAt(video: AlbumVideo, seconds?: number | null) {
     setTimelineVideo(video);
+    setIsTimelinePanelOpen(false);
     if (seconds !== null && seconds !== undefined) {
       setPendingSeekSec(seconds);
     }
@@ -642,7 +645,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
               <>
                 <div className="relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/55 p-4 shadow-[0_18px_50px_rgba(24,24,27,0.10)] backdrop-blur-2xl">
                   <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-white/90" />
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.86),rgba(255,255,255,0.38)_48%,rgba(0,122,255,0.10))]" />
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(255,255,255,0.44)_48%,rgba(228,228,231,0.72))]" />
                   <div className="relative grid gap-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -922,23 +925,34 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                 </DialogDescription>
               </div>
               {timelineVideo ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 shrink-0 rounded-full border-black/10 bg-white/80 px-3 text-zinc-800 hover:bg-white"
-                  onClick={() => void shareTimeline(timelineVideo)}
-                  aria-label="Share timeline link"
-                >
-                  <Share2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Share</span>
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="hidden h-9 rounded-full border-black/10 bg-white/80 px-3 text-zinc-800 hover:bg-white lg:inline-flex"
+                    onClick={() => setIsTimelinePanelOpen((open) => !open)}
+                  >
+                    {isTimelinePanelOpen ? "Hide details" : "Details"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-full border-black/10 bg-white/80 px-3 text-zinc-800 hover:bg-white"
+                    onClick={() => void shareTimeline(timelineVideo)}
+                    aria-label="Share timeline link"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Share</span>
+                  </Button>
+                </div>
               ) : null}
             </div>
           </DialogHeader>
 
           {timelineVideo ? (
-            <div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className={`grid min-h-0 gap-4 ${isTimelinePanelOpen ? "lg:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
               <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
                 <div className="min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
                   {timelineVideo.videoUrl ? (
@@ -964,7 +978,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                         onClick={() => setActiveTimelineTargetIndex(null)}
                         className={`flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border text-xs font-bold transition sm:h-12 sm:min-w-12 ${
                           activeTimelineTargetIndex === null
-                            ? "border-[#007aff] bg-[#007aff] text-white shadow-sm"
+                            ? "border-zinc-300 bg-zinc-200 text-zinc-950 shadow-sm"
                             : "border-black/10 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50"
                         }`}
                         aria-label="Show all targets"
@@ -979,7 +993,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                             type="button"
                             onClick={() => setActiveTimelineTargetIndex(active ? null : target.index)}
                             className={`group relative flex h-14 w-14 shrink-0 cursor-pointer flex-col items-center justify-center rounded-full border-2 transition sm:h-16 sm:w-16 ${
-                              active ? "border-[#007aff] shadow-[0_0_0_4px_rgba(0,122,255,0.14)]" : "border-white hover:border-zinc-300"
+                              active ? "border-zinc-400 shadow-[0_0_0_4px_rgba(113,113,122,0.14)]" : "border-white hover:border-zinc-300"
                             }`}
                             title={target.label}
                             aria-label={`Filter timeline to ${target.label}`}
@@ -1031,7 +1045,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                           <button
                             type="button"
                             aria-label={`Play match ${index + 1}${label ? ` for ${label}` : ""}`}
-                            className="h-8 w-full rounded-full shadow-[0_8px_24px_rgba(0,122,255,0.18)] transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#007aff] focus:ring-offset-2 focus:ring-offset-white"
+                            className="h-8 w-full rounded-full shadow-[0_8px_22px_rgba(113,113,122,0.16)] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-2 focus:ring-offset-white"
                             style={{ backgroundColor: color }}
                             onClick={() => void seekAndPlay(match.startSec)}
                           />
@@ -1042,7 +1056,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                 </div>
               </section>
 
-              <aside className="hidden min-h-0 overflow-auto rounded-[1.75rem] border border-black/10 bg-white/80 p-4 shadow-sm backdrop-blur-xl lg:block">
+              <aside className={`hidden min-h-0 overflow-auto rounded-[1.75rem] border border-black/10 bg-white/80 p-4 shadow-sm backdrop-blur-xl ${isTimelinePanelOpen ? "lg:block" : "lg:hidden"}`}>
                 <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs text-zinc-600">
                   <div className="rounded-2xl bg-zinc-100 p-3">{formatDuration(timelineVideo.durationSec)}</div>
                   <div className="rounded-2xl bg-zinc-100 p-3">{visibleTimelineMatches.length} matches</div>
@@ -1068,7 +1082,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                       key={match.id}
                       type="button"
                       onClick={() => void seekAndPlay(match.startSec)}
-                      className="rounded-2xl border border-black/10 bg-white p-3 text-left shadow-sm transition hover:border-[#007aff]/40 hover:bg-zinc-50"
+                      className="rounded-2xl border border-black/10 bg-white p-3 text-left shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <span className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-900">
