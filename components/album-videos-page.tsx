@@ -632,7 +632,10 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                 <button
                   key={video.id}
                   type="button"
-                  onClick={() => setSelectedVideoId(video.id)}
+                  onClick={() => {
+                    setSelectedVideoId(video.id);
+                    openTimelineAt(video);
+                  }}
                   className={`group overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                     selectedVideo?.id === video.id ? "border-zinc-950" : "border-black/10"
                   }`}
