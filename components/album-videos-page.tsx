@@ -1125,13 +1125,13 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                       return (
                         <div
                           key={match.id}
-                          className="absolute top-2"
+                          className="group absolute top-2 cursor-pointer"
                           style={{
                             left: `${Math.min(100, (start / duration) * 100)}%`,
                             width: `${Math.max(1, Math.min(100, ((end - start) / duration) * 100))}%`,
                           }}
                         >
-                          <div className="mb-1 flex h-7 w-7 items-center justify-center rounded-full bg-white p-0.5 shadow-sm ring-1 ring-black/10" title={label}>
+                          <div className="mb-1 flex h-7 w-7 origin-bottom items-center justify-center rounded-full bg-white p-0.5 shadow-sm ring-1 ring-black/10 transition-all duration-200 ease-out group-hover:-translate-y-1.5 group-hover:scale-125 group-hover:shadow-[0_10px_24px_rgba(24,24,27,0.22)] group-hover:ring-2 group-hover:ring-white group-focus-within:-translate-y-1.5 group-focus-within:scale-125 group-focus-within:shadow-[0_10px_24px_rgba(24,24,27,0.22)] group-focus-within:ring-2 group-focus-within:ring-white" title={label}>
                             {target?.imageUrl ? (
                               <img src={target.imageUrl} alt="" className="h-full w-full rounded-full object-cover" />
                             ) : (
@@ -1141,7 +1141,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                           <button
                             type="button"
                             aria-label={`Play match ${index + 1}${label ? ` for ${label}` : ""}`}
-                            className="h-8 w-full rounded-full shadow-[0_8px_22px_rgba(113,113,122,0.16)] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-2 focus:ring-offset-white"
+                            className="h-8 w-full cursor-pointer rounded-full shadow-[0_8px_22px_rgba(113,113,122,0.16)] transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-white"
                             style={{ backgroundColor: color }}
                             onClick={() => void seekAndPlay(match.startSec)}
                           />
