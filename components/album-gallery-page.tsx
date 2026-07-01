@@ -37,6 +37,7 @@ import {
   Trash2,
   User,
   Users,
+  Video,
   X,
   DownloadIcon,
 } from "lucide-react";
@@ -3967,6 +3968,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 >
                   <Sparkles className="h-4 w-4 shrink-0" />
                   <span>AI Review</span>
+                </Link>
+              )}
+
+              {!isShareView && (
+                <Link
+                  href={`/albums/${encodeURIComponent(albumSlug)}/videos`}
+                  className={`${navPillButtonClass} min-w-[104px] px-3`}
+                  aria-label="Manage videos"
+                >
+                  <Video className="h-4 w-4 shrink-0" />
+                  <span>Videos</span>
                 </Link>
               )}
 
