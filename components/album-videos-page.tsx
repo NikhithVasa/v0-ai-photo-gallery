@@ -1116,7 +1116,7 @@ export function AlbumVideosPage({ albumSlug }: AlbumVideosPageProps) {
                     <span>0:00</span>
                     <span>{formatDuration(timelineVideo.durationSec)}</span>
                   </div>
-                  <div className="relative h-20 overflow-hidden rounded-[1.15rem] bg-zinc-100 sm:h-16">
+                  <div className="relative h-20 overflow-visible rounded-[1.15rem] bg-zinc-100 sm:h-16">
                     {visibleTimelineMatches.length ? visibleTimelineMatches.map((match, index) => {
                       const duration = Math.max(timelineVideo.durationSec, 1);
                       const start = Math.max(0, Number(match.startSec ?? 0));
