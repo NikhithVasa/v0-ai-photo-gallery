@@ -173,7 +173,7 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
     !isOnCustomerHost &&
     !isUrlHintDismissed;
   const costs = costsData?.costs;
-  const costsTitle = costs
+  const costsSummaryTitle = costs
     ? `Estimated monthly storage for ${customerName}: S3 ${formatStorageBytes(costs.s3.bytes)} across ${formatCount(costs.s3.objectCount)} objects (${formatMonthlyCost(costs.s3.estimatedMonthlyUsd)}), RDS table data ${formatStorageBytes(costs.rds.bytes)} across ${formatCount(costs.rds.rowCount)} rows (${formatMonthlyCost(costs.rds.estimatedMonthlyUsd)}). Excludes requests, transfer, CloudFront, Lambda, database indexes, free-tier credits, and backups.`
     : "Estimated customer storage cost";
 
@@ -462,32 +462,6 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {shouldLoadCosts && (
-              <div
-                className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 shadow-sm"
-                title={costsError ? "Customer cost unavailable" : costsTitle}
-                aria-label={costs ? `Estimated customer cost ${formatMonthlyCost(costs.estimatedMonthlyUsd)}` : "Loading customer cost"}
-              >
-                {costsLoading && !costs ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-                ) : (
-                  <HardDrive className="h-4 w-4 text-zinc-500" />
-                )}
-                <span className="text-zinc-950">
-                  {costsError
-                    ? "Cost unavailable"
-                    : costs
-                      ? formatMonthlyCost(costs.estimatedMonthlyUsd)
-                      : "Cost"}
-                </span>
-                {costs && (
-                  <span className="hidden text-zinc-500 xl:inline">
-                    S3 {formatStorageBytes(costs.s3.bytes)} · DB {formatStorageBytes(costs.rds.bytes)}
-                  </span>
-                )}
-              </div>
-            )}
-
             {customerShareUrl && (
               <a
                 href={customerShareUrl}
@@ -538,6 +512,63 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
             <AuthAvatarMenu />
           </div>
         </header>
+
+        {shouldLoadCosts && (
+          <section
+            className="mb-6 grid gap-3 sm:grid-cols-3"
+            aria-label="Customer cost summary"
+            title={costsError ? "Customer cost unavailable" : costsSummaryTitle}
+          >
+            {costsLoading && !costs ? (
+              Array.from({ length: 3 }).map((_, index) => (
+                <Skeleton key={index} className="h-28 rounded-lg" />
+              ))
+            ) : costsError ? (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 sm:col-span-3">
+                Customer cost unavailable.
+              </div>
+            ) : costs ? (
+              <>
+                <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4 shadow-sm">
+                  <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
+                    <HardDrive className="h-4 w-4" />
+                    Estimated cost
+                  </div>
+                  <p className="mt-3 text-3xl font-semibold tracking-normal text-zinc-950">
+                    {formatMonthlyCost(costs.estimatedMonthlyUsd)}
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-500">S3 + RDS storage</p>
+                </div>
+
+                <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4 shadow-sm">
+                  <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
+                    <Images className="h-4 w-4" />
+                    S3 storage
+                  </div>
+                  <p className="mt-3 text-3xl font-semibold tracking-normal text-zinc-950">
+                    {formatStorageBytes(costs.s3.bytes)}
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    {formatCount(costs.s3.objectCount)} objects · {formatMonthlyCost(costs.s3.estimatedMonthlyUsd)}
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-zinc-200 bg-white px-5 py-4 shadow-sm">
+                  <div className="flex items-center gap-2 text-sm font-medium text-zinc-500">
+                    <Users className="h-4 w-4" />
+                    RDS table data
+                  </div>
+                  <p className="mt-3 text-3xl font-semibold tracking-normal text-zinc-950">
+                    {formatStorageBytes(costs.rds.bytes)}
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    {formatCount(costs.rds.rowCount)} rows · {formatMonthlyCost(costs.rds.estimatedMonthlyUsd)}
+                  </p>
+                </div>
+              </>
+            ) : null}
+          </section>
+        )}
 
         {showCustomerUrlHint && (
           <div className="mb-6 flex flex-col gap-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 sm:flex-row sm:items-center sm:justify-between">
