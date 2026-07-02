@@ -91,7 +91,8 @@ export async function POST(request: Request, { params }: Props) {
     const personIds = uuidArray(body.personIds).concat(uuidArray(body.personId));
     const uniquePersonIds = [...new Set(personIds)];
     const selfieS3Keys = stringArray(body.selfieS3Keys);
-    const discoverPeople = body.discoverPeople === true;
+    const requestedDiscoverPeople = body.discoverPeople === true;
+    const hasRequestedTargets = uniquePersonIds.length > 0 || selfieS3Keys.length > 0;
 
     const video = await queryOne<VideoRow>(
       `
@@ -174,13 +175,20 @@ export async function POST(request: Request, { params }: Props) {
     const targetUrls = (
       await Promise.all(targetKeys.map((key) => signedObjectUrl(key)))
     ).filter((url): url is string => Boolean(url));
+    const discoverPeople = requestedDiscoverPeople || !hasRequestedTargets;
 
     if (!videoUrl) {
       return NextResponse.json({ error: "Could not create video URL" }, { status: 500 });
     }
-    if (!targetUrls.length && !discoverPeople) {
+    if (hasRequestedTargets && !targetKeys.length && !discoverPeople) {
       return NextResponse.json(
-        { error: "Choose a person or upload a selfie before running AI" },
+        { error: "Selected targets do not have usable face images" },
+        { status: 400 },
+      );
+    }
+    if (targetKeys.length > 0 && !targetUrls.length) {
+      return NextResponse.json(
+        { error: "Could not create target image URLs" },
         { status: 400 },
       );
     }
@@ -220,6 +228,28 @@ export async function POST(request: Request, { params }: Props) {
     );
     await query("DELETE FROM video_face_matches WHERE video_id = $1::uuid", [video.id]);
 
+    const workerInput: Record<string, unknown> = {
+      video_id: video.id,
+      album_id: video.album_id,
+      album_event_id: video.album_event_id,
+      customer_id: video.customer_id,
+      target_person_id: targetPersonId,
+      file_name: video.file_name,
+      original_s3_key: video.original_s3_key,
+      storage_album_slug: video.storage_album_slug || albumSlug,
+      storage_event_slug: video.storage_event_slug || video.event_slug,
+      target_s3_keys: targetKeys,
+      target_person_ids: targetPersonIds,
+      selected_person_ids: uniquePersonIds,
+      discover_people: discoverPeople,
+      persist_results: true,
+      video_url: videoUrl,
+    };
+
+    if (targetUrls.length) {
+      workerInput.target_urls = targetUrls;
+    }
+
     const response = await fetch(faceOccurrenceLambdaUrl(), {
       method: "POST",
       headers: {
@@ -227,24 +257,7 @@ export async function POST(request: Request, { params }: Props) {
         "x-admin-key": adminKey,
       },
       body: JSON.stringify({
-        input: {
-          video_id: video.id,
-          album_id: video.album_id,
-          album_event_id: video.album_event_id,
-          customer_id: video.customer_id,
-          target_person_id: targetPersonId,
-          file_name: video.file_name,
-          original_s3_key: video.original_s3_key,
-          storage_album_slug: video.storage_album_slug || albumSlug,
-          storage_event_slug: video.storage_event_slug || video.event_slug,
-          target_s3_keys: targetKeys,
-          target_person_ids: targetPersonIds,
-          selected_person_ids: uniquePersonIds,
-          discover_people: discoverPeople,
-          persist_results: true,
-          video_url: videoUrl,
-          target_urls: targetUrls,
-        },
+        input: workerInput,
       }),
     });
 

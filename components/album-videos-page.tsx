@@ -278,6 +278,8 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
     const ids = new Set(selectedPersonIds);
     return people.filter((person) => ids.has(person.id));
   }, [people, selectedPersonIds]);
+  const hasAiTargets = selectedPersonIds.length > 0 || selfieFiles.length > 0;
+  const willDiscoverPeople = discoverPeople || !hasAiTargets;
 
   const allKnownPeopleSelected = people.length > 0 && selectedPersonIds.length === people.length;
 
@@ -535,14 +537,6 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
 
   async function runAi() {
     if (!aiVideo) return;
-    if (!discoverPeople && !selectedPersonIds.length && !selfieFiles.length) {
-      toast({
-        title: "Choose a target",
-        description: "Select album people, upload selfies, or enable unknown person discovery.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setIsRunningAi(true);
     try {
@@ -555,7 +549,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
           body: JSON.stringify({
             personIds: selectedPersonIds,
             selfieS3Keys,
-            discoverPeople,
+            discoverPeople: willDiscoverPeople,
           }),
         },
       );
@@ -1123,7 +1117,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-zinc-900">Find people not already known</span>
                   <span className="block text-xs text-zinc-500">
-                    Slower full-video scan. Leave off for fast matching against selected people or uploaded target images.
+                    Slower full-video scan. If no targets are selected, AI will extract all faces from the video.
                   </span>
                 </span>
               </label>
@@ -1174,7 +1168,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
             </Button>
             <Button type="button" onClick={() => void runAi()} disabled={isRunningAi}>
               {isRunningAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Start AI
+              {hasAiTargets ? "Start AI" : "Extract all faces"}
             </Button>
           </DialogFooter>
         </DialogContent>
