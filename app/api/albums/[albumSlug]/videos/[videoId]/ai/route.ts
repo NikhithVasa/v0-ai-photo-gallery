@@ -81,6 +81,15 @@ function lambdaFaceOccurrence(payload: Record<string, unknown>) {
   return occurrence && typeof occurrence === "object" ? (occurrence as Record<string, unknown>) : null;
 }
 
+function lambdaUrlLabel(value: string) {
+  try {
+    const url = new URL(value);
+    return url.host;
+  } catch {
+    return "configured-lambda-url";
+  }
+}
+
 export async function POST(request: Request, { params }: Props) {
   try {
     const { albumSlug, videoId } = await params;
@@ -93,6 +102,15 @@ export async function POST(request: Request, { params }: Props) {
     const selfieS3Keys = stringArray(body.selfieS3Keys);
     const requestedDiscoverPeople = body.discoverPeople === true;
     const hasRequestedTargets = uniquePersonIds.length > 0 || selfieS3Keys.length > 0;
+
+    console.info("[video-ai] request received", {
+      albumSlug,
+      videoId,
+      requestedPersonCount: uniquePersonIds.length,
+      selfieTargetCount: selfieS3Keys.length,
+      requestedDiscoverPeople,
+      hasRequestedTargets,
+    });
 
     const video = await queryOne<VideoRow>(
       `
@@ -120,8 +138,19 @@ export async function POST(request: Request, { params }: Props) {
     );
 
     if (!video?.original_s3_key) {
+      console.warn("[video-ai] video not found", { albumSlug, videoId });
       return NextResponse.json({ error: "Video not found" }, { status: 404 });
     }
+
+    console.info("[video-ai] video loaded", {
+      albumSlug,
+      videoId: video.id,
+      albumId: video.album_id,
+      eventId: video.album_event_id,
+      customerId: video.customer_id,
+      fileName: video.file_name,
+      hasOriginalS3Key: Boolean(video.original_s3_key),
+    });
 
     const targetKeys: string[] = [];
     const targetPersonIds: Array<string | null> = [];
@@ -171,22 +200,48 @@ export async function POST(request: Request, { params }: Props) {
     targetKeys.push(...selfieS3Keys);
     targetPersonIds.push(...selfieS3Keys.map(() => null));
 
+    console.info("[video-ai] targets resolved", {
+      videoId: video.id,
+      requestedPersonCount: uniquePersonIds.length,
+      resolvedTargetKeyCount: targetKeys.length,
+      selfieTargetCount: selfieS3Keys.length,
+      targetPersonIdCount: targetPersonIds.filter(Boolean).length,
+    });
+
     const videoUrl = await signedObjectUrl(video.original_s3_key);
     const targetUrls = (
       await Promise.all(targetKeys.map((key) => signedObjectUrl(key)))
     ).filter((url): url is string => Boolean(url));
     const discoverPeople = requestedDiscoverPeople || !hasRequestedTargets;
 
+    console.info("[video-ai] signed urls prepared", {
+      videoId: video.id,
+      hasVideoUrl: Boolean(videoUrl),
+      targetUrlCount: targetUrls.length,
+      discoverPeople,
+      hasRequestedTargets,
+    });
+
     if (!videoUrl) {
+      console.error("[video-ai] could not sign video url", { videoId: video.id });
       return NextResponse.json({ error: "Could not create video URL" }, { status: 500 });
     }
     if (hasRequestedTargets && !targetKeys.length && !discoverPeople) {
+      console.warn("[video-ai] selected targets have no usable face images", {
+        videoId: video.id,
+        requestedPersonCount: uniquePersonIds.length,
+        selfieTargetCount: selfieS3Keys.length,
+      });
       return NextResponse.json(
         { error: "Selected targets do not have usable face images" },
         { status: 400 },
       );
     }
     if (targetKeys.length > 0 && !targetUrls.length) {
+      console.error("[video-ai] target keys could not be signed", {
+        videoId: video.id,
+        targetKeyCount: targetKeys.length,
+      });
       return NextResponse.json(
         { error: "Could not create target image URLs" },
         { status: 400 },
@@ -195,6 +250,7 @@ export async function POST(request: Request, { params }: Props) {
 
     const adminKey = aiWorkerAdminKey();
     if (!adminKey) {
+      console.error("[video-ai] admin key missing", { videoId: video.id });
       return NextResponse.json(
         { error: "AI worker admin key is not configured" },
         { status: 500 },
@@ -227,6 +283,11 @@ export async function POST(request: Request, { params }: Props) {
       ],
     );
     await query("DELETE FROM video_face_matches WHERE video_id = $1::uuid", [video.id]);
+    console.info("[video-ai] video marked processing and old matches cleared", {
+      videoId: video.id,
+      targetKeyCount: targetKeys.length,
+      discoverPeople,
+    });
 
     const workerInput: Record<string, unknown> = {
       video_id: video.id,
@@ -267,7 +328,18 @@ export async function POST(request: Request, { params }: Props) {
       lambdaBody.targetUrls = targetUrls;
     }
 
-    const response = await fetch(faceOccurrenceLambdaUrl(), {
+    const lambdaUrl = faceOccurrenceLambdaUrl();
+    console.info("[video-ai] submitting lambda", {
+      videoId: video.id,
+      lambdaHost: lambdaUrlLabel(lambdaUrl),
+      discoverPeople,
+      workerInputKeys: Object.keys(workerInput).sort(),
+      lambdaBodyKeys: Object.keys(lambdaBody).sort(),
+      targetUrlCount: targetUrls.length,
+      targetKeyCount: targetKeys.length,
+    });
+
+    const response = await fetch(lambdaUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -278,8 +350,22 @@ export async function POST(request: Request, { params }: Props) {
 
     const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
 
+    console.info("[video-ai] lambda response received", {
+      videoId: video.id,
+      ok: response.ok,
+      status: response.status,
+      payloadOk: payload.ok,
+      payloadKeys: Object.keys(payload).sort(),
+      error: typeof payload.error === "string" ? payload.error : null,
+    });
+
     if (!response.ok || payload.ok === false) {
       const error = typeof payload.error === "string" ? payload.error : "Video AI failed to start";
+      console.error("[video-ai] lambda failed to start job", {
+        videoId: video.id,
+        status: response.status,
+        error,
+      });
       await query(
         `
         UPDATE videos
@@ -300,6 +386,14 @@ export async function POST(request: Request, { params }: Props) {
       (typeof record?.endpointId === "string" ? record.endpointId : null) ||
       (typeof occurrence?.endpointId === "string" ? occurrence.endpointId : null);
 
+    console.info("[video-ai] lambda job metadata resolved", {
+      videoId: video.id,
+      endpointId,
+      jobId,
+      hasRunpodJobRecord: Boolean(record),
+      hasFaceOccurrence: Boolean(occurrence),
+    });
+
     await query(
       `
       UPDATE videos
@@ -312,6 +406,12 @@ export async function POST(request: Request, { params }: Props) {
       `,
       [video.id, endpointId, jobId],
     );
+
+    console.info("[video-ai] video job saved", {
+      videoId: video.id,
+      endpointId,
+      jobId,
+    });
 
     return NextResponse.json({ ok: true, lambda: payload });
   } catch (error) {
