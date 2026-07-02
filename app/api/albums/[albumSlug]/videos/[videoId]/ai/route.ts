@@ -242,12 +242,29 @@ export async function POST(request: Request, { params }: Props) {
       target_person_ids: targetPersonIds,
       selected_person_ids: uniquePersonIds,
       discover_people: discoverPeople,
+      discoverPeople,
+      include_unknown_people: discoverPeople,
+      includeUnknownPeople: discoverPeople,
       persist_results: true,
       video_url: videoUrl,
     };
 
     if (targetUrls.length) {
       workerInput.target_urls = targetUrls;
+      workerInput.targetUrls = targetUrls;
+    }
+
+    const lambdaBody: Record<string, unknown> = {
+      input: workerInput,
+      discover_people: discoverPeople,
+      discoverPeople,
+      include_unknown_people: discoverPeople,
+      includeUnknownPeople: discoverPeople,
+    };
+
+    if (targetUrls.length) {
+      lambdaBody.target_urls = targetUrls;
+      lambdaBody.targetUrls = targetUrls;
     }
 
     const response = await fetch(faceOccurrenceLambdaUrl(), {
@@ -256,9 +273,7 @@ export async function POST(request: Request, { params }: Props) {
         "Content-Type": "application/json",
         "x-admin-key": adminKey,
       },
-      body: JSON.stringify({
-        input: workerInput,
-      }),
+      body: JSON.stringify(lambdaBody),
     });
 
     const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
