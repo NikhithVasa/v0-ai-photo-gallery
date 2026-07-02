@@ -204,6 +204,11 @@ function statusTone(status: string) {
   return "border-zinc-200 bg-zinc-50 text-zinc-600";
 }
 
+function videoStatusLabel(status: string) {
+  if (status === "pending") return "Uploaded";
+  return status;
+}
+
 function personName(person: Person) {
   return person.displayName || person.defaultName || `Person ${person.personNumber}`;
 }
@@ -635,7 +640,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                 </p>
                 {timelineVideo ? (
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs font-medium text-zinc-500">
-                    <span className="capitalize">{timelineVideo.detectionStatus}</span>
+                    <span className="capitalize">{videoStatusLabel(timelineVideo.detectionStatus)}</span>
                     <span>{formatDuration(timelineVideo.durationSec)}</span>
                     <span>{visibleTimelineMatches.length} matches</span>
                   </div>
@@ -689,7 +694,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                       <div className="min-w-0 drop-shadow">
                         <p className="truncate text-sm font-semibold tracking-tight sm:text-base">{timelineVideo.fileName || "Video"}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-medium text-white/75 sm:text-xs">
-                          <span className="capitalize">{timelineVideo.detectionStatus}</span>
+                          <span className="capitalize">{videoStatusLabel(timelineVideo.detectionStatus)}</span>
                           <span>{formatDuration(timelineVideo.durationSec)}</span>
                           <span>{visibleTimelineMatches.length} matches</span>
                         </div>
@@ -829,7 +834,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                 <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs text-zinc-600">
                   <div className="rounded-2xl bg-zinc-100 p-3">{formatDuration(timelineVideo.durationSec)}</div>
                   <div className="rounded-2xl bg-zinc-100 p-3">{visibleTimelineMatches.length} matches</div>
-                  <div className="rounded-2xl bg-zinc-100 p-3 capitalize">{timelineVideo.detectionStatus}</div>
+                  <div className="rounded-2xl bg-zinc-100 p-3 capitalize">{videoStatusLabel(timelineVideo.detectionStatus)}</div>
                 </div>
 
                 {timelineVideoPeople.length > 0 && (
@@ -1027,7 +1032,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                           {formatDuration(video.durationSec)}
                         </span>
                         <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold capitalize ${statusTone(video.detectionStatus)}`}>
-                          {video.detectionStatus}
+                          {videoStatusLabel(video.detectionStatus)}
                         </span>
                       </div>
                     </Link>

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
-import { signedObjectUrl, signedUploadUrl } from "@/lib/s3";
+import { signedObjectUrl, signedUploadUrl, signedUrl } from "@/lib/s3";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -314,7 +314,7 @@ async function toVideo(row: VideoRow) {
     customerId: row.customer_id,
     fileName: row.file_name,
     originalS3Key: row.original_s3_key,
-    videoUrl: await signedObjectUrl(row.original_s3_key),
+    videoUrl: await signedUrl(row.original_s3_key),
     durationSec: numberValue(row.duration_sec),
     model: row.model,
     detectionParams: row.detection_params ?? {},

@@ -40,11 +40,12 @@ function toWebStream(body: unknown): ReadableStream<Uint8Array> | null {
   return null;
 }
 
-async function getMediaObject(key: string) {
+async function getMediaObject(key: string, range?: string | null) {
   return s3.send(
     new GetObjectCommand({
       Bucket: process.env.S3_BUCKET!,
       Key: key,
+      Range: range || undefined,
     })
   );
 }
@@ -98,6 +99,16 @@ async function requireMediaAccess(request: Request, key: string) {
         ON a.id = pe.album_id
        AND COALESCE(a.is_deleted, false) = false
       WHERE pe.cover_face_s3_key = $1
+
+      UNION
+
+      SELECT a.slug
+      FROM videos v
+      JOIN albums a
+        ON a.id = v.album_id
+       AND COALESCE(a.is_deleted, false) = false
+      WHERE COALESCE(v.is_deleted, false) = false
+        AND v.original_s3_key = $1
 
       UNION
 
@@ -227,17 +238,29 @@ function mediaResponse(object: Awaited<ReturnType<typeof getMediaObject>>) {
     );
   }
 
+  const headers = new Headers({
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "private, max-age=300",
+    "Content-Type": object.ContentType ?? "application/octet-stream",
+  });
+
+  if (object.ContentLength !== undefined) {
+    headers.set("Content-Length", String(object.ContentLength));
+  }
+  if (object.ContentRange) {
+    headers.set("Content-Range", object.ContentRange);
+  }
+
   return new Response(stream, {
-    headers: {
-      "Cache-Control": "private, max-age=300",
-      "Content-Type": object.ContentType ?? "application/octet-stream",
-    },
+    status: object.ContentRange ? 206 : 200,
+    headers,
   });
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const key = searchParams.get("key") ?? "";
+  const range = request.headers.get("range");
 
   if (!isAllowedMediaKey(key)) {
     return NextResponse.json({ error: "Invalid media key" }, { status: 400 });
@@ -247,13 +270,13 @@ export async function GET(request: Request) {
   if (accessDenied) return accessDenied;
 
   try {
-    return mediaResponse(await getMediaObject(key));
+    return mediaResponse(await getMediaObject(key, range));
   } catch (error) {
     const fallbackKey = await fallbackOriginalKey(key).catch(() => null);
 
     if (fallbackKey) {
       try {
-        return mediaResponse(await getMediaObject(fallbackKey));
+        return mediaResponse(await getMediaObject(fallbackKey, range));
       } catch (fallbackError) {
         console.error("Error proxying fallback media:", fallbackError);
       }
