@@ -7,31 +7,24 @@ import { canAccessAlbumFromHost } from "@/lib/album-access";
 
 interface Props {
   params: Promise<{ albumSlug: string; videoId: string }>;
-  searchParams: Promise<{ share?: string | string[] }>;
 }
 
-export default async function AlbumVideoTimelineRoute({ params, searchParams }: Props) {
+export default async function AlbumVideoTimelineRoute({ params }: Props) {
   const { albumSlug, videoId } = await params;
-  const { share } = await searchParams;
-  const shareToken = Array.isArray(share) ? share[0] : share;
-  const hasShareToken = typeof shareToken === "string" && shareToken.length > 0;
+  const headersList = await headers();
+  const canAccess = await canAccessAlbumFromHost(
+    albumSlug,
+    headersList.get("host") || "",
+  );
 
-  if (!hasShareToken) {
-    const headersList = await headers();
-    const canAccess = await canAccessAlbumFromHost(
-      albumSlug,
-      headersList.get("host") || "",
-    );
-
-    if (!canAccess) {
-      redirect("/albums");
-    }
+  if (!canAccess) {
+    redirect("/albums");
   }
 
   return (
-    <ProtectedRoute allowShareToken={hasShareToken}>
+    <ProtectedRoute>
       <Suspense>
-        <AlbumVideosPage albumSlug={albumSlug} timelineVideoId={videoId} shareToken={hasShareToken ? shareToken : ""} />
+        <AlbumVideosPage albumSlug={albumSlug} timelineVideoId={videoId} />
       </Suspense>
     </ProtectedRoute>
   );

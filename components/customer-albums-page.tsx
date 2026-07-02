@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import {
   CalendarDays,
+  HardDrive,
   ImageUp,
   Images,
   Lock,
@@ -47,8 +48,62 @@ interface CustomerAlbumsResponse {
   albums: AlbumSummary[];
 }
 
+interface CustomerCostsResponse {
+  costs: {
+    estimatedMonthlyUsd: number;
+    s3: {
+      bytes: number;
+      objectCount: number;
+      estimatedMonthlyUsd: number;
+    };
+    rds: {
+      bytes: number;
+      rowCount: number;
+      estimatedMonthlyUsd: number;
+    };
+  };
+}
+
 interface CustomerAlbumsPageProps {
   customerSlug: string;
+}
+
+function formatStorageBytes(bytes?: number | null) {
+  const value = Math.max(0, bytes ?? 0);
+  if (value < 1024) return `${value} B`;
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = value / 1024;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${size >= 10 ? size.toFixed(1) : size.toFixed(2)} ${units[unitIndex]}`;
+}
+
+function formatUsd(value?: number | null) {
+  const amount = Math.max(0, value ?? 0);
+  if (amount > 0 && amount < 0.01) return "<$0.01";
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: amount < 10 ? 2 : 0,
+    maximumFractionDigits: amount < 10 ? 2 : 0,
+  }).format(amount);
+}
+
+function formatMonthlyCost(value?: number | null) {
+  const amount = Math.max(0, value ?? 0);
+  if (amount > 0 && amount < 0.01) return "<$0.01/mo";
+  return `${formatUsd(amount)}/mo`;
+}
+
+function formatCount(value?: number | null) {
+  return new Intl.NumberFormat("en-US").format(Math.max(0, value ?? 0));
 }
 
 export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
@@ -88,6 +143,17 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
       revalidateOnFocus: false,
     }
   );
+  const shouldLoadCosts = Boolean(data?.customer) &&
+    (!data?.customer?.passwordRequired || isPasswordVerified);
+  const { data: costsData, error: costsError, isLoading: costsLoading } =
+    useSWR<CustomerCostsResponse>(
+      shouldLoadCosts ? `/api/customers/${encodeURIComponent(customerSlug)}/costs` : null,
+      fetcher,
+      {
+        dedupingInterval: 5 * 60 * 1000,
+        revalidateOnFocus: false,
+      },
+    );
 
   const customerName = data?.customer?.name ?? "Customer";
   const customerShareUrl = data?.customer?.slug
@@ -106,6 +172,10 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
     Boolean(customerShareUrl) &&
     !isOnCustomerHost &&
     !isUrlHintDismissed;
+  const costs = costsData?.costs;
+  const costsTitle = costs
+    ? `Estimated monthly storage for ${customerName}: S3 ${formatStorageBytes(costs.s3.bytes)} across ${formatCount(costs.s3.objectCount)} objects (${formatMonthlyCost(costs.s3.estimatedMonthlyUsd)}), RDS table data ${formatStorageBytes(costs.rds.bytes)} across ${formatCount(costs.rds.rowCount)} rows (${formatMonthlyCost(costs.rds.estimatedMonthlyUsd)}). Excludes requests, transfer, CloudFront, Lambda, database indexes, free-tier credits, and backups.`
+    : "Estimated customer storage cost";
 
   useEffect(() => {
     setCurrentHost(normalizeHost(window.location.host));
@@ -392,6 +462,32 @@ export function CustomerAlbumsPage({ customerSlug }: CustomerAlbumsPageProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {shouldLoadCosts && (
+              <div
+                className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-700 shadow-sm"
+                title={costsError ? "Customer cost unavailable" : costsTitle}
+                aria-label={costs ? `Estimated customer cost ${formatMonthlyCost(costs.estimatedMonthlyUsd)}` : "Loading customer cost"}
+              >
+                {costsLoading && !costs ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                ) : (
+                  <HardDrive className="h-4 w-4 text-zinc-500" />
+                )}
+                <span className="text-zinc-950">
+                  {costsError
+                    ? "Cost unavailable"
+                    : costs
+                      ? formatMonthlyCost(costs.estimatedMonthlyUsd)
+                      : "Cost"}
+                </span>
+                {costs && (
+                  <span className="hidden text-zinc-500 xl:inline">
+                    S3 {formatStorageBytes(costs.s3.bytes)} · DB {formatStorageBytes(costs.rds.bytes)}
+                  </span>
+                )}
+              </div>
+            )}
+
             {customerShareUrl && (
               <a
                 href={customerShareUrl}

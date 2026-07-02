@@ -35,11 +35,6 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
   )
     return true;
   if (/^\/albums\/[^/]+$/.test(pathname)) return true;
-  if (
-    /^\/albums\/[^/]+\/videos\/[^/]+$/.test(pathname) &&
-    Boolean(request.nextUrl.searchParams.get("share"))
-  )
-    return true;
 
   return false;
 }

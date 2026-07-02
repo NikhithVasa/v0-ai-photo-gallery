@@ -3,7 +3,6 @@ import { query, queryOne } from "@/lib/db";
 import { handleDbRouteError } from "@/lib/db-response";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { getShareLinkAccess } from "@/lib/share-access";
-import { s3PrefixStorageStats } from "@/lib/s3";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -34,45 +33,6 @@ function countValue(value: number | string | null) {
   if (typeof value === "number") return value;
   if (typeof value === "string") return Number.parseInt(value, 10) || 0;
   return 0;
-}
-
-function storageUsdPerGbMonth() {
-  const value =
-    process.env.S3_STORAGE_USD_PER_GB_MONTH ||
-    process.env.S3_STANDARD_STORAGE_USD_PER_GB_MONTH ||
-    "0.023";
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0.023;
-}
-
-async function albumStorageEstimate(albumSlug: string, includeEstimate: boolean) {
-  const pricePerGbMonth = storageUsdPerGbMonth();
-  const prefix = `albums/${albumSlug}/`;
-
-  if (!includeEstimate) {
-    return {
-      prefix,
-      bytes: 0,
-      objectCount: 0,
-      gb: 0,
-      estimatedMonthlyUsd: 0,
-      pricePerGbMonth,
-      included: false,
-    };
-  }
-
-  const { bytes, objectCount } = await s3PrefixStorageStats(prefix);
-  const gb = bytes / 1024 ** 3;
-
-  return {
-    prefix,
-    bytes,
-    objectCount,
-    gb,
-    estimatedMonthlyUsd: gb * pricePerGbMonth,
-    pricePerGbMonth,
-    included: true,
-  };
 }
 
 export async function GET(request: Request, { params }: Props) {
@@ -116,7 +76,6 @@ export async function GET(request: Request, { params }: Props) {
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
     const shareAccess = await getShareLinkAccess(request, albumSlug);
-    const storage = await albumStorageEstimate(album.slug, !shareToken);
 
     console.info("[share-debug] album stats API album found", {
       albumSlug,
@@ -302,7 +261,6 @@ export async function GET(request: Request, { params }: Props) {
         stats: {
           photoCount: countValue(albumStats?.photo_count ?? 0),
           peopleCount: countValue(albumStats?.people_count ?? 0),
-          storage,
           events: eventStats.map((event) => ({
             eventId: event.event_id,
             photoCount: countValue(event.photo_count),
