@@ -638,6 +638,50 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId, shareToken = "" }:
     }
   }
 
+  const shareDialog = (
+    <Dialog open={Boolean(shareVideo)} onOpenChange={(open) => !open && setShareVideo(null)}>
+      <DialogContent className="border-black/10 bg-white sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share video</DialogTitle>
+          <DialogDescription>
+            Choose whether this link requires album access or opens publicly without login.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-auto justify-start rounded-2xl border-black/10 p-4 text-left"
+            onClick={() => {
+              if (!shareVideo) return;
+              void copyProtectedTimelineUrl(shareVideo).then(() => setShareVideo(null));
+            }}
+          >
+            <span>
+              <span className="block font-semibold">Copy private link</span>
+              <span className="block text-xs font-normal text-zinc-500">Requires the viewer to have album access.</span>
+            </span>
+          </Button>
+          <Button
+            type="button"
+            className="h-auto justify-start rounded-2xl bg-zinc-950 p-4 text-left text-white hover:bg-zinc-800"
+            disabled={isCreatingPublicShare}
+            onClick={() => {
+              if (!shareVideo) return;
+              void copyPublicTimelineUrl(shareVideo).then(() => setShareVideo(null));
+            }}
+          >
+            {isCreatingPublicShare ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+            <span>
+              <span className="block font-semibold">Copy public link</span>
+              <span className="block text-xs font-normal text-white/65">No login required for anyone with the link.</span>
+            </span>
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (isTimelineRoute) {
     return (
       <main className="min-h-screen bg-[#f5f5f7] text-zinc-950">
@@ -904,6 +948,8 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId, shareToken = "" }:
             </div>
           )}
         </div>
+
+        {shareDialog}
 
         <Dialog open={Boolean(previewFace)} onOpenChange={(open) => !open && setPreviewFace(null)}>
           <DialogContent className="w-[min(92vw,560px)] overflow-hidden border-black/10 bg-zinc-950 p-0 text-white shadow-2xl sm:max-w-none">
@@ -1238,47 +1284,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId, shareToken = "" }:
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(shareVideo)} onOpenChange={(open) => !open && setShareVideo(null)}>
-        <DialogContent className="border-black/10 bg-white sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Share video</DialogTitle>
-            <DialogDescription>
-              Choose whether this link requires album access or opens publicly without login.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-auto justify-start rounded-2xl border-black/10 p-4 text-left"
-              onClick={() => {
-                if (!shareVideo) return;
-                void copyProtectedTimelineUrl(shareVideo).then(() => setShareVideo(null));
-              }}
-            >
-              <span>
-                <span className="block font-semibold">Copy private link</span>
-                <span className="block text-xs font-normal text-zinc-500">Requires the viewer to have album access.</span>
-              </span>
-            </Button>
-            <Button
-              type="button"
-              className="h-auto justify-start rounded-2xl bg-zinc-950 p-4 text-left text-white hover:bg-zinc-800"
-              disabled={isCreatingPublicShare}
-              onClick={() => {
-                if (!shareVideo) return;
-                void copyPublicTimelineUrl(shareVideo).then(() => setShareVideo(null));
-              }}
-            >
-              {isCreatingPublicShare ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-              <span>
-                <span className="block font-semibold">Copy public link</span>
-                <span className="block text-xs font-normal text-white/65">No login required for anyone with the link.</span>
-              </span>
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {shareDialog}
 
       <Dialog open={Boolean(previewFace)} onOpenChange={(open) => !open && setPreviewFace(null)}>
         <DialogContent className="w-[min(92vw,560px)] overflow-hidden border-black/10 bg-zinc-950 p-0 text-white shadow-2xl sm:max-w-none">
