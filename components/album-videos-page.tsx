@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
 import type { Person } from "@/lib/types";
 
@@ -122,6 +123,27 @@ interface PreparedVideoUpload {
     eventName: string;
   };
   uploadUrl: string;
+}
+
+function uploadToUrl(
+  url: string,
+  file: File,
+  contentType: string,
+  onProgress: (progress: number) => void,
+) {
+  return new Promise<boolean>((resolve) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", url);
+    request.setRequestHeader("Content-Type", contentType);
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+    };
+    request.onload = () => resolve(request.status >= 200 && request.status < 300);
+    request.onerror = () => resolve(false);
+    request.onabort = () => resolve(false);
+    request.send(file);
+  });
 }
 
 interface PreparedTargetUpload {
@@ -236,6 +258,8 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   const [selfieFiles, setSelfieFiles] = useState<File[]>([]);
   const [discoverPeople, setDiscoverPeople] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadFileName, setUploadFileName] = useState("");
   const [isRunningAi, setIsRunningAi] = useState(false);
 
   const videosUrl = `/api/albums/${encodeURIComponent(albumSlug)}/videos`;
@@ -396,6 +420,20 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
     setActiveTimelineTargetId(null);
   }, [timelineVideo?.id]);
 
+  useEffect(() => {
+    if (!isUploadingVideo) return;
+
+    const warning = "Do not close this browser window. If you close it, the video upload will fail and you will have to start it again.";
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = warning;
+      return warning;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isUploadingVideo]);
+
   function togglePersonSelection(personId: string) {
     setSelectedPersonIds((current) =>
       current.includes(personId)
@@ -467,6 +505,8 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
       return;
     }
 
+    setUploadFileName(file.name);
+    setUploadProgress(0);
     setIsUploadingVideo(true);
     try {
       const prepareResponse = await fetch(videosUrl, {
@@ -482,12 +522,14 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
       const prepared = (await prepareResponse.json()) as PreparedVideoUpload & { error?: string };
       if (!prepareResponse.ok) throw new Error(prepared.error || "Could not prepare upload");
 
-      const uploadResponse = await fetch(prepared.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": prepared.video.contentType },
-        body: file,
-      });
-      if (!uploadResponse.ok) throw new Error("S3 upload failed");
+      const uploaded = await uploadToUrl(
+        prepared.uploadUrl,
+        file,
+        prepared.video.contentType,
+        setUploadProgress,
+      );
+      if (!uploaded) throw new Error("S3 upload failed");
+      setUploadProgress(100);
 
       toast({ title: "Video uploaded", description: prepared.video.fileName });
       await mutate();
@@ -499,6 +541,8 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
       });
     } finally {
       setIsUploadingVideo(false);
+      setUploadProgress(0);
+      setUploadFileName("");
       if (videoInputRef.current) videoInputRef.current.value = "";
     }
   }
@@ -920,6 +964,28 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
             <AuthAvatarMenu />
           </div>
         </header>
+
+        {isUploadingVideo && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">
+                  Uploading {uploadFileName || "video"}
+                </p>
+                <p className="mt-1 text-xs text-amber-800">
+                  Do not close this browser window. If you close it, the video upload will fail and you will have to start it again.
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-semibold text-amber-950 shadow-sm">
+                {uploadProgress}%
+              </span>
+            </div>
+            <Progress
+              value={uploadProgress}
+              className="mt-3 h-2 bg-amber-200 [&_[data-slot=progress-indicator]]:bg-amber-600"
+            />
+          </div>
+        )}
 
         {error && (
           <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
