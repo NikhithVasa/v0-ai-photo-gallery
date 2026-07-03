@@ -78,6 +78,91 @@ Use HLS when:
 - timeline seeking should feel more reliable,
 - you want normalized browser-compatible outputs regardless of the uploaded source format.
 
+Use **Video.js** for HLS playback in this React/Next app. It is purpose-built for media playback, handles HLS well through Video.js HTTP Streaming, and gives better control over player lifecycle than a generic wrapper. `react-player` is convenient for many hosted providers, but Video.js is the better fit for first-party S3/CloudFront HLS playlists.
+
+Install it when the HLS backend is ready:
+
+```bash
+pnpm add video.js
+```
+
+Create a client-only player component that accepts either an HLS playlist URL or a direct MP4 fallback:
+
+```tsx
+"use client";
+
+import { useEffect, useRef } from "react";
+import videojs from "video.js";
+import "video.js/dist/video-js.css";
+
+interface HlsVideoPlayerProps {
+  hlsUrl?: string | null;
+  mp4Url?: string | null;
+  posterUrl?: string | null;
+}
+
+export function HlsVideoPlayer({ hlsUrl, mp4Url, posterUrl }: HlsVideoPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const playerRef = useRef<ReturnType<typeof videojs> | null>(null);
+
+  useEffect(() => {
+    if (!videoRef.current) return;
+
+    const source = hlsUrl
+      ? { src: hlsUrl, type: "application/x-mpegURL" }
+      : mp4Url
+        ? { src: mp4Url, type: "video/mp4" }
+        : null;
+
+    if (!source) return;
+
+    if (!playerRef.current) {
+      playerRef.current = videojs(videoRef.current, {
+        controls: true,
+        fluid: true,
+        playsinline: true,
+        preload: "metadata",
+        poster: posterUrl ?? undefined,
+        sources: [source],
+      });
+      return;
+    }
+
+    playerRef.current.src(source);
+  }, [hlsUrl, mp4Url, posterUrl]);
+
+  useEffect(() => {
+    return () => {
+      playerRef.current?.dispose();
+      playerRef.current = null;
+    };
+  }, []);
+
+  return (
+    <div data-vjs-player>
+      <video ref={videoRef} className="video-js vjs-big-play-centered" playsInline />
+    </div>
+  );
+}
+```
+
+The API should return both URLs while the migration is in progress:
+
+```json
+{
+  "videoUrl": "/api/media?key=albums/.../videos/source.mp4",
+  "hlsUrl": "https://cdn.example.com/albums/.../videos/hls/<videoId>/master.m3u8"
+}
+```
+
+Use `hlsUrl` when it exists, and fall back to `videoUrl` while a transcode is pending or failed.
+
+Do not simply point Video.js at `/api/media?key=<hls-master-key>` unless playlist rewriting is implemented. HLS playlists usually contain relative child playlist and segment paths, and the browser will request those paths relative to the playlist URL. The clean options are:
+
+1. Serve HLS through CloudFront signed URLs or signed cookies, keeping MediaConvert's relative playlist paths intact.
+2. Build a path-based route such as `/api/hls/albums/.../master.m3u8` that maps the URL path to the S3 key and lets relative HLS segment URLs resolve naturally.
+3. Rewrite `.m3u8` playlist contents in the proxy so every child playlist and segment URI points back to an authorized app route.
+
 For this app, the recommended production path is:
 
 1. Keep the original upload in S3 at `videos.original_s3_key`.
@@ -105,6 +190,171 @@ HLS still needs correct response headers. The media serving layer must return:
 - range support for segment/object requests
 
 If HLS files remain private, the current `/api/media` route would need to allow the HLS prefix and map HLS extensions to the correct content types, or the app should serve HLS through CloudFront signed URLs/cookies.
+
+## AWS Console setup for HLS
+
+Use the AWS web console to prepare the infrastructure before wiring the app to HLS playback.
+
+### 1. Confirm S3 bucket layout
+
+In **S3 > Buckets > `<bucket>` > Objects**, keep original uploads where the app already writes them:
+
+```text
+albums/<albumSlug>/events/<eventSlug>/videos/<videoId>_<name>.mp4
+```
+
+Use a derived output prefix for HLS:
+
+```text
+albums/<albumSlug>/events/<eventSlug>/videos/hls/<videoId>/
+```
+
+MediaConvert will write files such as:
+
+```text
+master.m3u8
+720p/index.m3u8
+720p/segment-00001.ts
+480p/index.m3u8
+480p/segment-00001.ts
+```
+
+### 2. Configure S3 CORS
+
+In **S3 > Buckets > `<bucket>` > Permissions > Cross-origin resource sharing (CORS)**, use a CORS policy that allows playback and upload from the app domain:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://<app-host>", "http://localhost:3000"],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag", "Content-Length", "Content-Range", "Accept-Ranges"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+If using CloudFront for playback, the browser talks to CloudFront, but S3 CORS is still useful for direct browser uploads.
+
+### 3. Create a MediaConvert IAM role
+
+In **IAM > Roles > Create role**:
+
+1. Trusted entity type: **AWS service**.
+2. Service or use case: **MediaConvert**.
+3. Attach or create a policy that allows MediaConvert to read source videos and write HLS outputs.
+
+Minimum permissions shape:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::<bucket>/albums/*/events/*/videos/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::<bucket>",
+        "arn:aws:s3:::<bucket>/albums/*/events/*/videos/hls/*"
+      ]
+    }
+  ]
+}
+```
+
+Name the role something like `MediaConvertHlsVideoRole`.
+
+### 4. Create a MediaConvert job template
+
+In **MediaConvert > Job templates > Create template**:
+
+1. Choose the MediaConvert role from the previous step.
+2. Add one input. The app will provide the source S3 URL when creating a job.
+3. Add an **Apple HLS** output group.
+4. Set output destination to the HLS prefix pattern:
+
+```text
+s3://<bucket>/albums/<albumSlug>/events/<eventSlug>/videos/hls/<videoId>/
+```
+
+5. Set segment length to `4` or `6` seconds.
+6. Create renditions such as:
+
+| Rendition | Resolution | Video bitrate | Audio |
+| --- | --- | --- | --- |
+| 1080p | 1920x1080 | 5000-6000 kbps | AAC 128 kbps |
+| 720p | 1280x720 | 2800-3500 kbps | AAC 128 kbps |
+| 480p | 854x480 | 1200-1800 kbps | AAC 96-128 kbps |
+
+7. Use H.264 for video and AAC for audio.
+8. Use QVBR rate control if available.
+9. Save the template as `album-video-hls`.
+
+You can start with only 720p and 480p to reduce cost, then add 1080p later.
+
+### 5. Run one manual MediaConvert test job
+
+In **MediaConvert > Jobs > Create job**:
+
+1. Use the `album-video-hls` template.
+2. Set input to a known failing source object:
+
+```text
+s3://<bucket>/albums/<albumSlug>/events/<eventSlug>/videos/<videoId>_<name>.mp4
+```
+
+3. Set output destination to:
+
+```text
+s3://<bucket>/albums/<albumSlug>/events/<eventSlug>/videos/hls/<videoId>/
+```
+
+4. Start the job.
+5. Wait for status **Complete**.
+6. Confirm `master.m3u8` and segment files exist in S3.
+
+If the manual job fails, inspect the MediaConvert error before changing app code. Common causes are IAM permissions, unsupported source media, or a wrong output destination.
+
+### 6. Decide how private HLS playback will be authorized
+
+Choose one serving model before app implementation:
+
+| Option | Best for | Notes |
+| --- | --- | --- |
+| CloudFront signed cookies | Production private HLS | Best fit for playlists with many segment files. Keeps relative HLS paths working. |
+| CloudFront signed URLs | Simple private tests | Can be awkward because every playlist/segment request needs authorization. |
+| App path-based HLS proxy | App-controlled auth | Works, but the app must stream playlists and segments efficiently. |
+| `/api/media?key=...` query proxy | Existing media only | Not ideal for HLS unless playlist URI rewriting is added. |
+
+For this app, CloudFront signed cookies are the cleanest production option. A path-based app proxy is acceptable for an initial private prototype.
+
+### 7. Add completion notification
+
+In **EventBridge > Rules > Create rule**:
+
+1. Event source: **AWS services**.
+2. AWS service: **MediaConvert**.
+3. Event type: **MediaConvert Job State Change**.
+4. Match states: `COMPLETE` and `ERROR`.
+5. Target: a Lambda, webhook, or queue that can update the app database.
+
+On `COMPLETE`, update the video row with the HLS master playlist key, for example:
+
+```sql
+UPDATE videos
+SET hls_s3_key = 'albums/<albumSlug>/events/<eventSlug>/videos/hls/<videoId>/master.m3u8',
+    playback_status = 'ready',
+    updated_at = now()
+WHERE id = '<videoId>';
+```
+
+On `ERROR`, save the MediaConvert error message so the UI can fall back to MP4 playback and show a useful admin/debug message.
 
 ## Why download can work while playback fails
 
