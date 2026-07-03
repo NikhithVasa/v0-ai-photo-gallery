@@ -1,10 +1,15 @@
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3";
+import type { CompletedPart } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { cloudFrontImageUrl } from "@/lib/cloudfront-url";
 
@@ -237,6 +242,79 @@ export async function signedUploadUrl(
   });
 
   return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
+}
+
+export async function createMultipartUpload(
+  key: string,
+  contentType: string
+) {
+  const response = await s3.send(
+    new CreateMultipartUploadCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+      ContentType: contentType,
+    })
+  );
+
+  return response.UploadId;
+}
+
+export async function signedUploadPartUrl({
+  key,
+  uploadId,
+  partNumber,
+}: {
+  key: string;
+  uploadId: string;
+  partNumber: number;
+}) {
+  const command = new UploadPartCommand({
+    Bucket: process.env.S3_BUCKET!,
+    Key: key,
+    UploadId: uploadId,
+    PartNumber: partNumber,
+  });
+
+  return getSignedUrl(s3, command, { expiresIn: SIGNED_URL_SECONDS });
+}
+
+export async function completeMultipartUpload({
+  key,
+  uploadId,
+  parts,
+}: {
+  key: string;
+  uploadId: string;
+  parts: CompletedPart[];
+}) {
+  await s3.send(
+    new CompleteMultipartUploadCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: parts },
+    })
+  );
+
+  clearS3CachesForKey(key);
+}
+
+export async function abortMultipartUpload({
+  key,
+  uploadId,
+}: {
+  key: string;
+  uploadId: string;
+}) {
+  await s3.send(
+    new AbortMultipartUploadCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: key,
+      UploadId: uploadId,
+    })
+  );
+
+  clearS3CachesForKey(key);
 }
 
 export async function signedObjectUrl(key?: string | null): Promise<string | null> {

@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
-import { signedObjectUrl, signedUploadUrl, signedUrl } from "@/lib/s3";
+import { createMultipartUpload, signedObjectUrl, signedUploadUrl, signedUrl } from "@/lib/s3";
+
+const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
+const VIDEO_UPLOAD_PART_SIZE_BYTES = 10 * 1024 * 1024;
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -523,7 +526,17 @@ export async function POST(request: Request, { params }: Props) {
         eventSlug: event.slug,
         eventName: event.name,
       },
-      uploadUrl: await signedUploadUrl(row.original_s3_key, contentType),
+      ...(body.size >= MULTIPART_UPLOAD_THRESHOLD_BYTES
+        ? {
+            multipart: true,
+            uploadId: await createMultipartUpload(row.original_s3_key, contentType),
+            key: row.original_s3_key,
+            partSize: VIDEO_UPLOAD_PART_SIZE_BYTES,
+          }
+        : {
+            multipart: false,
+            uploadUrl: await signedUploadUrl(row.original_s3_key, contentType),
+          }),
     });
   } catch (error) {
     console.error("Failed to prepare video upload", error);

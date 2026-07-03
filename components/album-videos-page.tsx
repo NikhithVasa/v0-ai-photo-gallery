@@ -39,6 +39,9 @@ const fetcher = async (url: string) => {
   return data;
 };
 
+const VIDEO_UPLOAD_CONCURRENCY = 4;
+const FALLBACK_VIDEO_PART_SIZE_BYTES = 10 * 1024 * 1024;
+
 interface AlbumEventSummary {
   id: string;
   slug: string;
@@ -114,6 +117,7 @@ interface PeopleResponse {
 }
 
 interface PreparedVideoUpload {
+  error?: string;
   video: {
     id: string;
     fileName: string;
@@ -122,7 +126,11 @@ interface PreparedVideoUpload {
     eventSlug: string;
     eventName: string;
   };
-  uploadUrl: string;
+  multipart?: boolean;
+  uploadUrl?: string;
+  uploadId?: string;
+  key?: string;
+  partSize?: number;
 }
 
 function uploadToUrl(
@@ -144,6 +152,135 @@ function uploadToUrl(
     request.onabort = () => resolve(false);
     request.send(file);
   });
+}
+
+interface MultipartUploadPart {
+  ETag: string;
+  PartNumber: number;
+}
+
+async function runWithConcurrency(
+  total: number,
+  concurrency: number,
+  worker: (index: number) => Promise<void>,
+) {
+  let nextIndex = 0;
+  const runners = Array.from(
+    { length: Math.max(1, Math.min(concurrency, total)) },
+    async () => {
+      while (true) {
+        const index = nextIndex;
+        nextIndex += 1;
+        if (index >= total) return;
+        await worker(index);
+      }
+    },
+  );
+
+  await Promise.all(runners);
+}
+
+async function postMultipartAction<T>(
+  albumSlug: string,
+  body: Record<string, unknown>,
+) {
+  const response = await fetch(
+    `/api/albums/${encodeURIComponent(albumSlug)}/videos/multipart`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Multipart upload failed");
+  return data as T;
+}
+
+function uploadPartToUrl(
+  url: string,
+  blob: Blob,
+  onProgress: (loadedBytes: number) => void,
+) {
+  return new Promise<string>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", url);
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      onProgress(event.loaded);
+    };
+    request.onload = () => {
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error(`S3 part upload failed (${request.status})`));
+        return;
+      }
+
+      const eTag = request.getResponseHeader("ETag");
+      if (!eTag) {
+        reject(new Error("S3 did not expose the ETag header. Check bucket CORS."));
+        return;
+      }
+
+      onProgress(blob.size);
+      resolve(eTag);
+    };
+    request.onerror = () => reject(new Error("S3 part upload failed"));
+    request.onabort = () => reject(new Error("S3 part upload was cancelled"));
+    request.send(blob);
+  });
+}
+
+async function uploadMultipartVideo({
+  albumSlug,
+  file,
+  prepared,
+  onProgress,
+}: {
+  albumSlug: string;
+  file: File;
+  prepared: PreparedVideoUpload;
+  onProgress: (progress: number) => void;
+}) {
+  const uploadId = prepared.uploadId;
+  const key = prepared.key || prepared.video.originalS3Key;
+  if (!uploadId || !key) throw new Error("Multipart upload was not prepared");
+
+  const partSize = Math.max(
+    5 * 1024 * 1024,
+    prepared.partSize || FALLBACK_VIDEO_PART_SIZE_BYTES,
+  );
+  const partCount = Math.ceil(file.size / partSize);
+  const loadedBytesByPart = Array.from({ length: partCount }, () => 0);
+  const parts: MultipartUploadPart[] = [];
+
+  await runWithConcurrency(partCount, VIDEO_UPLOAD_CONCURRENCY, async (index) => {
+    const partNumber = index + 1;
+    const start = index * partSize;
+    const end = Math.min(file.size, start + partSize);
+    const { url } = await postMultipartAction<{ url: string }>(albumSlug, {
+      action: "sign-part",
+      videoId: prepared.video.id,
+      key,
+      uploadId,
+      partNumber,
+    });
+
+    const eTag = await uploadPartToUrl(url, file.slice(start, end), (loadedBytes) => {
+      loadedBytesByPart[index] = loadedBytes;
+      const uploadedBytes = loadedBytesByPart.reduce((total, value) => total + value, 0);
+      onProgress(Math.min(99, Math.round((uploadedBytes / file.size) * 100)));
+    });
+    parts[index] = { ETag: eTag, PartNumber: partNumber };
+  });
+
+  await postMultipartAction<{ ok: true }>(albumSlug, {
+    action: "complete",
+    videoId: prepared.video.id,
+    key,
+    uploadId,
+    parts,
+  });
+  onProgress(100);
 }
 
 interface PreparedTargetUpload {
@@ -513,6 +650,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
     setUploadFileName(file.name);
     setUploadProgress(0);
     setIsUploadingVideo(true);
+    let prepared: PreparedVideoUpload | null = null;
     try {
       const prepareResponse = await fetch(videosUrl, {
         method: "POST",
@@ -524,21 +662,37 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
           contentType: file.type || "video/mp4",
         }),
       });
-      const prepared = (await prepareResponse.json()) as PreparedVideoUpload & { error?: string };
+      prepared = (await prepareResponse.json()) as PreparedVideoUpload & { error?: string };
       if (!prepareResponse.ok) throw new Error(prepared.error || "Could not prepare upload");
 
-      const uploaded = await uploadToUrl(
-        prepared.uploadUrl,
-        file,
-        prepared.video.contentType,
-        setUploadProgress,
-      );
-      if (!uploaded) throw new Error("S3 upload failed");
-      setUploadProgress(100);
+      if (prepared.multipart) {
+        await uploadMultipartVideo({ albumSlug, file, prepared, onProgress: setUploadProgress });
+      } else {
+        if (!prepared.uploadUrl) throw new Error("Upload URL was not prepared");
+        const uploaded = await uploadToUrl(
+          prepared.uploadUrl,
+          file,
+          prepared.video.contentType,
+          setUploadProgress,
+        );
+        if (!uploaded) throw new Error("S3 upload failed");
+        setUploadProgress(100);
+      }
 
       toast({ title: "Video uploaded", description: prepared.video.fileName });
       await mutate();
     } catch (uploadError) {
+      if (prepared?.multipart && prepared.uploadId) {
+        await postMultipartAction(albumSlug, {
+          action: "abort",
+          videoId: prepared.video.id,
+          key: prepared.key || prepared.video.originalS3Key,
+          uploadId: prepared.uploadId,
+        }).catch((abortError) => {
+          console.warn("Failed to abort multipart video upload", abortError);
+        });
+      }
+
       toast({
         title: "Upload failed",
         description: uploadError instanceof Error ? uploadError.message : "Could not upload video",
