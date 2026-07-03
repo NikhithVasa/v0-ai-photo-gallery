@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
-import { cloudFrontVideoUrl } from "@/lib/cloudfront-url";
 import { createMultipartUpload, signedObjectUrl, signedUploadUrl, signedUrl } from "@/lib/s3";
 
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
@@ -60,11 +59,6 @@ interface VideoRow {
   event_slug: string | null;
   event_name: string | null;
   matches: unknown;
-}
-
-interface VideoResultJson {
-  hls_s3_key?: unknown;
-  hlsS3Key?: unknown;
 }
 
 interface MatchRow {
@@ -269,28 +263,6 @@ function targetImageIndexesForMatches(
   return indexes;
 }
 
-function derivedHlsMasterS3Key(videoId: string, originalS3Key?: string | null) {
-  if (!originalS3Key || !videoId) return null;
-
-  const lastSlashIndex = originalS3Key.lastIndexOf("/");
-  if (lastSlashIndex < 0) return null;
-
-  const videoPrefix = originalS3Key.slice(0, lastSlashIndex);
-  return `${videoPrefix}/hls/${videoId}/master.m3u8`;
-}
-
-function hlsMasterS3KeyForVideo(row: VideoRow) {
-  const resultJson = (row.result_json ?? {}) as VideoResultJson;
-  if (typeof resultJson.hls_s3_key === "string" && resultJson.hls_s3_key) {
-    return resultJson.hls_s3_key;
-  }
-  if (typeof resultJson.hlsS3Key === "string" && resultJson.hlsS3Key) {
-    return resultJson.hlsS3Key;
-  }
-
-  return derivedHlsMasterS3Key(row.id, row.original_s3_key);
-}
-
 async function albumBySlug(albumSlug: string) {
   return queryOne<AlbumRow>(
     `
@@ -335,7 +307,6 @@ async function toVideo(row: VideoRow) {
   const timelineMatches = (!dbMatches.length || !dbHasTargetData) && resultHasTargetData ? resultMatches : dbMatches;
   const discoveredPeople = discoveredPeopleValue(resultJson);
   const targetImageIndexes = targetImageIndexesForMatches(timelineMatches, targetKeys, targetPersonIds);
-  const hlsS3Key = hlsMasterS3KeyForVideo(row);
 
   return {
     id: row.id,
@@ -347,8 +318,6 @@ async function toVideo(row: VideoRow) {
     fileName: row.file_name,
     originalS3Key: row.original_s3_key,
     videoUrl: await signedUrl(row.original_s3_key),
-    hlsS3Key,
-    hlsUrl: cloudFrontVideoUrl(hlsS3Key),
     durationSec: numberValue(row.duration_sec),
     model: row.model,
     detectionParams: row.detection_params ?? {},

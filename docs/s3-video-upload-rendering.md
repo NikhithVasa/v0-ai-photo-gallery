@@ -157,11 +157,6 @@ The API should return both URLs while the migration is in progress:
 
 Use `hlsUrl` when it exists, and fall back to `videoUrl` while a transcode is pending or failed.
 
-In this codebase, CloudFront HLS URL generation is controlled by:
-
-- `NEXT_PUBLIC_ENABLE_CLOUDFRONT_VIDEOS=true`
-- `NEXT_PUBLIC_CLOUDFRONT_VIDEO_BASE_URL=https://<cloudfront-domain>`
-
 Do not simply point Video.js at `/api/media?key=<hls-master-key>` unless playlist rewriting is implemented. HLS playlists usually contain relative child playlist and segment paths, and the browser will request those paths relative to the playlist URL. The clean options are:
 
 1. Serve HLS through CloudFront signed URLs or signed cookies, keeping MediaConvert's relative playlist paths intact.

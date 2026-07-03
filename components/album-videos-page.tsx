@@ -16,7 +16,6 @@ import {
   X,
   VideoIcon,
 } from "lucide-react";
-import { AdaptiveVideoPlayer } from "@/components/adaptive-video-player";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -89,7 +88,6 @@ interface AlbumVideo {
   fileName: string | null;
   originalS3Key: string | null;
   videoUrl: string | null;
-  hlsUrl?: string | null;
   durationSec: number;
   detectionParams: Record<string, unknown>;
   targetPersonId: string | null;
@@ -832,11 +830,12 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
             <div className={`grid min-h-0 gap-4 ${isTimelinePanelOpen ? "lg:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
               <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
                 <div className="group relative min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
-                  {timelineVideo.hlsUrl || timelineVideo.videoUrl ? (
-                    <AdaptiveVideoPlayer
+                  {timelineVideo.videoUrl ? (
+                    <video
                       ref={timelineVideoRef}
-                      hlsUrl={timelineVideo.hlsUrl}
-                      fallbackUrl={timelineVideo.videoUrl}
+                      src={timelineVideo.videoUrl}
+                      controls
+                      playsInline
                       className="h-full w-full object-contain"
                     />
                   ) : (
@@ -1168,9 +1167,9 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                 >
                   <div className="relative aspect-video bg-zinc-900">
                     <Link href={timelineHref(video.id)} className="block h-full" aria-label={`Open ${video.fileName || "video"}`}>
-                      {video.videoUrl || video.hlsUrl ? (
+                      {video.videoUrl ? (
                         <video
-                          src={video.videoUrl ?? video.hlsUrl ?? undefined}
+                          src={video.videoUrl}
                           preload="metadata"
                           muted
                           playsInline

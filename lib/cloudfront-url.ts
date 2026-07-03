@@ -3,10 +3,6 @@ const CLOUDFRONT_IMAGES_ENABLED =
 
 const CLOUDFRONT_IMAGE_BASE_URL =
   process.env.NEXT_PUBLIC_CLOUDFRONT_IMAGE_BASE_URL?.replace(/\/+$/, "");
-const CLOUDFRONT_VIDEOS_ENABLED =
-  process.env.NEXT_PUBLIC_ENABLE_CLOUDFRONT_VIDEOS === "true";
-const CLOUDFRONT_VIDEO_BASE_URL =
-  process.env.NEXT_PUBLIC_CLOUDFRONT_VIDEO_BASE_URL?.replace(/\/+$/, "");
 
 const IMAGE_EXTENSION_PATTERN = /\.(?:avif|bmp|gif|heic|heif|jpe?g|png|svg|tiff?|webp)$/i;
 
@@ -24,12 +20,4 @@ export function cloudFrontImageUrl(key?: string | null) {
   }
 
   return `${CLOUDFRONT_IMAGE_BASE_URL}/${encodeS3KeyPath(key)}`;
-}
-
-export function cloudFrontVideoUrl(key?: string | null) {
-  if (!key || !CLOUDFRONT_VIDEOS_ENABLED || !CLOUDFRONT_VIDEO_BASE_URL) {
-    return null;
-  }
-
-  return `${CLOUDFRONT_VIDEO_BASE_URL}/${encodeS3KeyPath(key)}`;
 }
