@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
-import { createMultipartUpload, signedObjectUrl, signedUploadUrl } from "@/lib/s3";
+import { createMultipartUpload, signedObjectUrl, signedUploadUrl, signedUrl } from "@/lib/s3";
 
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const VIDEO_UPLOAD_PART_SIZE_BYTES = 10 * 1024 * 1024;
@@ -317,7 +317,7 @@ async function toVideo(row: VideoRow) {
     customerId: row.customer_id,
     fileName: row.file_name,
     originalS3Key: row.original_s3_key,
-    videoUrl: await signedObjectUrl(row.original_s3_key),
+    videoUrl: await signedUrl(row.original_s3_key),
     durationSec: numberValue(row.duration_sec),
     model: row.model,
     detectionParams: row.detection_params ?? {},
