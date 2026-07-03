@@ -28,6 +28,7 @@ import {
   SITE_URL,
 } from "@/lib/seo";
 import "dialkit/styles.css";
+import "video.js/dist/video-js.css";
 import "./globals.css";
 
 const _geist = Geist({ subsets: ["latin"] });
