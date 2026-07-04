@@ -157,13 +157,6 @@ The API should return both URLs while the migration is in progress:
 
 Use `hlsUrl` when it exists, and fall back to `videoUrl` while a transcode is pending or failed.
 
-The app now follows that shape for album videos:
-
-- `GET /api/albums/[albumSlug]/videos` returns `hlsUrl` when the `videos` table has an HLS playlist key in `hls_s3_key` or `playback_s3_key` and the playback status is ready or absent.
-- `CLOUDFRONT_HLS_BASE_URL` should point at the CloudFront distribution that serves the generated HLS prefix. `NEXT_PUBLIC_CLOUDFRONT_HLS_BASE_URL` and `NEXT_PUBLIC_CLOUDFRONT_VIDEO_BASE_URL` are also accepted for deployments that keep public runtime env names.
-- `components/hls-video-player.tsx` uses Video.js for HLS playback and falls back to the existing `/api/media?key=<original_s3_key>` MP4 URL while HLS is not ready.
-- The videos page polls while playback status is `queued`, `submitted`, `processing`, or `transcoding`, so it can switch to HLS after the completion worker updates the row.
-
 Do not simply point Video.js at `/api/media?key=<hls-master-key>` unless playlist rewriting is implemented. HLS playlists usually contain relative child playlist and segment paths, and the browser will request those paths relative to the playlist URL. The clean options are:
 
 1. Serve HLS through CloudFront signed URLs or signed cookies, keeping MediaConvert's relative playlist paths intact.
@@ -185,23 +178,7 @@ For this app, the recommended production path is:
 
 5. Add a database field such as `hls_s3_key` or `playback_s3_key` to the `videos` table.
 6. Return an HLS playback URL from `GET /api/albums/[albumSlug]/videos` when the HLS job is ready.
-7. Render HLS in the browser using Video.js, which uses native playback where available and Video.js HTTP Streaming elsewhere.
-
-## Upload-to-HLS latency
-
-HLS does not make a just-uploaded source video instantly adaptive. The original MP4/MOV can still be playable immediately through the existing `/api/media` fallback after the browser upload completes, but adaptive HLS starts only after the transcode job creates `master.m3u8`, child playlists, and segments, and the database row is updated.
-
-Typical HLS-ready latency after upload completion is:
-
-| Video size / duration | Expected HLS-ready delay |
-| --- | --- |
-| Short clips under a few minutes | 30 seconds to 2 minutes |
-| 10-30 minute event videos | 3 to 10 minutes |
-| Long or high-bitrate 4K/source-camera files | 10 to 30+ minutes |
-
-The exact delay is upload time plus MediaConvert queue time, transcode time, completion notification time, and the first CloudFront cache miss. MediaConvert is usually the dominant piece. CloudFront does not need a long propagation delay for each new object; the first viewer may pay an origin fetch, then edge caching keeps playback low-latency.
-
-Once HLS is ready, playback startup latency is usually a few seconds. Keep HLS segment duration around 4-6 seconds for normal VOD. Shorter segments can reduce startup and seek wait slightly, but increase request count and MediaConvert/CloudFront overhead.
+7. Render HLS in the browser using native Safari support and `hls.js` for browsers such as Chrome and Edge.
 
 Prefer **AWS Elemental MediaConvert** for this. It can normalize uploads into H.264/AAC MP4 and create HLS renditions in one pipeline. **AWS Elastic Transcoder** is older and should only be used if the project already depends on it.
 

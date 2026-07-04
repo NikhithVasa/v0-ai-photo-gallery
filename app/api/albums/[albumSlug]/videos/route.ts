@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
-import { cloudFrontHlsUrl } from "@/lib/cloudfront-url";
 import { createMultipartUpload, signedObjectUrl, signedUploadUrl, signedUrl } from "@/lib/s3";
 
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
@@ -41,8 +40,6 @@ interface VideoRow {
   customer_id: string | null;
   file_name: string | null;
   original_s3_key: string | null;
-  hls_s3_key: string | null;
-  playback_status: string | null;
   storage_album_slug: string | null;
   storage_event_slug: string | null;
   duration_sec: number | string | null;
@@ -156,39 +153,6 @@ function numberValue(value: number | string | null) {
 function stringArrayValue(value: unknown) {
   if (!Array.isArray(value)) return [] as string[];
   return value.map((item) => String(item || "").trim()).filter(Boolean);
-}
-
-async function tableColumns(tableName: string) {
-  const rows = await query<{ column_name: string }>(
-    `
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_schema = current_schema()
-      AND table_name = $1
-    `,
-    [tableName],
-  );
-
-  return new Set(rows.map((row) => row.column_name));
-}
-
-function textColumn(
-  columns: Set<string>,
-  tableAlias: string,
-  candidates: string[],
-) {
-  const column = candidates.find((candidate) => columns.has(candidate));
-  return column ? `${tableAlias}.${column}` : "NULL::text";
-}
-
-function isReadyPlaybackStatus(value?: string | null) {
-  if (!value) return true;
-  return ["available", "complete", "completed", "ready"].includes(value.toLowerCase());
-}
-
-function hlsUrlForVideo(row: VideoRow) {
-  if (!isReadyPlaybackStatus(row.playback_status)) return null;
-  return cloudFrontHlsUrl(row.hls_s3_key);
 }
 
 function targetPersonIdsValue(value: Record<string, unknown> | null) {
@@ -353,9 +317,6 @@ async function toVideo(row: VideoRow) {
     customerId: row.customer_id,
     fileName: row.file_name,
     originalS3Key: row.original_s3_key,
-    hlsS3Key: row.hls_s3_key,
-    hlsUrl: hlsUrlForVideo(row),
-    playbackStatus: row.playback_status,
     videoUrl: await signedUrl(row.original_s3_key),
     durationSec: numberValue(row.duration_sec),
     model: row.model,
@@ -412,15 +373,6 @@ export async function GET(request: Request, { params }: Props) {
       [album.id],
     );
 
-    const videoColumns = await tableColumns("videos");
-    const hlsS3KeyColumn = textColumn(videoColumns, "v", ["hls_s3_key", "playback_s3_key"]);
-    const playbackStatusColumn = textColumn(videoColumns, "v", [
-      "playback_status",
-      "transcode_status",
-      "transcoding_status",
-      "hls_status",
-    ]);
-
     const rows = await query<VideoRow>(
       `
       SELECT
@@ -430,8 +382,6 @@ export async function GET(request: Request, { params }: Props) {
         v.customer_id,
         v.file_name,
         v.original_s3_key,
-        ${hlsS3KeyColumn} AS hls_s3_key,
-        ${playbackStatusColumn} AS playback_status,
         v.storage_album_slug,
         v.storage_event_slug,
         v.duration_sec,

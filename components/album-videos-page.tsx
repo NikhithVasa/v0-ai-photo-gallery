@@ -29,7 +29,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { HlsVideoPlayer } from "@/components/hls-video-player";
 import { toast } from "@/hooks/use-toast";
 import type { Person } from "@/lib/types";
 
@@ -88,9 +87,6 @@ interface AlbumVideo {
   eventName: string | null;
   fileName: string | null;
   originalS3Key: string | null;
-  hlsS3Key: string | null;
-  hlsUrl: string | null;
-  playbackStatus: string | null;
   videoUrl: string | null;
   durationSec: number;
   detectionParams: Record<string, unknown>;
@@ -350,12 +346,6 @@ function videoStatusLabel(status: string) {
   return status;
 }
 
-function isPlaybackProcessingStatus(status?: string | null) {
-  return ["processing", "queued", "submitted", "transcoding"].includes(
-    status?.toLowerCase() ?? "",
-  );
-}
-
 function personName(person: Person) {
   return person.displayName || person.defaultName || `Person ${person.personNumber}`;
 }
@@ -417,10 +407,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   const videosUrl = `/api/albums/${encodeURIComponent(albumSlug)}/videos`;
   const { data, error, isLoading, mutate } = useSWR<VideosResponse>(videosUrl, fetcher, {
     refreshInterval: (latest) =>
-      latest?.videos.some((video) => (
-        video.detectionStatus === "processing" ||
-        isPlaybackProcessingStatus(video.playbackStatus)
-      )) ? 5000 : 0,
+      latest?.videos.some((video) => video.detectionStatus === "processing") ? 5000 : 0,
   });
   const { data: peopleData } = useSWR<PeopleResponse>(`/api/albums/${encodeURIComponent(albumSlug)}/people`, fetcher);
 
@@ -843,13 +830,13 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
             <div className={`grid min-h-0 gap-4 ${isTimelinePanelOpen ? "lg:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
               <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
                 <div className="group relative min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
-                  {timelineVideo.hlsUrl || timelineVideo.videoUrl ? (
-                    <HlsVideoPlayer
+                  {timelineVideo.videoUrl ? (
+                    <video
                       ref={timelineVideoRef}
-                      hlsUrl={timelineVideo.hlsUrl}
-                      mp4Url={timelineVideo.videoUrl}
-                      className="h-full w-full"
-                      videoClassName="h-full w-full object-contain"
+                      src={timelineVideo.videoUrl}
+                      controls
+                      playsInline
+                      className="h-full w-full object-contain"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-zinc-500">
