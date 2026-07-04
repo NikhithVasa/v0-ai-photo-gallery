@@ -171,35 +171,35 @@ const aiDiscoveryFeatures: Array<{
     title: "People Search",
     body: "Browse photos by detected people.",
     desktopImageSrc: "/ai-guide/people-search.png",
-    mobileImageSrc: "/ai-guide/people-search.png",
+    mobileImageSrc: "/ai-guide/mobile/people-search.png",
     icon: Users,
   },
   {
     title: "Find Yourself",
     body: "Help guests quickly find photos they appear in.",
     desktopImageSrc: "/ai-guide/find-yourself.png",
-    mobileImageSrc: "/ai-guide/find-yourself.png",
+    mobileImageSrc: "/ai-guide/mobile/find-yourself.png",
     icon: ScanFace,
   },
   {
     title: "Multiple People Search",
     body: "Find photos where selected people appear together.",
     desktopImageSrc: "/ai-guide/group-search.png",
-    mobileImageSrc: "/ai-guide/group-search.png",
+    mobileImageSrc: "/ai-guide/mobile/group-search.png",
     icon: Users,
   },
   {
     title: "Only Them",
     body: "Filter to photos containing only the chosen people.",
     desktopImageSrc: "/ai-guide/only-them.png",
-    mobileImageSrc: "/ai-guide/only-them.png",
+    mobileImageSrc: "/ai-guide/mobile/only-them.png",
     icon: ShieldCheck,
   },
   {
     title: "SaathiDesk AI",
     body: "Search moments, outfits, scenes, and details.",
     desktopImageSrc: "/ai-guide/saathidesk-ai.png",
-    mobileImageSrc: "/ai-guide/saathidesk-ai.png",
+    mobileImageSrc: "/ai-guide/mobile/saathidesk-ai.png",
     icon: Sparkles,
   },
 ];
@@ -608,19 +608,10 @@ function AiDiscoveryShowcase({
                 className="group overflow-hidden rounded-2xl border border-[#E8DED2] bg-white shadow-[0_18px_50px_-36px_rgba(0,0,0,0.35)] transition duration-500 hover:-translate-y-1 hover:border-[#C8B8A6]"
               >
                 <div className="relative aspect-[4/3] overflow-hidden bg-[#E8DED2]">
-                  <Image
-                    src={feature.mobileImageSrc}
-                    alt={feature.title}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 240px"
-                    className="object-contain p-2 transition duration-500 group-hover:scale-[1.03] md:hidden"
-                  />
-                  <Image
-                    src={feature.desktopImageSrc}
-                    alt={feature.title}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 240px"
-                    className="hidden object-contain p-2 transition duration-500 group-hover:scale-[1.03] md:block"
+                  <ResponsiveAiGuideImage
+                    title={feature.title}
+                    desktopImageSrc={feature.desktopImageSrc}
+                    mobileImageSrc={feature.mobileImageSrc}
                   />
                 </div>
                 <div className="p-4">
@@ -642,6 +633,43 @@ function AiDiscoveryShowcase({
         </motion.div>
       </div>
     </section>
+  );
+}
+
+function ResponsiveAiGuideImage({
+  title,
+  desktopImageSrc,
+  mobileImageSrc,
+}: {
+  title: string;
+  desktopImageSrc: string;
+  mobileImageSrc: string;
+}) {
+  const [resolvedMobileImageSrc, setResolvedMobileImageSrc] =
+    useState(mobileImageSrc);
+
+  useEffect(() => {
+    setResolvedMobileImageSrc(mobileImageSrc);
+  }, [mobileImageSrc]);
+
+  return (
+    <>
+      <Image
+        src={resolvedMobileImageSrc}
+        alt={title}
+        fill
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 240px"
+        className="object-contain p-2 transition duration-500 group-hover:scale-[1.03] md:hidden"
+        onError={() => setResolvedMobileImageSrc(desktopImageSrc)}
+      />
+      <Image
+        src={desktopImageSrc}
+        alt={title}
+        fill
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 240px"
+        className="hidden object-contain p-2 transition duration-500 group-hover:scale-[1.03] md:block"
+      />
+    </>
   );
 }
 

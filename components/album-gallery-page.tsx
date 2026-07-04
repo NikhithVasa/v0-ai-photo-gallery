@@ -124,35 +124,35 @@ const shareAiGuideItems = [
     title: "People Search",
     body: "Browse photos by detected people.",
     desktopImageSrc: "/ai-guide/people-search.png",
-    mobileImageSrc: "/ai-guide/people-search.png",
+    mobileImageSrc: "/ai-guide/mobile/people-search.png",
     icon: Users,
   },
   {
     title: "Find Yourself",
     body: "Quickly find photos you appear in.",
     desktopImageSrc: "/ai-guide/find-yourself.png",
-    mobileImageSrc: "/ai-guide/find-yourself.png",
+    mobileImageSrc: "/ai-guide/mobile/find-yourself.png",
     icon: User,
   },
   {
     title: "Group Search",
     body: "Find selected people together.",
     desktopImageSrc: "/ai-guide/group-search.png",
-    mobileImageSrc: "/ai-guide/group-search.png",
+    mobileImageSrc: "/ai-guide/mobile/group-search.png",
     icon: Users,
   },
   {
     title: "Only Them",
     body: "Show photos with only the chosen people.",
     desktopImageSrc: "/ai-guide/only-them.png",
-    mobileImageSrc: "/ai-guide/only-them.png",
+    mobileImageSrc: "/ai-guide/mobile/only-them.png",
     icon: ShieldCheck,
   },
   {
     title: "SaathiDesk AI",
     body: "Search moments, outfits, scenes, and details.",
     desktopImageSrc: "/ai-guide/saathidesk-ai.png",
-    mobileImageSrc: "/ai-guide/saathidesk-ai.png",
+    mobileImageSrc: "/ai-guide/mobile/saathidesk-ai.png",
     icon: Sparkles,
   },
 ];
@@ -2278,14 +2278,22 @@ function ResponsiveGuideImage({
   sizes: string;
   className?: string;
 }) {
+  const [resolvedMobileImageSrc, setResolvedMobileImageSrc] =
+    useState(mobileImageSrc);
+
+  useEffect(() => {
+    setResolvedMobileImageSrc(mobileImageSrc);
+  }, [mobileImageSrc]);
+
   return (
     <>
       <Image
-        src={mobileImageSrc}
+        src={resolvedMobileImageSrc}
         alt={title}
         fill
         sizes={sizes}
         className={`${className} md:hidden`}
+        onError={() => setResolvedMobileImageSrc(desktopImageSrc)}
       />
       <Image
         src={desktopImageSrc}
