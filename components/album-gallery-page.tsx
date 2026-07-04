@@ -152,7 +152,6 @@ const shareAiGuideItems = [
     title: "SaathiDesk AI",
     body: "Search moments, outfits, scenes, and details.",
     desktopImageSrc: "/ai-guide/saathidesk-ai.png",
-    mobileImageSrc: "/ai-guide/mobile/saathidesk-ai.png",
     icon: Sparkles,
   },
 ];
@@ -2274,16 +2273,17 @@ function ResponsiveGuideImage({
 }: {
   title: string;
   desktopImageSrc: string;
-  mobileImageSrc: string;
+  mobileImageSrc?: string;
   sizes: string;
   className?: string;
 }) {
+  const preferredMobileImageSrc = mobileImageSrc ?? desktopImageSrc;
   const [resolvedMobileImageSrc, setResolvedMobileImageSrc] =
-    useState(mobileImageSrc);
+    useState(preferredMobileImageSrc);
 
   useEffect(() => {
-    setResolvedMobileImageSrc(mobileImageSrc);
-  }, [mobileImageSrc]);
+    setResolvedMobileImageSrc(preferredMobileImageSrc);
+  }, [preferredMobileImageSrc]);
 
   return (
     <>
