@@ -2322,11 +2322,16 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     () => album?.events.find((event) => event.slug === selectedEventSlug),
     [album?.events, selectedEventSlug]
   );
+  const singleEvent = album?.events.length === 1 ? album.events[0] : null;
+  const effectiveEventSlug = selectedEventSlug ?? singleEvent?.slug ?? null;
+  const coverEvent = selectedEvent ?? (!selectedEventSlug ? singleEvent : null);
+  const displayCoverPhotoUrl = coverEvent?.coverPhotoUrl || album?.coverPhotoUrl;
+  const coverPhotoAlt = coverEvent?.name || album?.name || "Album cover";
   const addPhotosHref = `/albums/${encodeURIComponent(albumSlug)}/upload${uploadQuery(
-    selectedEventSlug,
+    effectiveEventSlug,
   )}`;
   const editEventsHref = `/albums/${encodeURIComponent(albumSlug)}/upload${uploadQuery(
-    selectedEventSlug,
+    effectiveEventSlug,
   )}`;
 
   useEffect(() => {
@@ -3556,10 +3561,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             minHeight: "100svh",
           }}
         >
-          {album.coverPhotoUrl && (
+          {displayCoverPhotoUrl && (
             <Image
-              src={album.coverPhotoUrl}
-              alt={album.name}
+              src={displayCoverPhotoUrl}
+              alt={coverPhotoAlt}
               fill
               sizes="100vw"
               className="hidden object-cover object-[center_35%] saturate-[1.08] contrast-[1.03] md:block sm:opacity-35"
@@ -3585,10 +3590,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
               <div className="order-1 flex justify-center sm:order-2">
                 <div className="relative aspect-[4/5] w-[min(76vw,380px)] overflow-hidden rounded-[30px] bg-white shadow-[0_30px_90px_rgba(0,0,0,0.22)] ring-1 ring-white/70 sm:w-[min(38vw,460px)] sm:rounded-[36px]">
-                  {album.coverPhotoUrl ? (
+                  {displayCoverPhotoUrl ? (
                     <Image
-                      src={album.coverPhotoUrl}
-                      alt={album.name}
+                      src={displayCoverPhotoUrl}
+                      alt={coverPhotoAlt}
                       fill
                       sizes="(min-width: 768px) 460px, 76vw"
                       className="object-cover object-[center_35%]"
@@ -4380,7 +4385,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             <PhotosGrid
               albumSlug={albumSlug}
               shareToken={shareToken}
-              selectedEventSlug={selectedEventSlug}
+              selectedEventSlug={effectiveEventSlug}
               selectedPeopleIds={scopedPeopleIds}
               peopleMatchMode={scopedPeopleMode}
               onPersonClick={isPersonShare ? undefined : filterByPerson}

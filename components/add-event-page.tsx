@@ -299,10 +299,7 @@ export function AddEventPage({
   const selectedExistingEvent = album?.events.find(
     (event) => event.slug === selectedExistingEventSlug,
   );
-  const currentCoverUrl =
-    uploadTarget === "existing"
-      ? selectedExistingEvent?.coverPhotoUrl
-      : album?.coverPhotoUrl;
+  const currentCoverUrl = selectedExistingEvent?.coverPhotoUrl ?? album?.coverPhotoUrl;
   const coverSaveEventSlug = selectedExistingEventSlug;
   const destinationEventName =
     uploadTarget === "existing"
@@ -318,7 +315,6 @@ export function AddEventPage({
     coverFile &&
       !isUploading &&
       !isSavingCover &&
-      uploadTarget === "existing" &&
       coverSaveEventSlug
   );
 
