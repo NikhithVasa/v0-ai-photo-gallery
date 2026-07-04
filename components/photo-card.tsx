@@ -1132,6 +1132,7 @@ export const PhotoCard = memo(function PhotoCard({
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const imageUrl = imageCandidates[activeImageIndex] ?? null;
   const aspectRatio = photoAspectRatio(photo);
+  const imageFitClass = imageFit === "cover" ? "object-cover" : "object-contain";
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [shouldLoadImage, setShouldLoadImage] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -1328,7 +1329,7 @@ export const PhotoCard = memo(function PhotoCard({
           <WatermarkedImage
             src={imageUrl}
             alt={photo.caption || "Photo"}
-            className={`absolute inset-0 h-full w-full transition-opacity duration-300 ${
+            className={`absolute inset-0 h-full w-full ${imageFitClass} transition-opacity duration-300 ${
               isImageLoaded ? "opacity-100" : "opacity-0"
             }`}
             loading="lazy"

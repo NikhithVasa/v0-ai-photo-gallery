@@ -180,7 +180,10 @@ type VirtualMasonryItem = {
 };
 
 function masonryColumnCount(width: number) {
-  return width >= 1024 ? 3 : 2;
+  if (width >= 1536) return 5;
+  if (width >= 1024) return 4;
+  if (width >= 640) return 3;
+  return 2;
 }
 
 function masonryGap(width: number) {
@@ -206,10 +209,10 @@ function createVirtualMasonryLayout(
       }
     }
 
-    const ratio = Math.max(photoAspectRatio(photo), 0.2);
+    const ratio = Math.min(Math.max(photoAspectRatio(photo), 0.62), 1.85);
     const height = squareItems
       ? itemWidth
-      : Math.max(96, Math.round(itemWidth / ratio));
+      : Math.max(140, Math.round(itemWidth / ratio));
     const x = column * (itemWidth + gap);
     const y = columnHeights[column];
 
@@ -1085,7 +1088,7 @@ export function PhotosGrid({
               index={item.index}
               onOpen={handleOpen}
               forceFill
-              imageFit="contain"
+              imageFit="cover"
               shareSettings={shareSettings}
               debugScroll={isScrollDebugEnabled}
               isSelectionMode={isSelectionMode}
