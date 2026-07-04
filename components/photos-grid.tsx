@@ -927,14 +927,14 @@ export function PhotosGrid({
 
       <div
         className={`grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 ${
-          isSinglePhoto ? "grid-cols-1 justify-items-center sm:justify-center" : ""
+          isSinglePhoto ? "sm:justify-center" : ""
         }`}
       >
         {photos.map((photo, index) => (
           <div
             key={photo.id}
             className={`relative max-w-full overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:min-w-[min(44vw,190px)] ${
-              isSinglePhoto ? "w-[min(100%,420px)]" : "w-full"
+              isSinglePhoto ? "w-full sm:w-[min(100%,420px)]" : "w-full"
             }`}
             style={{
               flexBasis: photoFlexBasis(photo, ALBUM_MOSAIC_TARGET_HEIGHT),
