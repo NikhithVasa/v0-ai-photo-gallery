@@ -31,7 +31,8 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
   if (
     pathname === "/legal/privacy-policy" ||
     pathname === "/legal/terms-of-service" ||
-    /^\/share\/[^/]+$/.test(pathname)
+    /^\/share\/[^/]+$/.test(pathname) ||
+    /^\/share\/[^/]+\/(?:opengraph-image|twitter-image)$/.test(pathname)
   )
     return true;
   if (/^\/albums\/[^/]+$/.test(pathname)) return true;
