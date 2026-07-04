@@ -1,20 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import {
-  getCustomerSlugFromHost,
-  normalizeHost,
-  ROOT_DOMAIN,
-} from "@/lib/customer-host";
-
-function getCanonicalHostRedirectUrl(request: NextRequest) {
-  const host = normalizeHost(request.headers.get("host") || "");
-
-  if (host !== `www.${ROOT_DOMAIN}`) return null;
-
-  const url = request.nextUrl.clone();
-  url.hostname = ROOT_DOMAIN;
-  return url;
-}
+import { getCustomerSlugFromHost } from "@/lib/customer-host";
 
 function isAssetOrApiPath(pathname: string) {
   return (
@@ -128,11 +114,6 @@ async function hasSupabaseUser(request: NextRequest, response: NextResponse) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const canonicalHostRedirectUrl = getCanonicalHostRedirectUrl(request);
-
-  if (canonicalHostRedirectUrl) {
-    return NextResponse.redirect(canonicalHostRedirectUrl, 308);
-  }
 
   if (isAssetOrApiPath(pathname)) {
     return withRobotsHeader(NextResponse.next(), pathname, null);
