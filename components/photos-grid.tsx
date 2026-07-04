@@ -348,6 +348,7 @@ export function PhotosGrid({
   const canEditSort =
     canManageSort && selectedPeopleIds.length === 0 && !isSelectionMode;
   const photos = data?.photos ?? [];
+  const isSinglePhoto = photos.length === 1;
 
   useEffect(() => {
     setIsScrollDebugEnabled(isPhotosScrollDebugEnabled());
@@ -924,14 +925,18 @@ export function PhotosGrid({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 sm:gap-3">
+      <div
+        className={`flex flex-wrap gap-2 sm:gap-3 ${
+          isSinglePhoto ? "justify-center" : ""
+        }`}
+      >
         {photos.map((photo, index) => (
           <div
             key={photo.id}
             className="relative min-w-[min(44vw,190px)] max-w-full overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
             style={{
               flexBasis: photoFlexBasis(photo, ALBUM_MOSAIC_TARGET_HEIGHT),
-              flexGrow: photoAspectRatio(photo),
+              flexGrow: isSinglePhoto ? 0 : photoAspectRatio(photo),
             }}
           >
             <PhotoCard
@@ -959,7 +964,7 @@ export function PhotosGrid({
           </div>
         ))}
 
-        <div className="h-0 flex-[999_1_20rem]" />
+        {!isSinglePhoto && <div className="h-0 flex-[999_1_20rem]" />}
       </div>
 
       <div ref={endSentinelRef} data-photos-grid-end className="h-px w-full" />
