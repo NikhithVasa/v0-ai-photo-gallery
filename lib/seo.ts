@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const SITE_NAME = "SaathiDesk";
 export const SITE_TITLE =
-  "SaathiDesk - Free Open Source AI Photo Gallery Platform";
+  "SaathiDesk - ";
 export const SITE_DESCRIPTION =
   "SaathiDesk is a free, open-source AI-powered private photo gallery platform for organizing, searching, editing, and sharing event photos.";
 export const SITE_SUPPORT_EMAIL = "support@saathidesk.com";
