@@ -933,7 +933,7 @@ export function PhotosGrid({
         {photos.map((photo, index) => (
           <div
             key={photo.id}
-            className={`relative max-w-full overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:min-w-[min(44vw,190px)] ${
+            className={`relative max-w-full overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out sm:min-w-[min(44vw,190px)] sm:hover:-translate-y-1.5 ${
               isSinglePhoto ? "w-full sm:w-[min(100%,420px)]" : "w-full"
             }`}
             style={{
@@ -946,6 +946,7 @@ export function PhotosGrid({
               shareToken={shareToken}
               photo={photo}
               index={index}
+              forceMobileSquare
               onOpen={handleOpen}
               shareSettings={shareSettings}
               debugScroll={isScrollDebugEnabled}

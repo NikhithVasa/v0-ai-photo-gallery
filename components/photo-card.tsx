@@ -816,6 +816,7 @@ interface PhotoCardProps {
   index: number;
   onOpen: (index: number, originRect: PhotoOpenRect) => void;
   forceFill?: boolean;
+  forceMobileSquare?: boolean;
   imageFit?: "contain" | "cover";
   shareSettings?: AlbumShareSettings | null;
   debugScroll?: boolean;
@@ -1095,6 +1096,7 @@ export const PhotoCard = memo(function PhotoCard({
   index,
   onOpen,
   forceFill = false,
+  forceMobileSquare = false,
   imageFit = "contain",
   shareSettings,
   debugScroll = false,
@@ -1291,8 +1293,18 @@ export const PhotoCard = memo(function PhotoCard({
         isSelectionMode && isSelected
           ? "ring-2 ring-zinc-950"
           : "ring-border"
-      } ${forceFill ? "h-full" : ""}`}
-      style={forceFill ? undefined : { aspectRatio }}
+      } ${forceFill ? "h-full" : ""} ${
+        forceMobileSquare && !forceFill
+          ? "aspect-square sm:[aspect-ratio:var(--photo-card-aspect-ratio)]"
+          : ""
+      }`}
+      style={
+        forceFill
+          ? undefined
+          : forceMobileSquare
+            ? ({ "--photo-card-aspect-ratio": aspectRatio } as CSSProperties)
+            : { aspectRatio }
+      }
     >
       <button
         type="button"
