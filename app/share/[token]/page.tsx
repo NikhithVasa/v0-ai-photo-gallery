@@ -18,6 +18,7 @@ export const revalidate = 0;
 
 interface PageProps {
   params: Promise<{ token: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 type ShareLinkRow = SharePreviewLink;
@@ -42,7 +43,27 @@ function isLinkPreviewCrawler(userAgent: string) {
   );
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+function firstSearchParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function sharePreviewVersion(
+  share: SharePreviewLink,
+  requestedVersion?: string,
+) {
+  if (requestedVersion?.trim()) return requestedVersion.trim();
+  return (
+    share.cover_photo_s3_key
+      ?.split("/")
+      .pop()
+      ?.replace(/[^a-z0-9._-]/gi, "") || share.album_slug
+  );
+}
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: PageProps): Promise<Metadata> {
   const { token } = await params;
 
   try {
@@ -50,26 +71,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     if (!share) return {};
 
     const origin = await currentOrigin();
+    const resolvedSearchParams = await searchParams;
+    const requestedVersion = firstSearchParam(resolvedSearchParams?.v);
     const preview = sharePreviewText(share);
-    const url = `${origin}/share/${encodeURIComponent(token)}`;
-    const imageUrl = `${url}/opengraph-image`;
+    const canonicalUrl = `${origin}/share/${encodeURIComponent(token)}`;
+    const url = new URL(canonicalUrl);
+    const imageUrl = new URL(`${canonicalUrl}/opengraph-image`);
+    const previewVersion = sharePreviewVersion(share, requestedVersion);
+
+    if (requestedVersion) url.searchParams.set("v", requestedVersion);
+    imageUrl.searchParams.set("v", previewVersion);
 
     return {
       metadataBase: new URL(origin),
       title: preview.title,
       description: preview.description,
       alternates: {
-        canonical: url,
+        canonical: canonicalUrl,
       },
       openGraph: {
         title: preview.title,
         description: preview.description,
-        url,
+        url: url.toString(),
         siteName: SITE_NAME,
         type: "website",
         images: [
           {
-            url: imageUrl,
+            url: imageUrl.toString(),
             width: 1200,
             height: 630,
             alt: `${preview.albumName} cover photo`,
@@ -80,7 +108,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         card: "summary_large_image",
         title: preview.title,
         description: preview.description,
-        images: [imageUrl],
+        images: [imageUrl.toString()],
       },
     };
   } catch (error) {
