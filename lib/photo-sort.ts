@@ -130,14 +130,13 @@ export async function photoRatingExpression() {
 }
 
 export async function photoOrderBySql(sortMode: PhotoSortMode) {
-  const titleExpression =
-    "lower(COALESCE(NULLIF(p.caption, ''), NULLIF(p.file_name, ''), ''))";
+  const fileNameExpression = "lower(NULLIF(p.file_name, ''))";
 
   switch (sortMode) {
     case "title_asc":
-      return `${titleExpression} ASC, p.created_at ASC, p.id ASC`;
+      return `${fileNameExpression} ASC NULLS LAST, p.created_at ASC, p.id ASC`;
     case "title_desc":
-      return `${titleExpression} DESC, p.created_at ASC, p.id ASC`;
+      return `${fileNameExpression} DESC NULLS LAST, p.created_at ASC, p.id ASC`;
     case "added_newest":
       return "p.created_at DESC, p.id DESC";
     case "original_newest":

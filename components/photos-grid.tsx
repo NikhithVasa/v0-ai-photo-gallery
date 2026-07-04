@@ -39,8 +39,8 @@ const swrOptions = {
 };
 
 const PHOTO_SORT_OPTIONS: Array<{ value: PhotoSortMode; label: string }> = [
-  { value: "title_asc", label: "Title (A-Z)" },
-  { value: "title_desc", label: "Title (Z-A)" },
+  { value: "title_asc", label: "File name (A-Z)" },
+  { value: "title_desc", label: "File name (Z-A)" },
   { value: "added_newest", label: "Added date (Newest)" },
   { value: "added_oldest", label: "Added date (Oldest)" },
   { value: "original_newest", label: "Original date (Newest)" },
@@ -104,8 +104,24 @@ function dateMs(value?: string | null) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function titleValue(photo: Photo) {
-  return (photo.caption || photo.fileName || "").trim().toLowerCase();
+const fileNameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+function fileNameValue(photo: Photo) {
+  return photo.fileName?.trim() || null;
+}
+
+function compareFileNames(a: Photo, b: Photo) {
+  const aFileName = fileNameValue(a);
+  const bFileName = fileNameValue(b);
+
+  if (!aFileName && !bFileName) return 0;
+  if (!aFileName) return 1;
+  if (!bFileName) return -1;
+
+  return fileNameCollator.compare(aFileName, bFileName);
 }
 
 function withCustomPositions(photos: Photo[]) {
@@ -122,12 +138,12 @@ function sortPhotos(photos: Photo[], sortMode: PhotoSortMode) {
     switch (sortMode) {
       case "title_asc":
         return (
-          titleValue(a.photo).localeCompare(titleValue(b.photo)) ||
+          compareFileNames(a.photo, b.photo) ||
           a.index - b.index
         );
       case "title_desc":
         return (
-          titleValue(b.photo).localeCompare(titleValue(a.photo)) ||
+          compareFileNames(b.photo, a.photo) ||
           a.index - b.index
         );
       case "added_newest":
