@@ -1063,11 +1063,11 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
 
         <section className="min-h-[calc(100svh-97px)] px-3 py-4 sm:px-5">
           {isLoading ? (
-            <div className="columns-2 gap-3 sm:columns-3 xl:columns-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {Array.from({ length: 16 }).map((_, index) => (
                 <Skeleton
                   key={index}
-                  className="mb-3 h-72 w-full break-inside-avoid rounded-md"
+                  className="h-72 w-full rounded-md"
                 />
               ))}
             </div>
@@ -1128,13 +1128,13 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
             </div>
           ) : isClusterMode(mode) ? (
             clusters.length ? (
-              <div className="columns-2 gap-3 sm:columns-3 xl:columns-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                 {clusters.map((cluster) => {
                   const reviewItem = clusterToReviewPhoto(cluster);
                   if (!reviewItem) return null;
 
                   return (
-                    <div key={cluster.clusterId} className="mb-3">
+                    <div key={cluster.clusterId}>
                       <ClusterCard
                         cluster={cluster}
                         state={photoState(reviewItem.photo.id)}
@@ -1160,9 +1160,9 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
               </div>
             )
           ) : photos.length ? (
-            <div className="columns-2 gap-3 sm:columns-3 xl:columns-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {photos.map((item) => (
-                <div key={item.photo.id} className="mb-3">
+                <div key={item.photo.id}>
                   <PhotoTile
                     item={item}
                     state={photoState(item.photo.id)}
