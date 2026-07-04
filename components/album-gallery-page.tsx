@@ -1029,6 +1029,17 @@ Best regards,
 Team ${studioName}`;
 }
 
+function cacheBustedShareUrl(shareUrl: string) {
+  try {
+    const url = new URL(shareUrl);
+    url.searchParams.set("v", Date.now().toString(36));
+    return url.toString();
+  } catch {
+    const separator = shareUrl.includes("?") ? "&" : "?";
+    return `${shareUrl}${separator}v=${Date.now().toString(36)}`;
+  }
+}
+
 const cornerOptions = [
   { id: "top_left", label: "Top left" },
   { id: "top_right", label: "Top right" },
@@ -1742,18 +1753,19 @@ function AlbumShareDialog({
 
   const copyLink = async () => {
     if (!shareUrl) return;
-    await navigator.clipboard?.writeText(shareUrl);
+    await navigator.clipboard?.writeText(cacheBustedShareUrl(shareUrl));
     setStatus("Link copied");
   };
 
   const copyShareMessage = async () => {
     if (!shareUrl) return;
     const source = data?.share ?? data?.defaults;
+    const previewUrl = cacheBustedShareUrl(shareUrl);
     await navigator.clipboard?.writeText(
       shareMessageTemplate({
         customerName: source?.customerName,
         albumName: source?.albumName,
-        shareUrl,
+        shareUrl: previewUrl,
         passcode,
       }),
     );
