@@ -51,6 +51,7 @@ const PHOTO_SORT_OPTIONS: Array<{ value: PhotoSortMode; label: string }> = [
 
 const DEFAULT_SORT_MODE: PhotoSortMode = "added_oldest";
 const RESET_SORT_MODE: PhotoSortMode = "added_newest";
+const ALBUM_MOSAIC_TARGET_HEIGHT = 260;
 
 function isPhotosScrollDebugEnabled() {
   if (typeof window === "undefined") return false;
@@ -909,7 +910,7 @@ export function PhotosGrid({
             key={photo.id}
             className="relative min-w-[min(44vw,190px)] max-w-full overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
             style={{
-              flexBasis: photoFlexBasis(photo),
+              flexBasis: photoFlexBasis(photo, ALBUM_MOSAIC_TARGET_HEIGHT),
               flexGrow: photoAspectRatio(photo),
             }}
           >
