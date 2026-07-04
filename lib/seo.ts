@@ -167,8 +167,7 @@ function normalizeSiteUrl(value: string) {
 
 export const SITE_URL = normalizeSiteUrl(
   process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
-    "saathidesk.com",
+    "https://www.saathidesk.com",
 );
 
 export const NO_INDEX_ROBOTS: Metadata["robots"] = {
