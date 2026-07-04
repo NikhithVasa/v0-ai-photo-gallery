@@ -4401,6 +4401,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               onPeopleChanged={refreshPeopleData}
               shareSettings={shareSettings}
               hidePeople={hideAi}
+              showAiPrivacyNotice={!hideAi}
               canManageSort={!isShareView}
               canUploadPhotos={!isShareView}
               uploadHref={addPhotosHref}

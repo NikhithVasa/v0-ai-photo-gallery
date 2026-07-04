@@ -207,6 +207,7 @@ interface PhotosGridProps {
   onPeopleChanged?: () => void | Promise<void>;
   shareSettings?: AlbumShareSettings | null;
   hidePeople?: boolean;
+  showAiPrivacyNotice?: boolean;
   canManageSort?: boolean;
   canUploadPhotos?: boolean;
   uploadHref?: string;
@@ -303,6 +304,7 @@ export function PhotosGrid({
   onPeopleChanged,
   shareSettings,
   hidePeople = false,
+  showAiPrivacyNotice = true,
   canManageSort = false,
   canUploadPhotos = false,
   uploadHref,
@@ -796,7 +798,9 @@ export function PhotosGrid({
         className="rounded-[28px] border border-white/70 bg-white/85 px-6 py-12 text-center text-zinc-500 shadow-[0_18px_55px_rgba(0,0,0,0.10)] backdrop-blur-xl"
         style={{ touchAction: "pan-y" }}
       >
-        <AiPrivacyNotice className="mx-auto mb-4 max-w-xl text-left" />
+        {showAiPrivacyNotice && (
+          <AiPrivacyNotice className="mx-auto mb-4 max-w-xl text-left" />
+        )}
         <p>{emptyMessage}</p>
         {shouldShowUploadCta && (
           <Link
@@ -817,7 +821,7 @@ export function PhotosGrid({
       className="min-w-0"
       style={{ touchAction: "pan-y" }}
     >
-      <AiPrivacyNotice className="mb-3" />
+      {showAiPrivacyNotice && <AiPrivacyNotice className="mb-3" />}
 
       {canEditSort && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-2 sm:px-0">
