@@ -1015,15 +1015,15 @@ function shareMessageTemplate({
   const galleryName = albumName?.trim() || "Client";
   const accessCode = passcode?.trim() || "No access code required";
 
-  return `Dear ${galleryName} garu
+  return `Dear ${galleryName} garu,
 
-We are delighted to share your curated photo gallery. You can view the collection using the link below:
+We are pleased to share your curated photo gallery. You can view the collection using the link below:
 
-*View Gallery : ${shareUrl}*
+*View Gallery:* ${shareUrl}
 
-Access Code : ${accessCode}
+Access Code: ${accessCode}
 
-For the best viewing experience, we recommend watching on a PC or TV.
+For the best viewing experience, we recommend viewing the gallery on a PC or TV.
 
 Best regards,
 Team ${studioName}`;
