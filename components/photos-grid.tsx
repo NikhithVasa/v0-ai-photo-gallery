@@ -926,14 +926,16 @@ export function PhotosGrid({
       )}
 
       <div
-        className={`flex flex-wrap gap-2 sm:gap-3 ${
-          isSinglePhoto ? "justify-center" : ""
+        className={`grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 ${
+          isSinglePhoto ? "grid-cols-1 justify-items-center sm:justify-center" : ""
         }`}
       >
         {photos.map((photo, index) => (
           <div
             key={photo.id}
-            className="relative min-w-[min(44vw,190px)] max-w-full overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
+            className={`relative max-w-full overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:min-w-[min(44vw,190px)] ${
+              isSinglePhoto ? "w-[min(100%,420px)]" : "w-full"
+            }`}
             style={{
               flexBasis: photoFlexBasis(photo, ALBUM_MOSAIC_TARGET_HEIGHT),
               flexGrow: isSinglePhoto ? 0 : photoAspectRatio(photo),
@@ -964,7 +966,7 @@ export function PhotosGrid({
           </div>
         ))}
 
-        {!isSinglePhoto && <div className="h-0 flex-[999_1_20rem]" />}
+        {!isSinglePhoto && <div className="hidden h-0 flex-[999_1_20rem] sm:block" />}
       </div>
 
       <div ref={endSentinelRef} data-photos-grid-end className="h-px w-full" />
