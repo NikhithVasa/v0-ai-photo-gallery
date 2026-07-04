@@ -303,6 +303,7 @@ export function AddEventPage({
     uploadTarget === "existing"
       ? selectedExistingEvent?.coverPhotoUrl
       : album?.coverPhotoUrl;
+  const coverSaveEventSlug = selectedExistingEventSlug;
   const destinationEventName =
     uploadTarget === "existing"
       ? selectedExistingEvent?.name || "Select event"
@@ -318,7 +319,7 @@ export function AddEventPage({
       !isUploading &&
       !isSavingCover &&
       uploadTarget === "existing" &&
-      selectedExistingEventSlug
+      coverSaveEventSlug
   );
 
   const uploadButtonLabel =
@@ -379,6 +380,9 @@ export function AddEventPage({
     if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
     setCoverFile(file);
     setCoverPreviewUrl(previewObjectUrl(file) ?? null);
+    if (uploadTarget !== "existing" && selectedExistingEventSlug) {
+      setUploadTarget("existing");
+    }
   };
 
   const addMediaFiles = (
@@ -536,9 +540,7 @@ export function AddEventPage({
   };
 
   const saveCoverOnly = async () => {
-    const eventSlug =
-      (uploadTarget === "existing" ? selectedExistingEventSlug : title.trim()) ||
-      "cover";
+    const eventSlug = coverSaveEventSlug;
     if (!coverFile || !eventSlug || isSavingCover) return;
 
     setIsSavingCover(true);
