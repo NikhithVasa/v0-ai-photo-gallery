@@ -299,6 +299,10 @@ export function AddEventPage({
   const selectedExistingEvent = album?.events.find(
     (event) => event.slug === selectedExistingEventSlug,
   );
+  const currentCoverUrl =
+    uploadTarget === "existing"
+      ? selectedExistingEvent?.coverPhotoUrl
+      : album?.coverPhotoUrl;
   const destinationEventName =
     uploadTarget === "existing"
       ? selectedExistingEvent?.name || "Select event"
@@ -313,7 +317,8 @@ export function AddEventPage({
     coverFile &&
       !isUploading &&
       !isSavingCover &&
-      (uploadTarget === "new" ? title.trim() : selectedExistingEventSlug)
+      uploadTarget === "existing" &&
+      selectedExistingEventSlug
   );
 
   const uploadButtonLabel =
@@ -543,7 +548,7 @@ export function AddEventPage({
       await uploadCover(eventSlug);
       toast({
         title: "Cover updated",
-        description: `${album?.name || "Album"} cover photo was updated.`,
+        description: `${selectedExistingEvent?.name || album?.name || "Event"} cover photo was updated.`,
       });
       setCoverFile(null);
       if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
@@ -1541,10 +1546,10 @@ export function AddEventPage({
               }}
               className="mt-4 flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 text-zinc-500 transition hover:border-zinc-300 hover:bg-zinc-100"
             >
-              {coverPreviewUrl || album.coverPhotoUrl ? (
+              {coverPreviewUrl || currentCoverUrl ? (
                 <Image
-                  src={coverPreviewUrl || album.coverPhotoUrl || ""}
-                  alt={coverPreviewUrl ? "Cover preview" : `${album.name} cover`}
+                  src={coverPreviewUrl || currentCoverUrl || ""}
+                  alt={coverPreviewUrl ? "Cover preview" : `${destinationEventName} cover`}
                   width={640}
                   height={400}
                   className="h-full w-full object-cover"

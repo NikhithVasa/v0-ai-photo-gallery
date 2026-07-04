@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { listS3Keys, s3 } from "@/lib/s3";
 import { queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
+import { ensureEventCoverSchema } from "@/lib/event-cover";
 import {
   requireAdminAccess,
   requireCustomerAccessBySlug,
@@ -86,7 +87,7 @@ async function fallbackOriginalKey(key: string) {
 }
 
 async function requireMediaAccess(request: Request, key: string) {
-  await ensurePhotoEditSchema();
+  await Promise.all([ensurePhotoEditSchema(), ensureEventCoverSchema()]);
 
   const album = await queryOne<{ slug: string }>(
     `
@@ -95,6 +96,16 @@ async function requireMediaAccess(request: Request, key: string) {
       FROM albums a
       WHERE a.cover_photo_s3_key = $1
         AND COALESCE(a.is_deleted, false) = false
+
+      UNION
+
+      SELECT a.slug
+      FROM album_events e
+      JOIN albums a
+        ON a.id = e.album_id
+       AND COALESCE(a.is_deleted, false) = false
+      WHERE e.cover_photo_s3_key = $1
+        AND COALESCE(e.is_deleted, false) = false
 
       UNION
 
@@ -161,6 +172,15 @@ async function requireMediaAccess(request: Request, key: string) {
       FROM albums a
       WHERE lower(a.slug) = lower($1)
         AND a.cover_photo_s3_key = $2
+
+      UNION ALL
+
+      SELECT true AS allowed
+      FROM album_events e
+      JOIN albums a ON a.id = e.album_id
+      WHERE lower(a.slug) = lower($1)
+        AND e.cover_photo_s3_key = $2
+        AND COALESCE(e.is_deleted, false) = false
 
       UNION ALL
 

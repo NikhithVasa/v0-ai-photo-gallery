@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
+import { ensureEventCoverSchema } from "@/lib/event-cover";
 import { signedUploadUrl } from "@/lib/s3";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 
@@ -63,7 +64,7 @@ export async function POST(request: Request, { params }: Props) {
     const eventSlug =
       typeof body.eventSlug === "string" && body.eventSlug.trim()
         ? slugify(body.eventSlug)
-        : "cover";
+        : "";
 
     if (!fileName) {
       return NextResponse.json({ error: "fileName is required" }, { status: 400 });
@@ -88,21 +89,42 @@ export async function POST(request: Request, { params }: Props) {
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
 
+    await ensureEventCoverSchema();
+
     const contentType = contentTypeFromInput(body.contentType, fileName);
-    const key = `albums/${album.slug}/events/${eventSlug}/cover/${randomUUID()}${extensionFromFileName(
+    const key = `albums/${album.slug}/events/${eventSlug || "cover"}/cover/${randomUUID()}${extensionFromFileName(
       fileName,
     )}`;
 
-    await queryOne<{ id: string }>(
-      `
-      UPDATE albums
-      SET cover_photo_s3_key = $2,
-          updated_at = now()
-      WHERE id = $1::uuid
-      RETURNING id
-      `,
-      [album.id, key],
-    );
+    const updated = eventSlug
+      ? await queryOne<{ id: string }>(
+          `
+          UPDATE album_events e
+          SET cover_photo_s3_key = $3,
+              updated_at = now()
+          FROM albums a
+          WHERE e.album_id = a.id
+            AND a.id = $1::uuid
+            AND e.slug = $2
+            AND COALESCE(e.is_deleted, false) = false
+          RETURNING e.id
+          `,
+          [album.id, eventSlug, key],
+        )
+      : await queryOne<{ id: string }>(
+          `
+          UPDATE albums
+          SET cover_photo_s3_key = $2,
+              updated_at = now()
+          WHERE id = $1::uuid
+          RETURNING id
+          `,
+          [album.id, key],
+        );
+
+    if (!updated) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
 
     return NextResponse.json({
       upload: {

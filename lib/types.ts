@@ -51,6 +51,7 @@ export interface AlbumEvent {
   photoSortMode: PhotoSortMode;
   photoCount: number;
   peopleCount: number;
+  coverPhotoUrl?: string | null;
 }
 
 export type PhotoSortMode =

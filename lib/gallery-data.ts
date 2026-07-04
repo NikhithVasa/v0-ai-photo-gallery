@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { ensureEventCoverSchema } from "@/lib/event-cover";
 import { ensurePhotoSortSchema, normalizePhotoSortMode } from "@/lib/photo-sort";
 import { signedDownloadUrl, signedUrl } from "@/lib/s3";
 import type { AlbumEvent, Photo, PhotoPerson, Person } from "@/lib/types";
@@ -9,6 +10,7 @@ export interface AlbumEventRow {
   name: string;
   sort_order: number | null;
   photo_sort_mode?: string | null;
+  cover_photo_s3_key?: string | null;
   photo_count: number | string | null;
   people_count: number | string | null;
 }
@@ -83,7 +85,10 @@ function nullableNumberValue(value: number | string | null | undefined) {
   return null;
 }
 
-export function toAlbumEvent(row: AlbumEventRow): AlbumEvent {
+export function toAlbumEvent(
+  row: AlbumEventRow,
+  coverPhotoUrl: string | null = null,
+): AlbumEvent {
   return {
     id: row.id,
     slug: row.slug,
@@ -92,6 +97,7 @@ export function toAlbumEvent(row: AlbumEventRow): AlbumEvent {
     photoSortMode: normalizePhotoSortMode(row.photo_sort_mode),
     photoCount: numberValue(row.photo_count),
     peopleCount: numberValue(row.people_count),
+    coverPhotoUrl,
   };
 }
 
@@ -281,7 +287,7 @@ export async function signedPhotoUrlBundle(row: Pick<
 }
 
 export async function fetchAlbumEvents(albumSlug: string) {
-  await ensurePhotoSortSchema();
+  await Promise.all([ensurePhotoSortSchema(), ensureEventCoverSchema()]);
 
   const rows = await query<AlbumEventRow>(
     `
@@ -291,6 +297,7 @@ export async function fetchAlbumEvents(albumSlug: string) {
       e.name,
       e.sort_order,
       e.photo_sort_mode,
+      e.cover_photo_s3_key,
       COUNT(DISTINCT p.id)::int AS photo_count,
       COUNT(DISTINCT CASE
         WHEN COALESCE(pes.photo_count, 0) > 0 THEN pes.person_id
@@ -304,13 +311,15 @@ export async function fetchAlbumEvents(albumSlug: string) {
     LEFT JOIN person_event_stats pes ON pes.album_event_id = e.id
     WHERE lower(a.slug) = lower($1)
       AND COALESCE(e.is_deleted, false) = false
-    GROUP BY e.id, e.slug, e.name, e.sort_order, e.photo_sort_mode
+    GROUP BY e.id, e.slug, e.name, e.sort_order, e.photo_sort_mode, e.cover_photo_s3_key
     ORDER BY e.sort_order ASC NULLS LAST, e.name ASC
     `,
     [albumSlug]
   );
 
-  return rows.map(toAlbumEvent);
+  return Promise.all(
+    rows.map(async (row) => toAlbumEvent(row, await signedUrl(row.cover_photo_s3_key))),
+  );
 }
 
 export async function attachPersonEventStats(

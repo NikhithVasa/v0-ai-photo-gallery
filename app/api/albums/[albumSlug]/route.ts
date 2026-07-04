@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { handleDbRouteError } from "@/lib/db-response";
+import { ensureEventCoverSchema } from "@/lib/event-cover";
 import { ensurePhotoSortSchema, normalizePhotoSortMode } from "@/lib/photo-sort";
 import { signedUrl } from "@/lib/s3";
 import {
@@ -48,6 +49,7 @@ interface EventRow {
   name: string;
   sort_order: number | string | null;
   photo_sort_mode: string | null;
+  cover_photo_s3_key: string | null;
   photo_count: number | string | null;
   people_count: number | string | null;
 }
@@ -178,7 +180,7 @@ export async function GET(request: Request, { params }: Props) {
       });
     }
 
-    await ensurePhotoSortSchema();
+    await Promise.all([ensurePhotoSortSchema(), ensureEventCoverSchema()]);
 
     console.info("[share-debug] album detail API querying album", {
       albumSlug,
@@ -300,6 +302,7 @@ export async function GET(request: Request, { params }: Props) {
           e.name,
           e.sort_order,
           e.photo_sort_mode,
+          e.cover_photo_s3_key,
           e.album_id
         FROM album_events e
         JOIN selected_album a ON a.id = e.album_id
@@ -333,6 +336,7 @@ export async function GET(request: Request, { params }: Props) {
         e.name,
         e.sort_order,
         e.photo_sort_mode,
+        e.cover_photo_s3_key,
         COALESCE(pc.photo_count, 0)::int AS photo_count,
         COALESCE(pec.people_count, 0)::int AS people_count
       FROM active_events e
@@ -343,6 +347,19 @@ export async function GET(request: Request, { params }: Props) {
       ORDER BY e.sort_order ASC NULLS LAST, e.name ASC
       `,
       [albumSlug]
+    );
+
+    const detailEvents = await Promise.all(
+      events.map(async (event) => ({
+        id: event.id,
+        slug: event.slug,
+        name: event.name,
+        sortOrder: numberValue(event.sort_order),
+        photoSortMode: normalizePhotoSortMode(event.photo_sort_mode),
+        photoCount: numberValue(event.photo_count),
+        peopleCount: numberValue(event.people_count),
+        coverPhotoUrl: await signedUrl(event.cover_photo_s3_key),
+      })),
     );
 
     console.info("[share-debug] album detail API events loaded", {
@@ -362,15 +379,7 @@ export async function GET(request: Request, { params }: Props) {
       watermarkEnabled: Boolean(album.watermark_enabled),
       photoSortMode: normalizePhotoSortMode(album.photo_sort_mode),
 
-      events: events.map((event) => ({
-        id: event.id,
-        slug: event.slug,
-        name: event.name,
-        sortOrder: numberValue(event.sort_order),
-        photoSortMode: normalizePhotoSortMode(event.photo_sort_mode),
-        photoCount: numberValue(event.photo_count),
-        peopleCount: numberValue(event.people_count),
-      })),
+      events: detailEvents,
 
       photoCount: numberValue(album.photo_count),
       peopleCount: numberValue(album.people_count),
