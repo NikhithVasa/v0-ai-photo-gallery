@@ -1017,7 +1017,7 @@ function shareMessageTemplate({
 
   return `Dear ${galleryName} garu
 
-We are delighted to share the candid photographs from your WEDDING. You can view the gallery using the link below:
+We are delighted to share your curated photo gallery. You can view the collection using the link below:
 
 *View Gallery : ${shareUrl}*
 
