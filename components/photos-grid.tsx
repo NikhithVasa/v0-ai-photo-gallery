@@ -13,7 +13,7 @@ import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
 import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { Skeleton } from "@/components/ui/skeleton";
-import { photoAspectRatio } from "@/lib/photo-layout";
+import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
 import type {
   AlbumEvent,
   AlbumShareSettings,
@@ -170,144 +170,6 @@ function positionsPayload(photos: Photo[]) {
   }));
 }
 
-type VirtualMasonryItem = {
-  photo: Photo;
-  index: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
-function masonryColumnCount(width: number) {
-  if (width >= 1536) return 5;
-  if (width >= 1024) return 4;
-  if (width >= 640) return 3;
-  return 2;
-}
-
-function masonryGap(width: number) {
-  return width >= 640 ? 12 : 8;
-}
-
-function createVirtualMasonryLayout(
-  photos: Photo[],
-  containerWidth: number,
-  squareItems = false,
-) {
-  const safeWidth = Math.max(Math.floor(containerWidth), 320);
-  const columnCount = masonryColumnCount(safeWidth);
-  const gap = masonryGap(safeWidth);
-  const itemWidth = Math.floor((safeWidth - gap * (columnCount - 1)) / columnCount);
-  const columnHeights = Array.from({ length: columnCount }, () => 0);
-  const items: VirtualMasonryItem[] = photos.map((photo, index) => {
-    let column = 0;
-
-    for (let nextColumn = 1; nextColumn < columnCount; nextColumn += 1) {
-      if (columnHeights[nextColumn] < columnHeights[column]) {
-        column = nextColumn;
-      }
-    }
-
-    const ratio = Math.min(Math.max(photoAspectRatio(photo), 0.62), 1.85);
-    const height = squareItems
-      ? itemWidth
-      : Math.max(140, Math.round(itemWidth / ratio));
-    const x = column * (itemWidth + gap);
-    const y = columnHeights[column];
-
-    columnHeights[column] += height + gap;
-
-    return {
-      photo,
-      index,
-      x,
-      y,
-      width: itemWidth,
-      height,
-    };
-  });
-  const totalHeight = Math.max(0, Math.max(...columnHeights) - gap);
-
-  return {
-    columnCount,
-    gap,
-    items,
-    totalHeight,
-  };
-}
-
-function useElementWidth(element: HTMLElement | null) {
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    if (!element) return;
-
-    const updateWidth = () => {
-      setWidth(Math.round(element.getBoundingClientRect().width));
-    };
-
-    updateWidth();
-
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(element);
-
-    return () => observer.disconnect();
-  }, [element]);
-
-  return width;
-}
-
-function useWindowScrollWindow(element: HTMLElement | null) {
-  const [windowState, setWindowState] = useState({
-    start: -1200,
-    end: 2400,
-    scrollY: 0,
-  });
-
-  useEffect(() => {
-    let frame = 0;
-
-    const update = () => {
-      frame = 0;
-      const scrollY = window.scrollY;
-      const viewportHeight =
-        window.visualViewport?.height ?? window.innerHeight;
-      const elementTop = element
-        ? element.getBoundingClientRect().top + scrollY
-        : 0;
-      const localViewportTop = scrollY - elementTop;
-
-      setWindowState({
-        start: localViewportTop - 1200,
-        end: localViewportTop + viewportHeight + 1200,
-        scrollY,
-      });
-    };
-
-    const scheduleUpdate = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(update);
-    };
-
-    update();
-    window.addEventListener("scroll", scheduleUpdate, { passive: true });
-    window.addEventListener("resize", scheduleUpdate, { passive: true });
-    window.visualViewport?.addEventListener("resize", scheduleUpdate, {
-      passive: true,
-    });
-
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", scheduleUpdate);
-      window.removeEventListener("resize", scheduleUpdate);
-      window.visualViewport?.removeEventListener("resize", scheduleUpdate);
-    };
-  }, [element]);
-
-  return windowState;
-}
-
 interface PhotosGridProps {
   albumSlug: string;
   shareToken?: string;
@@ -429,11 +291,7 @@ export function PhotosGrid({
   uploadHref,
 }: PhotosGridProps) {
   const gridRootRef = useRef<HTMLDivElement | null>(null);
-  const [virtualGridElement, setVirtualGridElement] =
-    useState<HTMLDivElement | null>(null);
   const [isScrollDebugEnabled, setIsScrollDebugEnabled] = useState(false);
-  const virtualGridWidth = useElementWidth(virtualGridElement);
-  const virtualWindow = useWindowScrollWindow(virtualGridElement);
   const photosRequestUrl = useMemo(
     () =>
       photosUrl(
@@ -470,28 +328,7 @@ export function PhotosGrid({
   const activeSortMode = data?.sortMode ?? DEFAULT_SORT_MODE;
   const canEditSort =
     canManageSort && selectedPeopleIds.length === 0 && !isSelectionMode;
-  const setVirtualGridRef = useCallback((node: HTMLDivElement | null) => {
-    setVirtualGridElement(node);
-  }, []);
   const photos = data?.photos ?? [];
-  const virtualLayout = useMemo(
-    () =>
-      createVirtualMasonryLayout(
-        photos,
-        virtualGridWidth || 360,
-        false,
-      ),
-    [photos, virtualGridWidth],
-  );
-  const visibleVirtualItems = useMemo(
-    () =>
-      virtualLayout.items.filter(
-        (item) =>
-          item.y + item.height >= virtualWindow.start &&
-          item.y <= virtualWindow.end,
-      ),
-    [virtualLayout.items, virtualWindow.end, virtualWindow.start],
-  );
 
   useEffect(() => {
     setIsScrollDebugEnabled(isPhotosScrollDebugEnabled());
@@ -1066,47 +903,42 @@ export function PhotosGrid({
         </div>
       )}
 
-      <div
-        ref={setVirtualGridRef}
-        className="relative w-full"
-        style={{ height: virtualLayout.totalHeight }}
-      >
-        {visibleVirtualItems.map((item) => (
+      <div className="flex flex-wrap gap-2 sm:gap-3">
+        {photos.map((photo, index) => (
           <div
-            key={item.photo.id}
-            className="absolute left-0 top-0 overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
+            key={photo.id}
+            className="relative min-w-[min(44vw,190px)] max-w-full overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5"
             style={{
-              width: item.width,
-              height: item.height,
-              transform: `translate3d(${item.x}px, ${item.y}px, 0)`,
+              flexBasis: photoFlexBasis(photo),
+              flexGrow: photoAspectRatio(photo),
             }}
           >
             <PhotoCard
               albumSlug={albumSlug}
               shareToken={shareToken}
-              photo={item.photo}
-              index={item.index}
+              photo={photo}
+              index={index}
               onOpen={handleOpen}
-              forceFill
-              imageFit="cover"
               shareSettings={shareSettings}
               debugScroll={isScrollDebugEnabled}
               isSelectionMode={isSelectionMode}
-              isSelected={selectedPhotoIdSet.has(item.photo.id)}
+              isSelected={selectedPhotoIdSet.has(photo.id)}
               onToggleSelect={onTogglePhoto}
             />
 
             {canEditSort && isCustomOrderEditing && (
               <CustomPositionControl
-                position={item.index + 1}
+                position={index + 1}
                 disabled={isSavingSort}
                 onCommit={(position) => {
-                  void moveCustomPosition(item.photo.id, position);
+                  void moveCustomPosition(photo.id, position);
                 }}
               />
             )}
           </div>
         ))}
+
+        <div className="h-0 flex-[999_1_20rem]" />
       </div>
 
       <div ref={endSentinelRef} data-photos-grid-end className="h-px w-full" />
