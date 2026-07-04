@@ -160,6 +160,44 @@ const moments: Moment[] = [
   },
 ];
 
+const aiDiscoveryFeatures: Array<{
+  title: string;
+  body: string;
+  imageLabel: string;
+  icon: LucideIcon;
+}> = [
+  {
+    title: "People Search",
+    body: "Browse photos by detected people.",
+    imageLabel: "Image: People search",
+    icon: Users,
+  },
+  {
+    title: "Find Yourself",
+    body: "Help guests quickly find photos they appear in.",
+    imageLabel: "Image: Find yourself",
+    icon: ScanFace,
+  },
+  {
+    title: "Multiple People Search",
+    body: "Find photos where selected people appear together.",
+    imageLabel: "Image: Multiple people",
+    icon: Users,
+  },
+  {
+    title: "Only Them",
+    body: "Filter to photos containing only the chosen people.",
+    imageLabel: "Image: Only them",
+    icon: ShieldCheck,
+  },
+  {
+    title: "SaathiDesk AI",
+    body: "Search moments, outfits, scenes, and details.",
+    imageLabel: "Image: SaathiDesk AI",
+    icon: Sparkles,
+  },
+];
+
 const toneStyles: Record<
   PlateTone,
   { background: string; grainOpacity: number }
@@ -514,6 +552,8 @@ export function LandingPage() {
         </div>
       </section>
 
+      <AiDiscoveryShowcase reveal={reveal} stagger={stagger} />
+
       <MomentsCarousel reveal={reveal} />
 
       <GalleryPreview reveal={reveal} stagger={stagger} />
@@ -522,6 +562,67 @@ export function LandingPage() {
 
       <MarketingFooter />
     </main>
+  );
+}
+
+function AiDiscoveryShowcase({
+  reveal,
+  stagger,
+}: {
+  reveal: MotionProps;
+  stagger: MotionProps;
+}) {
+  return (
+    <section className="border-b border-[#E8DED2]/70 bg-[#F7F5F0]">
+      <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24">
+        <motion.div {...reveal} className="max-w-3xl">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#A77C45]">
+            Guest discovery
+          </p>
+          <h2 className="mt-3 font-serif text-3xl leading-[1.08] text-[#1F1B16] sm:text-5xl">
+            AI tools that help guests find their photos.
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#6F675E] sm:text-lg">
+            SaathiDesk helps guests search large galleries by people, groups,
+            and meaningful moments.
+          </p>
+        </motion.div>
+
+        <motion.div
+          {...stagger}
+          className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
+        >
+          {aiDiscoveryFeatures.map((feature) => {
+            const Icon = feature.icon;
+
+            return (
+              <motion.article
+                key={feature.title}
+                variants={itemVariants}
+                className="group overflow-hidden rounded-2xl border border-[#E8DED2] bg-white shadow-[0_18px_50px_-36px_rgba(0,0,0,0.35)] transition duration-500 hover:-translate-y-1 hover:border-[#C8B8A6]"
+              >
+                <div className="flex aspect-[4/3] items-center justify-center bg-[linear-gradient(135deg,#F0E7DC,#D7C4B1)] px-4 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8B8176]">
+                  {feature.imageLabel}
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1F1B16] text-[#F7F5F0]">
+                      <Icon className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                    <h3 className="text-sm font-semibold leading-tight text-[#1F1B16]">
+                      {feature.title}
+                    </h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-[#6F675E]">
+                    {feature.body}
+                  </p>
+                </div>
+              </motion.article>
+            );
+          })}
+        </motion.div>
+      </div>
+    </section>
   );
 }
 

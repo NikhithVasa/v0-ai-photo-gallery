@@ -119,6 +119,39 @@ const navPillButtonActiveClass =
 const navIconButtonClass =
   "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-zinc-500 ring-1 ring-inset ring-black/10 transition hover:bg-white/55 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
 
+const shareAiGuideItems = [
+  {
+    title: "People Search",
+    body: "Browse photos by detected people.",
+    imageLabel: "Image: People search",
+    icon: Users,
+  },
+  {
+    title: "Find Yourself",
+    body: "Quickly find photos you appear in.",
+    imageLabel: "Image: Find yourself",
+    icon: User,
+  },
+  {
+    title: "Group Search",
+    body: "Find selected people together.",
+    imageLabel: "Image: Group search",
+    icon: Users,
+  },
+  {
+    title: "Only Them",
+    body: "Show photos with only the chosen people.",
+    imageLabel: "Image: Only them",
+    icon: ShieldCheck,
+  },
+  {
+    title: "SaathiDesk AI",
+    body: "Search moments, outfits, scenes, and details.",
+    imageLabel: "Image: SaathiDesk AI",
+    icon: Sparkles,
+  },
+];
+
 const mobileCoverMediaQuery = "(max-width: 767px)";
 
 function scrollDebugMetrics() {
@@ -2227,6 +2260,68 @@ function AlbumShareDialog({
   );
 }
 
+function ShareAiGuideDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[88svh] overflow-y-auto rounded-[28px] border-white bg-white p-0 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:max-w-3xl">
+        <div className="border-b border-zinc-100 px-5 py-5 sm:px-6">
+          <DialogHeader>
+            <DialogTitle className="text-left text-xl font-semibold text-zinc-950">
+              Find photos faster
+            </DialogTitle>
+            <DialogDescription className="text-left text-sm leading-6 text-zinc-500">
+              Use People, groups, and SaathiDesk AI to reach the photos that
+              matter without scrolling the whole gallery.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
+          {shareAiGuideItems.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <article
+                key={item.title}
+                className="overflow-hidden rounded-2xl border border-zinc-100 bg-zinc-50/70"
+              >
+                <div className="flex aspect-[4/3] items-center justify-center bg-[linear-gradient(135deg,#f4f4f5,#e4e4e7)] text-xs font-semibold uppercase tracking-[0.12em] text-zinc-400">
+                  {item.imageLabel}
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-950 text-white">
+                      <Icon className="h-4 w-4" strokeWidth={1.8} />
+                    </span>
+                    <h3 className="text-sm font-semibold text-zinc-950">
+                      {item.title}
+                    </h3>
+                  </div>
+                  <p className="mt-2 text-sm leading-5 text-zinc-500">
+                    {item.body}
+                  </p>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-end border-t border-zinc-100 px-5 py-4 sm:px-6">
+          <Button type="button" onClick={() => onOpenChange(false)}>
+            Continue to gallery
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -2277,6 +2372,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [isScrollDebugEnabled, setIsScrollDebugEnabled] = useState(false);
   const [isPhotoSelectionMode, setIsPhotoSelectionMode] = useState(false);
   const [selectedDownloadPhotoIds, setSelectedDownloadPhotoIds] = useState<string[]>([]);
+  const [isShareAiGuideOpen, setIsShareAiGuideOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [eventNameDraft, setEventNameDraft] = useState("");
   const [isSavingEventName, setIsSavingEventName] = useState(false);
@@ -2477,6 +2573,21 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setIsSearchOpen(false);
     setActiveTab("photos");
   }, [hideAi]);
+
+  useEffect(() => {
+    if (!isShareView || hideAi || !shareToken) return;
+
+    const storageKey = `saathidesk:share-ai-guide:${shareToken}`;
+
+    try {
+      if (window.localStorage.getItem(storageKey)) return;
+      window.localStorage.setItem(storageKey, "seen");
+    } catch {
+      // If storage is unavailable, still show the guide for this visit.
+    }
+
+    setIsShareAiGuideOpen(true);
+  }, [hideAi, isShareView, shareToken]);
 
   isCoverDismissedRef.current = isCoverDismissed;
 
@@ -4443,6 +4554,21 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   )}
                 </div>
               )}
+              {isShareView && !hideAi && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/70 bg-white/72 px-4 py-3 text-sm text-zinc-600 shadow-[0_10px_30px_rgba(0,0,0,0.06)] backdrop-blur">
+                  <span className="font-medium text-zinc-700">
+                    New here? Find photos faster with People and SaathiDesk AI.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsShareAiGuideOpen(true)}
+                    className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-zinc-950 px-3 text-xs font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950/25"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    How it works
+                  </button>
+                </div>
+              )}
             </div>
 
             <PhotosGrid
@@ -4472,6 +4598,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           </section>
         )}
       </div>
+
+      {isShareView && !hideAi && (
+        <ShareAiGuideDialog
+          open={isShareAiGuideOpen}
+          onOpenChange={setIsShareAiGuideOpen}
+        />
+      )}
 
       {isCoverDismissed &&
         activeTab === "photos" &&
