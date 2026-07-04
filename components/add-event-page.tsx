@@ -28,6 +28,11 @@ import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -209,6 +214,7 @@ export function AddEventPage({
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
+  const [previewFile, setPreviewFile] = useState<QueuedFile | null>(null);
   const [uploadTarget, setUploadTarget] = useState<UploadTarget>(
     initialEventSlug ? "existing" : "new",
   );
@@ -277,6 +283,15 @@ export function AddEventPage({
     revalidateOnFocus: false,
   });
   const selectedEventPhotos = selectedEventPhotosData?.photos ?? [];
+  const previewUrl = useMemo(
+    () => (previewFile ? URL.createObjectURL(previewFile.file) : null),
+    [previewFile],
+  );
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
   const uploadedCount = queuedFiles.filter((file) => file.status === "uploaded").length;
   const filesReadyToUpload = queuedFiles.filter(
     (file) => file.status === "ready" || file.status === "failed",
@@ -968,8 +983,8 @@ export function AddEventPage({
 
         {queuedFiles.length > 0 && (
           <div
-            className={`relative z-10 space-y-2 p-4 ${
-              isSide ? "pt-16" : "pt-16 sm:pt-4 sm:pr-40"
+            className={`relative z-10 grid gap-2 p-4 ${
+              isSide ? "grid-cols-1 pt-16" : "grid-cols-1 pt-16 sm:grid-cols-3 sm:pt-4"
             }`}
           >
             {queuedFiles.map((item) => (
@@ -977,14 +992,18 @@ export function AddEventPage({
                 key={item.localId}
                 className="group flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white/90 p-3 text-left shadow-sm backdrop-blur"
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500">
-                  <FileImage className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-zinc-950">
+                <button
+                  type="button"
+                  onClick={() => setPreviewFile(item)}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500">
+                    <FileImage className="h-5 w-5" />
+                  </span>
+                  <p className="truncate text-sm font-semibold text-zinc-950 transition group-hover:text-zinc-600">
                     {item.file.name}
                   </p>
-                </div>
+                </button>
                 {item.status === "uploaded" && (
                   <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
                 )}
@@ -1275,6 +1294,7 @@ export function AddEventPage({
   };
 
   return (
+    <>
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-[#fbfaf8]/88 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:px-6 lg:px-8">
@@ -1802,5 +1822,28 @@ export function AddEventPage({
         </aside>
       </section>
     </main>
+    <Dialog
+      open={Boolean(previewFile)}
+      onOpenChange={(open) => {
+        if (!open) setPreviewFile(null);
+      }}
+    >
+      <DialogContent className="max-w-3xl overflow-hidden p-0">
+        <DialogTitle className="truncate px-5 pt-5 text-sm font-semibold text-zinc-950">
+          {previewFile?.file.name}
+        </DialogTitle>
+        {previewUrl && (
+          <div className="flex max-h-[75vh] items-center justify-center bg-zinc-950/5 p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewUrl}
+              alt={previewFile?.file.name ?? "Preview"}
+              className="max-h-[70vh] w-auto rounded-2xl object-contain"
+            />
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
