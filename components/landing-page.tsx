@@ -163,37 +163,37 @@ const moments: Moment[] = [
 const aiDiscoveryFeatures: Array<{
   title: string;
   body: string;
-  imageLabel: string;
+  imageSrc: string;
   icon: LucideIcon;
 }> = [
   {
     title: "People Search",
     body: "Browse photos by detected people.",
-    imageLabel: "Image: People search",
+    imageSrc: "/ai-guide/people-search.png",
     icon: Users,
   },
   {
     title: "Find Yourself",
     body: "Help guests quickly find photos they appear in.",
-    imageLabel: "Image: Find yourself",
+    imageSrc: "/ai-guide/find-yourself.png",
     icon: ScanFace,
   },
   {
     title: "Multiple People Search",
     body: "Find photos where selected people appear together.",
-    imageLabel: "Image: Multiple people",
+    imageSrc: "/ai-guide/group-search.png",
     icon: Users,
   },
   {
     title: "Only Them",
     body: "Filter to photos containing only the chosen people.",
-    imageLabel: "Image: Only them",
+    imageSrc: "/ai-guide/only-them.png",
     icon: ShieldCheck,
   },
   {
     title: "SaathiDesk AI",
     body: "Search moments, outfits, scenes, and details.",
-    imageLabel: "Image: SaathiDesk AI",
+    imageSrc: "/ai-guide/saathidesk-ai.png",
     icon: Sparkles,
   },
 ];
@@ -601,8 +601,14 @@ function AiDiscoveryShowcase({
                 variants={itemVariants}
                 className="group overflow-hidden rounded-2xl border border-[#E8DED2] bg-white shadow-[0_18px_50px_-36px_rgba(0,0,0,0.35)] transition duration-500 hover:-translate-y-1 hover:border-[#C8B8A6]"
               >
-                <div className="flex aspect-[4/3] items-center justify-center bg-[linear-gradient(135deg,#F0E7DC,#D7C4B1)] px-4 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8B8176]">
-                  {feature.imageLabel}
+                <div className="relative aspect-[4/3] overflow-hidden bg-[#E8DED2]">
+                  <Image
+                    src={feature.imageSrc}
+                    alt={feature.title}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 240px"
+                    className="object-contain p-2 transition duration-500 group-hover:scale-[1.03]"
+                  />
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2">

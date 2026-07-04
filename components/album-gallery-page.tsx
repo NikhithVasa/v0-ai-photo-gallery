@@ -123,31 +123,31 @@ const shareAiGuideItems = [
   {
     title: "People Search",
     body: "Browse photos by detected people.",
-    imageLabel: "Image: People search",
+    imageSrc: "/ai-guide/people-search.png",
     icon: Users,
   },
   {
     title: "Find Yourself",
     body: "Quickly find photos you appear in.",
-    imageLabel: "Image: Find yourself",
+    imageSrc: "/ai-guide/find-yourself.png",
     icon: User,
   },
   {
     title: "Group Search",
     body: "Find selected people together.",
-    imageLabel: "Image: Group search",
+    imageSrc: "/ai-guide/group-search.png",
     icon: Users,
   },
   {
     title: "Only Them",
     body: "Show photos with only the chosen people.",
-    imageLabel: "Image: Only them",
+    imageSrc: "/ai-guide/only-them.png",
     icon: ShieldCheck,
   },
   {
     title: "SaathiDesk AI",
     body: "Search moments, outfits, scenes, and details.",
-    imageLabel: "Image: SaathiDesk AI",
+    imageSrc: "/ai-guide/saathidesk-ai.png",
     icon: Sparkles,
   },
 ];
@@ -2291,8 +2291,14 @@ function ShareAiGuideDialog({
                 key={item.title}
                 className="overflow-hidden rounded-2xl border border-zinc-100 bg-zinc-50/70"
               >
-                <div className="flex aspect-[4/3] items-center justify-center bg-[linear-gradient(135deg,#f4f4f5,#e4e4e7)] text-xs font-semibold uppercase tracking-[0.12em] text-zinc-400">
-                  {item.imageLabel}
+                <div className="relative aspect-[4/3] overflow-hidden bg-zinc-100">
+                  <Image
+                    src={item.imageSrc}
+                    alt={item.title}
+                    fill
+                    sizes="(max-width: 640px) 100vw, 320px"
+                    className="object-contain p-2"
+                  />
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2">
