@@ -507,7 +507,7 @@ function SearchResultsGrid({
       {isLoading && (
         <div className="columns-2 gap-[3px] sm:columns-2 sm:gap-2 lg:columns-3">
           {Array.from({ length: 12 }).map((_, index) => (
-            <div key={index} className="mb-[3px] break-inside-avoid sm:mb-2">
+            <div key={index} className="mb-[3px] sm:mb-2 sm:break-inside-avoid">
               <Skeleton className="h-56 w-full rounded-md sm:h-72" />
             </div>
           ))}
@@ -531,7 +531,7 @@ function SearchResultsGrid({
           {photos.map((photo, index) => (
             <div
               key={photo.id}
-              className="mb-2 break-inside-avoid overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:mb-3"
+              className="mb-2 overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out hover:-translate-y-1.5 sm:mb-3 sm:break-inside-avoid"
             >
               <PhotoCard
                 albumSlug={albumSlug}
