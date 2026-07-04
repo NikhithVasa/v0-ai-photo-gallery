@@ -1,7 +1,8 @@
 export {
 	contentType,
 	default,
-	dynamic,
-	revalidate,
 	size,
 } from "./opengraph-image";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
