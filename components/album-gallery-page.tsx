@@ -1000,6 +1000,35 @@ async function persistAlbumShareSettings(
   return payload as AlbumShareResponse;
 }
 
+function shareMessageTemplate({
+  customerName,
+  albumName,
+  shareUrl,
+  passcode,
+}: {
+  customerName?: string | null;
+  albumName?: string | null;
+  shareUrl: string;
+  passcode?: string | null;
+}) {
+  const studioName = customerName?.trim() || "SaathiDesk";
+  const galleryName = albumName?.trim() || "Client";
+  const accessCode = passcode?.trim() || "No access code required";
+
+  return `Dear ${galleryName} garu
+
+We are delighted to share the candid photographs from your WEDDING. You can view the gallery using the link below:
+
+*View Gallery : ${shareUrl}*
+
+Access Code : ${accessCode}
+
+For the best viewing experience, we recommend watching on a PC or TV.
+
+Best regards,
+Team ${studioName}`;
+}
+
 const cornerOptions = [
   { id: "top_left", label: "Top left" },
   { id: "top_right", label: "Top right" },
@@ -1717,6 +1746,20 @@ function AlbumShareDialog({
     setStatus("Link copied");
   };
 
+  const copyShareMessage = async () => {
+    if (!shareUrl) return;
+    const source = data?.share ?? data?.defaults;
+    await navigator.clipboard?.writeText(
+      shareMessageTemplate({
+        customerName: source?.customerName,
+        albumName: source?.albumName,
+        shareUrl,
+        passcode,
+      }),
+    );
+    setStatus("Message copied");
+  };
+
   const deleteLink = async () => {
     if (!shareUrl || isDeleting) return;
     const confirmed = window.confirm("Delete this share link?");
@@ -1854,16 +1897,24 @@ function AlbumShareDialog({
                     {shareUrl}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 sm:justify-end">
                   <Button
                     type="button"
                     variant="outline"
-                    size="icon"
                     onClick={copyLink}
-                    aria-label="Copy share link"
                     className="rounded-xl"
                   >
                     <Copy className="h-4 w-4" />
+                    Link
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={copyShareMessage}
+                    className="rounded-xl"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Message
                   </Button>
                   <Button type="button" className="rounded-xl" asChild>
                     <a
