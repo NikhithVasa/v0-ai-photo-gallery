@@ -150,7 +150,6 @@ const AI_ACTION_OPTIONS: Array<{
 interface QueuedFile {
   localId: string;
   file: File;
-  previewUrl?: string;
   status: UploadStatus;
   source?: "google-drive" | "google-photos";
   error?: string;
@@ -172,21 +171,6 @@ interface PreparedCoverUpload {
 interface AddEventPageProps {
   albumSlug: string;
   initialEventSlug?: string | null;
-}
-
-function formatBytes(value: number) {
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function statusText(status: UploadStatus) {
-  return {
-    ready: "Ready",
-    uploading: "Uploading",
-    uploaded: "Uploaded",
-    failed: "Failed",
-  }[status];
 }
 
 function wait(ms: number) {
@@ -229,7 +213,6 @@ export function AddEventPage({
     count: number;
   } | null>(null);
   const coverPreviewUrlRef = useRef<string | null>(null);
-  const queuedFilesRef = useRef<QueuedFile[]>([]);
   const {
     googlePhotosButtonLabel,
     importFromGoogleDrive,
@@ -316,10 +299,6 @@ export function AddEventPage({
   }, [coverPreviewUrl]);
 
   useEffect(() => {
-    queuedFilesRef.current = queuedFiles;
-  }, [queuedFiles]);
-
-  useEffect(() => {
     if (!initialEventSlug) return;
     setUploadTarget("existing");
     setSelectedExistingEventSlug(initialEventSlug);
@@ -350,9 +329,6 @@ export function AddEventPage({
       if (coverPreviewUrlRef.current) {
         URL.revokeObjectURL(coverPreviewUrlRef.current);
       }
-      queuedFilesRef.current.forEach((item) => {
-        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-      });
     };
   }, []);
 
@@ -377,7 +353,6 @@ export function AddEventPage({
       ...images.map((file) => ({
         localId: crypto.randomUUID(),
         file,
-        previewUrl: previewObjectUrl(file),
         status: "ready" as UploadStatus,
         source,
       })),
@@ -392,17 +367,12 @@ export function AddEventPage({
   };
 
   const removeMedia = (localId: string) => {
-    setQueuedFiles((current) => {
-      const removed = current.find((file) => file.localId === localId);
-      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
-      return current.filter((file) => file.localId !== localId);
-    });
+    setQueuedFiles((current) =>
+      current.filter((file) => file.localId !== localId),
+    );
   };
 
   const clearUploadQueue = () => {
-    queuedFiles.forEach((item) => {
-      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-    });
     setQueuedFiles([]);
     setCompletedUpload(null);
     setErrorMessage("");
@@ -971,48 +941,30 @@ export function AddEventPage({
 
         {queuedFiles.length > 0 && (
           <div
-            className={`relative z-10 gap-3 p-4 ${
-              isSide ? "columns-2" : "columns-2 sm:columns-3 lg:columns-4"
+            className={`relative z-10 space-y-2 p-4 ${
+              isSide ? "pt-16" : "pt-16 sm:pt-4 sm:pr-40"
             }`}
           >
             {queuedFiles.map((item) => (
               <div
                 key={item.localId}
-                className="group relative mb-3 break-inside-avoid overflow-hidden rounded-[18px] bg-zinc-100 shadow-sm ring-1 ring-zinc-200"
+                className="group flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white/90 p-3 text-left shadow-sm backdrop-blur"
               >
-                {item.previewUrl ? (
-                  <Image
-                    src={item.previewUrl}
-                    alt={item.file.name}
-                    width={320}
-                    height={420}
-                    className="h-auto w-full object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="flex aspect-[3/4] w-full items-center justify-center bg-zinc-100 text-zinc-400">
-                    <FileImage className="h-8 w-8" />
-                  </div>
-                )}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-3 text-left text-white">
-                  <p className="truncate text-xs font-medium">{item.file.name}</p>
-                  <p className="text-[11px] text-white/75">
-                    {item.error ||
-                      (item.source === "google-drive"
-                        ? "Google Drive"
-                        : item.source === "google-photos"
-                          ? "Google Photos"
-                          : statusText(item.status))} ·{" "}
-                    {formatBytes(item.file.size)}
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500">
+                  <FileImage className="h-5 w-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-zinc-950">
+                    {item.file.name}
                   </p>
                 </div>
                 {item.status === "uploaded" && (
-                  <CheckCircle2 className="absolute right-3 top-3 h-5 w-5 rounded-full bg-white text-emerald-600" />
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
                 )}
                 <button
                   type="button"
                   onClick={() => removeMedia(item.localId)}
-                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-zinc-600 opacity-0 shadow-sm transition hover:text-zinc-950 group-hover:opacity-100"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
                   aria-label={`Remove ${item.file.name}`}
                   disabled={isUploading}
                 >
