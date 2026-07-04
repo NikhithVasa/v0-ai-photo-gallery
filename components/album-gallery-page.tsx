@@ -3880,6 +3880,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               </Link>
             )}
 
+            {isShareView && !hideAi && (
+              <button
+                type="button"
+                onClick={() => setIsShareAiGuideOpen(true)}
+                className="absolute right-3 top-3 flex h-10 items-center gap-2 rounded-full bg-zinc-950/90 px-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition hover:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-950/25 sm:right-5 sm:top-5 sm:px-4"
+              >
+                <Sparkles className="h-4 w-4" strokeWidth={1.8} />
+                <span>How it works</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => scrollToGalleryTop("soothing")}
@@ -3920,6 +3931,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 : `${album.customer?.name || coverCreditName} · ${album.peopleCount} People`}
             </p>
           </div>
+
+          {isShareView && !hideAi && (
+            <button
+              type="button"
+              onClick={() => setIsShareAiGuideOpen(true)}
+              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-zinc-950 px-3 text-xs font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950/25"
+            >
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={1.8} />
+              How it works
+            </button>
+          )}
 
           {!isPersonShare && (
             <div
@@ -4289,6 +4311,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   aria-label="Search"
                 >
                   <Search className="h-5 w-5" />
+                </button>
+              )}
+
+              {isShareView && !hideAi && (
+                <button
+                  type="button"
+                  onClick={() => setIsShareAiGuideOpen(true)}
+                  className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950/25"
+                >
+                  <Sparkles className="h-4 w-4" strokeWidth={1.8} />
+                  How it works
                 </button>
               )}
 
