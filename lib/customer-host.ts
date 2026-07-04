@@ -1,4 +1,4 @@
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "saathidesk.com";
+export const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "saathidesk.com";
 
 export function normalizeHost(host: string) {
   return host.split(":")[0].toLowerCase();
