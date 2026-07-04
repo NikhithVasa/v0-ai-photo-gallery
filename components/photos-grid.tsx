@@ -52,6 +52,8 @@ const PHOTO_SORT_OPTIONS: Array<{ value: PhotoSortMode; label: string }> = [
 const DEFAULT_SORT_MODE: PhotoSortMode = "added_oldest";
 const RESET_SORT_MODE: PhotoSortMode = "added_newest";
 const ALBUM_MOSAIC_TARGET_HEIGHT = 260;
+const INITIAL_VISIBLE_PHOTO_COUNT = 48;
+const VISIBLE_PHOTO_BATCH_SIZE = 48;
 
 function isPhotosScrollDebugEnabled() {
   if (typeof window === "undefined") return false;
@@ -349,10 +351,28 @@ export function PhotosGrid({
     canManageSort && selectedPeopleIds.length === 0 && !isSelectionMode;
   const photos = data?.photos ?? [];
   const isSinglePhoto = photos.length === 1;
+  const [visiblePhotoCount, setVisiblePhotoCount] = useState(
+    INITIAL_VISIBLE_PHOTO_COUNT,
+  );
+  const shouldProgressivelyRenderPhotos =
+    Boolean(shareToken) && !isCustomOrderEditing;
+  const visiblePhotos = useMemo(
+    () =>
+      shouldProgressivelyRenderPhotos
+        ? photos.slice(0, visiblePhotoCount)
+        : photos,
+    [photos, shouldProgressivelyRenderPhotos, visiblePhotoCount],
+  );
+  const hasMoreVisiblePhotos = visiblePhotos.length < photos.length;
 
   useEffect(() => {
     setIsScrollDebugEnabled(isPhotosScrollDebugEnabled());
   }, []);
+
+  useEffect(() => {
+    setVisiblePhotoCount(INITIAL_VISIBLE_PHOTO_COUNT);
+    lastTriggeredKeyRef.current = null;
+  }, [photosRequestUrl]);
 
   const logGridScrollDebug = useCallback(
     (label: string, extra: Record<string, unknown> = {}) => {
@@ -557,6 +577,7 @@ export function PhotosGrid({
         selectedPeopleIds.join(","),
         peopleMatchMode,
         data?.photos?.length ?? 0,
+        visiblePhotoCount,
       ].join(":"),
     [
       albumSlug,
@@ -564,6 +585,7 @@ export function PhotosGrid({
       selectedPeopleIds,
       peopleMatchMode,
       data?.photos?.length,
+      visiblePhotoCount,
     ],
   );
 
@@ -665,7 +687,7 @@ export function PhotosGrid({
   }, [data?.photos, logGridScrollDebug, onOpenPhotoHandled, openPhotoId]);
 
   useEffect(() => {
-    if (!onReachedEnd) {
+    if (!onReachedEnd && !hasMoreVisiblePhotos) {
       logGridScrollDebug("end sentinel disabled", { reason: "no callback" });
       return;
     }
@@ -700,8 +722,19 @@ export function PhotosGrid({
         if (lastTriggeredKeyRef.current === triggerKey) return;
         lastTriggeredKeyRef.current = triggerKey;
 
+        if (hasMoreVisiblePhotos) {
+          logGridScrollDebug("end sentinel showing more photos", {
+            visiblePhotoCount,
+            totalPhotoCount: photos.length,
+          });
+          setVisiblePhotoCount((current) =>
+            Math.min(current + VISIBLE_PHOTO_BATCH_SIZE, photos.length),
+          );
+          return;
+        }
+
         logGridScrollDebug("end sentinel reached", { triggerKey });
-        onReachedEnd();
+        onReachedEnd?.();
       },
       {
         root: null,
@@ -716,7 +749,16 @@ export function PhotosGrid({
       logGridScrollDebug("end sentinel observer detached", { triggerKey });
       observer.disconnect();
     };
-  }, [data?.photos?.length, isLoading, logGridScrollDebug, onReachedEnd, triggerKey]);
+  }, [
+    data?.photos?.length,
+    hasMoreVisiblePhotos,
+    isLoading,
+    logGridScrollDebug,
+    onReachedEnd,
+    photos.length,
+    triggerKey,
+    visiblePhotoCount,
+  ]);
 
   if (error) {
     console.error("Photos loading error:", error);
@@ -930,7 +972,7 @@ export function PhotosGrid({
           isSinglePhoto ? "sm:justify-center" : ""
         }`}
       >
-        {photos.map((photo, index) => (
+        {visiblePhotos.map((photo, index) => (
           <div
             key={photo.id}
             className={`relative max-w-full overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out sm:min-w-[min(44vw,190px)] sm:hover:-translate-y-1.5 ${

@@ -2959,6 +2959,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   useEffect(() => {
+    if (window.matchMedia(mobileCoverMediaQuery).matches) {
+      logScrollDebug("native cover scroll interceptors skipped on mobile");
+      return;
+    }
+
     const isCoverScrollRunning = () =>
       coverGestureTriggeredRef.current ||
       coverScrollAnimationFrameRef.current !== null;
@@ -3119,7 +3124,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         capture: true,
       });
     };
-  }, [isCoverDismissed]);
+  }, [isCoverDismissed, isMobileViewport]);
 
   useEffect(() => {
     if (!isScrollDebugEnabled) return;
