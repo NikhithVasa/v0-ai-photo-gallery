@@ -73,6 +73,7 @@ type AiAction =
 
 const PHOTO_UPLOAD_MAX_RETRIES = 3;
 const PHOTO_UPLOAD_RETRY_DELAY_MS = 600;
+const PHOTO_UPLOAD_CONCURRENCY = 5;
 const AI_JOB_WAIT_MESSAGE =
   "This can take a while. You can come back later - we will notify you by email when it is ready.";
 const ALBUM_WIDE_AI_ACTIONS = new Set<AiAction>([
@@ -175,6 +176,25 @@ interface AddEventPageProps {
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function runWithConcurrency(
+  total: number,
+  concurrency: number,
+  worker: (index: number) => Promise<void>,
+) {
+  let next = 0;
+  const runners = Array.from(
+    { length: Math.max(1, Math.min(concurrency, total)) },
+    async () => {
+      while (true) {
+        const index = next++;
+        if (index >= total) return;
+        await worker(index);
+      }
+    },
+  );
+  await Promise.all(runners);
 }
 
 export function AddEventPage({
@@ -740,78 +760,85 @@ export function AddEventPage({
         throw new Error(prepared.error || "Could not prepare event uploads");
       }
 
+      const preparedUploads = prepared.uploads;
       const completedPhotoIds: string[] = [];
 
-      for (const [index, upload] of prepared.uploads.entries()) {
-        const item = filesToUpload[index];
-        let uploadSucceeded = false;
-        let lastUploadError = "Upload failed";
+      await runWithConcurrency(
+        preparedUploads.length,
+        PHOTO_UPLOAD_CONCURRENCY,
+        async (index) => {
+          const upload = preparedUploads[index];
+          const item = filesToUpload[index];
+          if (!upload || !item) return;
+          let uploadSucceeded = false;
+          let lastUploadError = "Upload failed";
 
-        for (
-          let attempt = 0;
-          attempt <= PHOTO_UPLOAD_MAX_RETRIES && !uploadSucceeded;
-          attempt += 1
-        ) {
-          updateFile(item.localId, {
-            status: "uploading",
-            error:
-              attempt > 0
-                ? `Retrying upload (${attempt}/${PHOTO_UPLOAD_MAX_RETRIES})`
-                : undefined,
-          });
-
-          try {
-            const uploadResponse = await fetch(upload.uploadUrl, {
-              method: "PUT",
-              headers: { "Content-Type": upload.contentType },
-              body: item.file,
+          for (
+            let attempt = 0;
+            attempt <= PHOTO_UPLOAD_MAX_RETRIES && !uploadSucceeded;
+            attempt += 1
+          ) {
+            updateFile(item.localId, {
+              status: "uploading",
+              error:
+                attempt > 0
+                  ? `Retrying upload (${attempt}/${PHOTO_UPLOAD_MAX_RETRIES})`
+                  : undefined,
             });
-            uploadSucceeded = uploadResponse.ok;
-            if (!uploadResponse.ok) {
-              lastUploadError = `S3 upload failed (${uploadResponse.status})`;
+
+            try {
+              const uploadResponse = await fetch(upload.uploadUrl, {
+                method: "PUT",
+                headers: { "Content-Type": upload.contentType },
+                body: item.file,
+              });
+              uploadSucceeded = uploadResponse.ok;
+              if (!uploadResponse.ok) {
+                lastUploadError = `S3 upload failed (${uploadResponse.status})`;
+              }
+            } catch {
+              lastUploadError = "S3 upload failed";
+              uploadSucceeded = false;
             }
-          } catch {
-            lastUploadError = "S3 upload failed";
-            uploadSucceeded = false;
+
+            if (!uploadSucceeded) {
+              try {
+                const fallbackResponse = await fetch(
+                  `/api/uploads/${encodeURIComponent(upload.id)}/file`,
+                  {
+                    method: "PUT",
+                    headers: { "Content-Type": upload.contentType },
+                    body: item.file,
+                  },
+                );
+                uploadSucceeded = fallbackResponse.ok;
+                if (!fallbackResponse.ok) {
+                  lastUploadError = `Fallback upload failed (${fallbackResponse.status})`;
+                }
+              } catch {
+                lastUploadError = "Fallback upload failed";
+                uploadSucceeded = false;
+              }
+            }
+
+            if (!uploadSucceeded && attempt < PHOTO_UPLOAD_MAX_RETRIES) {
+              await wait(PHOTO_UPLOAD_RETRY_DELAY_MS);
+            }
           }
 
           if (!uploadSucceeded) {
-            try {
-              const fallbackResponse = await fetch(
-                `/api/uploads/${encodeURIComponent(upload.id)}/file`,
-                {
-                  method: "PUT",
-                  headers: { "Content-Type": upload.contentType },
-                  body: item.file,
-                },
-              );
-              uploadSucceeded = fallbackResponse.ok;
-              if (!fallbackResponse.ok) {
-                lastUploadError = `Fallback upload failed (${fallbackResponse.status})`;
-              }
-            } catch {
-              lastUploadError = "Fallback upload failed";
-              uploadSucceeded = false;
-            }
+            updateFile(item.localId, {
+              status: "failed",
+              error: `${lastUploadError}. Retried ${PHOTO_UPLOAD_MAX_RETRIES} times.`,
+            });
+            return;
           }
 
-          if (!uploadSucceeded && attempt < PHOTO_UPLOAD_MAX_RETRIES) {
-            await wait(PHOTO_UPLOAD_RETRY_DELAY_MS);
-          }
-        }
-
-        if (!uploadSucceeded) {
-          updateFile(item.localId, {
-            status: "failed",
-            error: `${lastUploadError}. Retried ${PHOTO_UPLOAD_MAX_RETRIES} times.`,
-          });
-          continue;
-        }
-
-        completedPhotoIds.push(upload.id);
-        completedLocalIds.add(item.localId);
-        updateFile(item.localId, { status: "uploaded" });
-      }
+          completedPhotoIds.push(upload.id);
+          completedLocalIds.add(item.localId);
+          updateFile(item.localId, { status: "uploaded" });
+        },
+      );
 
       if (!completedPhotoIds.length) {
         throw new Error("No photos were uploaded");
