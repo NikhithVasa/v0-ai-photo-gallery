@@ -59,70 +59,6 @@ async function runWithConcurrency(
   await Promise.all(runners);
 }
 
-interface ImageDimensions {
-  width?: number;
-  height?: number;
-}
-
-const imageDimensionsCache = new WeakMap<File, Promise<ImageDimensions>>();
-
-function normalizeImageDimensions(width: number, height: number): ImageDimensions {
-  if (!Number.isFinite(width) || !Number.isFinite(height)) return {};
-  if (width <= 0 || height <= 0) return {};
-  return { width: Math.round(width), height: Math.round(height) };
-}
-
-async function readImageDimensions(file: File): Promise<ImageDimensions> {
-  if (typeof createImageBitmap === "function") {
-    try {
-      const bitmap = await createImageBitmap(file, {
-        imageOrientation: "from-image",
-      });
-      const dimensions = normalizeImageDimensions(bitmap.width, bitmap.height);
-      bitmap.close();
-      return dimensions;
-    } catch {
-      // Fall through to the <img> loader for browsers/formats unsupported by createImageBitmap.
-    }
-  }
-
-  if (typeof Image === "undefined" || typeof URL === "undefined") return {};
-
-  return new Promise((resolve) => {
-    const objectUrl = URL.createObjectURL(file);
-    const image = new Image();
-
-    const cleanup = () => {
-      URL.revokeObjectURL(objectUrl);
-      image.onload = null;
-      image.onerror = null;
-    };
-
-    image.onload = () => {
-      const dimensions = normalizeImageDimensions(
-        image.naturalWidth,
-        image.naturalHeight,
-      );
-      cleanup();
-      resolve(dimensions);
-    };
-    image.onerror = () => {
-      cleanup();
-      resolve({});
-    };
-    image.src = objectUrl;
-  });
-}
-
-function imageDimensions(file: File) {
-  const cached = imageDimensionsCache.get(file);
-  if (cached) return cached;
-
-  const dimensions = readImageDimensions(file).catch(() => ({}));
-  imageDimensionsCache.set(file, dimensions);
-  return dimensions;
-}
-
 type UploadMode = "existing" | "new";
 type EventMode = "existing" | "new";
 type UploadStatus =
@@ -147,22 +83,9 @@ interface QueuedFile {
   source?: "google-drive" | "google-photos";
   s3Key?: string;
   photoId?: string;
-  objectUrl?: string;
   progress?: number;
   attempt?: number;
   error?: string;
-}
-
-function applyPreviewLimit(files: QueuedFile[]) {
-  if (files.length > PREVIEW_FILE_LIMIT) {
-    return files.map((item) =>
-      item.objectUrl ? { ...item, objectUrl: undefined } : item,
-    );
-  }
-
-  return files.map((item) =>
-    item.objectUrl ? item : { ...item, objectUrl: previewObjectUrl(item.file) },
-  );
 }
 
 interface PreparedUpload {
@@ -184,8 +107,6 @@ interface UploadFileRequest {
   fileName: string;
   size: number;
   contentType: string;
-  width?: number;
-  height?: number;
 }
 
 interface ProcessingStatusResponse {
@@ -237,6 +158,33 @@ function StatusIcon({ status }: { status: UploadStatus }) {
   }
 
   return <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />;
+}
+
+function FilePreview({ file }: { file: File }) {
+  const [objectUrl, setObjectUrl] = useState<string | undefined>();
+
+  useEffect(() => {
+    const nextObjectUrl = previewObjectUrl(file);
+    setObjectUrl(nextObjectUrl);
+
+    return () => {
+      if (nextObjectUrl) URL.revokeObjectURL(nextObjectUrl);
+    };
+  }, [file]);
+
+  if (!objectUrl) {
+    return (
+      <FileImage className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-zinc-300" />
+    );
+  }
+
+  return (
+    <img
+      src={objectUrl}
+      alt={file.name}
+      className="h-full w-full object-cover"
+    />
+  );
 }
 
 function statusDetail(file: QueuedFile) {
@@ -314,7 +262,7 @@ export function UploadPage() {
   } = useGoogleImageImport({
     onImages: (images) => {
       setQueuedFiles((current) =>
-        applyPreviewLimit([
+        [
           ...images.map((image) => ({
             localId: crypto.randomUUID(),
             file: image.file,
@@ -322,7 +270,7 @@ export function UploadPage() {
             status: "queued" as UploadStatus,
           })),
           ...current,
-        ]),
+        ],
       );
     },
   });
@@ -410,14 +358,14 @@ export function UploadPage() {
     const supportedFiles = Array.from(files).filter(isSupportedImageFile);
 
     setQueuedFiles((current) =>
-      applyPreviewLimit([
+      [
         ...supportedFiles.map((file) => ({
           localId: crypto.randomUUID(),
           file,
           status: "queued" as UploadStatus,
         })),
         ...current,
-      ]),
+      ],
     );
     setMessage("");
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -439,18 +387,16 @@ export function UploadPage() {
 
   const clearCompleted = () => {
     setQueuedFiles((current) =>
-      applyPreviewLimit(
-        current.filter(
-          (file) =>
-            !["uploaded", "processing", "ready"].includes(file.status),
-        ),
+      current.filter(
+        (file) =>
+          !["uploaded", "processing", "ready"].includes(file.status),
       ),
     );
   };
 
   const removeFile = (localId: string) => {
     setQueuedFiles((current) =>
-      applyPreviewLimit(current.filter((file) => file.localId !== localId)),
+      current.filter((file) => file.localId !== localId),
     );
   };
 
@@ -645,7 +591,6 @@ export function UploadPage() {
               fileName: item.file.name,
               size: item.file.size,
               contentType: item.file.type || "application/octet-stream",
-              ...(await imageDimensions(item.file)),
             };
           },
         );
@@ -965,15 +910,7 @@ export function UploadPage() {
                     >
                       {showPreviews && (
                         <div className="relative h-14 w-14 overflow-hidden rounded-md bg-zinc-100">
-                          {item.objectUrl ? (
-                            <img
-                              src={item.objectUrl}
-                              alt={item.file.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <FileImage className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-zinc-300" />
-                          )}
+                          <FilePreview file={item.file} />
                         </div>
                       )}
                       <div className="min-w-0">
