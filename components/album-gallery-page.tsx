@@ -123,31 +123,36 @@ const shareAiGuideItems = [
   {
     title: "People Search",
     body: "Browse photos by detected people.",
-    imageSrc: "/ai-guide/people-search.png",
+    desktopImageSrc: "/ai-guide/people-search.png",
+    mobileImageSrc: "/ai-guide/people-search.png",
     icon: Users,
   },
   {
     title: "Find Yourself",
     body: "Quickly find photos you appear in.",
-    imageSrc: "/ai-guide/find-yourself.png",
+    desktopImageSrc: "/ai-guide/find-yourself.png",
+    mobileImageSrc: "/ai-guide/find-yourself.png",
     icon: User,
   },
   {
     title: "Group Search",
     body: "Find selected people together.",
-    imageSrc: "/ai-guide/group-search.png",
+    desktopImageSrc: "/ai-guide/group-search.png",
+    mobileImageSrc: "/ai-guide/group-search.png",
     icon: Users,
   },
   {
     title: "Only Them",
     body: "Show photos with only the chosen people.",
-    imageSrc: "/ai-guide/only-them.png",
+    desktopImageSrc: "/ai-guide/only-them.png",
+    mobileImageSrc: "/ai-guide/only-them.png",
     icon: ShieldCheck,
   },
   {
     title: "SaathiDesk AI",
     body: "Search moments, outfits, scenes, and details.",
-    imageSrc: "/ai-guide/saathidesk-ai.png",
+    desktopImageSrc: "/ai-guide/saathidesk-ai.png",
+    mobileImageSrc: "/ai-guide/saathidesk-ai.png",
     icon: Sparkles,
   },
 ];
@@ -2260,6 +2265,39 @@ function AlbumShareDialog({
   );
 }
 
+function ResponsiveGuideImage({
+  title,
+  desktopImageSrc,
+  mobileImageSrc,
+  sizes,
+  className = "object-contain p-2",
+}: {
+  title: string;
+  desktopImageSrc: string;
+  mobileImageSrc: string;
+  sizes: string;
+  className?: string;
+}) {
+  return (
+    <>
+      <Image
+        src={mobileImageSrc}
+        alt={title}
+        fill
+        sizes={sizes}
+        className={`${className} md:hidden`}
+      />
+      <Image
+        src={desktopImageSrc}
+        alt={title}
+        fill
+        sizes={sizes}
+        className={`hidden ${className} md:block`}
+      />
+    </>
+  );
+}
+
 function ShareAiGuideDialog({
   open,
   onOpenChange,
@@ -2292,12 +2330,11 @@ function ShareAiGuideDialog({
                 className="overflow-hidden rounded-2xl border border-zinc-100 bg-zinc-50/70"
               >
                 <div className="relative aspect-[4/3] overflow-hidden bg-zinc-100">
-                  <Image
-                    src={item.imageSrc}
-                    alt={item.title}
-                    fill
+                  <ResponsiveGuideImage
+                    title={item.title}
+                    desktopImageSrc={item.desktopImageSrc}
+                    mobileImageSrc={item.mobileImageSrc}
                     sizes="(max-width: 640px) 100vw, 320px"
-                    className="object-contain p-2"
                   />
                 </div>
                 <div className="p-4">

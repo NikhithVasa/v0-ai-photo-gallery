@@ -163,37 +163,43 @@ const moments: Moment[] = [
 const aiDiscoveryFeatures: Array<{
   title: string;
   body: string;
-  imageSrc: string;
+  desktopImageSrc: string;
+  mobileImageSrc: string;
   icon: LucideIcon;
 }> = [
   {
     title: "People Search",
     body: "Browse photos by detected people.",
-    imageSrc: "/ai-guide/people-search.png",
+    desktopImageSrc: "/ai-guide/people-search.png",
+    mobileImageSrc: "/ai-guide/people-search.png",
     icon: Users,
   },
   {
     title: "Find Yourself",
     body: "Help guests quickly find photos they appear in.",
-    imageSrc: "/ai-guide/find-yourself.png",
+    desktopImageSrc: "/ai-guide/find-yourself.png",
+    mobileImageSrc: "/ai-guide/find-yourself.png",
     icon: ScanFace,
   },
   {
     title: "Multiple People Search",
     body: "Find photos where selected people appear together.",
-    imageSrc: "/ai-guide/group-search.png",
+    desktopImageSrc: "/ai-guide/group-search.png",
+    mobileImageSrc: "/ai-guide/group-search.png",
     icon: Users,
   },
   {
     title: "Only Them",
     body: "Filter to photos containing only the chosen people.",
-    imageSrc: "/ai-guide/only-them.png",
+    desktopImageSrc: "/ai-guide/only-them.png",
+    mobileImageSrc: "/ai-guide/only-them.png",
     icon: ShieldCheck,
   },
   {
     title: "SaathiDesk AI",
     body: "Search moments, outfits, scenes, and details.",
-    imageSrc: "/ai-guide/saathidesk-ai.png",
+    desktopImageSrc: "/ai-guide/saathidesk-ai.png",
+    mobileImageSrc: "/ai-guide/saathidesk-ai.png",
     icon: Sparkles,
   },
 ];
@@ -603,11 +609,18 @@ function AiDiscoveryShowcase({
               >
                 <div className="relative aspect-[4/3] overflow-hidden bg-[#E8DED2]">
                   <Image
-                    src={feature.imageSrc}
+                    src={feature.mobileImageSrc}
                     alt={feature.title}
                     fill
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 240px"
-                    className="object-contain p-2 transition duration-500 group-hover:scale-[1.03]"
+                    className="object-contain p-2 transition duration-500 group-hover:scale-[1.03] md:hidden"
+                  />
+                  <Image
+                    src={feature.desktopImageSrc}
+                    alt={feature.title}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 240px"
+                    className="hidden object-contain p-2 transition duration-500 group-hover:scale-[1.03] md:block"
                   />
                 </div>
                 <div className="p-4">
