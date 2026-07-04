@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SharePasscodeGate } from "@/components/share-passcode-gate";
-import { queryOne } from "@/lib/db";
-import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 import { customerPublicUrl, getCustomerSlugFromHost } from "@/lib/customer-host";
 import { passcodeAccessCookieName } from "@/lib/passcode-access-cookie";
 import { verifySharePasscodeAccessToken } from "@/lib/share-passcode";
-import { signedObjectUrl, signedUrl } from "@/lib/s3";
+import { signedUrl } from "@/lib/s3";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
+import {
+  fetchSharePreviewLink,
+  sharePreviewText,
+  type SharePreviewLink,
+} from "@/lib/share-preview";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,46 +20,10 @@ interface PageProps {
   params: Promise<{ token: string }>;
 }
 
-interface ShareLinkRow {
-  album_slug: string;
-  album_name: string;
-  link_name: string | null;
-  customer_name: string | null;
-  customer_slug: string | null;
-  passcode: string | null;
-  cover_photo_s3_key: string | null;
-}
+type ShareLinkRow = SharePreviewLink;
 
 function shortToken(value: string) {
   return value ? `${value.slice(0, 6)}...${value.slice(-4)}` : "";
-}
-
-async function fetchShareLink(token: string) {
-  await ensureAlbumShareLinkSchema();
-
-  return queryOne<ShareLinkRow>(
-    `
-    SELECT
-      a.slug AS album_slug,
-      s.album_name,
-      s.link_name,
-      COALESCE(s.customer_name, c.name) AS customer_name,
-      c.slug AS customer_slug,
-      s.passcode,
-      a.cover_photo_s3_key
-    FROM album_share_links s
-    JOIN albums a
-      ON a.id = s.album_id
-     AND COALESCE(a.is_deleted, false) = false
-    LEFT JOIN customers c
-      ON c.id = a.customer_id
-     AND COALESCE(c.is_deleted, false) = false
-    WHERE s.token = $1
-      AND (s.expires_at IS NULL OR s.expires_at >= CURRENT_DATE)
-    LIMIT 1
-    `,
-    [token],
-  );
 }
 
 async function currentOrigin() {
@@ -69,24 +36,6 @@ async function currentOrigin() {
   return `${protocol}://${host}`;
 }
 
-async function shareCoverPhotoUrl(
-  key: string | null,
-) {
-  return signedObjectUrl(key);
-}
-
-function sharePreviewText(share: ShareLinkRow) {
-  const albumName = share.link_name || share.album_name;
-  const customerName = share.customer_name?.trim() || "";
-  const description = [customerName, albumName].filter(Boolean).join(", ");
-
-  return {
-    title: customerName ? `${customerName} - ${albumName}` : albumName,
-    description: description || "Private photo gallery",
-    albumName,
-  };
-}
-
 function isLinkPreviewCrawler(userAgent: string) {
   return /whatsapp|facebookexternalhit|facebot|twitterbot|slackbot|linkedinbot|telegrambot|discordbot|skypeuripreview|pinterest|crawler|spider/i.test(
     userAgent,
@@ -97,21 +46,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { token } = await params;
 
   try {
-    const share = await fetchShareLink(token);
+    const share = await fetchSharePreviewLink(token);
     if (!share) return {};
 
     const origin = await currentOrigin();
     const preview = sharePreviewText(share);
-    const coverPhotoUrl = await shareCoverPhotoUrl(share.cover_photo_s3_key);
     const url = `${origin}/share/${encodeURIComponent(token)}`;
-    const images = coverPhotoUrl
-      ? [
-          {
-            url: coverPhotoUrl,
-            alt: `${preview.albumName} cover photo`,
-          },
-        ]
-      : undefined;
+    const imageUrl = `${url}/opengraph-image`;
 
     return {
       metadataBase: new URL(origin),
@@ -126,13 +67,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         url,
         siteName: SITE_NAME,
         type: "website",
-        images,
+        images: [
+          {
+            url: imageUrl,
+            width: 1200,
+            height: 630,
+            alt: `${preview.albumName} cover photo`,
+          },
+        ],
       },
       twitter: {
-        card: coverPhotoUrl ? "summary_large_image" : "summary",
+        card: "summary_large_image",
         title: preview.title,
         description: preview.description,
-        images: coverPhotoUrl ? [coverPhotoUrl] : undefined,
+        images: [imageUrl],
       },
     };
   } catch (error) {
@@ -153,7 +101,7 @@ export default async function SharedAlbumPage({ params }: PageProps) {
   });
 
   try {
-    share = await fetchShareLink(token);
+    share = await fetchSharePreviewLink(token);
   } catch (error) {
     console.error("[share-debug] /share page query failed", {
       token: shortToken(token),
