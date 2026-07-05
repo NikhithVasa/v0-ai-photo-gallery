@@ -279,7 +279,7 @@ export async function POST(request: Request, { params }: Props) {
             p.album_id,
             $4::uuid,
             selected.photo_uuid,
-            p.source_s3_key,
+            NULL,
             p.storage_album_slug,
             $5,
             p.file_name,
