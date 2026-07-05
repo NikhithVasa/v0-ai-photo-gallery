@@ -303,7 +303,14 @@ async function fetchDownloadRows(
     SELECT
       p.id,
       p.file_name,
-      p.original_s3_key,
+      COALESCE(
+        p.original_s3_key,
+        p.source_s3_key,
+        p.ai_input_s3_key,
+        p.clean_preview_s3_key,
+        p.watermarked_preview_s3_key,
+        p.thumbnail_s3_key
+      ) AS original_s3_key,
       e.slug AS event_slug,
       e.name AS event_name
     FROM photos p
@@ -373,7 +380,14 @@ async function fetchDownloadRows(
       )
       AND COALESCE(p.is_deleted, false) = false
       AND p.upload_status = 'completed'
-      AND p.original_s3_key IS NOT NULL
+      AND COALESCE(
+        p.original_s3_key,
+        p.source_s3_key,
+        p.ai_input_s3_key,
+        p.clean_preview_s3_key,
+        p.watermarked_preview_s3_key,
+        p.thumbnail_s3_key
+      ) IS NOT NULL
       AND ($5::uuid[] IS NULL OR p.id = ANY($5::uuid[]))
     ORDER BY e.sort_order ASC NULLS LAST, e.name ASC, p.created_at ASC
     `,
