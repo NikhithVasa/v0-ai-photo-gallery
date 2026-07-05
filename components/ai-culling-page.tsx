@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import useSWR, { useSWRConfig } from "swr";
 import {
   AlertTriangle,
@@ -14,14 +14,26 @@ import {
   Download,
   Gem,
   ImageOff,
+  Loader2,
+  Plus,
   Sparkles,
   Users,
   X,
 } from "lucide-react";
 import { RetryingImage } from "@/components/retrying-image";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { toast } from "@/hooks/use-toast";
 import { photoPreviewImageUrl } from "@/lib/photo-image-url";
 import { cn } from "@/lib/utils";
 import type {
@@ -58,6 +70,17 @@ interface CullingClustersResponse {
 
 interface CullingClusterItemsResponse {
   items: CullingClusterItem[];
+}
+
+interface SelectionAlbumResponse {
+  event: {
+    id: string;
+    slug: string;
+    name: string;
+    photoCount: number;
+  };
+  shareUrl: string;
+  error?: string;
 }
 
 const fetcher = async (url: string) => {
@@ -832,6 +855,7 @@ function CullingLightbox({
 }
 
 export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const shareToken = searchParams.get("share") || "";
   const { mutate } = useSWRConfig();
@@ -842,6 +866,11 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [keptPhotoIds, setKeptPhotoIds] = useState<string[]>([]);
   const [rejectedPhotoIds, setRejectedPhotoIds] = useState<string[]>([]);
+  const [isSelectionDialogOpen, setIsSelectionDialogOpen] = useState(false);
+  const [selectionAlbumName, setSelectionAlbumName] = useState("");
+  const [selectionAlbumUrl, setSelectionAlbumUrl] = useState("");
+  const [selectionAlbumError, setSelectionAlbumError] = useState("");
+  const [isSavingSelectionAlbum, setIsSavingSelectionAlbum] = useState(false);
 
   const { data: albumData, isLoading: isAlbumLoading } = useSWR<{
     album: AlbumDetail;
@@ -940,6 +969,62 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
     setRejectedPhotoIds((current) => current.filter((id) => !ids.includes(id)));
   };
 
+  const openSelectionAlbumDialog = () => {
+    const fallbackName = eventSlug
+      ? `${album?.events.find((event) => event.slug === eventSlug)?.name || "Selection"} Picks`
+      : "Selected Photos";
+
+    setSelectionAlbumName(fallbackName);
+    setSelectionAlbumUrl("");
+    setSelectionAlbumError("");
+    setIsSelectionDialogOpen(true);
+  };
+
+  const createSelectionAlbum = async () => {
+    const name = selectionAlbumName.trim();
+    if (!name || !keptPhotoIds.length || isSavingSelectionAlbum) return;
+
+    setIsSavingSelectionAlbum(true);
+    setSelectionAlbumError("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/selection-albums`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, photoIds: keptPhotoIds }),
+        },
+      );
+      const payload = (await response.json()) as SelectionAlbumResponse;
+
+      if (!response.ok || !payload.shareUrl) {
+        throw new Error(payload.error || "Could not save selection");
+      }
+
+      setSelectionAlbumUrl(payload.shareUrl);
+      await navigator.clipboard?.writeText(payload.shareUrl);
+      await mutate(withShareParam(`/api/albums/${encodeURIComponent(albumSlug)}`, shareToken));
+
+      toast({
+        title: "Selection saved",
+        description: `${payload.event.name} link copied to clipboard.`,
+      });
+
+      router.push(
+        `/albums/${encodeURIComponent(albumSlug)}?event=${encodeURIComponent(
+          payload.event.slug,
+        )}${shareToken ? `&share=${encodeURIComponent(shareToken)}` : ""}`,
+      );
+    } catch (error) {
+      setSelectionAlbumError(
+        error instanceof Error ? error.message : "Could not save selection",
+      );
+    } finally {
+      setIsSavingSelectionAlbum(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#fbfaf8] text-zinc-950">
       <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-[#fbfaf8]/90 backdrop-blur-xl">
@@ -977,6 +1062,17 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                 <Sparkles className="h-4 w-4" />
                 Auto-select 100
               </Button>
+              {!shareToken && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={openSelectionAlbumDialog}
+                  disabled={!keptPhotoIds.length}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add as album
+                </Button>
+              )}
               <Button
                 type="button"
                 onClick={() => downloadSelected(albumSlug, keptPhotoIds, shareToken)}
@@ -1020,6 +1116,75 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
           </div>
         </div>
       </header>
+
+      <Dialog open={isSelectionDialogOpen} onOpenChange={setIsSelectionDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save selected photos</DialogTitle>
+            <DialogDescription>
+              Create a named album section from the kept photos and copy a shareable link.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <label className="space-y-1.5 text-sm font-medium text-zinc-700">
+              <span>Album name</span>
+              <Input
+                value={selectionAlbumName}
+                onChange={(event) => {
+                  setSelectionAlbumName(event.target.value);
+                  if (selectionAlbumError) setSelectionAlbumError("");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") createSelectionAlbum();
+                }}
+                placeholder="Selected Photos"
+                disabled={isSavingSelectionAlbum}
+                autoFocus
+              />
+            </label>
+
+            <p className="text-sm text-zinc-500">
+              {keptPhotoIds.length} selected photo{keptPhotoIds.length === 1 ? "" : "s"}
+            </p>
+
+            {selectionAlbumUrl && (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                Link copied: {selectionAlbumUrl}
+              </div>
+            )}
+
+            {selectionAlbumError && (
+              <p className="text-sm font-medium text-rose-600">
+                {selectionAlbumError}
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsSelectionDialogOpen(false)}
+              disabled={isSavingSelectionAlbum}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={createSelectionAlbum}
+              disabled={!selectionAlbumName.trim() || !keptPhotoIds.length || isSavingSelectionAlbum}
+            >
+              {isSavingSelectionAlbum ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Save and copy link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="mx-auto grid max-w-[1600px] lg:grid-cols-[220px_1fr]">
         <nav className="border-b border-zinc-200 bg-white px-3 py-3 lg:min-h-[calc(100svh-97px)] lg:border-b-0 lg:border-r">

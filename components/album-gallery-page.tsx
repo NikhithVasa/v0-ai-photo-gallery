@@ -2388,7 +2388,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverTouchStartYRef = useRef<number | null>(null);
   const coverGestureTriggeredRef = useRef(false);
   const coverSectionRef = useRef<HTMLElement | null>(null);
-  const hasNormalizedInitialEventRef = useRef(false);
   const isCoverDismissedRef = useRef(false);
   const lastScrollYRef = useRef(0);
   const programmaticNavScrollRef = useRef(false);
@@ -3289,20 +3288,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   useEffect(() => {
     const eventFromUrl = searchParams.get("event") || null;
-
-    if (!hasNormalizedInitialEventRef.current) {
-      hasNormalizedInitialEventRef.current = true;
-      setSelectedEventSlug(null);
-
-      if (eventFromUrl) {
-        router.replace(`/albums/${albumSlug}${eventQuery(null, shareToken)}`, {
-          scroll: false,
-        });
-      }
-
-      return;
-    }
-
     setSelectedEventSlug(eventFromUrl);
   }, [albumSlug, router, searchParams, shareToken]);
 
