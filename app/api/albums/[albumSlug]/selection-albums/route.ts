@@ -325,6 +325,10 @@ export async function POST(request: Request, { params }: Props) {
 
       await client.query(
         `
+        WITH copied AS (
+          SELECT input.source_photo_id, input.copied_photo_id
+          FROM unnest($2::uuid[], $3::uuid[]) AS input(source_photo_id, copied_photo_id)
+        )
         INSERT INTO photo_people(
           album_id,
           album_event_id,
@@ -343,7 +347,7 @@ export async function POST(request: Request, { params }: Props) {
         )
         SELECT
           pp.album_id,
-          $2::uuid,
+          $1::uuid,
           copied.copied_photo_id,
           pp.person_id,
           pp.person_label,
@@ -356,15 +360,13 @@ export async function POST(request: Request, { params }: Props) {
           pp.search_embedding,
           now(),
           now()
-        FROM (VALUES ${copied.rows
-          .map((_, index) => `($${index * 2 + 3}::uuid, $${index * 2 + 4}::uuid)`)
-          .join(", ")}) AS copied(source_photo_id, copied_photo_id)
+        FROM copied
         JOIN photo_people pp ON pp.photo_id = copied.source_photo_id
         `,
         [
-          album.id,
           targetEvent.id,
-          ...copied.rows.flatMap((row) => [row.source_photo_id, row.copied_photo_id]),
+          copied.rows.map((row) => row.source_photo_id),
+          copied.rows.map((row) => row.copied_photo_id),
         ],
       );
 
