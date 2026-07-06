@@ -4,6 +4,7 @@ import {
   ensureAlbumDesignSchema,
   normalizeAlbumDesignSettings,
 } from "@/lib/album-design";
+import { ensurePhotoSortSchema } from "@/lib/photo-sort";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +57,7 @@ export async function GET(_request: Request, { params }: Props) {
 
 export async function PATCH(request: Request, { params }: Props) {
   try {
-    await ensureAlbumDesignSchema();
+    await Promise.all([ensureAlbumDesignSchema(), ensurePhotoSortSchema()]);
 
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumCustomerAccess(albumSlug);
@@ -68,12 +69,13 @@ export async function PATCH(request: Request, { params }: Props) {
       `
       UPDATE albums
       SET design_settings = $2::jsonb,
+          photo_sort_mode = $3,
           updated_at = now()
       WHERE lower(slug) = lower($1)
         AND COALESCE(is_deleted, false) = false
       RETURNING id, design_settings
       `,
-      [albumSlug, JSON.stringify(settings)],
+      [albumSlug, JSON.stringify(settings), settings.imageSortMode],
     );
 
     if (!album) {

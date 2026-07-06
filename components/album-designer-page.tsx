@@ -194,6 +194,7 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
                 album: {
                   ...current.album,
                   designSettings: saved,
+                  photoSortMode: saved.imageSortMode,
                 },
               }
             : current,

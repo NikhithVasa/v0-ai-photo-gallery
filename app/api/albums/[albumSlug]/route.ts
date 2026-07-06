@@ -250,6 +250,7 @@ export async function GET(request: Request, { params }: Props) {
         a.password_required,
         a.watermark_enabled,
         a.photo_sort_mode,
+        a.design_settings,
         a.cover_photo_s3_key,
 
         COALESCE(pc.photo_count, 0)::int AS photo_count,
