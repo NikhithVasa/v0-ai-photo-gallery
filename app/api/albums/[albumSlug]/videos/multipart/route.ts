@@ -7,10 +7,6 @@ import {
   completeMultipartUpload,
   signedUploadPartUrl,
 } from "@/lib/s3";
-import {
-  ensureVideoPlaybackSchema,
-  startVideoPlaybackTranscode,
-} from "@/lib/video-playback";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -86,8 +82,6 @@ export async function POST(request: Request, { params }: Props) {
     const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
-    await ensureVideoPlaybackSchema();
-
     const body = (await request.json()) as MultipartActionBody;
     const uploadId = typeof body.uploadId === "string" ? body.uploadId.trim() : "";
     const key = typeof body.key === "string" ? body.key.trim() : "";
@@ -124,17 +118,7 @@ export async function POST(request: Request, { params }: Props) {
       }
 
       await completeMultipartUpload({ key: video.original_s3_key, uploadId, parts });
-      const playback = await startVideoPlaybackTranscode({
-        videoId: video.id,
-        albumSlug,
-        originalS3Key: video.original_s3_key,
-      });
-      return NextResponse.json({
-        ok: true,
-        key: video.original_s3_key,
-        playbackStatus: "processing",
-        mediaConvertJobId: playback.jobId,
-      });
+      return NextResponse.json({ ok: true, key: video.original_s3_key });
     }
 
     if (body.action === "abort") {

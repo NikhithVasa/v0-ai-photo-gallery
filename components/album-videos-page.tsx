@@ -88,8 +88,6 @@ interface AlbumVideo {
   fileName: string | null;
   originalS3Key: string | null;
   videoUrl: string | null;
-  playbackStatus: "uploading" | "processing" | "ready" | "failed" | string;
-  playbackError: string | null;
   durationSec: number;
   detectionParams: Record<string, unknown>;
   targetPersonId: string | null;
@@ -285,19 +283,6 @@ async function uploadMultipartVideo({
   onProgress(100);
 }
 
-async function completeVideoUpload(albumSlug: string, prepared: PreparedVideoUpload) {
-  const response = await fetch(
-    `/api/albums/${encodeURIComponent(albumSlug)}/videos/${encodeURIComponent(prepared.video.id)}/complete`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: prepared.video.originalS3Key }),
-    },
-  );
-  const data = (await response.json().catch(() => ({}))) as { error?: string };
-  if (!response.ok) throw new Error(data.error || "Could not start video processing");
-}
-
 interface PreparedTargetUpload {
   s3Key: string;
   contentType: string;
@@ -422,7 +407,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   const videosUrl = `/api/albums/${encodeURIComponent(albumSlug)}/videos`;
   const { data, error, isLoading, mutate } = useSWR<VideosResponse>(videosUrl, fetcher, {
     refreshInterval: (latest) =>
-      latest?.videos.some((video) => video.detectionStatus === "processing" || video.playbackStatus === "processing" || video.playbackStatus === "uploading") ? 5000 : 0,
+      latest?.videos.some((video) => video.detectionStatus === "processing") ? 5000 : 0,
   });
   const { data: peopleData } = useSWR<PeopleResponse>(`/api/albums/${encodeURIComponent(albumSlug)}/people`, fetcher);
 
@@ -692,10 +677,9 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
         );
         if (!uploaded) throw new Error("S3 upload failed");
         setUploadProgress(100);
-        await completeVideoUpload(albumSlug, prepared);
       }
 
-      toast({ title: "Video uploaded", description: "Playback is processing and will be available shortly." });
+      toast({ title: "Video uploaded", description: prepared.video.fileName });
       await mutate();
     } catch (uploadError) {
       if (prepared?.multipart && prepared.uploadId) {
@@ -846,7 +830,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
             <div className={`grid min-h-0 gap-4 ${isTimelinePanelOpen ? "lg:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
               <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
                 <div className="group relative min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
-                  {timelineVideo.playbackStatus === "ready" && timelineVideo.videoUrl ? (
+                  {timelineVideo.videoUrl ? (
                     <video
                       ref={timelineVideoRef}
                       src={timelineVideo.videoUrl}
@@ -855,18 +839,8 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                       className="h-full w-full object-contain"
                     />
                   ) : (
-                    <div className="flex h-full flex-col items-center justify-center px-6 text-center text-zinc-300">
-                      {timelineVideo.playbackStatus === "failed" ? (
-                        <AlertCircle className="h-16 w-16 text-rose-300" />
-                      ) : (
-                        <Loader2 className="h-16 w-16 animate-spin" />
-                      )}
-                      <p className="mt-4 text-sm font-semibold text-white">
-                        {timelineVideo.playbackStatus === "failed" ? "Video processing failed" : "Video is processing. Please wait."}
-                      </p>
-                      {timelineVideo.playbackError ? (
-                        <p className="mt-2 max-w-md text-xs text-zinc-400">{timelineVideo.playbackError}</p>
-                      ) : null}
+                    <div className="flex h-full items-center justify-center text-zinc-500">
+                      <VideoIcon className="h-16 w-16" />
                     </div>
                   )}
                   <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/80 via-black/35 to-transparent p-3 text-white opacity-100 transition-opacity duration-200 sm:p-4 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
@@ -1193,7 +1167,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                 >
                   <div className="relative aspect-video bg-zinc-900">
                     <Link href={timelineHref(video.id)} className="block h-full" aria-label={`Open ${video.fileName || "video"}`}>
-                      {video.playbackStatus === "ready" && video.videoUrl ? (
+                      {video.videoUrl ? (
                         <video
                           src={video.videoUrl}
                           preload="metadata"
@@ -1202,15 +1176,8 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                           className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100"
                         />
                       ) : (
-                        <div className="flex h-full flex-col items-center justify-center px-4 text-center text-zinc-400">
-                          {video.playbackStatus === "failed" ? (
-                            <AlertCircle className="h-10 w-10 text-rose-300" />
-                          ) : (
-                            <Loader2 className="h-10 w-10 animate-spin" />
-                          )}
-                          <span className="mt-3 text-xs font-semibold text-zinc-200">
-                            {video.playbackStatus === "failed" ? "Processing failed" : "Video is processing. Please wait."}
-                          </span>
+                        <div className="flex h-full items-center justify-center text-zinc-400">
+                          <VideoIcon className="h-12 w-12" />
                         </div>
                       )}
                       <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 to-transparent p-3 text-white">
@@ -1248,9 +1215,6 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                     </div>
                     {video.detectionError && (
                       <p className="line-clamp-2 text-xs text-rose-600">{video.detectionError}</p>
-                    )}
-                    {video.playbackError && (
-                      <p className="line-clamp-2 text-xs text-rose-600">{video.playbackError}</p>
                     )}
                     <p className="text-xs text-zinc-500">Added {formatDate(video.createdAt)}</p>
                   </Link>

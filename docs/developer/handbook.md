@@ -64,8 +64,6 @@ The checked-in `.env.example` is minimal. Real deployments also need values for 
 | `RDS_PASSWORD` | `lib/db.ts` | Optional. If absent, IAM auth token generation is used. |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | RDS signer and S3 helpers | Required for AWS integrations. |
 | `S3_BUCKET` | `lib/s3.ts` | Bucket for uploaded and generated media. |
-| `MEDIACONVERT_ROLE_ARN` | `lib/video-playback.ts` | IAM role MediaConvert assumes to read uploaded videos and write normalized playback MP4s. Required for video upload completion. |
-| `MEDIACONVERT_QUEUE_ARN` | `lib/video-playback.ts` | Optional MediaConvert queue ARN. If omitted, MediaConvert uses the account default queue. |
 | `PG_POOL_MAX` | `lib/db.ts` | Defaults to 1 for serverless safety. |
 | `NEXT_PUBLIC_FORCE_CLOUDFRONT_IMAGES`, `FORCE_CLOUDFRONT_IMAGES` | `lib/s3.ts` | Prefer CloudFront image URLs when available. |
 | `THUMB_PREFIX` | `lib/s3.ts` | Optional derived thumbnail prefix. |
