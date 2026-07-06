@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
 import { normalizePhotoSortMode } from "@/lib/photo-sort";
+import { normalizeShareBackgroundColor } from "@/lib/share-theme";
 import type { AlbumDesignSettings, AlbumDesignTitleFont } from "@/lib/types";
 
 export const ALBUM_DESIGN_LAYOUTS = ["horizontal", "vertical"] as const;
@@ -17,6 +18,7 @@ export const DEFAULT_ALBUM_DESIGN_SETTINGS: AlbumDesignSettings = {
   rowHeight: 260,
   layout: "horizontal",
   imageSortMode: "added_oldest",
+  backgroundColor: null,
   titleFont: "playfair",
   titleFontSize: 1,
 };
@@ -71,6 +73,10 @@ export function normalizeAlbumDesignSettings(value: unknown): AlbumDesignSetting
       ? (source.layout as AlbumDesignSettings["layout"])
       : DEFAULT_ALBUM_DESIGN_SETTINGS.layout,
     imageSortMode: normalizePhotoSortMode(source.imageSortMode),
+    backgroundColor:
+      typeof source.backgroundColor === "string"
+        ? normalizeShareBackgroundColor(source.backgroundColor)
+        : DEFAULT_ALBUM_DESIGN_SETTINGS.backgroundColor,
     titleFont,
     titleFontSize: numberInRange(
       source.titleFontSize,

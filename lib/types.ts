@@ -80,6 +80,7 @@ export interface AlbumDesignSettings {
   rowHeight: number;
   layout: AlbumDesignLayout;
   imageSortMode: PhotoSortMode;
+  backgroundColor: string | null;
   titleFont: AlbumDesignTitleFont;
   titleFontSize: number;
 }

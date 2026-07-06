@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
+  Check,
   CheckCircle2,
   Images,
   LayoutTemplate,
@@ -27,6 +28,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import {
+  SHARE_BACKGROUND_COLORS,
+  normalizeShareBackgroundColor,
+} from "@/lib/share-theme";
 import type {
   AlbumDesignSettings,
   AlbumDesignTitleFont,
@@ -71,6 +76,44 @@ const controlTileClassName =
 
 const inspectorSectionClassName =
   "rounded-[26px] border border-white/80 bg-white/85 p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.03] backdrop-blur-xl";
+
+const templateOptions = [
+  {
+    label: "Midnight Shadow",
+    image: "/template/midnight-shadow.jpg",
+    color: SHARE_BACKGROUND_COLORS[8].value,
+  },
+  {
+    label: "Maroon Majesty",
+    image: "/template/maroon-majesty.jpg",
+    color: SHARE_BACKGROUND_COLORS[7].value,
+  },
+  {
+    label: "Red Frame",
+    image: "/template/red-frame.jpg",
+    color: SHARE_BACKGROUND_COLORS[6].value,
+  },
+  {
+    label: "Maroon Classic",
+    image: "/template/maroon-majesty (1).jpg",
+    color: SHARE_BACKGROUND_COLORS[2].value,
+  },
+  {
+    label: "Floral Garden",
+    image: "/template/floral-garden.jpg",
+    color: SHARE_BACKGROUND_COLORS[3].value,
+  },
+  {
+    label: "Pink Romance",
+    image: "/template/pink-romance.jpg",
+    color: SHARE_BACKGROUND_COLORS[1].value,
+  },
+  {
+    label: "Lavender Dream",
+    image: "/template/lavender-dream.jpg",
+    color: SHARE_BACKGROUND_COLORS[5].value,
+  },
+] as const;
 
 function titleStyle(settings: AlbumDesignSettings): CSSProperties {
   const font =
@@ -219,6 +262,9 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
   const coverTitleStyle = useMemo(
     () => (settings ? titleStyle(settings) : undefined),
     [settings],
+  );
+  const previewBackgroundColor = normalizeShareBackgroundColor(
+    settings?.backgroundColor,
   );
   const albumHref = `/albums/${encodeURIComponent(albumSlug)}`;
   const backHref = useMemo(() => {
@@ -369,7 +415,7 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
                 </div>
               </div>
 
-              <div className="px-2 py-3 sm:px-4 sm:py-5">
+              <div className="px-2 py-3 sm:px-4 sm:py-5" style={{ backgroundColor: previewBackgroundColor }}>
                 <PhotosGrid
                   albumSlug={albumSlug}
                   selectedEventSlug={selectedEventSlug}
@@ -485,6 +531,57 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            </section>
+
+            <section className={inspectorSectionClassName}>
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-950 text-white shadow-[0_12px_26px_rgba(24,24,27,0.18)]">
+                  <Palette className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-zinc-950">Templates</h2>
+                  <p className="text-xs text-zinc-500">Tap a look to apply its gallery color.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {templateOptions.map((template) => {
+                  const isSelected = settings.backgroundColor === template.color;
+
+                  return (
+                    <button
+                      key={template.image}
+                      type="button"
+                      onClick={() => updateSettings("backgroundColor", template.color)}
+                      aria-label={`Apply ${template.label} template`}
+                      aria-pressed={isSelected}
+                      className={`group relative overflow-hidden rounded-[20px] bg-white text-left shadow-[0_14px_36px_rgba(15,23,42,0.08)] ring-offset-2 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
+                        isSelected ? "ring-2 ring-zinc-950" : "ring-1 ring-zinc-200/80"
+                      }`}
+                    >
+                      <div className="aspect-[4/5] overflow-hidden bg-zinc-100">
+                        <img
+                          src={template.image}
+                          alt=""
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="truncate text-xs font-semibold text-zinc-800">
+                          {template.label}
+                        </span>
+                        <span
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full ring-1 ring-black/10"
+                          style={{ backgroundColor: template.color }}
+                          aria-hidden="true"
+                        >
+                          {isSelected && <Check className="h-3 w-3 text-zinc-950" />}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 

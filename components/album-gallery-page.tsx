@@ -2669,9 +2669,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const downloadsEnabled = isShareView
     ? Boolean(shareSettings?.allowDownloads)
     : shareSettings?.allowDownloads ?? true;
-  const galleryBackgroundColor = isShareView
-    ? normalizeShareBackgroundColor(shareSettings?.backgroundColor)
-    : DEFAULT_SHARE_BACKGROUND_COLOR;
+  const designBackgroundColor = isShareView
+    ? shareSettings?.designSettings?.backgroundColor
+    : album?.designSettings.backgroundColor;
+  const galleryBackgroundColor = normalizeShareBackgroundColor(
+    designBackgroundColor ??
+      (isShareView ? shareSettings?.backgroundColor : DEFAULT_SHARE_BACKGROUND_COLOR),
+  );
   const galleryOverlayColor = shareBackgroundRgba(galleryBackgroundColor, 0.68);
   const galleryNavColor = isShareView
     ? shareBackgroundRgba(galleryBackgroundColor, 0.86)
