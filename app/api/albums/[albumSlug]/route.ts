@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
+import {
+  ensureAlbumDesignSchema,
+  normalizeAlbumDesignSettings,
+} from "@/lib/album-design";
 import { handleDbRouteError } from "@/lib/db-response";
 import { ensureEventCoverSchema } from "@/lib/event-cover";
 import { ensurePhotoSortSchema, normalizePhotoSortMode } from "@/lib/photo-sort";
@@ -30,6 +34,7 @@ interface AlbumRow {
   password_required: boolean | null;
   watermark_enabled: boolean | null;
   photo_sort_mode: string | null;
+  design_settings: unknown;
   cover_photo_s3_key: string | null;
   photo_count: number | string | null;
   people_count: number | string | null;
@@ -125,6 +130,7 @@ async function publicPasscodeAlbumDetail(
     passwordRequired: true,
     watermarkEnabled: Boolean(album.watermark_enabled),
     photoSortMode: "added_oldest",
+    designSettings: normalizeAlbumDesignSettings(null),
     events: [],
     photoCount: 0,
     peopleCount: 0,
@@ -180,7 +186,11 @@ export async function GET(request: Request, { params }: Props) {
       });
     }
 
-    await Promise.all([ensurePhotoSortSchema(), ensureEventCoverSchema()]);
+    await Promise.all([
+      ensurePhotoSortSchema(),
+      ensureEventCoverSchema(),
+      ensureAlbumDesignSchema(),
+    ]);
 
     console.info("[share-debug] album detail API querying album", {
       albumSlug,
@@ -199,6 +209,7 @@ export async function GET(request: Request, { params }: Props) {
           a.password_required,
           a.watermark_enabled,
           a.photo_sort_mode,
+          a.design_settings,
           a.cover_photo_s3_key,
           a.customer_id
         FROM albums a
@@ -378,6 +389,7 @@ export async function GET(request: Request, { params }: Props) {
       passwordRequired: Boolean(album.password_required),
       watermarkEnabled: Boolean(album.watermark_enabled),
       photoSortMode: normalizePhotoSortMode(album.photo_sort_mode),
+      designSettings: normalizeAlbumDesignSettings(album.design_settings),
 
       events: detailEvents,
 

@@ -815,6 +815,7 @@ interface PhotoCardProps {
   photo: Photo;
   index: number;
   onOpen: (index: number, originRect: PhotoOpenRect) => void;
+  cornerRadius?: number;
   forceFill?: boolean;
   forceMobileSquare?: boolean;
   imageFit?: "contain" | "cover";
@@ -1095,6 +1096,7 @@ export const PhotoCard = memo(function PhotoCard({
   photo,
   index,
   onOpen,
+  cornerRadius,
   forceFill = false,
   forceMobileSquare = false,
   imageFit = "contain",
@@ -1286,6 +1288,20 @@ export const PhotoCard = memo(function PhotoCard({
     await navigator.clipboard?.writeText(shareUrl);
   };
 
+  const cardStyle = forceFill
+    ? cornerRadius !== undefined
+      ? { borderRadius: cornerRadius }
+      : undefined
+    : forceMobileSquare
+      ? ({
+          "--photo-card-aspect-ratio": aspectRatio,
+          ...(cornerRadius !== undefined ? { borderRadius: cornerRadius } : {}),
+        } as CSSProperties)
+      : {
+          aspectRatio,
+          ...(cornerRadius !== undefined ? { borderRadius: cornerRadius } : {}),
+        };
+
   return (
     <div
       ref={cardRef}
@@ -1298,13 +1314,7 @@ export const PhotoCard = memo(function PhotoCard({
           ? "aspect-square sm:[aspect-ratio:var(--photo-card-aspect-ratio)]"
           : ""
       }`}
-      style={
-        forceFill
-          ? undefined
-          : forceMobileSquare
-            ? ({ "--photo-card-aspect-ratio": aspectRatio } as CSSProperties)
-            : { aspectRatio }
-      }
+      style={cardStyle}
     >
       <button
         type="button"

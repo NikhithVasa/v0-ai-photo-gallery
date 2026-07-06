@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
+import {
+  ensureAlbumDesignSchema,
+  normalizeAlbumDesignSettings,
+} from "@/lib/album-design";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 import { normalizeShareBackgroundColor } from "@/lib/share-theme";
 import { hasValidSharePasscodeAccess } from "@/lib/share-passcode";
@@ -31,6 +35,7 @@ interface ShareTokenRow {
   link_name: string | null;
   only_person: boolean;
   allow_event_tabs: boolean;
+  design_settings: unknown;
 }
 
 function dateValue(value: Date | string | null) {
@@ -59,6 +64,7 @@ function serialize(row: ShareTokenRow) {
     linkName: row.link_name,
     onlyPerson: row.only_person,
     allowEventTabs: row.allow_event_tabs,
+    designSettings: normalizeAlbumDesignSettings(row.design_settings),
     allowDownloads: row.allow_downloads,
     hideAi: row.hide_ai,
     watermarkEnabled: row.watermark_enabled,
@@ -79,7 +85,7 @@ export async function GET(_request: Request, { params }: Props) {
       token: shortToken(token),
     });
 
-    await ensureAlbumShareLinkSchema();
+    await Promise.all([ensureAlbumShareLinkSchema(), ensureAlbumDesignSchema()]);
 
     const share = await queryOne<ShareTokenRow>(
       `
@@ -102,7 +108,8 @@ export async function GET(_request: Request, { params }: Props) {
         s.person_name,
         s.link_name,
         s.only_person,
-        s.allow_event_tabs
+        s.allow_event_tabs,
+        a.design_settings
       FROM album_share_links s
       JOIN albums a
         ON a.id = s.album_id

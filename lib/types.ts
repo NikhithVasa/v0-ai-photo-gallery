@@ -36,6 +36,7 @@ export interface AlbumDetail {
   passwordRequired: boolean;
   watermarkEnabled: boolean;
   photoSortMode: PhotoSortMode;
+  designSettings: AlbumDesignSettings;
   events: AlbumEvent[];
   photoCount: number;
   peopleCount: number;
@@ -63,6 +64,25 @@ export type PhotoSortMode =
   | "original_oldest"
   | "rating"
   | "custom";
+
+export type AlbumDesignLayout = "horizontal" | "vertical";
+
+export type AlbumDesignTitleFont =
+  | "inter"
+  | "playfair"
+  | "cormorant"
+  | "geist";
+
+export interface AlbumDesignSettings {
+  gridSpace: number;
+  imageRadius: number;
+  sidePadding: number;
+  rowHeight: number;
+  layout: AlbumDesignLayout;
+  imageSortMode: PhotoSortMode;
+  titleFont: AlbumDesignTitleFont;
+  titleFontSize: number;
+}
 
 export interface Person {
   id: string;
@@ -215,6 +235,7 @@ export interface AlbumShareSettings {
   linkName?: string | null;
   onlyPerson?: boolean;
   allowEventTabs?: boolean;
+  designSettings?: AlbumDesignSettings;
   hideAi?: boolean;
   allowDownloads: boolean;
   watermarkEnabled: boolean;

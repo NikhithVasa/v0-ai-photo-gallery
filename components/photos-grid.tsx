@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CSSProperties,
   useCallback,
   useEffect,
   useMemo,
@@ -16,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { photoAspectRatio, photoFlexBasis } from "@/lib/photo-layout";
 import type {
   AlbumEvent,
+  AlbumDesignSettings,
   AlbumShareSettings,
   Person,
   Photo,
@@ -213,6 +215,7 @@ interface PhotosGridProps {
   canManageSort?: boolean;
   canUploadPhotos?: boolean;
   uploadHref?: string;
+  designSettings?: AlbumDesignSettings | null;
 }
 
 function photosUrl(
@@ -310,6 +313,7 @@ export function PhotosGrid({
   canManageSort = false,
   canUploadPhotos = false,
   uploadHref,
+  designSettings,
 }: PhotosGridProps) {
   const gridRootRef = useRef<HTMLDivElement | null>(null);
   const [isScrollDebugEnabled, setIsScrollDebugEnabled] = useState(false);
@@ -349,8 +353,18 @@ export function PhotosGrid({
   const activeSortMode = data?.sortMode ?? DEFAULT_SORT_MODE;
   const canEditSort =
     canManageSort && selectedPeopleIds.length === 0 && !isSelectionMode;
+  const effectiveDesignSettings = designSettings ?? shareSettings?.designSettings ?? null;
   const photos = data?.photos ?? [];
-  const isSinglePhoto = photos.length === 1;
+  const designSortMode = isCustomOrderEditing
+    ? null
+    : canEditSort
+      ? null
+      : effectiveDesignSettings?.imageSortMode ?? null;
+  const orderedPhotos = useMemo(
+    () => (designSortMode ? sortPhotos(photos, designSortMode) : photos),
+    [designSortMode, photos],
+  );
+  const isSinglePhoto = orderedPhotos.length === 1;
   const [visiblePhotoCount, setVisiblePhotoCount] = useState(
     INITIAL_VISIBLE_PHOTO_COUNT,
   );
@@ -359,11 +373,24 @@ export function PhotosGrid({
   const visiblePhotos = useMemo(
     () =>
       shouldProgressivelyRenderPhotos
-        ? photos.slice(0, visiblePhotoCount)
-        : photos,
-    [photos, shouldProgressivelyRenderPhotos, visiblePhotoCount],
+        ? orderedPhotos.slice(0, visiblePhotoCount)
+        : orderedPhotos,
+    [orderedPhotos, shouldProgressivelyRenderPhotos, visiblePhotoCount],
   );
-  const hasMoreVisiblePhotos = visiblePhotos.length < photos.length;
+  const hasMoreVisiblePhotos = visiblePhotos.length < orderedPhotos.length;
+  const gridSpace = effectiveDesignSettings?.gridSpace ?? 12;
+  const imageRadius = effectiveDesignSettings?.imageRadius ?? 22;
+  const sidePadding = effectiveDesignSettings?.sidePadding ?? 0;
+  const targetRowHeight = effectiveDesignSettings?.rowHeight ?? ALBUM_MOSAIC_TARGET_HEIGHT;
+  const isVerticalLayout = effectiveDesignSettings?.layout === "vertical";
+  const rootStyle = useMemo<CSSProperties>(
+    () => ({ touchAction: "pan-y", paddingInline: sidePadding }),
+    [sidePadding],
+  );
+  const gridStyle = useMemo<CSSProperties>(
+    () => ({ gap: gridSpace }),
+    [gridSpace],
+  );
 
   useEffect(() => {
     setIsScrollDebugEnabled(isPhotosScrollDebugEnabled());
@@ -725,10 +752,10 @@ export function PhotosGrid({
         if (hasMoreVisiblePhotos) {
           logGridScrollDebug("end sentinel showing more photos", {
             visiblePhotoCount,
-            totalPhotoCount: photos.length,
+            totalPhotoCount: orderedPhotos.length,
           });
           setVisiblePhotoCount((current) =>
-            Math.min(current + VISIBLE_PHOTO_BATCH_SIZE, photos.length),
+            Math.min(current + VISIBLE_PHOTO_BATCH_SIZE, orderedPhotos.length),
           );
           return;
         }
@@ -755,7 +782,7 @@ export function PhotosGrid({
     isLoading,
     logGridScrollDebug,
     onReachedEnd,
-    photos.length,
+    orderedPhotos.length,
     triggerKey,
     visiblePhotoCount,
   ]);
@@ -862,7 +889,7 @@ export function PhotosGrid({
       ref={gridRootRef}
       data-photos-grid-root
       className="min-w-0"
-      style={{ touchAction: "pan-y" }}
+      style={rootStyle}
     >
       {showAiPrivacyNotice && <AiPrivacyNotice className="mb-3" />}
 
@@ -968,9 +995,12 @@ export function PhotosGrid({
       )}
 
       <div
-        className={`grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 ${
+        className={isVerticalLayout
+          ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+          : `grid grid-cols-2 sm:flex sm:flex-wrap ${
           isSinglePhoto ? "sm:justify-center" : ""
         }`}
+        style={gridStyle}
       >
         {visiblePhotos.map((photo, index) => (
           <div
@@ -979,8 +1009,13 @@ export function PhotosGrid({
               isSinglePhoto ? "w-full sm:w-[min(100%,420px)]" : "w-full"
             }`}
             style={{
-              flexBasis: photoFlexBasis(photo, ALBUM_MOSAIC_TARGET_HEIGHT),
-              flexGrow: isSinglePhoto ? 0 : photoAspectRatio(photo),
+              borderRadius: imageRadius,
+              ...(isVerticalLayout
+                ? { height: targetRowHeight }
+                : {
+                    flexBasis: photoFlexBasis(photo, targetRowHeight),
+                    flexGrow: isSinglePhoto ? 0 : photoAspectRatio(photo),
+                  }),
             }}
           >
             <PhotoCard
@@ -988,7 +1023,10 @@ export function PhotosGrid({
               shareToken={shareToken}
               photo={photo}
               index={index}
+              cornerRadius={imageRadius}
+              forceFill={isVerticalLayout}
               forceMobileSquare
+              imageFit={isVerticalLayout ? "cover" : "contain"}
               onOpen={handleOpen}
               shareSettings={shareSettings}
               debugScroll={isScrollDebugEnabled}
@@ -1009,7 +1047,7 @@ export function PhotosGrid({
           </div>
         ))}
 
-        {!isSinglePhoto && <div className="hidden h-0 flex-[999_1_20rem] sm:block" />}
+        {!isVerticalLayout && !isSinglePhoto && <div className="hidden h-0 flex-[999_1_20rem] sm:block" />}
       </div>
 
       <div ref={endSentinelRef} data-photos-grid-end className="h-px w-full" />
@@ -1018,7 +1056,7 @@ export function PhotosGrid({
         <PhotoLightbox
           albumSlug={albumSlug}
           shareToken={shareToken}
-          photos={data.photos}
+          photos={orderedPhotos}
           currentIndex={lightboxState.index}
           events={events}
           allPeople={people}

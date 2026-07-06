@@ -26,9 +26,11 @@ import {
   Loader2,
   LayoutTemplate,
   Lock,
+  Palette,
   Pencil,
   Images,
   Plus,
+  Save,
   Search,
   Settings2,
   Share2,
@@ -67,7 +69,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,10 +102,13 @@ import {
 } from "@/lib/share-theme";
 import type {
   AlbumDetail,
+  AlbumDesignSettings,
+  AlbumDesignTitleFont,
   AlbumShareSettings,
   Person,
   Photo,
   PhotoPerson,
+  PhotoSortMode,
 } from "@/lib/types";
 
 type Tab = "photos" | "people";
@@ -155,6 +168,38 @@ const shareAiGuideItems = [
     icon: Sparkles,
   },
 ];
+
+const albumDesignFontOptions: Array<{
+  value: AlbumDesignTitleFont;
+  label: string;
+  family: string;
+}> = [
+  { value: "inter", label: "Inter", family: "var(--font-inter), sans-serif" },
+  { value: "playfair", label: "Playfair Display", family: "var(--font-playfair), serif" },
+  { value: "cormorant", label: "Cormorant Garamond", family: "var(--font-cormorant), serif" },
+  { value: "geist", label: "Geist", family: "Geist, var(--font-inter), sans-serif" },
+];
+
+const albumDesignSortOptions: Array<{ value: PhotoSortMode; label: string }> = [
+  { value: "title_asc", label: "Image name (A-Z)" },
+  { value: "title_desc", label: "Image name (Z-A)" },
+  { value: "original_oldest", label: "Captured time (Old-New)" },
+  { value: "original_newest", label: "Captured time (New-Old)" },
+  { value: "added_oldest", label: "Upload time (Old-New)" },
+  { value: "added_newest", label: "Upload time (New-Old)" },
+  { value: "rating", label: "Rating" },
+];
+
+function albumDesignTitleStyle(settings?: AlbumDesignSettings | null) {
+  const font =
+    albumDesignFontOptions.find((option) => option.value === settings?.titleFont) ??
+    albumDesignFontOptions[1];
+
+  return {
+    fontFamily: font.family,
+    fontSize: `${settings?.titleFontSize ?? 1}em`,
+  };
+}
 
 const mobileCoverMediaQuery = "(max-width: 767px)";
 
@@ -1037,6 +1082,29 @@ async function persistAlbumShareSettings(
   return payload as AlbumShareResponse;
 }
 
+async function persistAlbumDesignSettings(
+  albumSlug: string,
+  settings: AlbumDesignSettings,
+) {
+  const response = await fetch(
+    `/api/albums/${encodeURIComponent(albumSlug)}/design`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    },
+  );
+  const payload = (await response.json().catch(() => ({}))) as
+    | { designSettings?: AlbumDesignSettings }
+    | { error?: string };
+
+  if (!response.ok || !("designSettings" in payload) || !payload.designSettings) {
+    throw new Error("error" in payload ? payload.error : "Failed to save design");
+  }
+
+  return payload.designSettings;
+}
+
 function shareMessageTemplate({
   customerName,
   albumName,
@@ -1581,12 +1649,316 @@ function ShareLinksManager({
   );
 }
 
+function AlbumDesignSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix = "",
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix?: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-2xl border border-zinc-100 bg-zinc-50/80 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <Label className="text-sm font-medium text-zinc-800">{label}</Label>
+        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-zinc-600 ring-1 ring-zinc-200">
+          {value}{suffix}
+        </span>
+      </div>
+      <Slider
+        value={[value]}
+        min={min}
+        max={max}
+        step={step}
+        onValueChange={(nextValue) => onChange(nextValue[0] ?? value)}
+        aria-label={label}
+      />
+    </div>
+  );
+}
+
+function AlbumDesignerDialog({
+  albumSlug,
+  album,
+  selectedEventSlug,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  albumSlug: string;
+  album: AlbumDetail;
+  selectedEventSlug: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: (settings: AlbumDesignSettings) => void | Promise<void>;
+}) {
+  const [settings, setSettings] = useState<AlbumDesignSettings>(
+    album.designSettings,
+  );
+  const [savedSnapshot, setSavedSnapshot] = useState(
+    JSON.stringify(album.designSettings),
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const [status, setStatus] = useState("All changes are saved");
+
+  useEffect(() => {
+    if (!open) return;
+    setSettings(album.designSettings);
+    setSavedSnapshot(JSON.stringify(album.designSettings));
+    setStatus("All changes are saved");
+  }, [album.designSettings, open]);
+
+  const settingsSnapshot = JSON.stringify(settings);
+  const hasUnsavedChanges = settingsSnapshot !== savedSnapshot;
+
+  const updateSettings = <K extends keyof AlbumDesignSettings>(
+    key: K,
+    value: AlbumDesignSettings[K],
+  ) => {
+    setSettings((current) => ({ ...current, [key]: value }));
+    setStatus("Preview updated");
+  };
+
+  const saveDesign = async () => {
+    if (isSaving) return;
+
+    setIsSaving(true);
+    setStatus("Saving design...");
+
+    try {
+      const saved = await persistAlbumDesignSettings(albumSlug, settings);
+      setSettings(saved);
+      setSavedSnapshot(JSON.stringify(saved));
+      setStatus("All changes are saved");
+      await onSaved(saved);
+    } catch (error) {
+      console.error("Failed to save album design:", error);
+      setStatus(error instanceof Error ? error.message : "Failed to save design");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="grid h-[94svh] w-[96vw] max-w-[1500px] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden border-0 bg-zinc-100 p-0 shadow-[0_32px_100px_rgba(0,0,0,0.28)] [&_[data-slot=dialog-close]]:rounded-full">
+        <div className="flex flex-col gap-3 border-b border-zinc-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <DialogHeader className="text-left">
+            <DialogTitle className="flex items-center gap-2 text-xl text-zinc-950">
+              <Palette className="h-5 w-5" />
+              Event designer
+            </DialogTitle>
+            <DialogDescription>
+              Changes update the preview immediately and save to the whole album.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 pr-8 sm:pr-0">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                hasUnsavedChanges
+                  ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                  : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+              }`}
+              aria-live="polite"
+            >
+              {status}
+            </span>
+            <Button
+              type="button"
+              onClick={saveDesign}
+              disabled={isSaving || !hasUnsavedChanges}
+              className="rounded-xl"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Save
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="min-h-0 overflow-y-auto bg-[#f5f5f7] p-3 sm:p-5">
+            <div className="mb-4 overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_55px_rgba(0,0,0,0.08)]">
+              <div className="flex min-h-32 items-center justify-center bg-zinc-950 px-5 py-8 text-center text-white">
+                <h2
+                  className="max-w-3xl break-words text-3xl font-semibold uppercase tracking-[0.08em] sm:text-5xl"
+                  style={albumDesignTitleStyle(settings)}
+                >
+                  {album.name}
+                </h2>
+              </div>
+            </div>
+
+            <PhotosGrid
+              albumSlug={albumSlug}
+              selectedEventSlug={selectedEventSlug}
+              selectedPeopleIds={[]}
+              peopleMatchMode="all"
+              events={album.events}
+              shareSettings={null}
+              hidePeople
+              showAiPrivacyNotice={false}
+              canManageSort={false}
+              canUploadPhotos={false}
+              designSettings={settings}
+            />
+          </section>
+
+          <aside className="min-h-0 overflow-y-auto border-t border-zinc-200 bg-white p-4 lg:border-l lg:border-t-0">
+            <div className="space-y-4">
+              <section className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-950">Layout</h3>
+                  <p className="text-xs text-zinc-500">Tune the gallery grid presentation.</p>
+                </div>
+
+                <AlbumDesignSlider
+                  label="Grid Space"
+                  value={settings.gridSpace}
+                  min={0}
+                  max={50}
+                  step={1}
+                  suffix="px"
+                  onChange={(value) => updateSettings("gridSpace", value)}
+                />
+                <AlbumDesignSlider
+                  label="Image Radius"
+                  value={settings.imageRadius}
+                  min={0}
+                  max={32}
+                  step={1}
+                  suffix="px"
+                  onChange={(value) => updateSettings("imageRadius", value)}
+                />
+                <AlbumDesignSlider
+                  label="Side Padding"
+                  value={settings.sidePadding}
+                  min={0}
+                  max={40}
+                  step={1}
+                  suffix="px"
+                  onChange={(value) => updateSettings("sidePadding", value)}
+                />
+                <AlbumDesignSlider
+                  label="Row Height"
+                  value={settings.rowHeight}
+                  min={160}
+                  max={620}
+                  step={10}
+                  suffix="px"
+                  onChange={(value) => updateSettings("rowHeight", value)}
+                />
+
+                <div className="space-y-2 rounded-2xl border border-zinc-100 bg-zinc-50/80 p-3">
+                  <Label className="text-sm font-medium text-zinc-800">Layout</Label>
+                  <RadioGroup
+                    value={settings.layout}
+                    onValueChange={(value) =>
+                      updateSettings("layout", value as AlbumDesignSettings["layout"])
+                    }
+                    className="grid grid-cols-2 gap-2"
+                  >
+                    {[
+                      { value: "horizontal", label: "Horizontal" },
+                      { value: "vertical", label: "Vertical" },
+                    ].map((option) => (
+                      <Label
+                        key={option.value}
+                        className="flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 has-[[data-state=checked]]:border-zinc-950 has-[[data-state=checked]]:text-zinc-950"
+                      >
+                        <RadioGroupItem value={option.value} />
+                        {option.label}
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-2 rounded-2xl border border-zinc-100 bg-zinc-50/80 p-3">
+                  <Label className="text-sm font-medium text-zinc-800">Images Sort By</Label>
+                  <Select
+                    value={settings.imageSortMode}
+                    onValueChange={(value) =>
+                      updateSettings("imageSortMode", value as PhotoSortMode)
+                    }
+                  >
+                    <SelectTrigger className="h-10 w-full rounded-xl bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {albumDesignSortOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </section>
+
+              <section className="space-y-3 border-t border-zinc-100 pt-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-950">Typography</h3>
+                  <p className="text-xs text-zinc-500">Style the album name on the cover view.</p>
+                </div>
+
+                <div className="space-y-2 rounded-2xl border border-zinc-100 bg-zinc-50/80 p-3">
+                  <Label className="text-sm font-medium text-zinc-800">Title Font</Label>
+                  <Select
+                    value={settings.titleFont}
+                    onValueChange={(value) =>
+                      updateSettings("titleFont", value as AlbumDesignTitleFont)
+                    }
+                  >
+                    <SelectTrigger className="h-10 w-full rounded-xl bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {albumDesignFontOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <span style={{ fontFamily: option.family }}>Aa {option.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <AlbumDesignSlider
+                  label="Font Size"
+                  value={Number(settings.titleFontSize.toFixed(2))}
+                  min={0.7}
+                  max={1.8}
+                  step={0.05}
+                  onChange={(value) => updateSettings("titleFontSize", value)}
+                />
+              </section>
+            </div>
+          </aside>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AlbumShareDialog({
   albumSlug,
   defaultWatermarkText,
+  onOpenDesigner,
 }: {
   albumSlug: string;
   defaultWatermarkText: string;
+  onOpenDesigner: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [allowDownloads, setAllowDownloads] = useState(false);
@@ -1975,6 +2347,18 @@ function AlbumShareDialog({
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsOpen(false);
+                      onOpenDesigner();
+                    }}
+                    className="rounded-xl"
+                  >
+                    <Palette className="h-4 w-4" />
+                    Design
+                  </Button>
                 </div>
               </div>
               <BorderBeam
@@ -1987,7 +2371,19 @@ function AlbumShareDialog({
           ) : (
             <div className="mb-5 flex items-center gap-3 rounded-[22px] border border-dashed border-zinc-300 bg-white/65 px-4 py-3 text-sm text-zinc-500">
               <Link2 className="h-4 w-4 shrink-0" />
-              Change any setting below to create the client link.
+              <span className="min-w-0 flex-1">Change any setting below to create the client link.</span>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsOpen(false);
+                  onOpenDesigner();
+                }}
+                className="shrink-0 rounded-xl bg-white"
+              >
+                <Palette className="h-4 w-4" />
+                Design
+              </Button>
             </div>
           )}
 
@@ -2410,6 +2806,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     null
   );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isDesignerOpen, setIsDesignerOpen] = useState(false);
   const {
     isVerified: isPasswordVerified,
     markVerified: markPasswordVerified,
@@ -2604,6 +3001,28 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const galleryNavColor = isShareView
     ? shareBackgroundRgba(galleryBackgroundColor, 0.86)
     : "rgba(255, 255, 255, 0.82)";
+  const coverTitleStyle = useMemo(
+    () => albumDesignTitleStyle(isShareView ? shareSettings?.designSettings : album?.designSettings),
+    [album?.designSettings, isShareView, shareSettings?.designSettings],
+  );
+
+  const handleAlbumDesignSaved = useCallback(
+    async (settings: AlbumDesignSettings) => {
+      await mutate(
+        (current) =>
+          current
+            ? {
+                album: {
+                  ...current.album,
+                  designSettings: settings,
+                },
+              }
+            : current,
+        { revalidate: false },
+      );
+    },
+    [mutate],
+  );
 
   useEffect(() => {
     if (!sharePersonKey) return;
@@ -3825,7 +4244,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
               <div className="order-3 flex justify-center text-center sm:justify-start sm:text-left">
                 <div className="flex min-w-0 flex-col items-center gap-2 text-zinc-950 sm:flex-row sm:items-center sm:gap-4">
-                  <h1 className="max-w-full break-words text-center text-2xl font-semibold uppercase tracking-[0.08em] sm:max-w-[18rem] sm:text-left sm:text-4xl lg:text-5xl">
+                  <h1
+                    className="max-w-full break-words text-center text-2xl font-semibold uppercase tracking-[0.08em] sm:max-w-[18rem] sm:text-left sm:text-4xl lg:text-5xl"
+                    style={coverTitleStyle}
+                  >
                     {coverTitle}
                   </h1>
 
@@ -4199,6 +4621,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 <AlbumShareDialog
                   albumSlug={albumSlug}
                   defaultWatermarkText={album.customer?.name || album.name}
+                  onOpenDesigner={() => setIsDesignerOpen(true)}
                 />
               )}
 
@@ -4668,6 +5091,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               canManageSort={!isShareView}
               canUploadPhotos={!isShareView}
               uploadHref={addPhotosHref}
+              designSettings={isShareView ? shareSettings?.designSettings : album.designSettings}
             />
           </section>
         )}
@@ -4677,6 +5101,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         <ShareAiGuideDialog
           open={isShareAiGuideOpen}
           onOpenChange={setIsShareAiGuideOpen}
+        />
+      )}
+
+      {!isShareView && (
+        <AlbumDesignerDialog
+          albumSlug={albumSlug}
+          album={album}
+          selectedEventSlug={selectedEventSlug}
+          open={isDesignerOpen}
+          onOpenChange={setIsDesignerOpen}
+          onSaved={handleAlbumDesignSaved}
         />
       )}
 
