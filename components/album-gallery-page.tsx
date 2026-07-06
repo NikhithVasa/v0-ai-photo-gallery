@@ -684,7 +684,7 @@ function ReelsFeed({
           >
             <div className="relative h-[min(72svh,554px)] w-[min(58vw,255px)] flex-shrink-0 overflow-hidden rounded-[38px] bg-black p-2 shadow-[0_14px_36px_rgba(0,0,0,0.36)] ring-2 ring-zinc-300/80 [contain:content] sm:h-[554px] sm:w-[255px]">
               <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
-              {reel.playbackStatus === "ready" && reel.videoUrl ? (
+              {reel.videoUrl ? (
                 <video
                   ref={(node) => {
                     if (node) videoRefs.current.set(reel.id, node);
@@ -714,6 +714,18 @@ function ReelsFeed({
                   ) : null}
                 </div>
               )}
+
+              {reel.videoUrl && reel.playbackStatus === "processing" ? (
+                <div className="pointer-events-none absolute right-4 top-12 z-20 rounded-full bg-black/65 px-3 py-1 text-[11px] font-semibold text-white shadow-lg backdrop-blur">
+                  Optimizing video
+                </div>
+              ) : null}
+
+              {reel.videoUrl && reel.playbackStatus === "failed" ? (
+                <div className="pointer-events-none absolute inset-x-4 top-12 z-20 rounded-2xl bg-rose-950/75 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur">
+                  Video optimization failed. Playing original.
+                </div>
+              ) : null}
 
               <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
                 <p className="truncate text-sm font-semibold">

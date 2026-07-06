@@ -163,9 +163,9 @@ function mediaConvertJobInput({
                     CodecProfile: "MAIN",
                     GopSize: 2,
                     GopSizeUnits: "SECONDS",
-                    MaxBitrate: 5000000,
+                    MaxBitrate: 1200000,
                     NumberBFramesBetweenReferenceFrames: 2,
-                    QvbrSettings: { QvbrQualityLevel: 7 },
+                    QvbrSettings: { QvbrQualityLevel: 5 },
                     RateControlMode: "QVBR",
                   },
                 },
@@ -176,7 +176,7 @@ function mediaConvertJobInput({
                   CodecSettings: {
                     Codec: "AAC",
                     AacSettings: {
-                      Bitrate: 128000,
+                      Bitrate: 96000,
                       CodingMode: "CODING_MODE_2_0",
                       SampleRate: 48000,
                     },
