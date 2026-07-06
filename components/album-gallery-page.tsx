@@ -3845,7 +3845,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             className="relative z-10 flex w-full max-w-6xl flex-col items-center pb-16"
           >
             <div className="relative hidden w-full items-center gap-5 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(300px,460px)_minmax(0,1fr)] sm:gap-4 lg:gap-6">
-              <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center">
+              <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center sm:justify-end">
                 <div className="text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:w-[340px] sm:-rotate-90">
                   <span>Photos by</span>
                   <span className="ml-1 text-zinc-800">{coverCreditName}</span>
