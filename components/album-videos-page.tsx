@@ -283,6 +283,19 @@ async function uploadMultipartVideo({
   onProgress(100);
 }
 
+async function completeVideoUpload(albumSlug: string, prepared: PreparedVideoUpload) {
+  const response = await fetch(
+    `/api/albums/${encodeURIComponent(albumSlug)}/videos/${encodeURIComponent(prepared.video.id)}/complete`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: prepared.video.originalS3Key }),
+    },
+  );
+  const data = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) throw new Error(data.error || "Could not start video processing");
+}
+
 interface PreparedTargetUpload {
   s3Key: string;
   contentType: string;
@@ -677,9 +690,10 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
         );
         if (!uploaded) throw new Error("S3 upload failed");
         setUploadProgress(100);
+        await completeVideoUpload(albumSlug, prepared);
       }
 
-      toast({ title: "Video uploaded", description: prepared.video.fileName });
+      toast({ title: "Video uploaded", description: "Playback is processing and will be available shortly." });
       await mutate();
     } catch (uploadError) {
       if (prepared?.multipart && prepared.uploadId) {

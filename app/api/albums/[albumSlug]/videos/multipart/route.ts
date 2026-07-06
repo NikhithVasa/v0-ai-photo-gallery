@@ -7,6 +7,7 @@ import {
   completeMultipartUpload,
   signedUploadPartUrl,
 } from "@/lib/s3";
+import { startVideoPlaybackTranscode } from "@/lib/video-playback";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -118,7 +119,17 @@ export async function POST(request: Request, { params }: Props) {
       }
 
       await completeMultipartUpload({ key: video.original_s3_key, uploadId, parts });
-      return NextResponse.json({ ok: true, key: video.original_s3_key });
+      const playback = await startVideoPlaybackTranscode({
+        videoId: video.id,
+        albumSlug,
+        originalS3Key: video.original_s3_key,
+      });
+      return NextResponse.json({
+        ok: true,
+        key: video.original_s3_key,
+        playbackStatus: "processing",
+        mediaConvertJobId: playback.jobId,
+      });
     }
 
     if (body.action === "abort") {

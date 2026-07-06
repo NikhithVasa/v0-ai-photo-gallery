@@ -58,6 +58,9 @@ interface VideoRow {
   completed_at: Date | string | null;
   event_slug: string | null;
   event_name: string | null;
+  playback_status: string | null;
+  playback_s3_key: string | null;
+  playback_error: string | null;
   matches: unknown;
 }
 
@@ -317,7 +320,13 @@ async function toVideo(row: VideoRow) {
     customerId: row.customer_id,
     fileName: row.file_name,
     originalS3Key: row.original_s3_key,
-    videoUrl: await signedUrl(row.original_s3_key),
+    videoUrl: await signedUrl(
+      row.playback_status === "ready" && row.playback_s3_key
+        ? row.playback_s3_key
+        : row.original_s3_key,
+    ),
+    playbackStatus: row.playback_status ?? "ready",
+    playbackError: row.playback_error,
     durationSec: numberValue(row.duration_sec),
     model: row.model,
     detectionParams: row.detection_params ?? {},
@@ -398,6 +407,9 @@ export async function GET(request: Request, { params }: Props) {
         v.created_at,
         v.updated_at,
         v.completed_at,
+        to_jsonb(v)->>'playback_status' AS playback_status,
+        to_jsonb(v)->>'playback_s3_key' AS playback_s3_key,
+        to_jsonb(v)->>'playback_error' AS playback_error,
         e.slug AS event_slug,
         e.name AS event_name,
         COALESCE(
