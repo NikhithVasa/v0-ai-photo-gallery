@@ -7,6 +7,7 @@ import { createMultipartUpload, signedObjectUrl, signedUploadUrl, signedUrl } fr
 import {
   ensureVideoPlaybackSchema,
   refreshPendingVideoPlaybackJobs,
+  videoPlaybackSchemaExists,
 } from "@/lib/video-playback";
 
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
@@ -375,8 +376,8 @@ export async function GET(request: Request, { params }: Props) {
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;
 
-    await ensureVideoPlaybackSchema();
-    await refreshPendingVideoPlaybackJobs(albumSlug);
+    const hasPlaybackSchema = await videoPlaybackSchemaExists();
+    if (hasPlaybackSchema) await refreshPendingVideoPlaybackJobs(albumSlug);
 
     const album = await albumBySlug(albumSlug);
     if (!album) return NextResponse.json({ error: "Album not found" }, { status: 404 });
@@ -412,11 +413,11 @@ export async function GET(request: Request, { params }: Props) {
         v.runpod_job_id,
         v.detection_status,
         v.detection_error,
-        v.playback_status,
-        v.playback_s3_key,
-        v.playback_error,
-        v.mediaconvert_job_id,
-        v.mediaconvert_job_status,
+        ${hasPlaybackSchema ? "v.playback_status" : "'ready'::text"} AS playback_status,
+        ${hasPlaybackSchema ? "v.playback_s3_key" : "NULL::text"} AS playback_s3_key,
+        ${hasPlaybackSchema ? "v.playback_error" : "NULL::text"} AS playback_error,
+        ${hasPlaybackSchema ? "v.mediaconvert_job_id" : "NULL::text"} AS mediaconvert_job_id,
+        ${hasPlaybackSchema ? "v.mediaconvert_job_status" : "NULL::text"} AS mediaconvert_job_status,
         v.result_json,
         v.match_count,
         v.created_at,

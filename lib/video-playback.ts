@@ -46,20 +46,55 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export function ensureVideoPlaybackSchema() {
-  globalForMediaConvert.videoPlaybackSchemaPromise ??= query(
-    `
-    ALTER TABLE videos
-      ADD COLUMN IF NOT EXISTS playback_status text NOT NULL DEFAULT 'ready',
-      ADD COLUMN IF NOT EXISTS playback_s3_key text,
-      ADD COLUMN IF NOT EXISTS playback_error text,
-      ADD COLUMN IF NOT EXISTS mediaconvert_job_id text,
-      ADD COLUMN IF NOT EXISTS mediaconvert_job_status text,
-      ADD COLUMN IF NOT EXISTS mediaconvert_output_prefix text
-    `,
-    [],
-  ).then(() => undefined);
+  globalForMediaConvert.videoPlaybackSchemaPromise ??= (async () => {
+    if (await videoPlaybackSchemaExists()) return;
+
+    await query(
+      `
+      ALTER TABLE videos
+        ADD COLUMN IF NOT EXISTS playback_status text NOT NULL DEFAULT 'ready',
+        ADD COLUMN IF NOT EXISTS playback_s3_key text,
+        ADD COLUMN IF NOT EXISTS playback_error text,
+        ADD COLUMN IF NOT EXISTS mediaconvert_job_id text,
+        ADD COLUMN IF NOT EXISTS mediaconvert_job_status text,
+        ADD COLUMN IF NOT EXISTS mediaconvert_output_prefix text
+      `,
+      [],
+    );
+  })()
+    .catch((error) => {
+      globalForMediaConvert.videoPlaybackSchemaPromise = undefined;
+      throw error;
+    });
 
   return globalForMediaConvert.videoPlaybackSchemaPromise;
+}
+
+export async function videoPlaybackSchemaExists() {
+  try {
+    const rows = await query<{ column_name: string }>(
+      `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = 'videos'
+        AND column_name = ANY($1::text[])
+      `,
+      [[
+        "playback_status",
+        "playback_s3_key",
+        "playback_error",
+        "mediaconvert_job_id",
+        "mediaconvert_job_status",
+        "mediaconvert_output_prefix",
+      ]],
+    );
+
+    return rows.length === 6;
+  } catch (error) {
+    console.warn("Failed to inspect video playback schema", error);
+    return false;
+  }
 }
 
 function mediaConvertRoleArn() {
@@ -298,7 +333,7 @@ async function refreshPendingVideoPlaybackJob(row: PendingPlaybackRow) {
 }
 
 export async function refreshPendingVideoPlaybackJobs(albumSlug: string) {
-  await ensureVideoPlaybackSchema();
+  if (!(await videoPlaybackSchemaExists())) return;
 
   const rows = await query<PendingPlaybackRow>(
     `

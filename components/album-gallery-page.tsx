@@ -2739,7 +2739,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     effectiveEventSlug,
   )}`;
   const allReels = videosData?.videos ?? [];
-  const totalReelCount = statsData?.stats.videoCount ?? allReels.length;
+  const totalReelCount = allReels.length;
   const hasReels = totalReelCount > 0;
   const visibleReels = useMemo(
     () =>
@@ -2752,10 +2752,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const eventHasReels = useCallback(
     (eventSlug: string | null) => {
       if (!eventSlug) return hasReels;
-      const event = album?.events.find((item) => item.slug === eventSlug);
-      return (event?.videoCount ?? 0) > 0;
+      return allReels.some((reel) => reel.eventSlug === eventSlug);
     },
-    [album?.events, hasReels],
+    [allReels, hasReels],
   );
   const currentScopeHasReels = eventHasReels(effectiveEventSlug);
 
