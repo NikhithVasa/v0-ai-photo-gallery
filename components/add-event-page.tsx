@@ -327,6 +327,7 @@ export function AddEventPage({
   const router = useRouter();
   const coverInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const reelInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState("");
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -1276,17 +1277,13 @@ export function AddEventPage({
         )}
 
         {queuedFiles.length === 0 ? (
-          <button
-            type="button"
-            onClick={() => mediaInputRef.current?.click()}
-            className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center"
-          >
+          <div className="absolute left-1/2 top-1/2 z-20 flex w-[min(88%,460px)] -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center">
             <span
               className={`mb-5 flex items-center justify-center rounded-full bg-white/90 text-zinc-400 shadow-[0_18px_60px_rgba(24,24,27,0.18)] ring-1 ring-zinc-200 backdrop-blur-xl ${
                 isSide ? "h-[72px] w-[72px]" : "h-24 w-24"
               }`}
             >
-              <FileImage
+              <Upload
                 className={isSide ? "h-9 w-9" : "h-12 w-12"}
                 strokeWidth={1.4}
               />
@@ -1301,26 +1298,62 @@ export function AddEventPage({
             <span
               className={`mt-3 text-zinc-400 ${isSide ? "text-lg" : "text-2xl"}`}
             >
-              Drop or{" "}
-              <span className="font-semibold text-[#4457ff]">upload photos or reels</span>
+              Drop files here or choose what to upload
             </span>
-          </button>
+
+            <div className={`mt-6 grid w-full gap-2 ${isSide ? "grid-cols-1" : "grid-cols-2"}`}>
+              <button
+                type="button"
+                onClick={() => mediaInputRef.current?.click()}
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-zinc-950 px-4 text-sm font-semibold text-white shadow-lg transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              >
+                <FileImage className="h-4 w-4" />
+                Upload Photos
+              </button>
+              <button
+                type="button"
+                onClick={() => reelInputRef.current?.click()}
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white/95 px-4 text-sm font-semibold text-zinc-800 shadow-lg transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              >
+                <Video className="h-4 w-4" />
+                Upload Reels
+              </button>
+            </div>
+          </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => mediaInputRef.current?.click()}
-            className="absolute right-4 top-4 z-20 flex h-10 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-lg transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
-          >
-            <Upload className="h-4 w-4" />
-            Add Media
-          </button>
+          <div className="absolute right-4 top-4 z-20 flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => mediaInputRef.current?.click()}
+              className="flex h-10 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-lg transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            >
+              <FileImage className="h-4 w-4" />
+              Add Photos
+            </button>
+            <button
+              type="button"
+              onClick={() => reelInputRef.current?.click()}
+              className="flex h-10 items-center gap-2 rounded-full bg-white/95 px-4 text-sm font-semibold text-zinc-800 shadow-lg ring-1 ring-zinc-200 transition hover:bg-white hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+            >
+              <Video className="h-4 w-4" />
+              Add Reels
+            </button>
+          </div>
         )}
 
         <input
           ref={mediaInputRef}
           type="file"
           multiple
-          accept={`${IMAGE_UPLOAD_ACCEPT},${VIDEO_UPLOAD_ACCEPT}`}
+          accept={IMAGE_UPLOAD_ACCEPT}
+          className="hidden"
+          onChange={(event) => addMedia(event.target.files)}
+        />
+        <input
+          ref={reelInputRef}
+          type="file"
+          multiple
+          accept={VIDEO_UPLOAD_ACCEPT}
           className="hidden"
           onChange={(event) => addMedia(event.target.files)}
         />
