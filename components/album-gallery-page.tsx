@@ -3558,7 +3558,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setEditingEventId(null);
     setApsaraTextSearch(null);
     setSelectedPerson(null);
-    setActiveTab(eventHasReels(eventSlug) ? "reels" : "photos");
+    setActiveTab("photos");
 
     router.replace(`/albums/${albumSlug}${eventQuery(eventSlug, shareToken)}`, {
       scroll: false,
@@ -4178,30 +4178,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             <div
               className="mt-2 grid h-9 gap-1 rounded-full bg-black/5 p-1"
               style={{
-                gridTemplateColumns: `repeat(${(currentScopeHasReels ? 1 : 0) + 1 + (!hideAi ? 1 : 0)}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${1 + (!hideAi ? 1 : 0)}, minmax(0, 1fr))`,
               }}
               role="tablist"
             >
-              {currentScopeHasReels && (
-                <button
-                  role="tab"
-                  aria-selected={activeTab === "reels" && !selectedPerson}
-                  onClick={() => {
-                    setSelectedPerson(null);
-                    setApsaraTextSearch(null);
-                    setActiveTab("reels");
-                    scrollToGalleryTop();
-                  }}
-                  className={`flex h-7 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition ${
-                    activeTab === "reels" && !selectedPerson
-                      ? "bg-[#1d1d1f] text-white shadow-sm"
-                      : "text-zinc-600"
-                  }`}
-                >
-                  Reels
-                </button>
-              )}
-
               <button
                 role="tab"
                 aria-selected={activeTab === "photos" && !selectedPerson}
@@ -4247,11 +4227,30 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             (!isPersonShare || showPersonShareEventTabs) && (
             <div className="-mx-3 mt-2 overflow-x-auto scroll-smooth px-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex h-9 w-max items-center gap-2 whitespace-nowrap">
+                {currentScopeHasReels && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPerson(null);
+                      setApsaraTextSearch(null);
+                      setActiveTab("reels");
+                      scrollToGalleryTop();
+                    }}
+                    className={`h-8 shrink-0 cursor-pointer rounded-full px-3 text-sm font-medium transition ${
+                      activeTab === "reels"
+                        ? "bg-[#1d1d1f] text-white"
+                        : "bg-white/70 text-zinc-600 ring-1 ring-black/10"
+                    }`}
+                  >
+                    Reels
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => changeEvent(null)}
                   className={`h-8 shrink-0 cursor-pointer rounded-full px-3 text-sm font-medium transition ${
-                    !selectedEventSlug
+                    !selectedEventSlug && activeTab === "photos"
                       ? "bg-[#1d1d1f] text-white"
                       : "bg-white/70 text-zinc-600 ring-1 ring-black/10"
                   }`}
@@ -4265,7 +4264,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     type="button"
                     onClick={() => changeEvent(event.slug)}
                     className={`h-8 max-w-[170px] shrink-0 cursor-pointer truncate rounded-full px-3 text-sm font-medium transition ${
-                      selectedEventSlug === event.slug
+                      selectedEventSlug === event.slug && activeTab === "photos"
                         ? "bg-[#1d1d1f] text-white"
                         : "bg-white/70 text-zinc-600 ring-1 ring-black/10"
                     }`}
@@ -4513,27 +4512,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   className="hidden shrink-0 items-center gap-1 rounded-full bg-transparent p-1 ring-1 ring-black/5 sm:flex"
                   role="tablist"
                 >
-                  {currentScopeHasReels && (
-                    <button
-                      role="tab"
-                      aria-selected={activeTab === "reels"}
-                      onClick={() => {
-                        setSelectedPerson(null);
-                        setApsaraTextSearch(null);
-                        setActiveTab("reels");
-                        scrollToGalleryTop();
-                      }}
-                      className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
-                        activeTab === "reels"
-                          ? "bg-[#1d1d1f] text-white shadow-sm"
-                          : "text-zinc-500 hover:text-zinc-950"
-                      }`}
-                    >
-                      <Video className="h-4 w-4" />
-                      Reels
-                    </button>
-                  )}
-
                   <button
                     role="tab"
                     aria-selected={activeTab === "photos"}
@@ -4606,18 +4584,40 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             (activeTab === "photos" || activeTab === "reels") &&
             (!isPersonShare || showPersonShareEventTabs) && (
             <div className="flex max-w-full gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {currentScopeHasReels && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPerson(null);
+                    setApsaraTextSearch(null);
+                    setActiveTab("reels");
+                    scrollToGalleryTop();
+                  }}
+                  className={`max-w-full shrink-0 cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
+                    activeTab === "reels"
+                      ? "bg-[#1d1d1f] text-white"
+                      : "bg-white/70 text-zinc-600 ring-1 ring-black/10 hover:bg-white hover:text-zinc-950"
+                  }`}
+                >
+                  Reels
+                  <span className="ml-2 text-xs opacity-70">
+                    {visibleReels.length}
+                  </span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => changeEvent(null)}
                 className={`max-w-full shrink-0 cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
-                  !selectedEventSlug
+                  !selectedEventSlug && activeTab === "photos"
                     ? "bg-[#1d1d1f] text-white"
                     : "bg-white/70 text-zinc-600 ring-1 ring-black/10 hover:bg-white hover:text-zinc-950"
                 }`}
               >
                 All
                 <span className="ml-2 text-xs opacity-70">
-                  {activeTab === "reels" ? totalReelCount : album.photoCount}
+                  {album.photoCount}
                 </span>
               </button>
 
@@ -4627,14 +4627,14 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   type="button"
                   onClick={() => changeEvent(event.slug)}
                   className={`max-w-[240px] shrink-0 cursor-pointer truncate rounded-full px-4 py-2 text-sm font-medium transition ${
-                    selectedEventSlug === event.slug
+                    selectedEventSlug === event.slug && activeTab === "photos"
                       ? "bg-[#1d1d1f] text-white"
                       : "bg-white/70 text-zinc-600 ring-1 ring-black/10 hover:bg-white hover:text-zinc-950"
                   }`}
                 >
                   {event.name}
                   <span className="ml-2 text-xs opacity-70">
-                    {activeTab === "reels" ? event.videoCount ?? 0 : event.photoCount}
+                    {event.photoCount}
                   </span>
                 </button>
               ))}
