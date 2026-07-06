@@ -274,6 +274,16 @@ function eventQuery(selectedEventSlug: string | null, shareToken = "") {
   return query ? `?${query}` : "";
 }
 
+function albumDesignerHref(albumSlug: string) {
+  const albumPath = `/albums/${encodeURIComponent(albumSlug)}`;
+  const returnParams = new URLSearchParams({ shareDialog: "1" });
+  const designParams = new URLSearchParams({
+    returnTo: `${albumPath}?${returnParams.toString()}`,
+  });
+
+  return `${albumPath}/design?${designParams.toString()}`;
+}
+
 function uploadQuery(selectedEventSlug: string | null) {
   if (!selectedEventSlug) return "";
   return `?event=${encodeURIComponent(selectedEventSlug)}`;
@@ -1631,6 +1641,8 @@ function AlbumShareDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [status, setStatus] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const hasInitializedSettingsRef = useRef(false);
   const pendingHydrationSnapshotRef = useRef<string | null>(null);
   const lastSavedSettingsRef = useRef("");
@@ -1647,6 +1659,21 @@ function AlbumShareDialog({
       revalidateOnFocus: false,
     },
   );
+
+  useEffect(() => {
+    if (searchParams.get("shareDialog") !== "1") return;
+
+    setIsOpen(true);
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("shareDialog");
+    const query = nextParams.toString();
+
+    router.replace(
+      `/albums/${encodeURIComponent(albumSlug)}${query ? `?${query}` : ""}`,
+      { scroll: false },
+    );
+  }, [albumSlug, router, searchParams]);
 
   useEffect(() => {
     if (!isOpen || !data) return;
@@ -2005,7 +2032,7 @@ function AlbumShareDialog({
                     className="rounded-xl"
                     asChild
                   >
-                    <Link href={`/albums/${encodeURIComponent(albumSlug)}/design`}>
+                    <Link href={albumDesignerHref(albumSlug)}>
                       <Palette className="h-4 w-4" />
                       Design
                     </Link>
@@ -2028,7 +2055,7 @@ function AlbumShareDialog({
                 className="shrink-0 rounded-xl bg-white"
                 asChild
               >
-                <Link href={`/albums/${encodeURIComponent(albumSlug)}/design`}>
+                <Link href={albumDesignerHref(albumSlug)}>
                   <Palette className="h-4 w-4" />
                   Design
                 </Link>

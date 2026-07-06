@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -143,6 +144,7 @@ function DesignSlider({
 }
 
 export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
+  const searchParams = useSearchParams();
   const { data, error, isLoading, mutate } = useSWR<{ album: AlbumDetail }>(
     `/api/albums/${encodeURIComponent(albumSlug)}`,
     fetcher,
@@ -218,6 +220,15 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
     () => (settings ? titleStyle(settings) : undefined),
     [settings],
   );
+  const albumHref = `/albums/${encodeURIComponent(albumSlug)}`;
+  const backHref = useMemo(() => {
+    const returnTo = searchParams.get("returnTo");
+    if (!returnTo) return albumHref;
+
+    return returnTo === albumHref || returnTo.startsWith(`${albumHref}?`)
+      ? returnTo
+      : albumHref;
+  }, [albumHref, searchParams]);
 
   if (error) {
     return (
@@ -228,7 +239,7 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
             {error instanceof Error ? error.message : "Failed to load album."}
           </p>
           <Button asChild className="mt-5 rounded-xl bg-white text-zinc-950 hover:bg-zinc-100">
-            <Link href={`/albums/${encodeURIComponent(albumSlug)}`}>Back to album</Link>
+            <Link href={backHref}>Back to album</Link>
           </Button>
         </div>
       </main>
@@ -255,7 +266,7 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
               asChild
               className="shrink-0 rounded-full bg-white/70 text-zinc-700 shadow-sm ring-1 ring-zinc-950/10 hover:bg-white hover:text-zinc-950"
             >
-              <Link href={`/albums/${encodeURIComponent(albumSlug)}`} aria-label="Back to album">
+              <Link href={backHref} aria-label="Back to album">
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
