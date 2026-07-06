@@ -4,6 +4,7 @@ import { query, queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 import { createMultipartUpload, signedObjectUrl, signedUploadUrl, signedUrl } from "@/lib/s3";
+import { refreshPendingVideoPlaybackJobs } from "@/lib/video-playback";
 
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const VIDEO_UPLOAD_PART_SIZE_BYTES = 10 * 1024 * 1024;
@@ -370,6 +371,8 @@ export async function GET(request: Request, { params }: Props) {
 
     const album = await albumBySlug(albumSlug);
     if (!album) return NextResponse.json({ error: "Album not found" }, { status: 404 });
+
+    await refreshPendingVideoPlaybackJobs(albumSlug);
 
     const events = await query<EventRow>(
       `

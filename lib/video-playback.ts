@@ -1,5 +1,6 @@
 import {
   CreateJobCommand,
+  GetJobCommand,
   MediaConvertClient,
   type CreateJobCommandInput,
 } from "@aws-sdk/client-mediaconvert";
@@ -9,6 +10,11 @@ interface StartVideoPlaybackTranscodeOptions {
   videoId: string;
   albumSlug: string;
   originalS3Key: string;
+}
+
+interface PendingPlaybackRow {
+  id: string;
+  mediaconvert_job_id: string | null;
 }
 
 const DEFAULT_MEDIACONVERT_ROLE_ARN =
@@ -96,6 +102,7 @@ function isMissingPlaybackColumnError(error: unknown) {
     (error as { code?: string }).code === "42703"
   );
 }
+
 
 async function updatePlaybackColumns(text: string, params: unknown[]) {
   try {
@@ -242,4 +249,86 @@ export async function startVideoPlaybackTranscode(options: StartVideoPlaybackTra
     );
     throw error;
   }
+}
+
+async function refreshPendingVideoPlaybackJob(row: PendingPlaybackRow) {
+  if (!row.mediaconvert_job_id) return;
+
+  const response = await mediaConvertClient.send(
+    new GetJobCommand({ Id: row.mediaconvert_job_id }),
+  );
+  const status = response.Job?.Status ?? null;
+
+  if (status === "COMPLETE") {
+    await updatePlaybackColumns(
+      `
+      UPDATE videos
+      SET playback_status = 'ready',
+          playback_error = NULL,
+          mediaconvert_job_status = $2,
+          updated_at = now()
+      WHERE id = $1::uuid
+      `,
+      [row.id, status],
+    );
+    return;
+  }
+
+  if (status === "ERROR" || status === "CANCELED") {
+    await updatePlaybackColumns(
+      `
+      UPDATE videos
+      SET playback_status = 'failed',
+          playback_error = $2,
+          mediaconvert_job_status = $3,
+          updated_at = now()
+      WHERE id = $1::uuid
+      `,
+      [row.id, response.Job?.ErrorMessage || `MediaConvert job ${status.toLowerCase()}`, status],
+    );
+    return;
+  }
+
+  if (status) {
+    await updatePlaybackColumns(
+      `
+      UPDATE videos
+      SET mediaconvert_job_status = $2,
+          updated_at = now()
+      WHERE id = $1::uuid
+      `,
+      [row.id, status],
+    );
+  }
+}
+
+export async function refreshPendingVideoPlaybackJobs(albumSlug: string) {
+  const rows = await query<PendingPlaybackRow>(
+    `
+    SELECT
+      v.id,
+      to_jsonb(v)->>'mediaconvert_job_id' AS mediaconvert_job_id
+    FROM videos v
+    JOIN albums a
+      ON a.id = v.album_id
+    WHERE lower(a.slug) = lower($1)
+      AND to_jsonb(v)->>'playback_status' = 'processing'
+      AND to_jsonb(v)->>'mediaconvert_job_id' IS NOT NULL
+      AND COALESCE(v.is_deleted, false) = false
+    LIMIT 20
+    `,
+    [albumSlug],
+  );
+
+  await Promise.all(
+    rows.map((row) =>
+      refreshPendingVideoPlaybackJob(row).catch((error) => {
+        console.warn("Failed to refresh MediaConvert job", {
+          videoId: row.id,
+          jobId: row.mediaconvert_job_id,
+          error,
+        });
+      }),
+    ),
+  );
 }
