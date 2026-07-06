@@ -622,27 +622,91 @@ function ReelsFeed({
   reels: AlbumReel[];
   onScrollPastEnd: () => void;
 }) {
+  const scrollerRef = useRef<HTMLElement | null>(null);
+  const reelCardRefs = useRef(new Map<string, HTMLElement>());
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
+  const activeReelIndexRef = useRef(0);
+  const wheelGestureActiveRef = useRef(false);
+  const wheelGestureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollToReel = useCallback(
+    (index: number, behavior: ScrollBehavior) => {
+      const scroller = scrollerRef.current;
+      const reel = reels[index];
+      const card = reel ? reelCardRefs.current.get(reel.id) : null;
+      if (!scroller || !card) return;
+
+      activeReelIndexRef.current = index;
+      scroller.scrollTo({
+        left: Math.max(0, card.offsetLeft - (scroller.clientWidth - card.clientWidth) / 2),
+        behavior,
+      });
+    },
+    [reels],
+  );
+
+  const syncActiveReelToCenter = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const scrollerCenter = scroller.scrollLeft + scroller.clientWidth / 2;
+    let closestIndex = activeReelIndexRef.current;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    reels.forEach((reel, index) => {
+      const card = reelCardRefs.current.get(reel.id);
+      if (!card) return;
+
+      const cardCenter = card.offsetLeft + card.clientWidth / 2;
+      const distance = Math.abs(scrollerCenter - cardCenter);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
+      }
+    });
+
+    activeReelIndexRef.current = closestIndex;
+  }, [reels]);
 
   const handleWheel = (event: ReactWheelEvent<HTMLElement>) => {
     if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
 
-    const scroller = event.currentTarget;
-    const atStart = scroller.scrollLeft <= 0;
-    const atEnd =
-      Math.ceil(scroller.scrollLeft + scroller.clientWidth) >=
-      scroller.scrollWidth;
+    event.preventDefault();
 
-    if (event.deltaY < 0 && atStart) return;
+    if (wheelGestureTimerRef.current) {
+      clearTimeout(wheelGestureTimerRef.current);
+    }
 
-    if (event.deltaY > 0 && atEnd) {
-      event.preventDefault();
+    wheelGestureTimerRef.current = setTimeout(() => {
+      wheelGestureActiveRef.current = false;
+    }, 220);
+
+    if (wheelGestureActiveRef.current) return;
+
+    wheelGestureActiveRef.current = true;
+    const direction = event.deltaY > 0 ? 1 : -1;
+    const nextIndex = activeReelIndexRef.current + direction;
+
+    if (nextIndex < 0) {
+      scrollToReel(0, "smooth");
+      return;
+    }
+
+    if (nextIndex >= reels.length) {
       onScrollPastEnd();
       return;
     }
 
-    event.preventDefault();
-    scroller.scrollBy({ left: event.deltaY, behavior: "smooth" });
+    scrollToReel(nextIndex, "smooth");
+  };
+
+  const handleScroll = () => {
+    if (scrollSyncTimerRef.current) {
+      clearTimeout(scrollSyncTimerRef.current);
+    }
+
+    scrollSyncTimerRef.current = setTimeout(syncActiveReelToCenter, 120);
   };
 
   useEffect(() => {
@@ -669,18 +733,37 @@ function ReelsFeed({
     return () => observer.disconnect();
   }, [reels]);
 
+  useEffect(() => {
+    activeReelIndexRef.current = 0;
+    requestAnimationFrame(() => scrollToReel(0, "auto"));
+  }, [reels, scrollToReel]);
+
+  useEffect(() => {
+    return () => {
+      if (wheelGestureTimerRef.current) clearTimeout(wheelGestureTimerRef.current);
+      if (scrollSyncTimerRef.current) clearTimeout(scrollSyncTimerRef.current);
+    };
+  }, []);
+
   if (!reels.length) return null;
 
   return (
     <section
+      ref={scrollerRef}
       onWheel={handleWheel}
+      onScroll={handleScroll}
       className="-mx-4 h-[calc(100svh-140px)] min-h-[620px] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth snap-x snap-mandatory bg-black px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:-mx-6 sm:h-[calc(100svh-180px)] sm:px-6 lg:-mx-8 lg:px-8"
     >
       <div className="flex h-full w-max items-center gap-4 py-4 sm:gap-6 sm:py-8 lg:gap-8">
+        <div className="h-px w-[calc((100vw-min(72vw,330px))/2)] shrink-0 sm:w-[calc((100vw-min(32vw,330px))/2)] lg:w-[calc((100vw-330px)/2)]" />
         {reels.map((reel, index) => (
           <article
+            ref={(node) => {
+              if (node) reelCardRefs.current.set(reel.id, node);
+              else reelCardRefs.current.delete(reel.id);
+            }}
             key={reel.id}
-            className="flex h-full w-[min(72vw,330px)] shrink-0 snap-start items-center justify-center overflow-hidden rounded-[28px] bg-[#ffc9c6] px-4 py-7 shadow-[0_24px_80px_rgba(0,0,0,0.34)] sm:w-[min(32vw,330px)] sm:px-6 sm:py-8 lg:w-[330px]"
+            className="flex h-full w-[min(72vw,330px)] shrink-0 snap-center items-center justify-center overflow-hidden rounded-[28px] bg-[#ffc9c6] px-4 py-7 shadow-[0_24px_80px_rgba(0,0,0,0.34)] sm:w-[min(32vw,330px)] sm:px-6 sm:py-8 lg:w-[330px]"
           >
             <div className="relative h-[min(72svh,554px)] w-[min(58vw,255px)] flex-shrink-0 overflow-hidden rounded-[38px] bg-black p-2 shadow-[0_14px_36px_rgba(0,0,0,0.36)] ring-2 ring-zinc-300/80 [contain:content] sm:h-[554px] sm:w-[255px]">
               <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
@@ -740,6 +823,7 @@ function ReelsFeed({
             </div>
           </article>
         ))}
+        <div className="h-px w-[calc((100vw-min(72vw,330px))/2)] shrink-0 sm:w-[calc((100vw-min(32vw,330px))/2)] lg:w-[calc((100vw-330px)/2)]" />
       </div>
     </section>
   );
