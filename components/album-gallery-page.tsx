@@ -101,7 +101,7 @@ import type {
   PhotoPerson,
 } from "@/lib/types";
 
-type Tab = "photos" | "people";
+type Tab = "reels" | "photos" | "people";
 type DownloadFormat = "original" | "png" | "jpeg";
 type PersonReturnTarget =
   | { kind: "photos" }
@@ -251,15 +251,30 @@ interface AlbumGalleryPageProps {
 interface AlbumStatsResponse {
   stats: {
     photoCount: number;
+    videoCount?: number;
     peopleCount: number;
     events: {
       eventId: string;
       photoCount: number;
+      videoCount?: number;
       peopleCount: number;
       pendingAiCount?: number;
       failedAiCount?: number;
     }[];
   };
+}
+
+interface AlbumReel {
+  id: string;
+  eventSlug: string | null;
+  eventName: string | null;
+  fileName: string | null;
+  videoUrl: string | null;
+  createdAt: string | null;
+}
+
+interface AlbumVideosResponse {
+  videos: AlbumReel[];
 }
 
 interface PublicShareResponse {
@@ -594,6 +609,115 @@ function SearchResultsGrid({
           shareSettings={shareSettings}
         />
       )}
+    </section>
+  );
+}
+
+function ReelsFeed({
+  reels,
+  eventLabel,
+  canUpload,
+  uploadHref,
+}: {
+  reels: AlbumReel[];
+  eventLabel: string;
+  canUpload: boolean;
+  uploadHref: string;
+}) {
+  const videoRefs = useRef(new Map<string, HTMLVideoElement>());
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const video = entry.target as HTMLVideoElement;
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
+            video.play().catch(() => {
+              // Autoplay can be delayed until the browser accepts muted playback.
+            });
+          } else {
+            video.pause();
+          }
+        }
+      },
+      { threshold: [0, 0.65, 1] },
+    );
+
+    for (const video of videoRefs.current.values()) {
+      observer.observe(video);
+    }
+
+    return () => observer.disconnect();
+  }, [reels]);
+
+  if (!reels.length) {
+    return (
+      <section className="flex min-h-[55svh] items-center justify-center px-4 text-center">
+        <div className="max-w-md rounded-[28px] border border-white/70 bg-white/80 px-6 py-10 shadow-[0_16px_45px_rgba(0,0,0,0.08)] backdrop-blur">
+          <Video className="mx-auto mb-3 h-9 w-9 text-zinc-300" />
+          <h2 className="text-2xl font-semibold tracking-normal text-zinc-950">
+            No reels yet
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-500">
+            {eventLabel} does not have uploaded reels.
+          </p>
+          {canUpload && (
+            <Link
+              href={uploadHref}
+              className="mt-5 inline-flex h-10 items-center justify-center rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
+            >
+              Upload reels
+            </Link>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="h-[calc(100svh-140px)] min-h-[620px] overflow-y-auto overscroll-contain scroll-smooth snap-y snap-mandatory px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:h-[calc(100svh-180px)]">
+      <div className="mx-auto flex w-full max-w-[920px] flex-col items-center gap-12 py-4 sm:py-8">
+        {reels.map((reel, index) => (
+          <article
+            key={reel.id}
+            className="flex min-h-[calc(100svh-180px)] w-full snap-start items-start justify-center sm:min-h-[620px]"
+          >
+            <div className="relative h-[min(72svh,554px)] w-[min(78vw,255px)] flex-shrink-0 overflow-hidden rounded-2xl bg-black shadow-[0_24px_70px_rgba(0,0,0,0.22)] ring-1 ring-white/60 [contain:content] sm:h-[554px] sm:w-[255px]">
+              {reel.videoUrl ? (
+                <video
+                  ref={(node) => {
+                    if (node) videoRefs.current.set(reel.id, node);
+                    else videoRefs.current.delete(reel.id);
+                  }}
+                  src={reel.videoUrl}
+                  className="h-full w-full object-cover"
+                  muted
+                  playsInline
+                  loop
+                  autoPlay={index === 0}
+                  preload={index < 2 ? "auto" : "metadata"}
+                  controls
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-white/50">
+                  <Video className="h-10 w-10" />
+                </div>
+              )}
+
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
+                <p className="truncate text-sm font-semibold">
+                  {reel.fileName || `Reel ${index + 1}`}
+                </p>
+                {reel.eventName && (
+                  <p className="mt-0.5 truncate text-xs font-medium text-white/65">
+                    {reel.eventName}
+                  </p>
+                )}
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -2459,6 +2583,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const coverScrollTrapRef = useRef(false);
   const coverTouchStartYRef = useRef<number | null>(null);
   const coverGestureTriggeredRef = useRef(false);
+  const autoReelsTabAppliedRef = useRef(false);
   const coverSectionRef = useRef<HTMLElement | null>(null);
   const isCoverDismissedRef = useRef(false);
   const lastScrollYRef = useRef(0);
@@ -2538,6 +2663,18 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   );
 
+  const { data: videosData } = useSWR<AlbumVideosResponse>(
+    data?.album &&
+      (!data.album.passwordRequired || isPasswordVerified || isShareView)
+      ? albumApiUrl(albumSlug, "/videos", shareToken)
+      : null,
+    fetcher,
+    {
+      dedupingInterval: 5 * 60 * 1000,
+      revalidateOnFocus: false,
+    },
+  );
+
   useEffect(() => {
     if (!data?.album) return;
     void mutate();
@@ -2575,6 +2712,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         return {
           ...event,
           photoCount: stats?.photoCount ?? event.photoCount,
+          videoCount: stats?.videoCount ?? event.videoCount ?? 0,
           peopleCount: stats?.peopleCount ?? event.peopleCount,
         };
       }),
@@ -2614,6 +2752,26 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const editEventsHref = `/albums/${encodeURIComponent(albumSlug)}/upload${uploadQuery(
     effectiveEventSlug,
   )}`;
+  const allReels = videosData?.videos ?? [];
+  const totalReelCount = statsData?.stats.videoCount ?? allReels.length;
+  const hasReels = totalReelCount > 0;
+  const visibleReels = useMemo(
+    () =>
+      allReels.filter(
+        (reel) =>
+          reel.videoUrl &&
+          (!effectiveEventSlug || reel.eventSlug === effectiveEventSlug),
+      ),
+    [allReels, effectiveEventSlug],
+  );
+  const eventHasReels = useCallback(
+    (eventSlug: string | null) => {
+      if (!eventSlug) return hasReels;
+      const event = album?.events.find((item) => item.slug === eventSlug);
+      return (event?.videoCount ?? 0) > 0;
+    },
+    [album?.events, hasReels],
+  );
 
   useEffect(() => {
     if (!album?.events.length) {
@@ -2684,6 +2842,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     () => albumDesignTitleStyle(isShareView ? shareSettings?.designSettings : album?.designSettings),
     [album?.designSettings, isShareView, shareSettings?.designSettings],
   );
+
+  useEffect(() => {
+    if (autoReelsTabAppliedRef.current || !hasReels || selectedPerson || isPersonShare) {
+      return;
+    }
+
+    autoReelsTabAppliedRef.current = true;
+    setActiveTab("reels");
+  }, [hasReels, isPersonShare, selectedPerson]);
 
   useEffect(() => {
     if (!sharePersonKey) return;
@@ -3400,7 +3567,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     setEditingEventId(null);
     setApsaraTextSearch(null);
     setSelectedPerson(null);
-    setActiveTab("photos");
+    setActiveTab(eventHasReels(eventSlug) ? "reels" : "photos");
 
     router.replace(`/albums/${albumSlug}${eventQuery(eventSlug, shareToken)}`, {
       scroll: false,
@@ -3946,10 +4113,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               <Link
                 href={addPhotosHref}
                 className="absolute right-3 top-3 flex h-10 items-center gap-2 rounded-full bg-zinc-950/90 px-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition hover:bg-zinc-900 sm:right-5 sm:top-5 sm:px-4"
-                aria-label="Add photos"
+                aria-label="Add media"
               >
                 <Plus className="h-4 w-4" />
-                <span>Add Photos</span>
+                <span>Add Media</span>
               </Link>
             )}
 
@@ -4018,11 +4185,32 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
           {!isPersonShare && (
             <div
-              className={`mt-2 grid h-9 gap-1 rounded-full bg-black/5 p-1 ${
-                hideAi ? "grid-cols-1" : "grid-cols-2"
-              }`}
+              className="mt-2 grid h-9 gap-1 rounded-full bg-black/5 p-1"
+              style={{
+                gridTemplateColumns: `repeat(${(hasReels ? 1 : 0) + 1 + (!hideAi ? 1 : 0)}, minmax(0, 1fr))`,
+              }}
               role="tablist"
             >
+              {hasReels && (
+                <button
+                  role="tab"
+                  aria-selected={activeTab === "reels" && !selectedPerson}
+                  onClick={() => {
+                    setSelectedPerson(null);
+                    setApsaraTextSearch(null);
+                    setActiveTab("reels");
+                    scrollToGalleryTop();
+                  }}
+                  className={`flex h-7 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition ${
+                    activeTab === "reels" && !selectedPerson
+                      ? "bg-[#1d1d1f] text-white shadow-sm"
+                      : "text-zinc-600"
+                  }`}
+                >
+                  Reels
+                </button>
+              )}
+
               <button
                 role="tab"
                 aria-selected={activeTab === "photos" && !selectedPerson}
@@ -4038,7 +4226,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     : "text-zinc-600"
                 }`}
               >
-                Photos
+                All
               </button>
 
               {!hideAi && (
@@ -4064,7 +4252,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           )}
 
           {!selectedPerson &&
-            activeTab === "photos" &&
+            (activeTab === "photos" || activeTab === "reels") &&
             (!isPersonShare || showPersonShareEventTabs) && (
             <div className="-mx-3 mt-2 overflow-x-auto scroll-smooth px-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex h-9 w-max items-center gap-2 whitespace-nowrap">
@@ -4271,10 +4459,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 <Link
                   href={addPhotosHref}
                   className={`${navPillButtonClass} ${navPillButtonActiveClass} min-w-[122px]`}
-                  aria-label="Add photos"
+                  aria-label="Add media"
                 >
                   <Plus className="h-4 w-4 shrink-0" />
-                  <span>Add Photos</span>
+                  <span>Add Media</span>
                 </Link>
               )}
 
@@ -4334,6 +4522,27 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   className="hidden shrink-0 items-center gap-1 rounded-full bg-transparent p-1 ring-1 ring-black/5 sm:flex"
                   role="tablist"
                 >
+                  {hasReels && (
+                    <button
+                      role="tab"
+                      aria-selected={activeTab === "reels"}
+                      onClick={() => {
+                        setSelectedPerson(null);
+                        setApsaraTextSearch(null);
+                        setActiveTab("reels");
+                        scrollToGalleryTop();
+                      }}
+                      className={`flex h-8 cursor-pointer items-center gap-2 rounded-full px-3 text-sm font-medium transition ${
+                        activeTab === "reels"
+                          ? "bg-[#1d1d1f] text-white shadow-sm"
+                          : "text-zinc-500 hover:text-zinc-950"
+                      }`}
+                    >
+                      <Video className="h-4 w-4" />
+                      Reels
+                    </button>
+                  )}
+
                   <button
                     role="tab"
                     aria-selected={activeTab === "photos"}
@@ -4350,7 +4559,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     }`}
                   >
                     <Images className="h-4 w-4" />
-                    Photos
+                    All
                   </button>
 
                   {!hideAi && (
@@ -4403,7 +4612,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           </div>
 
           {!selectedPerson &&
-            activeTab === "photos" &&
+            (activeTab === "photos" || activeTab === "reels") &&
             (!isPersonShare || showPersonShareEventTabs) && (
             <div className="flex max-w-full gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <button
@@ -4417,7 +4626,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               >
                 All
                 <span className="ml-2 text-xs opacity-70">
-                  {album.photoCount}
+                  {activeTab === "reels" ? totalReelCount : album.photoCount}
                 </span>
               </button>
 
@@ -4434,7 +4643,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 >
                   {event.name}
                   <span className="ml-2 text-xs opacity-70">
-                    {event.photoCount}
+                    {activeTab === "reels" ? event.videoCount ?? 0 : event.photoCount}
                   </span>
                 </button>
               ))}
@@ -4485,6 +4694,13 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               readOnly={isShareView}
             />
           </section>
+        ) : !isPersonShare && activeTab === "reels" ? (
+          <ReelsFeed
+            reels={visibleReels}
+            eventLabel={selectedEvent?.name ?? "This album"}
+            canUpload={!isShareView}
+            uploadHref={addPhotosHref}
+          />
         ) : !hideAi && apsaraTextSearch ? (
           <SearchResultsGrid
             albumSlug={albumSlug}
@@ -4797,7 +5013,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             <Link
               href={addPhotosHref}
               className="flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-white px-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100"
-              aria-label="Add photos"
+              aria-label="Add media"
             >
               <Plus className="h-4 w-4" />
               <span>Add</span>

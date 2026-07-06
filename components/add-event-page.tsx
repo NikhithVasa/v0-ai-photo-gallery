@@ -18,6 +18,7 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  Video,
   X,
 } from "lucide-react";
 import {
@@ -79,6 +80,9 @@ type AiAction =
 const PHOTO_UPLOAD_MAX_RETRIES = 3;
 const PHOTO_UPLOAD_RETRY_DELAY_MS = 600;
 const PHOTO_UPLOAD_CONCURRENCY = 5;
+const VIDEO_UPLOAD_CONCURRENCY = 3;
+const VIDEO_UPLOAD_ACCEPT = "video/mp4,video/quicktime,video/x-m4v,video/webm";
+const FALLBACK_VIDEO_PART_SIZE_BYTES = 10 * 1024 * 1024;
 const AI_JOB_WAIT_MESSAGE =
   "This can take a while. You can come back later - we will notify you by email when it is ready.";
 const ALBUM_WIDE_AI_ACTIONS = new Set<AiAction>([
@@ -156,6 +160,7 @@ const AI_ACTION_OPTIONS: Array<{
 interface QueuedFile {
   localId: string;
   file: File;
+  kind: "photo" | "reel";
   status: UploadStatus;
   source?: "google-drive" | "google-photos";
   error?: string;
@@ -174,6 +179,28 @@ interface PreparedCoverUpload {
   contentType: string;
 }
 
+interface PreparedVideoUpload {
+  error?: string;
+  video: {
+    id: string;
+    fileName: string;
+    contentType: string;
+    originalS3Key: string;
+    eventSlug: string;
+    eventName: string;
+  };
+  multipart?: boolean;
+  uploadUrl?: string;
+  uploadId?: string;
+  key?: string;
+  partSize?: number;
+}
+
+interface MultipartUploadPart {
+  ETag: string;
+  PartNumber: number;
+}
+
 interface AddEventPageProps {
   albumSlug: string;
   initialEventSlug?: string | null;
@@ -181,6 +208,11 @@ interface AddEventPageProps {
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isSupportedVideoFile(file: File) {
+  if (file.type.startsWith("video/")) return true;
+  return /\.(mp4|mov|m4v|webm)$/i.test(file.name);
 }
 
 async function runWithConcurrency(
@@ -200,6 +232,92 @@ async function runWithConcurrency(
     },
   );
   await Promise.all(runners);
+}
+
+async function postVideoMultipartAction<T>(
+  albumSlug: string,
+  body: Record<string, unknown>,
+) {
+  const response = await fetch(
+    `/api/albums/${encodeURIComponent(albumSlug)}/videos/multipart`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Multipart upload failed");
+  return data as T;
+}
+
+function uploadPartToUrl(url: string, blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", url);
+    request.onload = () => {
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error(`S3 part upload failed (${request.status})`));
+        return;
+      }
+
+      const eTag = request.getResponseHeader("ETag");
+      if (!eTag) {
+        reject(new Error("S3 did not expose the ETag header. Check bucket CORS."));
+        return;
+      }
+
+      resolve(eTag);
+    };
+    request.onerror = () => reject(new Error("S3 part upload failed"));
+    request.onabort = () => reject(new Error("S3 part upload was cancelled"));
+    request.send(blob);
+  });
+}
+
+async function uploadMultipartVideo({
+  albumSlug,
+  file,
+  prepared,
+}: {
+  albumSlug: string;
+  file: File;
+  prepared: PreparedVideoUpload;
+}) {
+  const uploadId = prepared.uploadId;
+  const key = prepared.key || prepared.video.originalS3Key;
+  if (!uploadId || !key) throw new Error("Multipart upload was not prepared");
+
+  const partSize = Math.max(
+    5 * 1024 * 1024,
+    prepared.partSize || FALLBACK_VIDEO_PART_SIZE_BYTES,
+  );
+  const partCount = Math.ceil(file.size / partSize);
+  const parts: MultipartUploadPart[] = [];
+
+  await runWithConcurrency(partCount, VIDEO_UPLOAD_CONCURRENCY, async (index) => {
+    const partNumber = index + 1;
+    const start = index * partSize;
+    const end = Math.min(file.size, start + partSize);
+    const { url } = await postVideoMultipartAction<{ url: string }>(albumSlug, {
+      action: "sign-part",
+      videoId: prepared.video.id,
+      key,
+      uploadId,
+      partNumber,
+    });
+
+    const eTag = await uploadPartToUrl(url, file.slice(start, end));
+    parts[index] = { ETag: eTag, PartNumber: partNumber };
+  });
+
+  await postVideoMultipartAction<{ ok: true }>(albumSlug, {
+    action: "complete",
+    videoId: prepared.video.id,
+    key,
+    uploadId,
+    parts,
+  });
 }
 
 export function AddEventPage({
@@ -236,7 +354,8 @@ export function AddEventPage({
   const [completedUpload, setCompletedUpload] = useState<{
     eventSlug: string;
     eventName: string;
-    count: number;
+    photoCount: number;
+    reelCount: number;
   } | null>(null);
   const coverPreviewUrlRef = useRef<string | null>(null);
   const {
@@ -293,6 +412,8 @@ export function AddEventPage({
     };
   }, [previewUrl]);
   const uploadedCount = queuedFiles.filter((file) => file.status === "uploaded").length;
+  const queuedPhotoCount = queuedFiles.filter((file) => file.kind === "photo").length;
+  const queuedReelCount = queuedFiles.filter((file) => file.kind === "reel").length;
   const filesReadyToUpload = queuedFiles.filter(
     (file) => file.status === "ready" || file.status === "failed",
   );
@@ -322,14 +443,18 @@ export function AddEventPage({
     uploadTarget === "new" ? "Create event and upload" : "Start upload";
   const uploadStarted = queuedFiles.some((file) => file.status !== "ready");
   const mediaSummary = useMemo(() => {
-    if (!queuedFiles.length) return "No photos selected";
+    if (!queuedFiles.length) return "No media selected";
+    const parts = [
+      queuedPhotoCount ? `${queuedPhotoCount} photo${queuedPhotoCount === 1 ? "" : "s"}` : "",
+      queuedReelCount ? `${queuedReelCount} reel${queuedReelCount === 1 ? "" : "s"}` : "",
+    ].filter(Boolean);
     if (uploadStarted) {
-      return `${uploadedCount}/${queuedFiles.length} photo${
+      return `${uploadedCount}/${queuedFiles.length} media file${
         queuedFiles.length === 1 ? "" : "s"
       } uploaded`;
     }
-    return `${queuedFiles.length} photo${queuedFiles.length === 1 ? "" : "s"} selected`;
-  }, [queuedFiles.length, uploadedCount, uploadStarted]);
+    return `${parts.join(" and ")} selected`;
+  }, [queuedFiles.length, queuedPhotoCount, queuedReelCount, uploadedCount, uploadStarted]);
 
   useEffect(() => {
     coverPreviewUrlRef.current = coverPreviewUrl;
@@ -385,16 +510,26 @@ export function AddEventPage({
     files: File[],
     source?: "google-drive" | "google-photos",
   ) => {
-    const images = files.filter(isSupportedImageFile);
-    if (!images.length) return;
+    const media: Array<{ file: File; kind: QueuedFile["kind"] }> = [];
+    for (const file of files) {
+      if (isSupportedImageFile(file)) {
+        media.push({ file, kind: "photo" });
+        continue;
+      }
+      if (isSupportedVideoFile(file)) {
+        media.push({ file, kind: "reel" });
+      }
+    }
+    if (!media.length) return;
 
     setQueuedFiles((current) => [
       ...current,
-      ...images.map((file) => ({
+      ...media.map(({ file, kind }) => ({
         localId: crypto.randomUUID(),
         file,
+        kind,
         status: "ready" as UploadStatus,
-        source,
+        source: kind === "photo" ? source : undefined,
       })),
     ]);
     setErrorMessage("");
@@ -734,6 +869,8 @@ export function AddEventPage({
     const filesToUpload = queuedFiles.filter(
       (item) => item.status === "ready" || item.status === "failed",
     );
+    const photoFilesToUpload = filesToUpload.filter((item) => item.kind === "photo");
+    const reelFilesToUpload = filesToUpload.filter((item) => item.kind === "reel");
 
     if (
       isUploading ||
@@ -752,41 +889,73 @@ export function AddEventPage({
     const completedLocalIds = new Set<string>();
 
     try {
-      const prepareResponse = await fetch("/api/uploads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "existing",
-          albumSlug,
-          eventSlug,
-          eventName: uploadTarget === "new" ? eventName : undefined,
-          files: filesToUpload.map((item) => ({
-            fileName: item.file.name,
-            size: item.file.size,
-            contentType: item.file.type || "application/octet-stream",
-          })),
-        }),
-      });
+      let preparedEvent: { slug: string; name: string } | null = null;
+      let preparedUploads: PreparedUpload[] = [];
+      const completedPhotoIds: string[] = [];
 
-      const prepared = (await prepareResponse.json()) as {
-        error?: string;
-        event?: { slug: string; name: string };
-        uploads?: PreparedUpload[];
-      };
+      if (photoFilesToUpload.length) {
+        const prepareResponse = await fetch("/api/uploads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "existing",
+            albumSlug,
+            eventSlug,
+            eventName: uploadTarget === "new" ? eventName : undefined,
+            files: photoFilesToUpload.map((item) => ({
+              fileName: item.file.name,
+              size: item.file.size,
+              contentType: item.file.type || "application/octet-stream",
+            })),
+          }),
+        });
 
-      if (!prepareResponse.ok || !prepared.uploads?.length || !prepared.event) {
-        throw new Error(prepared.error || "Could not prepare event uploads");
+        const prepared = (await prepareResponse.json()) as {
+          error?: string;
+          event?: { slug: string; name: string };
+          uploads?: PreparedUpload[];
+        };
+
+        if (!prepareResponse.ok || !prepared.uploads?.length || !prepared.event) {
+          throw new Error(prepared.error || "Could not prepare event uploads");
+        }
+
+        preparedEvent = prepared.event;
+        preparedUploads = prepared.uploads;
+      } else if (uploadTarget === "new") {
+        const createResponse = await fetch(
+          `/api/albums/${encodeURIComponent(albumSlug)}/events`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: eventName }),
+          },
+        );
+        const created = (await createResponse.json().catch(() => ({}))) as {
+          error?: string;
+          event?: { slug: string; name: string };
+        };
+
+        if (!createResponse.ok || !created.event) {
+          throw new Error(created.error || "Could not create event");
+        }
+
+        preparedEvent = created.event;
+      } else if (selectedExistingEvent) {
+        preparedEvent = {
+          slug: selectedExistingEvent.slug,
+          name: selectedExistingEvent.name,
+        };
       }
 
-      const preparedUploads = prepared.uploads;
-      const completedPhotoIds: string[] = [];
+      if (!preparedEvent) throw new Error("Could not resolve upload event");
 
       await runWithConcurrency(
         preparedUploads.length,
         PHOTO_UPLOAD_CONCURRENCY,
         async (index) => {
           const upload = preparedUploads[index];
-          const item = filesToUpload[index];
+          const item = photoFilesToUpload[index];
           if (!upload || !item) return;
           let uploadSucceeded = false;
           let lastUploadError = "Upload failed";
@@ -858,41 +1027,111 @@ export function AddEventPage({
         },
       );
 
-      if (!completedPhotoIds.length) {
+      if (photoFilesToUpload.length && !completedPhotoIds.length) {
         throw new Error("No photos were uploaded");
       }
 
-      const completeResponse = await fetch("/api/uploads/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoIds: completedPhotoIds, runAi }),
-      });
-      const completePayload = (await completeResponse.json().catch(() => ({}))) as {
-        error?: string;
-      };
+      if (completedPhotoIds.length) {
+        const completeResponse = await fetch("/api/uploads/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ photoIds: completedPhotoIds, runAi }),
+        });
+        const completePayload = (await completeResponse.json().catch(() => ({}))) as {
+          error?: string;
+        };
 
-      if (!completeResponse.ok) {
-        throw new Error(
-          completePayload.error || "Photos uploaded, but completion failed",
-        );
+        if (!completeResponse.ok) {
+          throw new Error(
+            completePayload.error || "Photos uploaded, but completion failed",
+          );
+        }
       }
 
-      await uploadCover(prepared.event.slug);
+      const completedReelIds: string[] = [];
 
-      if (runAi) {
+      await runWithConcurrency(
+        reelFilesToUpload.length,
+        VIDEO_UPLOAD_CONCURRENCY,
+        async (index) => {
+          const item = reelFilesToUpload[index];
+          if (!item) return;
+          let prepared: PreparedVideoUpload | null = null;
+
+          try {
+            const prepareResponse = await fetch(
+              `/api/albums/${encodeURIComponent(albumSlug)}/videos`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  eventSlug: preparedEvent.slug,
+                  fileName: item.file.name,
+                  size: item.file.size,
+                  contentType: item.file.type || "video/mp4",
+                }),
+              },
+            );
+            prepared = (await prepareResponse.json()) as PreparedVideoUpload;
+            if (!prepareResponse.ok) {
+              throw new Error(prepared.error || "Could not prepare reel upload");
+            }
+
+            if (prepared.multipart) {
+              await uploadMultipartVideo({ albumSlug, file: item.file, prepared });
+            } else {
+              if (!prepared.uploadUrl) throw new Error("Upload URL was not prepared");
+              const uploadResponse = await fetch(prepared.uploadUrl, {
+                method: "PUT",
+                headers: { "Content-Type": prepared.video.contentType },
+                body: item.file,
+              });
+              if (!uploadResponse.ok) {
+                throw new Error(`S3 upload failed (${uploadResponse.status})`);
+              }
+            }
+
+            completedReelIds.push(prepared.video.id);
+            completedLocalIds.add(item.localId);
+            updateFile(item.localId, { status: "uploaded" });
+          } catch (error) {
+            if (prepared?.multipart && prepared.uploadId) {
+              await postVideoMultipartAction(albumSlug, {
+                action: "abort",
+                videoId: prepared.video.id,
+                key: prepared.key || prepared.video.originalS3Key,
+                uploadId: prepared.uploadId,
+              }).catch((abortError) => {
+                console.warn("Failed to abort multipart reel upload", abortError);
+              });
+            }
+
+            throw error;
+          }
+        },
+      );
+
+      if (reelFilesToUpload.length && !completedReelIds.length) {
+        throw new Error("No reels were uploaded");
+      }
+
+      await uploadCover(preparedEvent.slug);
+
+      if (runAi && completedPhotoIds.length) {
         try {
-          await submitAiAction("process_new", [prepared.event.slug]);
+          await submitAiAction("process_new", [preparedEvent.slug]);
         } catch {
           // submitAiAction already surfaces the error; upload success should remain intact.
         }
       }
 
       const encodedAlbumSlug = encodeURIComponent(albumSlug);
-      const encodedEventSlug = encodeURIComponent(prepared.event.slug);
+      const encodedEventSlug = encodeURIComponent(preparedEvent.slug);
       await Promise.all([
         mutateAlbum(),
         mutateSWR(`/api/albums/${encodedAlbumSlug}`),
         mutateSWR(`/api/albums/${encodedAlbumSlug}/stats`),
+        mutateSWR(`/api/albums/${encodedAlbumSlug}/videos`),
         mutateSWR(
           `/api/albums/${encodedAlbumSlug}/photos?event=${encodedEventSlug}`,
         ),
@@ -904,19 +1143,22 @@ export function AddEventPage({
       ]);
 
       toast({
-        title: "Photos uploaded successfully",
+        title: "Media uploaded successfully",
         description: `${completedPhotoIds.length} photo${
           completedPhotoIds.length === 1 ? "" : "s"
-        } added to ${prepared.event.name}.`,
+        } and ${completedReelIds.length} reel${
+          completedReelIds.length === 1 ? "" : "s"
+        } added to ${preparedEvent.name}.`,
       });
 
       setCompletedUpload({
-        eventSlug: prepared.event.slug,
-        eventName: prepared.event.name,
-        count: completedPhotoIds.length,
+        eventSlug: preparedEvent.slug,
+        eventName: preparedEvent.name,
+        photoCount: completedPhotoIds.length,
+        reelCount: completedReelIds.length,
       });
       setUploadTarget("existing");
-      setSelectedExistingEventSlug(prepared.event.slug);
+      setSelectedExistingEventSlug(preparedEvent.slug);
       setTitle("");
       router.refresh();
     } catch (error) {
@@ -997,15 +1239,24 @@ export function AddEventPage({
               >
                 <button
                   type="button"
-                  onClick={() => setPreviewFile(item)}
+                  onClick={() => item.kind === "photo" && setPreviewFile(item)}
                   className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500">
-                    <FileImage className="h-5 w-5" />
+                    {item.kind === "reel" ? (
+                      <Video className="h-5 w-5" />
+                    ) : (
+                      <FileImage className="h-5 w-5" />
+                    )}
                   </span>
-                  <p className="truncate text-sm font-semibold text-zinc-950 transition group-hover:text-zinc-600">
-                    {item.file.name}
-                  </p>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-zinc-950 transition group-hover:text-zinc-600">
+                      {item.file.name}
+                    </span>
+                    <span className="mt-0.5 block text-xs font-medium text-zinc-400">
+                      {item.kind === "reel" ? "Instagram reel" : "Photo"}
+                    </span>
+                  </span>
                 </button>
                 {item.status === "uploaded" && (
                   <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
@@ -1051,7 +1302,7 @@ export function AddEventPage({
               className={`mt-3 text-zinc-400 ${isSide ? "text-lg" : "text-2xl"}`}
             >
               Drop or{" "}
-              <span className="font-semibold text-[#4457ff]">upload from device</span>
+              <span className="font-semibold text-[#4457ff]">upload photos or reels</span>
             </span>
           </button>
         ) : (
@@ -1061,7 +1312,7 @@ export function AddEventPage({
             className="absolute right-4 top-4 z-20 flex h-10 items-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white shadow-lg transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400"
           >
             <Upload className="h-4 w-4" />
-            Add Photos
+            Add Media
           </button>
         )}
 
@@ -1069,7 +1320,7 @@ export function AddEventPage({
           ref={mediaInputRef}
           type="file"
           multiple
-          accept={IMAGE_UPLOAD_ACCEPT}
+          accept={`${IMAGE_UPLOAD_ACCEPT},${VIDEO_UPLOAD_ACCEPT}`}
           className="hidden"
           onChange={(event) => addMedia(event.target.files)}
         />
@@ -1314,7 +1565,7 @@ export function AddEventPage({
                 {album.customer?.name || album.name}
               </p>
               <h1 className="truncate text-lg font-semibold sm:text-xl">
-                Add Photos
+                Add Media
               </h1>
             </div>
           </div>
@@ -1357,12 +1608,14 @@ export function AddEventPage({
                 <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
                 <div className="min-w-0">
                   <p className="font-semibold">
-                    {completedUpload.count} photo{completedUpload.count === 1 ? "" : "s"} added to {completedUpload.eventName}
+                    {completedUpload.photoCount} photo{completedUpload.photoCount === 1 ? "" : "s"} and {completedUpload.reelCount} reel{completedUpload.reelCount === 1 ? "" : "s"} added to {completedUpload.eventName}
                   </p>
                   <p className="mt-1 text-sm text-emerald-800/80">
-                    {runAi
+                    {runAi && completedUpload.photoCount > 0
                       ? "AI processing has been submitted for the new uploads."
-                      : "AI processing is off for this upload."}
+                      : completedUpload.photoCount > 0
+                        ? "AI processing is off for this upload."
+                        : "Reels are ready in the album viewer."}
                   </p>
                 </div>
               </div>

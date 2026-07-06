@@ -18,12 +18,14 @@ interface AlbumRow {
 
 interface AlbumStatsRow {
   photo_count: number | string | null;
+  video_count: number | string | null;
   people_count: number | string | null;
 }
 
 interface EventStatsRow {
   event_id: string;
   photo_count: number | string | null;
+  video_count: number | string | null;
   people_count: number | string | null;
   pending_ai_count: number | string | null;
   failed_ai_count: number | string | null;
@@ -128,6 +130,12 @@ export async function GET(request: Request, { params }: Props) {
             AND COALESCE(p.is_deleted, false) = false
             AND p.upload_status = 'completed'
         ) AS photo_count,
+        (
+          SELECT COUNT(*)::int
+          FROM videos v
+          WHERE v.album_id = $1::uuid
+            AND COALESCE(v.is_deleted, false) = false
+        ) AS video_count,
         (
           SELECT COUNT(*)::int
           FROM people pe
@@ -235,16 +243,27 @@ export async function GET(request: Request, { params }: Props) {
             AND ($2::uuid[] IS NULL OR pes.person_id = ANY($2::uuid[]))
             AND COALESCE(pe.is_hidden, false) = false
           GROUP BY pes.album_event_id
+        ),
+        event_video_counts AS (
+          SELECT
+            album_event_id,
+            COUNT(*)::int AS video_count
+          FROM videos
+          WHERE album_id = $1::uuid
+            AND COALESCE(is_deleted, false) = false
+          GROUP BY album_event_id
         )
         SELECT
           e.id AS event_id,
           COALESCE(epc.photo_count, 0)::int AS photo_count,
+          COALESCE(evc.video_count, 0)::int AS video_count,
           COALESCE(epec.people_count, 0)::int AS people_count,
           COALESCE(epc.pending_ai_count, 0)::int AS pending_ai_count,
           COALESCE(epc.failed_ai_count, 0)::int AS failed_ai_count
         FROM album_events e
         LEFT JOIN event_photo_counts epc ON epc.album_event_id = e.id
         LEFT JOIN event_people_counts epec ON epec.album_event_id = e.id
+        LEFT JOIN event_video_counts evc ON evc.album_event_id = e.id
         WHERE e.album_id = $1::uuid
           AND COALESCE(e.is_deleted, false) = false
         ORDER BY e.sort_order ASC NULLS LAST, e.name ASC
@@ -260,10 +279,12 @@ export async function GET(request: Request, { params }: Props) {
       {
         stats: {
           photoCount: countValue(albumStats?.photo_count ?? 0),
+          videoCount: countValue(albumStats?.video_count ?? 0),
           peopleCount: countValue(albumStats?.people_count ?? 0),
           events: eventStats.map((event) => ({
             eventId: event.event_id,
             photoCount: countValue(event.photo_count),
+            videoCount: countValue(event.video_count),
             peopleCount: countValue(event.people_count),
             pendingAiCount: countValue(event.pending_ai_count),
             failedAiCount: countValue(event.failed_ai_count),

@@ -51,6 +51,7 @@ export interface AlbumEvent {
   sortOrder: number;
   photoSortMode: PhotoSortMode;
   photoCount: number;
+  videoCount?: number;
   peopleCount: number;
   coverPhotoUrl?: string | null;
 }
