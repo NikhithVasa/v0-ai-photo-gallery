@@ -123,7 +123,20 @@ export async function POST(request: Request, { params }: Props) {
         videoId: video.id,
         albumSlug,
         originalS3Key: video.original_s3_key,
+      }).catch((error) => {
+        console.error("Failed to start video playback processing", error);
+        return null;
       });
+
+      if (!playback) {
+        return NextResponse.json({
+          ok: true,
+          key: video.original_s3_key,
+          playbackStatus: "failed",
+          playbackError: "Video uploaded, but processing did not start. Check MediaConvert IAM permissions.",
+        });
+      }
+
       return NextResponse.json({
         ok: true,
         key: video.original_s3_key,

@@ -273,7 +273,11 @@ async function uploadMultipartVideo({
     parts[index] = { ETag: eTag, PartNumber: partNumber };
   });
 
-  await postMultipartAction<{ ok: true }>(albumSlug, {
+  const completed = await postMultipartAction<{
+    ok: true;
+    playbackStatus?: string;
+    playbackError?: string;
+  }>(albumSlug, {
     action: "complete",
     videoId: prepared.video.id,
     key,
@@ -281,6 +285,15 @@ async function uploadMultipartVideo({
     parts,
   });
   onProgress(100);
+  if (completed.playbackStatus === "failed") {
+    toast({
+      title: "Video uploaded",
+      description: completed.playbackError || "Playback processing did not start.",
+      variant: "destructive",
+    });
+    return false;
+  }
+  return true;
 }
 
 async function completeVideoUpload(albumSlug: string, prepared: PreparedVideoUpload) {
@@ -292,8 +305,21 @@ async function completeVideoUpload(albumSlug: string, prepared: PreparedVideoUpl
       body: JSON.stringify({ key: prepared.video.originalS3Key }),
     },
   );
-  const data = (await response.json().catch(() => ({}))) as { error?: string };
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string;
+    playbackStatus?: string;
+    playbackError?: string;
+  };
   if (!response.ok) throw new Error(data.error || "Could not start video processing");
+  if (data.playbackStatus === "failed") {
+    toast({
+      title: "Video uploaded",
+      description: data.playbackError || "Playback processing did not start.",
+      variant: "destructive",
+    });
+    return false;
+  }
+  return true;
 }
 
 interface PreparedTargetUpload {
@@ -678,8 +704,9 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
       prepared = (await prepareResponse.json()) as PreparedVideoUpload & { error?: string };
       if (!prepareResponse.ok) throw new Error(prepared.error || "Could not prepare upload");
 
+      let processingStarted = true;
       if (prepared.multipart) {
-        await uploadMultipartVideo({ albumSlug, file, prepared, onProgress: setUploadProgress });
+        processingStarted = await uploadMultipartVideo({ albumSlug, file, prepared, onProgress: setUploadProgress });
       } else {
         if (!prepared.uploadUrl) throw new Error("Upload URL was not prepared");
         const uploaded = await uploadToUrl(
@@ -690,10 +717,12 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
         );
         if (!uploaded) throw new Error("S3 upload failed");
         setUploadProgress(100);
-        await completeVideoUpload(albumSlug, prepared);
+        processingStarted = await completeVideoUpload(albumSlug, prepared);
       }
 
-      toast({ title: "Video uploaded", description: "Playback is processing and will be available shortly." });
+      if (processingStarted) {
+        toast({ title: "Video uploaded", description: "Playback is processing and will be available shortly." });
+      }
       await mutate();
     } catch (uploadError) {
       if (prepared?.multipart && prepared.uploadId) {
