@@ -622,6 +622,21 @@ function ReelsFeed({
 }) {
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
 
+  const handleWheel = (event: ReactWheelEvent<HTMLElement>) => {
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+    const scroller = event.currentTarget;
+    const atStart = scroller.scrollLeft <= 0;
+    const atEnd =
+      Math.ceil(scroller.scrollLeft + scroller.clientWidth) >=
+      scroller.scrollWidth;
+
+    if ((event.deltaY < 0 && atStart) || (event.deltaY > 0 && atEnd)) return;
+
+    event.preventDefault();
+    scroller.scrollBy({ left: event.deltaY, behavior: "smooth" });
+  };
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -649,12 +664,15 @@ function ReelsFeed({
   if (!reels.length) return null;
 
   return (
-    <section className="h-[calc(100svh-140px)] min-h-[620px] overflow-y-auto overscroll-contain scroll-smooth snap-y snap-mandatory px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:h-[calc(100svh-180px)]">
-      <div className="mx-auto flex w-full max-w-[920px] flex-col items-center gap-12 py-4 sm:py-8">
+    <section
+      onWheel={handleWheel}
+      className="h-[calc(100svh-140px)] min-h-[620px] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth snap-x snap-mandatory px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:h-[calc(100svh-180px)]"
+    >
+      <div className="flex h-full w-max items-center gap-4 py-4 sm:gap-8 sm:py-8">
         {reels.map((reel, index) => (
           <article
             key={reel.id}
-            className="flex min-h-[calc(100svh-180px)] w-full snap-start items-start justify-center sm:min-h-[620px]"
+            className="flex h-full w-[calc(100vw-2rem)] shrink-0 snap-start items-center justify-center sm:w-[min(100vw-2rem,920px)]"
           >
             <div className="relative h-[min(72svh,554px)] w-[min(78vw,255px)] flex-shrink-0 overflow-hidden rounded-2xl bg-black shadow-[0_24px_70px_rgba(0,0,0,0.22)] ring-1 ring-white/60 [contain:content] sm:h-[554px] sm:w-[255px]">
               {reel.playbackStatus === "ready" && reel.videoUrl ? (
