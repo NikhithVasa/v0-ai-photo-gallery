@@ -3,6 +3,13 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
+## Documentation Map
+
+- Customer workflows: [docs/customer/handbook.md](docs/customer/handbook.md)
+- Developer architecture and operations: [docs/developer/handbook.md](docs/developer/handbook.md)
+- Agent repo orientation and playbooks: [docs/agents/handbook.md](docs/agents/handbook.md)
+- Route/API map: [docs/developer/api-map.md](docs/developer/api-map.md)
+
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**

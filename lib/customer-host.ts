@@ -21,6 +21,7 @@ export function getCustomerSlugFromHost(host: string) {
 
   if (!subdomain) return null;
 
+  // Support both customer.saathidesk.com and www.customer.saathidesk.com.
   return stripLeadingWww(subdomain);
 }
 

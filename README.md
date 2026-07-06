@@ -1,54 +1,57 @@
-# v0-ai-photo-gallery
+# SaathiDesk Web App
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+SaathiDesk is a Next.js photo gallery and delivery app for photographers, studios, event teams, and private clients. It supports customer-branded subdomains, album and event organization, AI-assisted culling, person-aware search, share links, passcodes, watermarks, downloads, presets, and media delivery through S3.
 
-## Built with v0
+## Documentation
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+Start with the docs index: [docs/README.md](docs/README.md).
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_ZOcfuMikHlqPQL4lMWx1fuk7yTu8)
+| Audience | Primary guide |
+| --- | --- |
+| Customers and studio teams | [Customer Handbook](docs/customer/handbook.md) |
+| Developers | [Developer Handbook](docs/developer/handbook.md) |
+| AI agents | [Agent Handbook](docs/agents/handbook.md) |
 
-## Getting Started
+Feature-specific guides live in `docs/` as well, including Google integrations, OpenRouter search, LUT presets, frontend data flow, and S3 video upload behavior.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 App Router and React 19.
+- TypeScript, Tailwind CSS, and shadcn/Radix-style UI primitives.
+- Supabase Auth for login sessions.
+- PostgreSQL on RDS for albums, photos, people, shares, presets, and customers.
+- AWS S3 for originals, generated previews, videos, and downloadable media.
+- Resend for the contact form.
+
+## Local Development
+
+Install dependencies and run the dev server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Common checks:
 
-To enable Google login and imports from Google Drive and Google Photos, follow
-[the Google integrations setup guide](docs/google-integrations.md).
+```bash
+pnpm lint
+pnpm build
+pnpm verify:google-photos-picker
+```
 
-To create, upload, and apply `.cube` LUT presets, follow
-[the Preset Marketplace and LUT guide](docs/preset-marketplace-lut-guide.md).
+`pnpm build` runs the Google Photos picker verification script before `next build`.
 
-## Contact form email
+## Environment
 
-The `/contact` form sends messages through Resend. Copy the variables from
-`.env.example` into your local environment and set:
+Copy `.env.example` into your local environment and fill in the required values for the part of the app you are working on. The minimal checked-in example documents Resend. The developer handbook lists the broader Supabase, AWS, RDS, S3, CloudFront, and analytics variables used by the app.
 
-- `RESEND_API_KEY` to your Resend API key.
-- Optionally, set `RESEND_FROM_EMAIL` to a sender on a domain verified in
-  Resend, for example `SaathiDesk <contact@updates.saathidesk.com>`. Until then,
-  the form uses `SaathiDesk <onboarding@resend.dev>`.
+## Built with v0
 
-Messages are delivered to `brunoboy0102@gmail.com`, with the visitor's email
-set as the reply-to address.
+This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below. Every merge to `main` automatically deploys through the configured deployment pipeline.
 
-## Learn More
-
-To learn more, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+[Continue working on v0](https://v0.app/chat/projects/prj_ZOcfuMikHlqPQL4lMWx1fuk7yTu8)
 
 <a href="https://v0.app/chat/api/kiro/clone/NikhithVasa/v0-ai-photo-gallery" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>

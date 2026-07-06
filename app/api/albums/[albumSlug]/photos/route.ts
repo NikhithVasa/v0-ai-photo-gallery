@@ -59,6 +59,8 @@ export async function GET(request: Request, { params }: Props) {
         : "all";
     const shareAccess = await getShareLinkAccess(request, albumSlug);
     const sharePersonIds = shareAccess?.personIds ?? [];
+    // Share links override query-string people filters so guests cannot widen a
+    // person-restricted link by editing URL parameters.
     const personIds = sharePersonIds.length
       ? sharePersonIds
       : requestedPersonIds;

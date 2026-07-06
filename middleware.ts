@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getCustomerSlugFromHost } from "@/lib/customer-host";
 
+// Keep middleware out of asset, API, and generated metadata requests so auth
+// checks and tenant rewrites only run for navigable pages.
 function isAssetOrApiPath(pathname: string) {
   return (
     pathname.startsWith("/api") ||
@@ -19,6 +21,8 @@ function isAssetOrApiPath(pathname: string) {
 function isPublicPath(request: NextRequest, customerSlug: string | null) {
   const { pathname } = request.nextUrl;
 
+  // Album pages are route-public because share tokens and passcodes are checked
+  // deeper in the page/API layer, where the album slug and requested data exist.
   if (pathname === "/" && !customerSlug) return true;
   if (
     pathname === "/login" ||
@@ -151,6 +155,8 @@ export async function middleware(request: NextRequest) {
 
   const url = request.nextUrl.clone();
 
+  // Customer subdomains keep their branded URL while rendering the matching
+  // customer route internally.
   if (pathname === "/") {
     url.pathname = `/customers/${customerSlug}`;
     return withRobotsHeader(

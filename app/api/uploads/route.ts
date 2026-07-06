@@ -234,6 +234,8 @@ function buildPhotoKeys(
   const photoUuid = randomUUID();
   const ext = extensionFromFileName(fileName);
   const stem = safeStem(fileName);
+  // Events can carry an imported source prefix. Normalize bucket or URL-shaped
+  // values back to object-key prefixes before creating derived upload keys.
   const base =
     sourcePrefix
       ?.trim()

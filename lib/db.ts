@@ -51,6 +51,7 @@ export function isConnectionLimitError(error: unknown) {
 }
 
 async function generateAuthToken(): Promise<string> {
+  // Production can omit RDS_PASSWORD and use short-lived IAM auth tokens instead.
   const signer = new Signer({
     hostname: RDS_HOST,
     port: RDS_PORT,
@@ -167,6 +168,8 @@ export async function query<T>(text: string, params?: unknown[]): Promise<T[]> {
       throw normalizeQueryError(error);
     }
 
+    // IAM database tokens expire; reset the warm pool once and retry with a
+    // freshly generated token before surfacing the failure.
     await resetPool();
     return runQuery<T>(text, params);
   }

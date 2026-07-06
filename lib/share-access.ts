@@ -75,6 +75,8 @@ export async function getShareLinkAccess(
   ).catch(() => null);
 
   if (!row) return null;
+  // A matching token is not enough: passcode-protected links need the verified
+  // access cookie before album photo APIs can return restricted data.
   if (!hasValidSharePasscodeAccess(request, token, row.passcode)) return null;
 
   const personIds =

@@ -211,6 +211,8 @@ export async function signedUrl(key?: string | null): Promise<string | null> {
     if (cloudFrontUrl) return cloudFrontUrl;
   }
 
+  // Browser display URLs go through the app so access checks can stay close to
+  // album/share policy instead of exposing direct S3 objects by default.
   return `/api/media?key=${encodeURIComponent(key)}`;
 }
 
