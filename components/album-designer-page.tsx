@@ -71,11 +71,17 @@ const sortOptions: Array<{ value: PhotoSortMode; label: string }> = [
   { value: "rating", label: "Rating" },
 ];
 
+const liquidGlassSurfaceClassName =
+  "border border-white/65 bg-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.94),inset_0_-18px_42px_rgba(255,255,255,0.26),0_22px_65px_rgba(15,23,42,0.10)] ring-1 ring-white/50 backdrop-blur-2xl";
+
+const liquidGlassControlClassName =
+  "border border-white/60 bg-white/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_12px_34px_rgba(15,23,42,0.09)] ring-1 ring-zinc-950/[0.04] backdrop-blur-2xl transition hover:-translate-y-0.5 hover:bg-white/66 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.96),0_18px_42px_rgba(15,23,42,0.12)]";
+
 const controlTileClassName =
-  "rounded-[18px] border border-zinc-200/70 bg-white/85 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_30px_rgba(15,23,42,0.04)] backdrop-blur";
+  `rounded-[18px] p-3 ${liquidGlassSurfaceClassName}`;
 
 const inspectorSectionClassName =
-  "rounded-[26px] border border-white/80 bg-white/85 p-4 shadow-[0_18px_55px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.03] backdrop-blur-xl";
+  `rounded-[28px] p-4 ${liquidGlassSurfaceClassName}`;
 
 const templateOptions = [
   {
@@ -310,8 +316,8 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f5f7] text-zinc-950">
-      <header className="sticky top-0 z-30 border-b border-white/80 bg-[#f5f5f7]/86 px-4 py-3 text-zinc-950 shadow-[0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-xl sm:px-6">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_14%_-8%,rgba(255,255,255,0.96),transparent_32%),radial-gradient(circle_at_88%_10%,rgba(186,230,253,0.45),transparent_28%),radial-gradient(circle_at_72%_82%,rgba(252,231,243,0.48),transparent_34%),linear-gradient(135deg,#f5f5f7,#eef0f3_48%,#ffffff)] text-zinc-950">
+      <header className={`sticky top-0 z-30 px-4 py-3 text-zinc-950 sm:px-6 ${liquidGlassSurfaceClassName}`}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <Button
@@ -319,7 +325,7 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
               variant="ghost"
               size="icon"
               asChild
-              className="shrink-0 rounded-full bg-white/70 text-zinc-700 shadow-sm ring-1 ring-zinc-950/10 hover:bg-white hover:text-zinc-950"
+              className={`shrink-0 rounded-full text-zinc-700 hover:text-zinc-950 ${liquidGlassControlClassName}`}
             >
               <Link href={backHref} aria-label="Back to album">
                 <ArrowLeft className="h-4 w-4" />
@@ -339,8 +345,8 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
             <span
               className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold ring-1 ${
                 hasUnsavedChanges
-                  ? "bg-amber-50 text-amber-800 ring-amber-200"
-                  : "bg-emerald-50 text-emerald-800 ring-emerald-200"
+                  ? "border-amber-200/70 bg-amber-50/58 text-amber-800 ring-amber-100/70 backdrop-blur-2xl"
+                  : "border-emerald-200/70 bg-emerald-50/58 text-emerald-800 ring-emerald-100/70 backdrop-blur-2xl"
               }`}
               aria-live="polite"
             >
@@ -355,7 +361,7 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
               type="button"
               onClick={save}
               disabled={isSaving || !hasUnsavedChanges}
-              className="rounded-full bg-zinc-950 px-4 text-white shadow-[0_12px_30px_rgba(24,24,27,0.18)] hover:bg-zinc-800 disabled:bg-zinc-300 disabled:text-zinc-500"
+              className="rounded-full border border-zinc-950/80 bg-zinc-950/88 px-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_14px_34px_rgba(24,24,27,0.20)] backdrop-blur-2xl hover:bg-zinc-900 disabled:border-zinc-300 disabled:bg-white/45 disabled:text-zinc-500"
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Save design
@@ -365,11 +371,11 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
       </header>
 
       <div className="grid min-h-[calc(100vh-73px)] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <section className="min-h-0 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.98),transparent_34%),linear-gradient(135deg,#f5f5f7,#eef0f3_52%,#ffffff)] p-3 sm:p-6 lg:h-[calc(100vh-73px)] lg:overflow-y-auto">
+        <section className="min-h-0 p-3 sm:p-6 lg:h-[calc(100vh-73px)] lg:overflow-y-auto">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-4 flex flex-col gap-3 rounded-[26px] border border-white/80 bg-white/72 p-3 text-zinc-950 shadow-[0_18px_60px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.03] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+            <div className={`mb-4 flex flex-col gap-3 rounded-[28px] p-3 text-zinc-950 sm:flex-row sm:items-center sm:justify-between ${liquidGlassSurfaceClassName}`}>
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-950 text-white shadow-[0_12px_26px_rgba(24,24,27,0.18)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-950/80 bg-zinc-950/88 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_12px_26px_rgba(24,24,27,0.18)] backdrop-blur-2xl">
                   <Images className="h-5 w-5" />
                 </div>
                 <div>
@@ -384,10 +390,10 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
                 <button
                   type="button"
                   onClick={() => setSelectedEventSlug(null)}
-                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold ${
                     !selectedEventSlug
-                      ? "bg-zinc-950 text-white shadow-[0_10px_24px_rgba(24,24,27,0.16)]"
-                      : "bg-white/75 text-zinc-600 ring-1 ring-zinc-950/10 hover:bg-white hover:text-zinc-950"
+                      ? "border border-zinc-950/80 bg-zinc-950/88 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_24px_rgba(24,24,27,0.16)] backdrop-blur-2xl"
+                      : `${liquidGlassControlClassName} text-zinc-600 hover:text-zinc-950`
                   }`}
                 >
                   All
@@ -399,8 +405,8 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
                     onClick={() => setSelectedEventSlug(event.slug)}
                     className={`max-w-[220px] shrink-0 truncate rounded-full px-4 py-2 text-sm font-semibold transition ${
                       selectedEventSlug === event.slug
-                        ? "bg-zinc-950 text-white shadow-[0_10px_24px_rgba(24,24,27,0.16)]"
-                        : "bg-white/75 text-zinc-600 ring-1 ring-zinc-950/10 hover:bg-white hover:text-zinc-950"
+                        ? "border border-zinc-950/80 bg-zinc-950/88 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_24px_rgba(24,24,27,0.16)] backdrop-blur-2xl"
+                        : `${liquidGlassControlClassName} text-zinc-600 hover:text-zinc-950`
                     }`}
                   >
                     {event.name}
@@ -443,9 +449,9 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
           </div>
         </section>
 
-        <aside className="border-t border-white/80 bg-[#f5f5f7]/92 p-4 backdrop-blur-xl lg:sticky lg:top-[73px] lg:h-[calc(100vh-73px)] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:border-white/80 lg:p-5">
+        <aside className="border-t border-white/65 bg-white/28 p-4 backdrop-blur-2xl lg:sticky lg:top-[73px] lg:h-[calc(100vh-73px)] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:border-white/65 lg:p-5">
           <div className="space-y-5 pb-6">
-            <div className="sticky top-0 z-30 rounded-[26px] border border-white/80 bg-white/80 p-2 shadow-[0_18px_55px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.03] backdrop-blur-xl">
+            <div className={`sticky top-0 z-30 rounded-[28px] p-2 ${liquidGlassSurfaceClassName}`}>
               <div className="grid grid-cols-3 gap-2">
                 {designerPanelOptions.map((option) => {
                   const Icon = option.icon;
@@ -459,8 +465,8 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
                       aria-pressed={isActive}
                       className={`flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-[20px] px-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
                         isActive
-                          ? "bg-zinc-950 text-white shadow-[0_12px_28px_rgba(24,24,27,0.18)]"
-                          : "bg-white/55 text-zinc-500 ring-1 ring-zinc-950/5 hover:bg-white hover:text-zinc-950"
+                            ? "border border-zinc-950/80 bg-zinc-950/88 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_12px_28px_rgba(24,24,27,0.18)] backdrop-blur-2xl"
+                            : `${liquidGlassControlClassName} text-zinc-500 hover:text-zinc-950`
                       }`}
                     >
                       <Icon className="h-4 w-4" />
