@@ -115,6 +115,14 @@ const templateOptions = [
   },
 ] as const;
 
+type DesignerPanel = "templates" | "gallery" | "typography";
+
+const designerPanelOptions = [
+  { value: "templates", label: "Templates", icon: Palette },
+  { value: "gallery", label: "Gallery", icon: SlidersHorizontal },
+  { value: "typography", label: "Typography", icon: Type },
+] as const;
+
 function titleStyle(settings: AlbumDesignSettings): CSSProperties {
   const font =
     fontOptions.find((option) => option.value === settings.titleFont) ??
@@ -199,6 +207,7 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
   const [selectedEventSlug, setSelectedEventSlug] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState("Loading design...");
+  const [activePanel, setActivePanel] = useState<DesignerPanel>("templates");
 
   useEffect(() => {
     if (!album) return;
@@ -244,8 +253,8 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
             ? {
                 album: {
                   ...current.album,
-                  designSettings: saved,
                   photoSortMode: saved.imageSortMode,
+                  designSettings: saved,
                 },
               }
             : current,
@@ -436,7 +445,34 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
 
         <aside className="border-t border-white/80 bg-[#f5f5f7]/92 p-4 backdrop-blur-xl lg:sticky lg:top-[73px] lg:h-[calc(100vh-73px)] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:border-white/80 lg:p-5">
           <div className="space-y-5 pb-6">
-            <section className={`${inspectorSectionClassName} lg:sticky lg:top-4 lg:z-20`}>
+            <div className="sticky top-0 z-30 rounded-[26px] border border-white/80 bg-white/80 p-2 shadow-[0_18px_55px_rgba(15,23,42,0.08)] ring-1 ring-zinc-950/[0.03] backdrop-blur-xl">
+              <div className="grid grid-cols-3 gap-2">
+                {designerPanelOptions.map((option) => {
+                  const Icon = option.icon;
+                  const isActive = activePanel === option.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setActivePanel(option.value)}
+                      aria-pressed={isActive}
+                      className={`flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-[20px] px-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-zinc-950/20 ${
+                        isActive
+                          ? "bg-zinc-950 text-white shadow-[0_12px_28px_rgba(24,24,27,0.18)]"
+                          : "bg-white/55 text-zinc-500 ring-1 ring-zinc-950/5 hover:bg-white hover:text-zinc-950"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="truncate">{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {activePanel === "gallery" && (
+              <section className={inspectorSectionClassName}>
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-950 text-white shadow-[0_12px_26px_rgba(24,24,27,0.18)]">
                   <SlidersHorizontal className="h-5 w-5" />
@@ -533,8 +569,10 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
                 </div>
               </div>
             </section>
+            )}
 
-            <section className={inspectorSectionClassName}>
+            {activePanel === "templates" && (
+              <section className={inspectorSectionClassName}>
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-950 text-white shadow-[0_12px_26px_rgba(24,24,27,0.18)]">
                   <Palette className="h-5 w-5" />
@@ -584,8 +622,10 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
                 })}
               </div>
             </section>
+            )}
 
-            <section className={inspectorSectionClassName}>
+            {activePanel === "typography" && (
+              <section className={inspectorSectionClassName}>
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-950 text-white shadow-[0_12px_26px_rgba(24,24,27,0.18)]">
                   <Type className="h-5 w-5" />
@@ -626,6 +666,7 @@ export function AlbumDesignerPage({ albumSlug }: { albumSlug: string }) {
                 />
               </div>
             </section>
+            )}
 
             <section className="rounded-[22px] border border-dashed border-zinc-300/80 bg-white/60 p-4 text-sm text-zinc-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
               <div className="mb-2 flex items-center gap-2 font-semibold text-zinc-700">
