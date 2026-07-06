@@ -8,6 +8,7 @@
 | --- | --- |
 | `db.ts` | PostgreSQL pool, RDS IAM token retry, transactions, DB error responses. |
 | `s3.ts` | S3 client, signed uploads/downloads, object reads/writes, media URL helpers. |
+| `video-playback.ts` | MediaConvert playback normalization, playback schema compatibility, and job status refresh. |
 | `gallery-data.ts` | Database row to API/UI photo, event, and person conversion. |
 | `auth-access.ts` | Admin and customer access helpers. |
 | `album-access.ts` | Album access decisions. |

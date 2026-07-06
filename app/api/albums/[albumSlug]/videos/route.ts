@@ -4,6 +4,10 @@ import { query, queryOne } from "@/lib/db";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 import { createMultipartUpload, signedObjectUrl, signedUploadUrl, signedUrl } from "@/lib/s3";
+import {
+  ensureVideoPlaybackSchema,
+  refreshPendingVideoPlaybackJobs,
+} from "@/lib/video-playback";
 
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const VIDEO_UPLOAD_PART_SIZE_BYTES = 10 * 1024 * 1024;
@@ -51,6 +55,11 @@ interface VideoRow {
   runpod_job_id: string | null;
   detection_status: string | null;
   detection_error: string | null;
+  playback_status: string | null;
+  playback_s3_key: string | null;
+  playback_error: string | null;
+  mediaconvert_job_id: string | null;
+  mediaconvert_job_status: string | null;
   result_json: Record<string, unknown> | null;
   match_count: number | string | null;
   created_at: Date | string | null;
@@ -317,7 +326,14 @@ async function toVideo(row: VideoRow) {
     customerId: row.customer_id,
     fileName: row.file_name,
     originalS3Key: row.original_s3_key,
-    videoUrl: await signedUrl(row.original_s3_key),
+    videoUrl: row.playback_status === "ready"
+      ? await signedUrl(row.playback_s3_key || row.original_s3_key)
+      : null,
+    playbackStatus: row.playback_status ?? "ready",
+    playbackError: row.playback_error,
+    playbackS3Key: row.playback_s3_key,
+    mediaConvertJobId: row.mediaconvert_job_id,
+    mediaConvertJobStatus: row.mediaconvert_job_status,
     durationSec: numberValue(row.duration_sec),
     model: row.model,
     detectionParams: row.detection_params ?? {},
@@ -359,6 +375,9 @@ export async function GET(request: Request, { params }: Props) {
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;
 
+    await ensureVideoPlaybackSchema();
+    await refreshPendingVideoPlaybackJobs(albumSlug);
+
     const album = await albumBySlug(albumSlug);
     if (!album) return NextResponse.json({ error: "Album not found" }, { status: 404 });
 
@@ -393,6 +412,11 @@ export async function GET(request: Request, { params }: Props) {
         v.runpod_job_id,
         v.detection_status,
         v.detection_error,
+        v.playback_status,
+        v.playback_s3_key,
+        v.playback_error,
+        v.mediaconvert_job_id,
+        v.mediaconvert_job_status,
         v.result_json,
         v.match_count,
         v.created_at,
@@ -452,6 +476,8 @@ export async function POST(request: Request, { params }: Props) {
     const accessDenied = await requireAlbumCustomerAccess(albumSlug);
     if (accessDenied) return accessDenied;
 
+    await ensureVideoPlaybackSchema();
+
     const body = (await request.json()) as VideoUploadBody;
     const fileName = body.fileName?.trim();
     const eventSlug = body.eventSlug?.trim();
@@ -484,6 +510,7 @@ export async function POST(request: Request, { params }: Props) {
         original_s3_key,
         storage_album_slug,
         storage_event_slug,
+        playback_status,
         detection_status,
         created_at,
         updated_at
@@ -497,6 +524,7 @@ export async function POST(request: Request, { params }: Props) {
         $6,
         $7,
         $8,
+        'uploading',
         'pending',
         now(),
         now()

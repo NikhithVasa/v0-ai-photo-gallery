@@ -270,6 +270,8 @@ interface AlbumReel {
   eventName: string | null;
   fileName: string | null;
   videoUrl: string | null;
+  playbackStatus?: "uploading" | "processing" | "ready" | "failed" | string;
+  playbackError?: string | null;
   createdAt: string | null;
 }
 
@@ -683,7 +685,7 @@ function ReelsFeed({
             className="flex min-h-[calc(100svh-180px)] w-full snap-start items-start justify-center sm:min-h-[620px]"
           >
             <div className="relative h-[min(72svh,554px)] w-[min(78vw,255px)] flex-shrink-0 overflow-hidden rounded-2xl bg-black shadow-[0_24px_70px_rgba(0,0,0,0.22)] ring-1 ring-white/60 [contain:content] sm:h-[554px] sm:w-[255px]">
-              {reel.videoUrl ? (
+              {reel.playbackStatus === "ready" && reel.videoUrl ? (
                 <video
                   ref={(node) => {
                     if (node) videoRefs.current.set(reel.id, node);
@@ -699,8 +701,18 @@ function ReelsFeed({
                   controls
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-white/50">
-                  <Video className="h-10 w-10" />
+                <div className="flex h-full w-full flex-col items-center justify-center px-5 text-center text-white/60">
+                  {reel.playbackStatus === "failed" ? (
+                    <X className="h-10 w-10 text-rose-200" />
+                  ) : (
+                    <Loader2 className="h-10 w-10 animate-spin" />
+                  )}
+                  <p className="mt-3 text-sm font-semibold text-white">
+                    {reel.playbackStatus === "failed" ? "Video processing failed" : "Video is processing. Please wait."}
+                  </p>
+                  {reel.playbackError ? (
+                    <p className="mt-2 line-clamp-3 text-xs text-white/55">{reel.playbackError}</p>
+                  ) : null}
                 </div>
               )}
 
@@ -2670,7 +2682,9 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       : null,
     fetcher,
     {
-      dedupingInterval: 5 * 60 * 1000,
+      dedupingInterval: 5 * 1000,
+      refreshInterval: (latest) =>
+        latest?.videos.some((video) => video.playbackStatus === "processing" || video.playbackStatus === "uploading") ? 5000 : 0,
       revalidateOnFocus: false,
     },
   );
@@ -2759,7 +2773,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     () =>
       allReels.filter(
         (reel) =>
-          reel.videoUrl &&
           (!effectiveEventSlug || reel.eventSlug === effectiveEventSlug),
       ),
     [allReels, effectiveEventSlug],
