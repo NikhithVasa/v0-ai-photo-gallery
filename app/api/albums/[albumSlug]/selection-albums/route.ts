@@ -98,19 +98,22 @@ function numberValue(value: number | string | null) {
 
 async function availableAlbumSlug(name: string) {
   const baseSlug = slugify(name);
-  const existing = await queryOne<{ id: string }>(
-    `
-    SELECT id
-    FROM albums
-    WHERE slug = $1
-      AND COALESCE(is_deleted, false) = false
-    LIMIT 1
-    `,
-    [baseSlug],
-  );
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const candidate = attempt === 0 ? baseSlug : `${baseSlug}-${randomUUID().slice(0, 8)}`;
+    const existing = await queryOne<{ id: string }>(
+      `
+      SELECT id
+      FROM albums
+      WHERE slug = $1
+      LIMIT 1
+      `,
+      [candidate],
+    );
 
-  if (!existing) return baseSlug;
-  return `${baseSlug}-${randomUUID().slice(0, 8)}`;
+    if (!existing) return candidate;
+  }
+
+  return `${baseSlug}-${randomUUID()}`;
 }
 
 function buildPhotoKeys(albumSlug: string, eventSlug: string, fileName: string) {
