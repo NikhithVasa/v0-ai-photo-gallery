@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
-import { queryOne, withTransaction } from "@/lib/db";
+import { query, queryOne, withTransaction } from "@/lib/db";
 import { customerPublicUrl } from "@/lib/customer-host";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
+import { copyS3Object } from "@/lib/s3";
+
+const DEFAULT_AI_WORKER_LAMBDA_URL =
+  "https://ytwjenx44g62fzjrrb2wdad6gi0pnbrt.lambda-url.us-east-1.on.aws/";
 
 interface Props {
   params: Promise<{ albumSlug: string }>;
@@ -22,11 +26,27 @@ interface ShareRow {
   token: string;
 }
 
-interface SelectionEventRow {
+interface SourcePhotoRow {
   id: string;
-  slug: string;
-  name: string;
-  copied_count: number | string | null;
+  file_name: string | null;
+  file_size_bytes: number | string | null;
+  width: number | null;
+  height: number | null;
+  source_key: string | null;
+  ai_input_s3_key: string | null;
+  clean_preview_s3_key: string | null;
+  watermarked_preview_s3_key: string | null;
+  thumbnail_s3_key: string | null;
+  annotated_s3_key: string | null;
+  caption: string | null;
+  search_text: string | null;
+}
+
+interface PreparedPhotoCopy extends SourcePhotoRow {
+  photoUuid: string;
+  originalS3Key: string;
+  aiInputS3Key: string;
+  annotatedS3Key: string;
 }
 
 function slugify(value: string) {
@@ -58,25 +78,53 @@ function cleanName(value: unknown) {
   return value.trim().replace(/\s+/g, " ").slice(0, 120);
 }
 
-async function newEventSlug(albumId: string, name: string) {
+function safeStem(fileName: string) {
+  const withoutExt = fileName.replace(/\.[^.]+$/, "");
+  return slugify(withoutExt);
+}
+
+function extensionFromFileName(fileName: string) {
+  const match = fileName.toLowerCase().match(
+    /\.(jpe?g|jpe|png|webp|gif|avif|heic|heif|nef|cr2|arw|dng|tiff?|bmp|jfif)$/,
+  );
+  return match ? `.${match[1]}` : ".jpg";
+}
+
+function numberValue(value: number | string | null) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number.parseInt(value, 10) || null;
+  return null;
+}
+
+async function availableAlbumSlug(name: string) {
   const baseSlug = slugify(name);
   const existing = await queryOne<{ id: string }>(
     `
     SELECT id
-    FROM album_events
-    WHERE album_id = $1::uuid
-      AND (slug = $2 OR lower(name) = lower($3))
+    FROM albums
+    WHERE slug = $1
       AND COALESCE(is_deleted, false) = false
     LIMIT 1
     `,
-    [albumId, baseSlug, name],
+    [baseSlug],
   );
 
-  if (existing) {
-    throw new Error("An event with this name already exists");
-  }
+  if (!existing) return baseSlug;
+  return `${baseSlug}-${randomUUID().slice(0, 8)}`;
+}
 
-  return baseSlug;
+function buildPhotoKeys(albumSlug: string, eventSlug: string, fileName: string) {
+  const photoUuid = randomUUID();
+  const ext = extensionFromFileName(fileName);
+  const stem = safeStem(fileName);
+  const base = `albums/${albumSlug}/events/${eventSlug}`;
+
+  return {
+    photoUuid,
+    originalS3Key: `${base}/originals/${photoUuid}_${stem}${ext}`,
+    aiInputS3Key: `${base}/ai-input/${photoUuid}.webp`,
+    annotatedS3Key: `${base}/annotated/${photoUuid}.jpg`,
+  };
 }
 
 function albumShareUrl(request: Request, albumSlug: string, token: string, customerSlug: string | null) {
@@ -86,10 +134,76 @@ function albumShareUrl(request: Request, albumSlug: string, token: string, custo
   return `${baseUrl}?share=${encodeURIComponent(token)}`;
 }
 
-function selectionShareUrl(request: Request, album: AlbumRow, eventSlug: string, token: string) {
+function selectionShareUrl(request: Request, album: AlbumRow, token: string) {
   const url = new URL(albumShareUrl(request, album.slug, token, album.customer_slug));
-  url.searchParams.set("event", eventSlug);
   return url.toString();
+}
+
+function aiWorkerAdminKey() {
+  return (
+    process.env.ADMIN_KEY ||
+    process.env.AI_WORKER_ADMIN_KEY ||
+    process.env.RUNPOD_ADMIN_KEY ||
+    ""
+  ).trim();
+}
+
+async function startAiWorker(album: AlbumRow, event: { id: string; slug: string; name: string }) {
+  const adminKey = aiWorkerAdminKey();
+  if (!adminKey) return { configured: false, error: "AI worker admin key is not configured" };
+
+  const lambdaUrl =
+    process.env.AI_WORKER_LAMBDA_URL?.trim() || DEFAULT_AI_WORKER_LAMBDA_URL;
+  const input = {
+    mode: "album_pipeline",
+    album_slug: album.slug,
+    album_name: album.name,
+    events: [
+      {
+        name: event.name,
+        slug: event.slug,
+        source_prefix: `albums/${album.slug}/events/${event.slug}/originals/`,
+      },
+    ],
+    cleanup_temp: false,
+    steps: {
+      ingest: false,
+      compress: true,
+      image_embedding: true,
+      face_index: true,
+      safe_people_reconcile: true,
+      crop_person_covers: true,
+      enqueue_qwen: true,
+      rebuild_people: true,
+      qwen: true,
+      embeddings: true,
+      culling: true,
+      cleanup_temp: false,
+    },
+  };
+
+  const response = await fetch(lambdaUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-key": adminKey,
+    },
+    body: JSON.stringify({
+      albumId: album.id,
+      eventId: event.id,
+      mode: "new_photos_only",
+      full_mode: false,
+      input,
+    }),
+  });
+  const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+  return {
+    configured: true,
+    ok: response.ok && payload.ok !== false,
+    status: response.status,
+    payload,
+  };
 }
 
 async function fetchAlbum(albumSlug: string) {
@@ -189,6 +303,73 @@ async function getOrCreateShareToken(album: AlbumRow) {
   return inserted.token;
 }
 
+async function fetchSourcePhotos(albumId: string, photoIds: string[]) {
+  const rows = await query<SourcePhotoRow>(
+    `
+    WITH selected AS (
+      SELECT input.photo_id, input.position
+      FROM unnest($2::uuid[]) WITH ORDINALITY AS input(photo_id, position)
+    )
+    SELECT
+      p.id,
+      p.file_name,
+      p.file_size_bytes,
+      p.width,
+      p.height,
+      COALESCE(
+        p.original_s3_key,
+        p.source_s3_key,
+        p.ai_input_s3_key,
+        p.clean_preview_s3_key,
+        p.watermarked_preview_s3_key,
+        p.thumbnail_s3_key
+      ) AS source_key,
+      p.ai_input_s3_key,
+      p.clean_preview_s3_key,
+      p.watermarked_preview_s3_key,
+      p.thumbnail_s3_key,
+      p.annotated_s3_key,
+      p.caption,
+      p.search_text
+    FROM selected
+    JOIN photos p
+      ON p.id = selected.photo_id
+     AND p.album_id = $1::uuid
+     AND COALESCE(p.is_deleted, false) = false
+    WHERE COALESCE(
+      p.original_s3_key,
+      p.source_s3_key,
+      p.ai_input_s3_key,
+      p.clean_preview_s3_key,
+      p.watermarked_preview_s3_key,
+      p.thumbnail_s3_key
+    ) IS NOT NULL
+    ORDER BY selected.position
+    `,
+    [albumId, photoIds],
+  );
+
+  if (rows.length !== photoIds.length) {
+    throw new Error("Some selected photos could not be copied");
+  }
+
+  return rows;
+}
+
+async function copyPreparedPhotoObjects(photos: PreparedPhotoCopy[]) {
+  for (let index = 0; index < photos.length; index += 8) {
+    const chunk = photos.slice(index, index + 8);
+    await Promise.all(
+      chunk.map((photo) =>
+        copyS3Object({
+          sourceKey: photo.source_key as string,
+          destinationKey: photo.originalS3Key,
+        }),
+      ),
+    );
+  }
+}
+
 export async function POST(request: Request, { params }: Props) {
   try {
     const { albumSlug } = await params;
@@ -197,13 +378,19 @@ export async function POST(request: Request, { params }: Props) {
 
     const body = (await request.json()) as {
       name?: unknown;
+      albumName?: unknown;
+      eventName?: unknown;
       photoIds?: unknown;
     };
-    const name = cleanName(body.name);
+    const albumName = cleanName(body.albumName ?? body.name);
+    const eventName = cleanName(body.eventName);
     const photoIds = uniqueUuidList(body.photoIds);
 
-    if (!name) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    if (!albumName || !eventName) {
+      return NextResponse.json(
+        { error: "Album name and event name are required" },
+        { status: 400 },
+      );
     }
 
     if (!photoIds.length) {
@@ -218,11 +405,63 @@ export async function POST(request: Request, { params }: Props) {
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
 
-    const eventSlug = await newEventSlug(album.id, name);
-    const photoUuids = photoIds.map(() => randomUUID());
-    const token = await getOrCreateShareToken(album);
+    const newAlbumSlug = await availableAlbumSlug(albumName);
+    const newEventSlug = slugify(eventName);
+    const sourcePhotos = await fetchSourcePhotos(album.id, photoIds);
+    const preparedPhotos: PreparedPhotoCopy[] = sourcePhotos.map((photo) => {
+      const keys = buildPhotoKeys(
+        newAlbumSlug,
+        newEventSlug,
+        photo.file_name || `${photo.id}.jpg`,
+      );
 
-    const event = await withTransaction(async (client) => {
+      return {
+        ...photo,
+        ...keys,
+      };
+    });
+
+    await copyPreparedPhotoObjects(preparedPhotos);
+
+    const created = await withTransaction(async (client) => {
+      const insertedAlbum = await client.query<AlbumRow>(
+        `
+        INSERT INTO albums(
+          name,
+          slug,
+          description,
+          album_date,
+          expires_at,
+          customer_id,
+          password_hash,
+          password_required,
+          created_by,
+          watermark_enabled,
+          created_at,
+          updated_at
+        )
+        SELECT
+          $2,
+          $3,
+          a.description,
+          a.album_date,
+          a.expires_at,
+          a.customer_id,
+          NULL,
+          false,
+          'culling-selection-create',
+          COALESCE(a.watermark_enabled, false),
+          now(),
+          now()
+        FROM albums a
+        WHERE a.id = $1::uuid
+        RETURNING id, slug, name, customer_id, NULL::text AS customer_name, $4::text AS customer_slug
+        `,
+        [album.id, albumName, newAlbumSlug, album.customer_slug],
+      );
+      const newAlbum = insertedAlbum.rows[0];
+      if (!newAlbum) throw new Error("Could not create album");
+
       const insertedEvent = await client.query<{ id: string; slug: string; name: string }>(
         `
         INSERT INTO album_events(album_id, customer_id, name, slug, sort_order, created_at, updated_at)
@@ -231,186 +470,184 @@ export async function POST(request: Request, { params }: Props) {
           $2::uuid,
           $3,
           $4,
-          COALESCE((SELECT MAX(sort_order) + 1 FROM album_events WHERE album_id = $1::uuid), 1),
+          1,
           now(),
           now()
         )
         RETURNING id, slug, name
         `,
-        [album.id, album.customer_id, name, eventSlug],
+        [newAlbum.id, album.customer_id, eventName, newEventSlug],
       );
       const targetEvent = insertedEvent.rows[0];
-      if (!targetEvent) throw new Error("Could not create selection album");
+      if (!targetEvent) throw new Error("Could not create event");
 
-      const copied = await client.query<{ source_photo_id: string; copied_photo_id: string }>(
+      const insertedPhotos = await client.query<{ id: string }>(
         `
-        WITH selected AS (
-          SELECT input.source_photo_id, input.photo_uuid, input.position
-          FROM unnest($2::uuid[], $3::uuid[]) WITH ORDINALITY AS input(source_photo_id, photo_uuid, position)
-        ),
-        copied AS (
-          INSERT INTO photos(
-            album_id,
-            album_event_id,
-            photo_uuid,
-            source_s3_key,
-            storage_album_slug,
-            storage_event_slug,
-            file_name,
-            file_size_bytes,
-            width,
-            height,
-            original_s3_key,
-            ai_input_s3_key,
-            clean_preview_s3_key,
-            watermarked_preview_s3_key,
-            thumbnail_s3_key,
-            annotated_s3_key,
-            caption,
-            search_text,
-            upload_status,
-            compression_status,
-            watermark_status,
-            face_index_status,
-            qwen_status,
-            search_index_status,
-            custom_sort_order,
-            created_at,
-            updated_at
-          )
-          SELECT
-            p.album_id,
-            $4::uuid,
-            selected.photo_uuid,
-            NULL,
-            p.storage_album_slug,
-            $5,
-            p.file_name,
-            p.file_size_bytes,
-            p.width,
-            p.height,
-            NULL,
-            p.ai_input_s3_key,
-            p.clean_preview_s3_key,
-            p.watermarked_preview_s3_key,
-            p.thumbnail_s3_key,
-            p.annotated_s3_key,
-            p.caption,
-            p.search_text,
-            p.upload_status,
-            p.compression_status,
-            p.watermark_status,
-            p.face_index_status,
-            p.qwen_status,
-            p.search_index_status,
-            selected.position::int,
-            now(),
-            now()
-          FROM selected
-          JOIN photos p
-            ON p.id = selected.source_photo_id
-           AND p.album_id = $1::uuid
-           AND COALESCE(p.is_deleted, false) = false
-          ORDER BY selected.position
-          RETURNING id AS copied_photo_id, photo_uuid
-        )
-        SELECT selected.source_photo_id, copied.copied_photo_id
-        FROM selected
-        JOIN copied ON copied.photo_uuid = selected.photo_uuid
-        ORDER BY selected.position
-        `,
-        [album.id, photoIds, photoUuids, targetEvent.id, targetEvent.slug],
-      );
-
-      if (copied.rows.length !== photoIds.length) {
-        throw new Error("Some selected photos could not be copied");
-      }
-
-      await client.query(
-        `
-        WITH copied AS (
-          SELECT input.source_photo_id, input.copied_photo_id
-          FROM unnest($2::uuid[], $3::uuid[]) AS input(source_photo_id, copied_photo_id)
-        )
-        INSERT INTO photo_people(
+        INSERT INTO photos(
           album_id,
           album_event_id,
-          photo_id,
-          person_id,
-          person_label,
-          face_ids,
-          co_person_ids,
+          photo_uuid,
+          source_s3_key,
+          storage_album_slug,
+          storage_event_slug,
+          file_name,
+          file_size_bytes,
+          width,
+          height,
+          original_s3_key,
+          ai_input_s3_key,
+          clean_preview_s3_key,
+          watermarked_preview_s3_key,
+          thumbnail_s3_key,
+          annotated_s3_key,
+          caption,
           search_text,
-          confidence,
-          qwen_description,
-          qwen_json,
-          search_embedding,
+          upload_status,
+          compression_status,
+          watermark_status,
+          face_index_status,
+          qwen_status,
+          search_index_status,
+          custom_sort_order,
           created_at,
           updated_at
         )
         SELECT
-          pp.album_id,
           $1::uuid,
-          copied.copied_photo_id,
-          pp.person_id,
-          pp.person_label,
-          pp.face_ids,
-          pp.co_person_ids,
-          pp.search_text,
-          pp.confidence,
-          pp.qwen_description,
-          pp.qwen_json,
-          pp.search_embedding,
+          $2::uuid,
+          input.photo_uuid,
+          input.original_s3_key,
+          $3,
+          $4,
+          input.file_name,
+          input.file_size_bytes,
+          input.width,
+          input.height,
+          input.original_s3_key,
+          input.ai_input_s3_key,
+          input.clean_preview_s3_key,
+          input.watermarked_preview_s3_key,
+          input.thumbnail_s3_key,
+          input.annotated_s3_key,
+          input.caption,
+          input.search_text,
+          'completed',
+          'pending',
+          'pending',
+          'pending',
+          'pending',
+          'pending',
+          input.position::int,
           now(),
           now()
-        FROM copied
-        JOIN photo_people pp ON pp.photo_id = copied.source_photo_id
+        FROM unnest(
+          $5::uuid[],
+          $6::text[],
+          $7::bigint[],
+          $8::int[],
+          $9::int[],
+          $10::text[],
+          $11::text[],
+          $12::text[],
+          $13::text[],
+          $14::text[],
+          $15::text[],
+          $16::text[],
+          $17::text[]
+        ) WITH ORDINALITY AS input(
+          photo_uuid,
+          file_name,
+          file_size_bytes,
+          width,
+          height,
+          original_s3_key,
+          ai_input_s3_key,
+          clean_preview_s3_key,
+          watermarked_preview_s3_key,
+          thumbnail_s3_key,
+          annotated_s3_key,
+          caption,
+          search_text,
+          position
+        )
+        RETURNING id
         `,
         [
+          newAlbum.id,
           targetEvent.id,
-          copied.rows.map((row) => row.source_photo_id),
-          copied.rows.map((row) => row.copied_photo_id),
+          newAlbum.slug,
+          targetEvent.slug,
+          preparedPhotos.map((photo) => photo.photoUuid),
+          preparedPhotos.map((photo) => photo.file_name || `${photo.id}.jpg`),
+          preparedPhotos.map((photo) => numberValue(photo.file_size_bytes)),
+          preparedPhotos.map((photo) => photo.width),
+          preparedPhotos.map((photo) => photo.height),
+          preparedPhotos.map((photo) => photo.originalS3Key),
+          preparedPhotos.map((photo) => photo.aiInputS3Key),
+          preparedPhotos.map((photo) => photo.clean_preview_s3_key),
+          preparedPhotos.map((photo) => photo.watermarked_preview_s3_key),
+          preparedPhotos.map((photo) => photo.thumbnail_s3_key),
+          preparedPhotos.map((photo) => photo.annotatedS3Key),
+          preparedPhotos.map((photo) => photo.caption),
+          preparedPhotos.map((photo) => photo.search_text),
         ],
       );
 
       await client.query(
         `
-        INSERT INTO person_event_stats(person_id, album_event_id, photo_count, face_count)
+        INSERT INTO processing_jobs(
+          album_id,
+          album_event_id,
+          photo_id,
+          job_type,
+          status,
+          created_at,
+          updated_at
+        )
         SELECT
-          pp.person_id,
-          pp.album_event_id,
-          COUNT(DISTINCT pp.photo_id)::int,
-          COUNT(*)::int
-        FROM photo_people pp
-        WHERE pp.album_event_id = $1::uuid
-        GROUP BY pp.person_id, pp.album_event_id
+          $1::uuid,
+          $2::uuid,
+          photo.id,
+          job.job_type,
+          'pending',
+          now(),
+          now()
+        FROM unnest($3::uuid[]) AS photo(id)
+        CROSS JOIN (VALUES ('compress_photo'), ('face_index_photo')) AS job(job_type)
+        ON CONFLICT(photo_id, job_type) DO UPDATE SET
+          status = 'pending',
+          error_message = NULL,
+          updated_at = now()
         `,
-        [targetEvent.id],
+        [newAlbum.id, targetEvent.id, insertedPhotos.rows.map((row) => row.id)],
       );
 
       return {
-        ...targetEvent,
-        copied_count: copied.rows.length,
+        album: newAlbum,
+        event: targetEvent,
+        copiedCount: insertedPhotos.rows.length,
       };
     });
 
+    const token = await getOrCreateShareToken(created.album);
+    const lambda = await startAiWorker(created.album, created.event);
+
     return NextResponse.json({
-      event: {
-        id: event.id,
-        slug: event.slug,
-        name: event.name,
-        photoCount: Number.parseInt(String(event.copied_count ?? "0"), 10) || 0,
+      album: {
+        id: created.album.id,
+        slug: created.album.slug,
+        name: created.album.name,
       },
-      shareUrl: selectionShareUrl(request, album, event.slug, token),
+      event: {
+        id: created.event.id,
+        slug: created.event.slug,
+        name: created.event.name,
+        photoCount: created.copiedCount,
+      },
+      shareUrl: selectionShareUrl(request, created.album, token),
+      lambda,
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "An event with this name already exists"
-    ) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
-    }
-
     console.error("Error creating selection album:", error);
     return NextResponse.json(
       {

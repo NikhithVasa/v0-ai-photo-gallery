@@ -73,6 +73,11 @@ interface CullingClusterItemsResponse {
 }
 
 interface SelectionAlbumResponse {
+  album: {
+    id: string;
+    slug: string;
+    name: string;
+  };
   event: {
     id: string;
     slug: string;
@@ -868,6 +873,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
   const [rejectedPhotoIds, setRejectedPhotoIds] = useState<string[]>([]);
   const [isSelectionDialogOpen, setIsSelectionDialogOpen] = useState(false);
   const [selectionAlbumName, setSelectionAlbumName] = useState("");
+  const [selectionEventName, setSelectionEventName] = useState("");
   const [selectionAlbumUrl, setSelectionAlbumUrl] = useState("");
   const [selectionAlbumError, setSelectionAlbumError] = useState("");
   const [isSavingSelectionAlbum, setIsSavingSelectionAlbum] = useState(false);
@@ -971,14 +977,16 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
 
   const openSelectionAlbumDialog = () => {
     setSelectionAlbumName("");
+    setSelectionEventName("");
     setSelectionAlbumUrl("");
     setSelectionAlbumError("");
     setIsSelectionDialogOpen(true);
   };
 
   const createSelectionAlbum = async () => {
-    const name = selectionAlbumName.trim();
-    if (!name || !keptPhotoIds.length || isSavingSelectionAlbum) return;
+    const albumName = selectionAlbumName.trim();
+    const eventName = selectionEventName.trim();
+    if (!albumName || !eventName || !keptPhotoIds.length || isSavingSelectionAlbum) return;
 
     setIsSavingSelectionAlbum(true);
     setSelectionAlbumError("");
@@ -989,7 +997,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, photoIds: keptPhotoIds }),
+          body: JSON.stringify({ albumName, eventName, photoIds: keptPhotoIds }),
         },
       );
       const payload = (await response.json()) as SelectionAlbumResponse;
@@ -1004,14 +1012,10 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
 
       toast({
         title: "Album created",
-        description: `${payload.event.name} link copied to clipboard.`,
+        description: `${payload.album.name} link copied to clipboard.`,
       });
 
-      router.push(
-        `/albums/${encodeURIComponent(albumSlug)}?event=${encodeURIComponent(
-          payload.event.slug,
-        )}${shareToken ? `&share=${encodeURIComponent(shareToken)}` : ""}`,
-      );
+      router.push(`/albums/${encodeURIComponent(payload.album.slug)}`);
     } catch (error) {
       setSelectionAlbumError(
         error instanceof Error ? error.message : "Could not save selection",
@@ -1118,13 +1122,13 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
           <DialogHeader>
             <DialogTitle>Create album</DialogTitle>
             <DialogDescription>
-              Enter a new event name for the selected photos. A shareable link will be copied after it is created.
+              Create a brand-new album from the selected photos. A shareable link will be copied after it is created.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             <label className="space-y-1.5 text-sm font-medium text-zinc-700">
-              <span>Event name</span>
+              <span>Album name</span>
               <Input
                 value={selectionAlbumName}
                 onChange={(event) => {
@@ -1134,9 +1138,25 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") createSelectionAlbum();
                 }}
-                placeholder="Birthday highlights"
+                placeholder="Client favorites"
                 disabled={isSavingSelectionAlbum}
                 autoFocus
+              />
+            </label>
+
+            <label className="space-y-1.5 text-sm font-medium text-zinc-700">
+              <span>Event name</span>
+              <Input
+                value={selectionEventName}
+                onChange={(event) => {
+                  setSelectionEventName(event.target.value);
+                  if (selectionAlbumError) setSelectionAlbumError("");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") createSelectionAlbum();
+                }}
+                placeholder="Birthday highlights"
+                disabled={isSavingSelectionAlbum}
               />
             </label>
 
@@ -1169,7 +1189,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
             <Button
               type="button"
               onClick={createSelectionAlbum}
-              disabled={!selectionAlbumName.trim() || !keptPhotoIds.length || isSavingSelectionAlbum}
+              disabled={!selectionAlbumName.trim() || !selectionEventName.trim() || !keptPhotoIds.length || isSavingSelectionAlbum}
             >
               {isSavingSelectionAlbum ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -1,6 +1,7 @@
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
+  CopyObjectCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
@@ -364,6 +365,29 @@ export async function uploadS3Object({
 
   clearS3CachesForKey(key);
   return key;
+}
+
+export async function copyS3Object({
+  sourceKey,
+  destinationKey,
+}: {
+  sourceKey: string;
+  destinationKey: string;
+}) {
+  if (!sourceKey || !destinationKey) {
+    throw new Error("S3 source and destination keys are required");
+  }
+
+  await s3.send(
+    new CopyObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      CopySource: `${process.env.S3_BUCKET!}/${encodeURIComponent(sourceKey).replace(/%2F/g, "/")}`,
+      Key: destinationKey,
+    }),
+  );
+
+  clearS3CachesForKey(destinationKey);
+  return destinationKey;
 }
 
 export async function deleteS3Object(key?: string | null) {
