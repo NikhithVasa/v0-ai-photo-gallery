@@ -27,6 +27,8 @@ interface VideoRow {
   storage_album_slug: string | null;
   storage_event_slug: string | null;
   event_slug: string | null;
+  playback_status: string | null;
+  playback_s3_key: string | null;
 }
 
 interface PersonTargetRow {
@@ -123,6 +125,8 @@ export async function POST(request: Request, { params }: Props) {
         v.original_s3_key,
         v.storage_album_slug,
         v.storage_event_slug,
+        to_jsonb(v)->>'playback_status' AS playback_status,
+        to_jsonb(v)->>'playback_s3_key' AS playback_s3_key,
         e.slug AS event_slug
       FROM videos v
       JOIN albums a
@@ -150,6 +154,8 @@ export async function POST(request: Request, { params }: Props) {
       customerId: video.customer_id,
       fileName: video.file_name,
       hasOriginalS3Key: Boolean(video.original_s3_key),
+      hasPlaybackS3Key: Boolean(video.playback_s3_key),
+      playbackStatus: video.playback_status,
     });
 
     const targetKeys: string[] = [];
@@ -208,7 +214,11 @@ export async function POST(request: Request, { params }: Props) {
       targetPersonIdCount: targetPersonIds.filter(Boolean).length,
     });
 
-    const videoUrl = await signedObjectUrl(video.original_s3_key);
+    const aiVideoS3Key =
+      video.playback_status === "ready" && video.playback_s3_key
+        ? video.playback_s3_key
+        : video.original_s3_key;
+    const videoUrl = await signedObjectUrl(aiVideoS3Key);
     const targetUrls = (
       await Promise.all(targetKeys.map((key) => signedObjectUrl(key)))
     ).filter((url): url is string => Boolean(url));
@@ -217,6 +227,7 @@ export async function POST(request: Request, { params }: Props) {
     console.info("[video-ai] signed urls prepared", {
       videoId: video.id,
       hasVideoUrl: Boolean(videoUrl),
+      aiVideoSource: aiVideoS3Key === video.playback_s3_key ? "playback" : "original",
       targetUrlCount: targetUrls.length,
       discoverPeople,
       hasRequestedTargets,
@@ -297,6 +308,8 @@ export async function POST(request: Request, { params }: Props) {
       target_person_id: targetPersonId,
       file_name: video.file_name,
       original_s3_key: video.original_s3_key,
+      playback_s3_key: video.playback_s3_key,
+      ai_video_s3_key: aiVideoS3Key,
       storage_album_slug: video.storage_album_slug || albumSlug,
       storage_event_slug: video.storage_event_slug || video.event_slug,
       target_s3_keys: targetKeys,
