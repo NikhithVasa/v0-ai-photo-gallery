@@ -617,8 +617,10 @@ function SearchResultsGrid({
 
 function ReelsFeed({
   reels,
+  onScrollPastEnd,
 }: {
   reels: AlbumReel[];
+  onScrollPastEnd: () => void;
 }) {
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
 
@@ -631,7 +633,13 @@ function ReelsFeed({
       Math.ceil(scroller.scrollLeft + scroller.clientWidth) >=
       scroller.scrollWidth;
 
-    if ((event.deltaY < 0 && atStart) || (event.deltaY > 0 && atEnd)) return;
+    if (event.deltaY < 0 && atStart) return;
+
+    if (event.deltaY > 0 && atEnd) {
+      event.preventDefault();
+      onScrollPastEnd();
+      return;
+    }
 
     event.preventDefault();
     scroller.scrollBy({ left: event.deltaY, behavior: "smooth" });
@@ -666,15 +674,16 @@ function ReelsFeed({
   return (
     <section
       onWheel={handleWheel}
-      className="h-[calc(100svh-140px)] min-h-[620px] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth snap-x snap-mandatory px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:h-[calc(100svh-180px)]"
+      className="-mx-4 h-[calc(100svh-140px)] min-h-[620px] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth snap-x snap-mandatory bg-black px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:-mx-6 sm:h-[calc(100svh-180px)] sm:px-6 lg:-mx-8 lg:px-8"
     >
-      <div className="flex h-full w-max items-center gap-4 py-4 sm:gap-8 sm:py-8">
+      <div className="flex h-full w-max items-center gap-4 py-4 sm:gap-6 sm:py-8 lg:gap-8">
         {reels.map((reel, index) => (
           <article
             key={reel.id}
-            className="flex h-full w-[calc(100vw-2rem)] shrink-0 snap-start items-center justify-center sm:w-[min(100vw-2rem,920px)]"
+            className="flex h-full w-[min(72vw,330px)] shrink-0 snap-start items-center justify-center overflow-hidden rounded-[28px] bg-[#ffc9c6] px-4 py-7 shadow-[0_24px_80px_rgba(0,0,0,0.34)] sm:w-[min(32vw,330px)] sm:px-6 sm:py-8 lg:w-[330px]"
           >
-            <div className="relative h-[min(72svh,554px)] w-[min(78vw,255px)] flex-shrink-0 overflow-hidden rounded-2xl bg-black shadow-[0_24px_70px_rgba(0,0,0,0.22)] ring-1 ring-white/60 [contain:content] sm:h-[554px] sm:w-[255px]">
+            <div className="relative h-[min(72svh,554px)] w-[min(58vw,255px)] flex-shrink-0 overflow-hidden rounded-[38px] bg-black p-2 shadow-[0_14px_36px_rgba(0,0,0,0.36)] ring-2 ring-zinc-300/80 [contain:content] sm:h-[554px] sm:w-[255px]">
+              <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
               {reel.playbackStatus === "ready" && reel.videoUrl ? (
                 <video
                   ref={(node) => {
@@ -682,7 +691,7 @@ function ReelsFeed({
                     else videoRefs.current.delete(reel.id);
                   }}
                   src={reel.videoUrl}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full rounded-[30px] object-cover"
                   muted
                   playsInline
                   loop
@@ -691,7 +700,7 @@ function ReelsFeed({
                   controls
                 />
               ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center px-5 text-center text-white/60">
+                <div className="flex h-full w-full flex-col items-center justify-center rounded-[30px] px-5 text-center text-white/60">
                   {reel.playbackStatus === "failed" ? (
                     <X className="h-10 w-10 text-rose-200" />
                   ) : (
@@ -4704,7 +4713,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             />
           </section>
         ) : !isPersonShare && activeTab === "reels" && visibleReels.length > 0 ? (
-          <ReelsFeed reels={visibleReels} />
+          <ReelsFeed
+            reels={visibleReels}
+            onScrollPastEnd={() => changeEvent(null)}
+          />
         ) : !hideAi && apsaraTextSearch ? (
           <SearchResultsGrid
             albumSlug={albumSlug}
