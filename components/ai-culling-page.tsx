@@ -1007,12 +1007,22 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
       }
 
       setSelectionAlbumUrl(payload.shareUrl);
-      await navigator.clipboard?.writeText(payload.shareUrl);
+      let copiedToClipboard = false;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(payload.shareUrl);
+          copiedToClipboard = true;
+        }
+      } catch {
+        copiedToClipboard = false;
+      }
       await mutate(withShareParam(`/api/albums/${encodeURIComponent(albumSlug)}`, shareToken));
 
       toast({
         title: "Album created",
-        description: `${payload.album.name} link copied to clipboard.`,
+        description: copiedToClipboard
+          ? `${payload.album.name} link copied to clipboard.`
+          : `${payload.album.name} is ready.`,
       });
 
       router.push(`/albums/${encodeURIComponent(payload.album.slug)}`);
