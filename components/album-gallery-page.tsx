@@ -617,14 +617,8 @@ function SearchResultsGrid({
 
 function ReelsFeed({
   reels,
-  eventLabel,
-  canUpload,
-  uploadHref,
 }: {
   reels: AlbumReel[];
-  eventLabel: string;
-  canUpload: boolean;
-  uploadHref: string;
 }) {
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
 
@@ -652,29 +646,7 @@ function ReelsFeed({
     return () => observer.disconnect();
   }, [reels]);
 
-  if (!reels.length) {
-    return (
-      <section className="flex min-h-[55svh] items-center justify-center px-4 text-center">
-        <div className="max-w-md rounded-[28px] border border-white/70 bg-white/80 px-6 py-10 shadow-[0_16px_45px_rgba(0,0,0,0.08)] backdrop-blur">
-          <Video className="mx-auto mb-3 h-9 w-9 text-zinc-300" />
-          <h2 className="text-2xl font-semibold tracking-normal text-zinc-950">
-            No reels yet
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-zinc-500">
-            {eventLabel} does not have uploaded reels.
-          </p>
-          {canUpload && (
-            <Link
-              href={uploadHref}
-              className="mt-5 inline-flex h-10 items-center justify-center rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800"
-            >
-              Upload reels
-            </Link>
-          )}
-        </div>
-      </section>
-    );
-  }
+  if (!reels.length) return null;
 
   return (
     <section className="h-[calc(100svh-140px)] min-h-[620px] overflow-y-auto overscroll-contain scroll-smooth snap-y snap-mandatory px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:h-[calc(100svh-180px)]">
@@ -2785,6 +2757,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     },
     [album?.events, hasReels],
   );
+  const currentScopeHasReels = eventHasReels(effectiveEventSlug);
 
   useEffect(() => {
     if (!album?.events.length) {
@@ -2857,13 +2830,19 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   );
 
   useEffect(() => {
-    if (autoReelsTabAppliedRef.current || !hasReels || selectedPerson || isPersonShare) {
+    if (autoReelsTabAppliedRef.current || !currentScopeHasReels || selectedPerson || isPersonShare) {
       return;
     }
 
     autoReelsTabAppliedRef.current = true;
     setActiveTab("reels");
-  }, [hasReels, isPersonShare, selectedPerson]);
+  }, [currentScopeHasReels, isPersonShare, selectedPerson]);
+
+  useEffect(() => {
+    if (activeTab === "reels" && !currentScopeHasReels) {
+      setActiveTab("photos");
+    }
+  }, [activeTab, currentScopeHasReels]);
 
   useEffect(() => {
     if (!sharePersonKey) return;
@@ -4200,11 +4179,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             <div
               className="mt-2 grid h-9 gap-1 rounded-full bg-black/5 p-1"
               style={{
-                gridTemplateColumns: `repeat(${(hasReels ? 1 : 0) + 1 + (!hideAi ? 1 : 0)}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${(currentScopeHasReels ? 1 : 0) + 1 + (!hideAi ? 1 : 0)}, minmax(0, 1fr))`,
               }}
               role="tablist"
             >
-              {hasReels && (
+              {currentScopeHasReels && (
                 <button
                   role="tab"
                   aria-selected={activeTab === "reels" && !selectedPerson}
@@ -4535,7 +4514,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   className="hidden shrink-0 items-center gap-1 rounded-full bg-transparent p-1 ring-1 ring-black/5 sm:flex"
                   role="tablist"
                 >
-                  {hasReels && (
+                  {currentScopeHasReels && (
                     <button
                       role="tab"
                       aria-selected={activeTab === "reels"}
@@ -4707,13 +4686,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               readOnly={isShareView}
             />
           </section>
-        ) : !isPersonShare && activeTab === "reels" ? (
-          <ReelsFeed
-            reels={visibleReels}
-            eventLabel={selectedEvent?.name ?? "This album"}
-            canUpload={!isShareView}
-            uploadHref={addPhotosHref}
-          />
+        ) : !isPersonShare && activeTab === "reels" && visibleReels.length > 0 ? (
+          <ReelsFeed reels={visibleReels} />
         ) : !hideAi && apsaraTextSearch ? (
           <SearchResultsGrid
             albumSlug={albumSlug}
