@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { ArrowUpDown, Check, Loader2, Pencil } from "lucide-react";
 import useSWR from "swr";
 import { PhotoCard, PhotoLightbox, type PhotoOpenRect } from "./photo-card";
@@ -1052,7 +1053,10 @@ export function PhotosGrid({
 
       <div ref={endSentinelRef} data-photos-grid-end className="h-px w-full" />
 
-      {lightboxState !== null && !isSelectionMode && (
+      {lightboxState !== null &&
+        !isSelectionMode &&
+        typeof document !== "undefined" &&
+        createPortal(
         <PhotoLightbox
           albumSlug={albumSlug}
           shareToken={shareToken}
@@ -1083,8 +1087,9 @@ export function PhotosGrid({
           }}
           shareSettings={shareSettings}
           hidePeople={hidePeople}
-        />
-      )}
+        />,
+          document.body,
+        )}
     </div>
   );
 }
