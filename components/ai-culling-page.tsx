@@ -970,11 +970,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
   };
 
   const openSelectionAlbumDialog = () => {
-    const fallbackName = eventSlug
-      ? `${album?.events.find((event) => event.slug === eventSlug)?.name || "Selection"} Picks`
-      : "Selected Photos";
-
-    setSelectionAlbumName(fallbackName);
+    setSelectionAlbumName("");
     setSelectionAlbumUrl("");
     setSelectionAlbumError("");
     setIsSelectionDialogOpen(true);
@@ -1007,7 +1003,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
       await mutate(withShareParam(`/api/albums/${encodeURIComponent(albumSlug)}`, shareToken));
 
       toast({
-        title: "Selection saved",
+        title: "Album created",
         description: `${payload.event.name} link copied to clipboard.`,
       });
 
@@ -1070,7 +1066,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                   disabled={!keptPhotoIds.length}
                 >
                   <Plus className="h-4 w-4" />
-                  Add as album
+                  Create album
                 </Button>
               )}
               <Button
@@ -1120,15 +1116,15 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
       <Dialog open={isSelectionDialogOpen} onOpenChange={setIsSelectionDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Save selected photos</DialogTitle>
+            <DialogTitle>Create album</DialogTitle>
             <DialogDescription>
-              Create a named album section from the kept photos and copy a shareable link.
+              Enter a new event name for the selected photos. A shareable link will be copied after it is created.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             <label className="space-y-1.5 text-sm font-medium text-zinc-700">
-              <span>Album name</span>
+              <span>Event name</span>
               <Input
                 value={selectionAlbumName}
                 onChange={(event) => {
@@ -1138,7 +1134,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") createSelectionAlbum();
                 }}
-                placeholder="Selected Photos"
+                placeholder="Birthday highlights"
                 disabled={isSavingSelectionAlbum}
                 autoFocus
               />
@@ -1180,7 +1176,7 @@ export function AiCullingPage({ albumSlug }: AiCullingPageProps) {
               ) : (
                 <Plus className="h-4 w-4" />
               )}
-              Save and copy link
+              Create and copy link
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -58,22 +58,25 @@ function cleanName(value: unknown) {
   return value.trim().replace(/\s+/g, " ").slice(0, 120);
 }
 
-async function availableEventSlug(albumId: string, name: string) {
+async function newEventSlug(albumId: string, name: string) {
   const baseSlug = slugify(name);
   const existing = await queryOne<{ id: string }>(
     `
     SELECT id
     FROM album_events
     WHERE album_id = $1::uuid
-      AND slug = $2
+      AND (slug = $2 OR lower(name) = lower($3))
       AND COALESCE(is_deleted, false) = false
     LIMIT 1
     `,
-    [albumId, baseSlug],
+    [albumId, baseSlug, name],
   );
 
-  if (!existing) return baseSlug;
-  return `${baseSlug}-${randomUUID().slice(0, 8)}`;
+  if (existing) {
+    throw new Error("An event with this name already exists");
+  }
+
+  return baseSlug;
 }
 
 function albumShareUrl(request: Request, albumSlug: string, token: string, customerSlug: string | null) {
@@ -215,7 +218,7 @@ export async function POST(request: Request, { params }: Props) {
       return NextResponse.json({ error: "Album not found" }, { status: 404 });
     }
 
-    const eventSlug = await availableEventSlug(album.id, name);
+    const eventSlug = await newEventSlug(album.id, name);
     const photoUuids = photoIds.map(() => randomUUID());
     const token = await getOrCreateShareToken(album);
 
@@ -401,6 +404,13 @@ export async function POST(request: Request, { params }: Props) {
       shareUrl: selectionShareUrl(request, album, event.slug, token),
     });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "An event with this name already exists"
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+
     console.error("Error creating selection album:", error);
     return NextResponse.json(
       {
