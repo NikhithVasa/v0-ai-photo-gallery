@@ -174,6 +174,7 @@ const SWIPE_SPRING_DAMPING = 34;
 const SWIPE_MAX_RELEASE_VELOCITY = 3600;
 const SWIPE_SETTLE_DISTANCE = 0.5;
 const SWIPE_SETTLE_VELOCITY = 28;
+const NATIVE_LIGHTBOX_SCROLL_RADIUS = 3;
 
 function lightboxPreloadIndices(
   currentIndex: number,
@@ -1559,6 +1560,7 @@ export function PhotoLightbox({
 
   const photoFrameRef = useRef<HTMLDivElement>(null);
   const touchSurfaceRef = useRef<HTMLDivElement>(null);
+  const nativeLightboxScrollerRef = useRef<HTMLDivElement>(null);
   const aiEditScrollRef = useRef<HTMLDivElement>(null);
   const dragOffsetRef = useRef(0);
   const touchStartRef = useRef<{
@@ -1571,6 +1573,7 @@ export function PhotoLightbox({
   } | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
   const swipeAnimationFrameRef = useRef<number | null>(null);
+  const nativeLightboxScrollTimerRef = useRef<number | null>(null);
   const pendingSwipeIndexRef = useRef<number | null>(null);
   const isMobilePointerRef = useRef(isMobilePointer);
   const isPeopleOpenRef = useRef(isPeopleOpen);
@@ -1734,6 +1737,14 @@ export function PhotoLightbox({
   const nextImageUrl = useMemo(
     () => getLightboxUrl(nextPhoto),
     [getLightboxUrl, nextPhoto],
+  );
+  const nativeLightboxOffsets = useMemo(
+    () =>
+      Array.from(
+        { length: NATIVE_LIGHTBOX_SCROLL_RADIUS * 2 + 1 },
+        (_, index) => index - NATIVE_LIGHTBOX_SCROLL_RADIUS,
+      ),
+    [],
   );
 
   isMobilePointerRef.current = isMobilePointer;
@@ -1969,6 +1980,10 @@ export function PhotoLightbox({
         window.cancelAnimationFrame(swipeAnimationFrameRef.current);
       }
 
+      if (nativeLightboxScrollTimerRef.current) {
+        window.clearTimeout(nativeLightboxScrollTimerRef.current);
+      }
+
       pendingSwipeIndexRef.current = null;
 
       if (controlsTimerRef.current) {
@@ -2004,6 +2019,13 @@ export function PhotoLightbox({
   useEffect(() => {
     pendingSwipeIndexRef.current = null;
   }, [currentIndex]);
+
+  useLayoutEffect(() => {
+    const scroller = nativeLightboxScrollerRef.current;
+    if (!scroller || !isMobilePointer) return;
+
+    scroller.scrollLeft = scroller.clientWidth * NATIVE_LIGHTBOX_SCROLL_RADIUS;
+  }, [currentIndex, isMobilePointer]);
 
   useLayoutEffect(() => {
     const frame = photoFrameRef.current;
@@ -2607,6 +2629,55 @@ export function PhotoLightbox({
     finishSwipeAnimation(finalOffset, releaseVelocity, targetIndex);
   };
 
+  const nativeLightboxIndexFromOffset = (offset: number) => {
+    const rawIndex = currentIndex + offset;
+    return ((rawIndex % photos.length) + photos.length) % photos.length;
+  };
+
+  const nativeLightboxOffsetFromScroll = (scroller: HTMLDivElement) => {
+    const slideWidth = scroller.clientWidth || 1;
+    const slideIndex = Math.round(scroller.scrollLeft / slideWidth);
+    const offset = slideIndex - NATIVE_LIGHTBOX_SCROLL_RADIUS;
+
+    return Math.max(
+      -NATIVE_LIGHTBOX_SCROLL_RADIUS,
+      Math.min(NATIVE_LIGHTBOX_SCROLL_RADIUS, offset),
+    );
+  };
+
+  const handleNativeLightboxScroll = () => {
+    const scroller = nativeLightboxScrollerRef.current;
+    if (!scroller || photos.length <= 1) return;
+
+    const currentOffset = nativeLightboxOffsetFromScroll(scroller);
+    pendingSwipeIndexRef.current = currentOffset === 0
+      ? null
+      : nativeLightboxIndexFromOffset(currentOffset);
+
+    if (nativeLightboxScrollTimerRef.current) {
+      window.clearTimeout(nativeLightboxScrollTimerRef.current);
+    }
+
+    nativeLightboxScrollTimerRef.current = window.setTimeout(() => {
+      nativeLightboxScrollTimerRef.current = null;
+
+      const settledScroller = nativeLightboxScrollerRef.current;
+      if (!settledScroller) return;
+
+      const offset = nativeLightboxOffsetFromScroll(settledScroller);
+      if (offset === 0) {
+        pendingSwipeIndexRef.current = null;
+        return;
+      }
+
+      const targetIndex = nativeLightboxIndexFromOffset(offset);
+      pendingSwipeIndexRef.current = targetIndex;
+      setIsPeopleOpen(false);
+      setIsDownloadHovering(false);
+      onNavigate(targetIndex);
+    }, 120);
+  };
+
   const handlePersonClick = (person: PhotoPerson) => {
     onPersonClick?.(person);
     onClose(currentIndex);
@@ -2862,10 +2933,10 @@ export function PhotoLightbox({
             setIsFilterPanelOpen(false);
           }
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
+        onTouchStart={isMobilePointer ? undefined : handleTouchStart}
+        onTouchMove={isMobilePointer ? undefined : handleTouchMove}
+        onTouchEnd={isMobilePointer ? undefined : handleTouchEnd}
+        onTouchCancel={isMobilePointer ? undefined : handleTouchEnd}
       >
         {currentDisplayBaseUrl ? (
           <div
@@ -2874,7 +2945,7 @@ export function PhotoLightbox({
             style={{
               width: photoFrameWidth,
               ...entryStyle,
-              touchAction: "pan-y",
+              touchAction: isMobilePointer ? "pan-x" : "pan-y",
             }}
             onMouseEnter={() => {
               if (!isMobilePointer) showControlsBriefly();
@@ -2907,71 +2978,126 @@ export function PhotoLightbox({
                 style={selectedInstagramFilterImageStyle}
               />
 
-              <div className="absolute inset-0 overflow-hidden">
+              {isMobilePointer ? (
                 <div
-                  className="flex h-full w-full"
-                  style={{
-                    transform: `translate3d(calc(-100% + ${dragOffset}px), 0, 0)`,
-                  }}
+                  ref={nativeLightboxScrollerRef}
+                  onScroll={handleNativeLightboxScroll}
+                  className="absolute inset-0 flex snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden"
                 >
-                  <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
-                    {(isDragging || isAnimatingSwipe) && previousImageUrl ? (
-                      <WatermarkedImage
-                        src={previousImageUrl}
-                        alt={previousPhoto?.caption || "Previous photo"}
-                        className={imageClassName}
-                        draggable={false}
-                        settings={shareSettings}
-                        fit="contain"
-                      />
-                    ) : null}
-                  </div>
+                  {nativeLightboxOffsets.map((offset) => {
+                    const targetIndex = nativeLightboxIndexFromOffset(offset);
+                    const targetPhoto = photos[targetIndex];
+                    const targetImageUrl = offset === 0
+                      ? currentImageUrl
+                      : getLightboxUrl(targetPhoto);
 
-                  <div className="relative flex h-full w-full shrink-0 cursor-default items-center justify-center">
-                    {currentImageUrl ? (
-                      <WatermarkedImage
-                        src={currentImageUrl}
-                        alt={photo.caption || "Photo"}
-                        className={`${imageClassName} absolute inset-0`}
-                        decoding="async"
-                        fetchPriority="high"
-                        draggable={false}
-                        settings={shareSettings}
-                        fit="contain"
-                        style={selectedInstagramFilterImageStyle}
-                      />
-                    ) : null}
+                    return (
+                      <div
+                        key={`${offset}:${targetPhoto.id}`}
+                        className="relative flex h-full w-full shrink-0 snap-start cursor-default items-center justify-center"
+                      >
+                        {targetImageUrl ? (
+                          <WatermarkedImage
+                            src={targetImageUrl}
+                            alt={targetPhoto.caption || "Photo"}
+                            className={`${imageClassName} absolute inset-0`}
+                            decoding={offset === 0 ? "async" : undefined}
+                            fetchPriority={offset === 0 ? "high" : undefined}
+                            draggable={false}
+                            settings={shareSettings}
+                            fit="contain"
+                            style={offset === 0 ? selectedInstagramFilterImageStyle : undefined}
+                          />
+                        ) : null}
 
-                    {upgradedImageUrl ? (
-                      <FadingWatermarkedImage
-                        src={upgradedImageUrl}
-                        alt={photo.caption || "Photo"}
-                        className={`${imageClassName} absolute inset-0`}
-                        decoding="async"
-                        fetchPriority="high"
-                        draggable={false}
-                        settings={shareSettings}
-                        fit="contain"
-                        style={selectedInstagramFilterImageStyle}
-                      />
-                    ) : null}
-                    <InstagramFilterOverlay filter={selectedInstagramFilter} />
-                  </div>
+                        {offset === 0 && upgradedImageUrl ? (
+                          <FadingWatermarkedImage
+                            src={upgradedImageUrl}
+                            alt={photo.caption || "Photo"}
+                            className={`${imageClassName} absolute inset-0`}
+                            decoding="async"
+                            fetchPriority="high"
+                            draggable={false}
+                            settings={shareSettings}
+                            fit="contain"
+                            style={selectedInstagramFilterImageStyle}
+                          />
+                        ) : null}
 
-                  <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
-                    {(isDragging || isAnimatingSwipe) && nextImageUrl ? (
-                      <WatermarkedImage
-                        src={nextImageUrl}
-                        alt={nextPhoto?.caption || "Next photo"}
-                        className={imageClassName}
-                        draggable={false}
-                        settings={shareSettings}
-                        fit="contain"
-                      />
-                    ) : null}
+                        {offset === 0 && (
+                          <InstagramFilterOverlay filter={selectedInstagramFilter} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="absolute inset-0 overflow-hidden">
+                  <div
+                    className="flex h-full w-full"
+                    style={{
+                      transform: `translate3d(calc(-100% + ${dragOffset}px), 0, 0)`,
+                    }}
+                  >
+                    <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
+                      {(isDragging || isAnimatingSwipe) && previousImageUrl ? (
+                        <WatermarkedImage
+                          src={previousImageUrl}
+                          alt={previousPhoto?.caption || "Previous photo"}
+                          className={imageClassName}
+                          draggable={false}
+                          settings={shareSettings}
+                          fit="contain"
+                        />
+                      ) : null}
+                    </div>
+
+                    <div className="relative flex h-full w-full shrink-0 cursor-default items-center justify-center">
+                      {currentImageUrl ? (
+                        <WatermarkedImage
+                          src={currentImageUrl}
+                          alt={photo.caption || "Photo"}
+                          className={`${imageClassName} absolute inset-0`}
+                          decoding="async"
+                          fetchPriority="high"
+                          draggable={false}
+                          settings={shareSettings}
+                          fit="contain"
+                          style={selectedInstagramFilterImageStyle}
+                        />
+                      ) : null}
+
+                      {upgradedImageUrl ? (
+                        <FadingWatermarkedImage
+                          src={upgradedImageUrl}
+                          alt={photo.caption || "Photo"}
+                          className={`${imageClassName} absolute inset-0`}
+                          decoding="async"
+                          fetchPriority="high"
+                          draggable={false}
+                          settings={shareSettings}
+                          fit="contain"
+                          style={selectedInstagramFilterImageStyle}
+                        />
+                      ) : null}
+                      <InstagramFilterOverlay filter={selectedInstagramFilter} />
+                    </div>
+
+                    <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
+                      {(isDragging || isAnimatingSwipe) && nextImageUrl ? (
+                        <WatermarkedImage
+                          src={nextImageUrl}
+                          alt={nextPhoto?.caption || "Next photo"}
+                          className={imageClassName}
+                          draggable={false}
+                          settings={shareSettings}
+                          fit="contain"
+                        />
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div
                 className={`pointer-events-none absolute inset-0 z-10 bg-black/55 transition-opacity duration-200 ${
