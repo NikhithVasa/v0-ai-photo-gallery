@@ -175,6 +175,8 @@ const SWIPE_MAX_RELEASE_VELOCITY = 3600;
 const SWIPE_SETTLE_DISTANCE = 0.5;
 const SWIPE_SETTLE_VELOCITY = 28;
 const NATIVE_LIGHTBOX_SCROLL_RADIUS = 3;
+const LIGHTBOX_MIN_ZOOM = 1;
+const LIGHTBOX_MAX_ZOOM = 4;
 
 function lightboxPreloadIndices(
   currentIndex: number,
@@ -838,6 +840,90 @@ export interface PhotoOpenRect {
   width: number;
   height: number;
   imageUrl?: string;
+}
+
+type MobileLightboxZoomState = {
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+};
+
+type MobileLightboxZoomGesture =
+  | {
+      type: "pinch";
+      startDistance: number;
+      startScale: number;
+      startOffsetX: number;
+      startOffsetY: number;
+      centerX: number;
+      centerY: number;
+    }
+  | {
+      type: "pan";
+      startClientX: number;
+      startClientY: number;
+      startOffsetX: number;
+      startOffsetY: number;
+    };
+
+const DEFAULT_MOBILE_LIGHTBOX_ZOOM: MobileLightboxZoomState = {
+  scale: LIGHTBOX_MIN_ZOOM,
+  offsetX: 0,
+  offsetY: 0,
+};
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function clampMobileLightboxZoom(
+  zoom: MobileLightboxZoomState,
+  frame: HTMLElement | null,
+): MobileLightboxZoomState {
+  const scale = clampNumber(zoom.scale, LIGHTBOX_MIN_ZOOM, LIGHTBOX_MAX_ZOOM);
+
+  if (scale <= LIGHTBOX_MIN_ZOOM) {
+    return DEFAULT_MOBILE_LIGHTBOX_ZOOM;
+  }
+
+  const rect = frame?.getBoundingClientRect();
+  const maxOffsetX = ((rect?.width ?? window.innerWidth) * (scale - 1)) / 2;
+  const maxOffsetY = ((rect?.height ?? window.innerHeight) * (scale - 1)) / 2;
+
+  return {
+    scale,
+    offsetX: clampNumber(zoom.offsetX, -maxOffsetX, maxOffsetX),
+    offsetY: clampNumber(zoom.offsetY, -maxOffsetY, maxOffsetY),
+  };
+}
+
+function touchDistance(touches: React.TouchList) {
+  const firstTouch = touches[0];
+  const secondTouch = touches[1];
+  if (!firstTouch || !secondTouch) return 0;
+
+  return Math.hypot(
+    secondTouch.clientX - firstTouch.clientX,
+    secondTouch.clientY - firstTouch.clientY,
+  );
+}
+
+function touchCenterRelativeToFrame(
+  touches: React.TouchList,
+  frame: HTMLElement | null,
+) {
+  const firstTouch = touches[0];
+  const secondTouch = touches[1];
+  const rect = frame?.getBoundingClientRect();
+
+  if (!firstTouch || !secondTouch || !rect) {
+    return { centerX: 0, centerY: 0 };
+  }
+
+  return {
+    centerX: (firstTouch.clientX + secondTouch.clientX) / 2 - rect.left - rect.width / 2,
+    centerY: (firstTouch.clientY + secondTouch.clientY) / 2 - rect.top - rect.height / 2,
+  };
 }
 
 function drawImageToRect(
@@ -1557,12 +1643,21 @@ export function PhotoLightbox({
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isAnimatingSwipe, setIsAnimatingSwipe] = useState(false);
+  const [mobileZoom, setMobileZoom] = useState<MobileLightboxZoomState>(
+    DEFAULT_MOBILE_LIGHTBOX_ZOOM,
+  );
+  const [isMobileZooming, setIsMobileZooming] = useState(false);
 
   const photoFrameRef = useRef<HTMLDivElement>(null);
+  const mobileZoomFrameRef = useRef<HTMLDivElement>(null);
   const touchSurfaceRef = useRef<HTMLDivElement>(null);
   const nativeLightboxScrollerRef = useRef<HTMLDivElement>(null);
   const aiEditScrollRef = useRef<HTMLDivElement>(null);
   const dragOffsetRef = useRef(0);
+  const mobileZoomRef = useRef<MobileLightboxZoomState>(
+    DEFAULT_MOBILE_LIGHTBOX_ZOOM,
+  );
+  const mobileZoomGestureRef = useRef<MobileLightboxZoomGesture | null>(null);
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -1921,6 +2016,10 @@ export function PhotoLightbox({
 
   const navigateToIndex = useCallback(
     (index: number) => {
+      mobileZoomRef.current = DEFAULT_MOBILE_LIGHTBOX_ZOOM;
+      mobileZoomGestureRef.current = null;
+      setMobileZoom(DEFAULT_MOBILE_LIGHTBOX_ZOOM);
+      setIsMobileZooming(false);
       showControlsBriefly();
       setIsPeopleOpen(false);
       setIsFilterPanelOpen(false);
@@ -1968,6 +2067,10 @@ export function PhotoLightbox({
     setDragOffset(0);
     setIsDragging(false);
     setIsAnimatingSwipe(false);
+    mobileZoomRef.current = DEFAULT_MOBILE_LIGHTBOX_ZOOM;
+    mobileZoomGestureRef.current = null;
+    setMobileZoom(DEFAULT_MOBILE_LIGHTBOX_ZOOM);
+    setIsMobileZooming(false);
 
     if (isMobilePointer && areControlsReady) {
       setAreControlsVisible(true);
@@ -2634,6 +2737,126 @@ export function PhotoLightbox({
     return ((rawIndex % photos.length) + photos.length) % photos.length;
   };
 
+  const updateMobileZoom = (nextZoom: MobileLightboxZoomState) => {
+    const clampedZoom = clampMobileLightboxZoom(
+      nextZoom,
+      mobileZoomFrameRef.current,
+    );
+
+    mobileZoomRef.current = clampedZoom;
+    setMobileZoom(clampedZoom);
+  };
+
+  const handleMobileLightboxTouchStart = (
+    event: ReactTouchEvent<HTMLDivElement>,
+  ) => {
+    if (!isMobilePointer) return;
+
+    if (event.touches.length >= 2) {
+      const distance = touchDistance(event.touches);
+      if (!distance) return;
+
+      const { centerX, centerY } = touchCenterRelativeToFrame(
+        event.touches,
+        mobileZoomFrameRef.current,
+      );
+      const currentZoom = mobileZoomRef.current;
+
+      mobileZoomGestureRef.current = {
+        type: "pinch",
+        startDistance: distance,
+        startScale: currentZoom.scale,
+        startOffsetX: currentZoom.offsetX,
+        startOffsetY: currentZoom.offsetY,
+        centerX,
+        centerY,
+      };
+      setIsMobileZooming(true);
+      setAreControlsVisible(true);
+      event.preventDefault();
+      return;
+    }
+
+    if (mobileZoomRef.current.scale <= LIGHTBOX_MIN_ZOOM) return;
+
+    const touch = event.touches[0];
+    if (!touch) return;
+
+    mobileZoomGestureRef.current = {
+      type: "pan",
+      startClientX: touch.clientX,
+      startClientY: touch.clientY,
+      startOffsetX: mobileZoomRef.current.offsetX,
+      startOffsetY: mobileZoomRef.current.offsetY,
+    };
+    setIsMobileZooming(true);
+    event.preventDefault();
+  };
+
+  const handleMobileLightboxTouchMove = (
+    event: ReactTouchEvent<HTMLDivElement>,
+  ) => {
+    if (!isMobilePointer) return;
+
+    const gesture = mobileZoomGestureRef.current;
+    if (!gesture) return;
+
+    if (gesture.type === "pinch" && event.touches.length >= 2) {
+      const distance = touchDistance(event.touches);
+      if (!distance) return;
+
+      const nextScale = clampNumber(
+        gesture.startScale * (distance / gesture.startDistance),
+        LIGHTBOX_MIN_ZOOM,
+        LIGHTBOX_MAX_ZOOM,
+      );
+      const scaleRatio = nextScale / gesture.startScale;
+
+      updateMobileZoom({
+        scale: nextScale,
+        offsetX: gesture.centerX - (gesture.centerX - gesture.startOffsetX) * scaleRatio,
+        offsetY: gesture.centerY - (gesture.centerY - gesture.startOffsetY) * scaleRatio,
+      });
+      event.preventDefault();
+      return;
+    }
+
+    if (gesture.type === "pan" && event.touches.length === 1) {
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      updateMobileZoom({
+        scale: mobileZoomRef.current.scale,
+        offsetX: gesture.startOffsetX + touch.clientX - gesture.startClientX,
+        offsetY: gesture.startOffsetY + touch.clientY - gesture.startClientY,
+      });
+      event.preventDefault();
+    }
+  };
+
+  const handleMobileLightboxTouchEnd = (
+    event: ReactTouchEvent<HTMLDivElement>,
+  ) => {
+    if (!isMobilePointer) return;
+
+    if (event.touches.length === 1 && mobileZoomRef.current.scale > LIGHTBOX_MIN_ZOOM) {
+      const touch = event.touches[0];
+      if (touch) {
+        mobileZoomGestureRef.current = {
+          type: "pan",
+          startClientX: touch.clientX,
+          startClientY: touch.clientY,
+          startOffsetX: mobileZoomRef.current.offsetX,
+          startOffsetY: mobileZoomRef.current.offsetY,
+        };
+        return;
+      }
+    }
+
+    mobileZoomGestureRef.current = null;
+    setIsMobileZooming(false);
+  };
+
   const nativeLightboxOffsetFromScroll = (scroller: HTMLDivElement) => {
     const slideWidth = scroller.clientWidth || 1;
     const slideIndex = Math.round(scroller.scrollLeft / slideWidth);
@@ -2672,6 +2895,10 @@ export function PhotoLightbox({
 
       const targetIndex = nativeLightboxIndexFromOffset(offset);
       pendingSwipeIndexRef.current = targetIndex;
+      mobileZoomRef.current = DEFAULT_MOBILE_LIGHTBOX_ZOOM;
+      mobileZoomGestureRef.current = null;
+      setMobileZoom(DEFAULT_MOBILE_LIGHTBOX_ZOOM);
+      setIsMobileZooming(false);
       setIsPeopleOpen(false);
       setIsDownloadHovering(false);
       onNavigate(targetIndex);
@@ -2961,6 +3188,7 @@ export function PhotoLightbox({
           >
             <div
               className="relative overflow-hidden"
+              ref={mobileZoomFrameRef}
               style={{
                 aspectRatio: displayAspectRatio,
                 maxHeight: photoFrameMaxHeight,
@@ -2982,7 +3210,15 @@ export function PhotoLightbox({
                 <div
                   ref={nativeLightboxScrollerRef}
                   onScroll={handleNativeLightboxScroll}
+                  onTouchStart={handleMobileLightboxTouchStart}
+                  onTouchMove={handleMobileLightboxTouchMove}
+                  onTouchEnd={handleMobileLightboxTouchEnd}
+                  onTouchCancel={handleMobileLightboxTouchEnd}
                   className="absolute inset-0 flex snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden"
+                  style={{
+                    overflowX: mobileZoom.scale > LIGHTBOX_MIN_ZOOM ? "hidden" : undefined,
+                    touchAction: mobileZoom.scale > LIGHTBOX_MIN_ZOOM ? "none" : "pan-x",
+                  }}
                 >
                   {nativeLightboxOffsets.map((offset) => {
                     const targetIndex = nativeLightboxIndexFromOffset(offset);
@@ -2990,43 +3226,53 @@ export function PhotoLightbox({
                     const targetImageUrl = offset === 0
                       ? currentImageUrl
                       : getLightboxUrl(targetPhoto);
+                    const mobileZoomStyle = offset === 0
+                      ? {
+                          transform: `translate3d(${mobileZoom.offsetX}px, ${mobileZoom.offsetY}px, 0) scale(${mobileZoom.scale})`,
+                        }
+                      : undefined;
 
                     return (
                       <div
                         key={`${offset}:${targetPhoto.id}`}
                         className="relative flex h-full w-full shrink-0 snap-start cursor-default items-center justify-center"
                       >
-                        {targetImageUrl ? (
-                          <WatermarkedImage
-                            src={targetImageUrl}
-                            alt={targetPhoto.caption || "Photo"}
-                            className={`${imageClassName} absolute inset-0`}
-                            decoding={offset === 0 ? "async" : undefined}
-                            fetchPriority={offset === 0 ? "high" : undefined}
-                            draggable={false}
-                            settings={shareSettings}
-                            fit="contain"
-                            style={offset === 0 ? selectedInstagramFilterImageStyle : undefined}
-                          />
-                        ) : null}
+                        <div
+                          className={`absolute inset-0 ${offset === 0 && !isMobileZooming ? "transition-transform duration-200 ease-out" : ""}`}
+                          style={mobileZoomStyle}
+                        >
+                          {targetImageUrl ? (
+                            <WatermarkedImage
+                              src={targetImageUrl}
+                              alt={targetPhoto.caption || "Photo"}
+                              className={`${imageClassName} absolute inset-0`}
+                              decoding={offset === 0 ? "async" : undefined}
+                              fetchPriority={offset === 0 ? "high" : undefined}
+                              draggable={false}
+                              settings={shareSettings}
+                              fit="contain"
+                              style={offset === 0 ? selectedInstagramFilterImageStyle : undefined}
+                            />
+                          ) : null}
 
-                        {offset === 0 && upgradedImageUrl ? (
-                          <FadingWatermarkedImage
-                            src={upgradedImageUrl}
-                            alt={photo.caption || "Photo"}
-                            className={`${imageClassName} absolute inset-0`}
-                            decoding="async"
-                            fetchPriority="high"
-                            draggable={false}
-                            settings={shareSettings}
-                            fit="contain"
-                            style={selectedInstagramFilterImageStyle}
-                          />
-                        ) : null}
+                          {offset === 0 && upgradedImageUrl ? (
+                            <FadingWatermarkedImage
+                              src={upgradedImageUrl}
+                              alt={photo.caption || "Photo"}
+                              className={`${imageClassName} absolute inset-0`}
+                              decoding="async"
+                              fetchPriority="high"
+                              draggable={false}
+                              settings={shareSettings}
+                              fit="contain"
+                              style={selectedInstagramFilterImageStyle}
+                            />
+                          ) : null}
 
-                        {offset === 0 && (
-                          <InstagramFilterOverlay filter={selectedInstagramFilter} />
-                        )}
+                          {offset === 0 && (
+                            <InstagramFilterOverlay filter={selectedInstagramFilter} />
+                          )}
+                        </div>
                       </div>
                     );
                   })}
