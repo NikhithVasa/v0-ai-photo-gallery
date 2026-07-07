@@ -23,6 +23,7 @@ import {
   ImagePlus,
   Images,
   LayoutTemplate,
+  Link2,
   Loader2,
   Move,
   RefreshCcw,
@@ -922,13 +923,16 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
   const [moveDragState, setMoveDragState] = useState<MoveDragState | null>(null);
   const {
+    googleDriveFolderLink,
     googlePhotosButtonLabel,
     importFromGoogleDrive,
+    importFromGoogleDriveLink,
     importFromGooglePhotos,
     isImporting: isGoogleImporting,
     isImportingDrive,
     isImportingPhotos,
     message: googleImportMessage,
+    setGoogleDriveFolderLink,
   } = useGoogleImageImport({
     onImages: (images) =>
       handleUploadedFiles(
@@ -1715,6 +1719,35 @@ export function CollageBuilderPage({ initialAlbumSlug }: CollageBuilderPageProps
                 )}
                 Upload from Google Drive
               </Button>
+              <form
+                className="space-y-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void importFromGoogleDriveLink();
+                }}
+              >
+                <Input
+                  type="url"
+                  value={googleDriveFolderLink}
+                  onChange={(event) => setGoogleDriveFolderLink(event.target.value)}
+                  placeholder="Paste public Google Drive folder link"
+                  aria-label="Public Google Drive folder link"
+                  disabled={isGoogleImporting}
+                />
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isGoogleImporting || !googleDriveFolderLink.trim()}
+                >
+                  {isImportingDrive ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Link2 className="h-4 w-4" />
+                  )}
+                  Import Drive link
+                </Button>
+              </form>
               <Button
                 variant="outline"
                 className="w-full"

@@ -90,14 +90,19 @@ Create a browser API key for Drive Picker. Restrict its HTTP referrer to:
 http://localhost:3000/*
 ```
 
-Restrict the key to the Google Picker API. Also find the Google Cloud project's
-numeric **project number**. Picker calls this the App ID; it is not the project
-ID string.
+Restrict the key to the Google Picker API and Google Drive API. Also find the
+Google Cloud project's numeric **project number**. Picker calls this the App ID;
+it is not the project ID string.
 
 Drive Picker displays image files and folders. Selected Drive files are
 downloaded through the Drive API. Selected folders are scanned recursively for
 image files, converted to `File` objects, and added to the existing upload
 queue.
+
+Users can also paste a public Google Drive folder link in the upload controls.
+The folder must be shared as **Anyone with the link -> Viewer**. Public link
+imports use the browser API key to list and download image files from the shared
+folder, without requesting broader Drive OAuth scopes.
 
 ## Google Photos Picker
 

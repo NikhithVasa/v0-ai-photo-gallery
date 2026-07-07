@@ -139,9 +139,21 @@ export interface GoogleDrivePickerResult {
   summary: GoogleDriveSelectionSummary;
 }
 
+export interface GoogleDrivePublicFolderResult {
+  apiKey: string;
+  folder: GoogleDriveFileMetadata;
+  files: GoogleDriveFileMetadata[];
+  summary: GoogleDriveSelectionSummary;
+}
+
 export interface DownloadedGoogleDriveFile {
   file: File;
   metadata: GoogleDriveFileMetadata;
+}
+
+interface DriveApiCredentials {
+  accessToken?: string;
+  apiKey?: string;
 }
 
 interface DriveApiFileResponse {
@@ -198,6 +210,15 @@ function getGoogleDriveConfig() {
     appId: appId as string,
     clientId: clientId as string,
   };
+}
+
+function getGoogleDriveApiKey() {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
+  if (!apiKey) {
+    throw new Error("Google Drive link import is missing NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY");
+  }
+
+  return apiKey;
 }
 
 function loadScript(src: string) {
@@ -403,19 +424,52 @@ function driveResourceKeyHeader(
   return `${fileId}/${resourceKey}`;
 }
 
+function driveApiUrl(url: string, credentials: DriveApiCredentials) {
+  if (!credentials.apiKey) return url;
+
+  const requestUrl = new URL(url);
+  requestUrl.searchParams.set("key", credentials.apiKey);
+  return requestUrl.toString();
+}
+
+function parseGoogleDriveFolderLink(folderLink: string) {
+  let url: URL;
+  try {
+    url = new URL(folderLink.trim());
+  } catch {
+    throw new Error("Paste a valid Google Drive folder link.");
+  }
+
+  if (url.hostname !== "drive.google.com") {
+    throw new Error("Paste a Google Drive folder link.");
+  }
+
+  const folderMatch = url.pathname.match(/\/folders\/([A-Za-z0-9_-]+)/);
+  const openId = url.pathname === "/open" ? url.searchParams.get("id") : null;
+  const id = folderMatch?.[1] || openId;
+
+  if (!id) {
+    throw new Error("Paste a Google Drive folder link, not an individual file link.");
+  }
+
+  return {
+    id,
+    resourceKey: url.searchParams.get("resourcekey") || undefined,
+  };
+}
+
 async function fetchDriveApiOnce(
   url: string,
-  accessToken: string,
+  credentials: DriveApiCredentials,
   resourceKeyHeader?: string | null,
 ) {
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${accessToken}`,
-  };
+  const headers: Record<string, string> = {};
+  if (credentials.accessToken) headers.Authorization = `Bearer ${credentials.accessToken}`;
   if (resourceKeyHeader) {
     headers["X-Goog-Drive-Resource-Keys"] = resourceKeyHeader;
   }
 
-  const response = await fetch(url, {
+  const response = await fetch(driveApiUrl(url, credentials), {
     headers,
   });
 
@@ -442,7 +496,7 @@ async function fetchDriveApiOnce(
 
 async function driveApiFetch(
   url: string,
-  accessToken: string,
+  credentials: DriveApiCredentials,
   resourceKeyHeader?: string | null,
 ) {
   let lastError: unknown;
@@ -450,7 +504,7 @@ async function driveApiFetch(
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
-      return await fetchDriveApiOnce(url, accessToken, resourceKeyHeader);
+      return await fetchDriveApiOnce(url, credentials, resourceKeyHeader);
     } catch (error) {
       lastError = error;
       const retryDelay = DRIVE_API_RETRY_DELAYS_MS[attempt];
@@ -501,7 +555,7 @@ function escapeDriveQueryValue(value: string) {
 
 async function listGoogleDriveFolderChildren(
   folder: GoogleDriveFileMetadata,
-  accessToken: string,
+  credentials: DriveApiCredentials,
 ) {
   const files: GoogleDriveFileMetadata[] = [];
   let pageToken: string | undefined;
@@ -519,7 +573,7 @@ async function listGoogleDriveFolderChildren(
 
     const response = await driveApiFetch(
       `https://www.googleapis.com/drive/v3/files?${params}`,
-      accessToken,
+      credentials,
       driveResourceKeyHeader(folder.id, folder.resourceKey),
     );
     const payload = (await response.json()) as DriveApiFileListResponse;
@@ -540,7 +594,7 @@ async function listGoogleDriveFolderChildren(
 
 async function expandGoogleDriveSelection(
   selectedFiles: GoogleDriveFileMetadata[],
-  accessToken: string,
+  credentials: DriveApiCredentials,
 ): Promise<{
   files: GoogleDriveFileMetadata[];
   summary: GoogleDriveSelectionSummary;
@@ -567,7 +621,7 @@ async function expandGoogleDriveSelection(
       folderBatch.map(async (folder) => {
         if (seenFolders.has(folder.id)) return [];
         seenFolders.add(folder.id);
-        return listGoogleDriveFolderChildren(folder, accessToken);
+        return listGoogleDriveFolderChildren(folder, credentials);
       }),
     );
 
@@ -611,10 +665,42 @@ export async function pickGoogleDriveImages(): Promise<GoogleDrivePickerResult> 
   );
   const expandedSelection = await expandGoogleDriveSelection(
     selectedFiles,
-    accessToken,
+    { accessToken },
   );
 
   return { accessToken, ...expandedSelection };
+}
+
+export async function importPublicGoogleDriveFolder(
+  folderLink: string,
+): Promise<GoogleDrivePublicFolderResult> {
+  const apiKey = getGoogleDriveApiKey();
+  const parsedFolder = parseGoogleDriveFolderLink(folderLink);
+  const metadataParams = new URLSearchParams({
+    fields: "id,name,mimeType,resourceKey,webViewLink",
+    supportsAllDrives: "true",
+  });
+  const metadataResponse = await driveApiFetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
+      parsedFolder.id,
+    )}?${metadataParams}`,
+    { apiKey },
+    driveResourceKeyHeader(parsedFolder.id, parsedFolder.resourceKey),
+  );
+  const metadataPayload = (await metadataResponse.json()) as DriveApiFileResponse;
+  const folder = driveApiMetadataFromResponse(metadataPayload, {
+    id: parsedFolder.id,
+    name: "Google Drive folder",
+    mimeType: GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+    resourceKey: parsedFolder.resourceKey,
+  });
+
+  if (!isGoogleDriveFolder(folder)) {
+    throw new Error("Paste a Google Drive folder link, not an individual file link.");
+  }
+
+  const expandedSelection = await expandGoogleDriveSelection([folder], { apiKey });
+  return { apiKey, folder, ...expandedSelection };
 }
 
 export async function prepareGoogleDrivePicker() {
@@ -622,9 +708,9 @@ export async function prepareGoogleDrivePicker() {
   await loadGoogleLibraries();
 }
 
-export async function downloadGoogleDriveImage(
+async function downloadGoogleDriveImageWithCredentials(
   selectedFile: GoogleDriveFileMetadata,
-  accessToken: string,
+  credentials: DriveApiCredentials,
 ): Promise<DownloadedGoogleDriveFile> {
   const metadataParams = new URLSearchParams({
     fields:
@@ -634,7 +720,7 @@ export async function downloadGoogleDriveImage(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
       selectedFile.id,
     )}?${metadataParams}`,
-    accessToken,
+    credentials,
     driveResourceKeyHeader(selectedFile.id, selectedFile.resourceKey),
   );
   const metadataPayload = (await metadataResponse.json()) as DriveApiFileResponse;
@@ -660,7 +746,7 @@ export async function downloadGoogleDriveImage(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
       metadata.id,
     )}?alt=media`,
-    accessToken,
+    credentials,
     driveResourceKeyHeader(metadata.id, metadata.resourceKey),
   );
   const blob = await contentResponse.blob();
@@ -675,4 +761,18 @@ export async function downloadGoogleDriveImage(
       lastModified,
     }),
   };
+}
+
+export async function downloadGoogleDriveImage(
+  selectedFile: GoogleDriveFileMetadata,
+  accessToken: string,
+) {
+  return downloadGoogleDriveImageWithCredentials(selectedFile, { accessToken });
+}
+
+export async function downloadPublicGoogleDriveImage(
+  selectedFile: GoogleDriveFileMetadata,
+  apiKey: string,
+) {
+  return downloadGoogleDriveImageWithCredentials(selectedFile, { apiKey });
 }

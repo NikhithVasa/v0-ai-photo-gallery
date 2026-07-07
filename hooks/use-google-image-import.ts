@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  downloadPublicGoogleDriveImage,
   downloadGoogleDriveImage,
+  importPublicGoogleDriveFolder,
   pickGoogleDriveImages,
   prepareGoogleDrivePicker,
+  type DownloadedGoogleDriveFile,
   type GoogleDriveFileMetadata,
 } from "@/lib/google-drive-picker";
 import {
@@ -74,6 +77,7 @@ export function useGoogleImageImport({
   const [message, setMessage] = useState("");
   const [isImportingDrive, setIsImportingDrive] = useState(false);
   const [isImportingPhotos, setIsImportingPhotos] = useState(false);
+  const [googleDriveFolderLink, setGoogleDriveFolderLink] = useState("");
   const [googlePhotosSession, setGooglePhotosSession] =
     useState<GooglePhotosPickerSessionHandle | null>(null);
   const googlePhotosSessionRef =
@@ -102,6 +106,100 @@ export function useGoogleImageImport({
     };
   }, []);
 
+  const importGoogleDriveFiles = async ({
+    files,
+    summary,
+    emptyMessage,
+    downloadImage,
+  }: {
+    files: GoogleDriveFileMetadata[];
+    summary: { folderCount: number };
+    emptyMessage: string;
+    downloadImage: (file: GoogleDriveFileMetadata) => Promise<DownloadedGoogleDriveFile>;
+  }) => {
+    if (!files.length) {
+      setMessage(emptyMessage);
+      return false;
+    }
+
+    const importedImages: GoogleImportedImage[] = [];
+    const failedFiles: string[] = [];
+    let completedFiles = 0;
+    const concurrentDownloads = Math.min(
+      GOOGLE_DRIVE_DOWNLOAD_CONCURRENCY,
+      files.length,
+    );
+
+    setMessage(
+      `Found ${files.length} Google Drive image${
+        files.length === 1 ? "" : "s"
+      }. Reading with ${concurrentDownloads} concurrent download${
+        concurrentDownloads === 1 ? "" : "s"
+      }...`,
+    );
+
+    const downloadResults = await mapConcurrent<
+      GoogleDriveFileMetadata,
+      GoogleDriveDownloadResult
+    >(
+      files,
+      GOOGLE_DRIVE_DOWNLOAD_CONCURRENCY,
+      async (selectedFile) => {
+        try {
+          const downloaded = await downloadImage(selectedFile);
+
+          return {
+            image: {
+              file: downloaded.file,
+              source: "google-drive" as const,
+              googleDriveMetadata: downloaded.metadata,
+            },
+          };
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : `${selectedFile.name} failed`;
+          return {
+            error: errorMessage.includes(selectedFile.name)
+              ? errorMessage
+              : `${selectedFile.name}: ${errorMessage}`,
+          };
+        } finally {
+          completedFiles += 1;
+          setMessage(
+            `Read ${completedFiles} of ${files.length} from Google Drive...`,
+          );
+        }
+      },
+    );
+
+    for (const result of downloadResults) {
+      if (result.image) {
+        importedImages.push(result.image);
+        continue;
+      }
+
+      failedFiles.push(result.error);
+    }
+
+    if (importedImages.length) onImages(importedImages);
+
+    const notes = [
+      `${importedImages.length} Google Drive image${
+        importedImages.length === 1 ? "" : "s"
+      } ready.`,
+      summary.folderCount
+        ? `Scanned ${summary.folderCount} folder${
+            summary.folderCount === 1 ? "" : "s"
+          }.`
+        : "",
+      summarizeImportErrors(failedFiles),
+    ].filter(Boolean);
+    setMessage(notes.join(" "));
+    return importedImages.length > 0;
+  };
+
   const importFromGoogleDrive = async () => {
     if (isImportingDrive || isImportingPhotos) return;
 
@@ -110,98 +208,54 @@ export function useGoogleImageImport({
 
     try {
       const selection = await pickGoogleDriveImages();
-      if (!selection.files.length) {
-        setMessage(
-          selection.summary.folderCount
-            ? "No Google Drive images found in the selected folder."
-            : "No Google Drive images selected.",
-        );
-        return;
-      }
-
-      const importedImages: GoogleImportedImage[] = [];
-      const failedFiles: string[] = [];
-      let completedFiles = 0;
-      const concurrentDownloads = Math.min(
-        GOOGLE_DRIVE_DOWNLOAD_CONCURRENCY,
-        selection.files.length,
-      );
-
-      setMessage(
-        `Found ${selection.files.length} Google Drive image${
-          selection.files.length === 1 ? "" : "s"
-        }. Reading with ${concurrentDownloads} concurrent download${
-          concurrentDownloads === 1 ? "" : "s"
-        }...`,
-      );
-
-      const downloadResults = await mapConcurrent<
-        GoogleDriveFileMetadata,
-        GoogleDriveDownloadResult
-      >(
-        selection.files,
-        GOOGLE_DRIVE_DOWNLOAD_CONCURRENCY,
-        async (selectedFile) => {
-          try {
-            const downloaded = await downloadGoogleDriveImage(
-              selectedFile,
-              selection.accessToken,
-            );
-
-            return {
-              image: {
-                file: downloaded.file,
-                source: "google-drive" as const,
-                googleDriveMetadata: downloaded.metadata,
-              },
-            };
-          } catch (error) {
-            const errorMessage =
-              error instanceof Error
-                ? error.message
-                : `${selectedFile.name} failed`;
-            return {
-              error: errorMessage.includes(selectedFile.name)
-                ? errorMessage
-                : `${selectedFile.name}: ${errorMessage}`,
-            };
-          } finally {
-            completedFiles += 1;
-            setMessage(
-              `Read ${completedFiles} of ${selection.files.length} from Google Drive...`,
-            );
-          }
-        },
-      );
-
-      for (const result of downloadResults) {
-        if (result.image) {
-          importedImages.push(result.image);
-          continue;
-        }
-
-        failedFiles.push(result.error);
-      }
-
-      if (importedImages.length) onImages(importedImages);
-
-      const notes = [
-        `${importedImages.length} Google Drive image${
-          importedImages.length === 1 ? "" : "s"
-        } ready.`,
-        selection.summary.folderCount
-          ? `Scanned ${selection.summary.folderCount} folder${
-              selection.summary.folderCount === 1 ? "" : "s"
-            }.`
-          : "",
-        summarizeImportErrors(failedFiles),
-      ].filter(Boolean);
-      setMessage(notes.join(" "));
+      await importGoogleDriveFiles({
+        files: selection.files,
+        summary: selection.summary,
+        emptyMessage: selection.summary.folderCount
+          ? "No Google Drive images found in the selected folder."
+          : "No Google Drive images selected.",
+        downloadImage: (selectedFile) =>
+          downloadGoogleDriveImage(selectedFile, selection.accessToken),
+      });
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
           : "Could not import images from Google Drive",
+      );
+    } finally {
+      setIsImportingDrive(false);
+    }
+  };
+
+  const importFromGoogleDriveLink = async () => {
+    if (isImportingDrive || isImportingPhotos) return;
+
+    const folderLink = googleDriveFolderLink.trim();
+    if (!folderLink) {
+      setMessage("Paste a public Google Drive folder link first.");
+      return;
+    }
+
+    setIsImportingDrive(true);
+    setMessage("Reading public Google Drive folder...");
+
+    try {
+      const selection = await importPublicGoogleDriveFolder(folderLink);
+      const importedAny = await importGoogleDriveFiles({
+        files: selection.files,
+        summary: selection.summary,
+        emptyMessage: "No Google Drive images found in the public folder.",
+        downloadImage: (selectedFile) =>
+          downloadPublicGoogleDriveImage(selectedFile, selection.apiKey),
+      });
+
+      if (importedAny) setGoogleDriveFolderLink("");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not import images from the Google Drive link",
       );
     } finally {
       setIsImportingDrive(false);
@@ -314,11 +368,14 @@ export function useGoogleImageImport({
     googlePhotosButtonLabel: googlePhotosSession
       ? "Continue in Google Photos"
       : "Upload from Google Photos",
+    googleDriveFolderLink,
     importFromGoogleDrive,
+    importFromGoogleDriveLink,
     importFromGooglePhotos,
     isImportingDrive,
     isImportingPhotos,
     isImporting: isImportingDrive || isImportingPhotos,
     message,
+    setGoogleDriveFolderLink,
   };
 }

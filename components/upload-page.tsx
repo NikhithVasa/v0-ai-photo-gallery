@@ -9,6 +9,7 @@ import {
   CloudDownload,
   FileImage,
   Images,
+  Link2,
   Loader2,
   Trash2,
   Upload,
@@ -223,13 +224,16 @@ export function UploadPage() {
     processingCount: number;
   } | null>(null);
   const {
+    googleDriveFolderLink,
     googlePhotosButtonLabel,
     importFromGoogleDrive,
+    importFromGoogleDriveLink,
     importFromGooglePhotos,
     isImporting,
     isImportingDrive,
     isImportingPhotos,
     message: googleImportMessage,
+    setGoogleDriveFolderLink,
   } = useGoogleImageImport({
     onImages: (images) => {
       setQueuedFiles((current) =>
@@ -1118,6 +1122,42 @@ export function UploadPage() {
               )}
               Upload from Google Drive
             </Button>
+
+            <form
+              className="space-y-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setMessage("");
+                void importFromGoogleDriveLink();
+              }}
+            >
+              <Input
+                type="url"
+                value={googleDriveFolderLink}
+                onChange={(event) => setGoogleDriveFolderLink(event.target.value)}
+                placeholder="Paste public Google Drive folder link"
+                aria-label="Public Google Drive folder link"
+                disabled={isImportingDrive || isImportingPhotos || isUploading}
+              />
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full"
+                disabled={
+                  isImportingDrive ||
+                  isImportingPhotos ||
+                  isUploading ||
+                  !googleDriveFolderLink.trim()
+                }
+              >
+                {isImportingDrive ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Link2 className="h-4 w-4" />
+                )}
+                Import Drive link
+              </Button>
+            </form>
 
             <Button
               type="button"

@@ -13,6 +13,7 @@ import {
   ImageUp,
   Images,
   Info,
+  Link2,
   Loader2,
   ShieldCheck,
   Sparkles,
@@ -360,13 +361,16 @@ export function AddEventPage({
   } | null>(null);
   const coverPreviewUrlRef = useRef<string | null>(null);
   const {
+    googleDriveFolderLink,
     googlePhotosButtonLabel,
     importFromGoogleDrive,
+    importFromGoogleDriveLink,
     importFromGooglePhotos,
     isImporting: isGoogleImporting,
     isImportingDrive,
     isImportingPhotos,
     message: googleImportMessage,
+    setGoogleDriveFolderLink,
   } = useGoogleImageImport({
     onImages: (images) =>
       addMediaFiles(
@@ -1374,6 +1378,35 @@ export function AddEventPage({
             )}
             Upload from Google Drive
           </button>
+          <form
+            className="flex gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void importFromGoogleDriveLink();
+            }}
+          >
+            <Input
+              type="url"
+              value={googleDriveFolderLink}
+              onChange={(event) => setGoogleDriveFolderLink(event.target.value)}
+              placeholder="Public Drive folder link"
+              aria-label="Public Google Drive folder link"
+              disabled={isUploading || isGoogleImporting}
+              className="h-10 min-w-0 flex-1 rounded-2xl"
+            />
+            <button
+              type="submit"
+              disabled={isUploading || isGoogleImporting || !googleDriveFolderLink.trim()}
+              className="flex h-10 min-w-10 items-center justify-center rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Import public Google Drive folder link"
+            >
+              {isImportingDrive ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Link2 className="h-4 w-4" />
+              )}
+            </button>
+          </form>
           <button
             type="button"
             onClick={() => void importFromGooglePhotos()}
