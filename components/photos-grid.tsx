@@ -46,8 +46,8 @@ const PHOTO_SORT_OPTIONS: Array<{ value: PhotoSortMode; label: string }> = [
   { value: "title_desc", label: "File name (Z-A)" },
   { value: "added_newest", label: "Added date (Newest)" },
   { value: "added_oldest", label: "Added date (Oldest)" },
-  { value: "original_newest", label: "Original date (Newest)" },
-  { value: "original_oldest", label: "Original date (Oldest)" },
+  { value: "original_newest", label: "Captured time (Newest)" },
+  { value: "original_oldest", label: "Captured time (Oldest)" },
   { value: "rating", label: "Rating" },
   { value: "custom", label: "Custom" },
 ];

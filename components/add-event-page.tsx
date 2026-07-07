@@ -46,6 +46,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useGoogleImageImport } from "@/hooks/use-google-image-import";
 import { photoPreviewImageUrl } from "@/lib/photo-image-url";
+import { photoUploadFileMetadata } from "@/lib/photo-upload-metadata";
 import {
   IMAGE_UPLOAD_ACCEPT,
   isSupportedImageFile,
@@ -899,6 +900,17 @@ export function AddEventPage({
       const completedPhotoIds: string[] = [];
 
       if (photoFilesToUpload.length) {
+        const uploadFiles: Awaited<ReturnType<typeof photoUploadFileMetadata>>[] = [];
+        await runWithConcurrency(
+          photoFilesToUpload.length,
+          PHOTO_UPLOAD_CONCURRENCY,
+          async (index) => {
+            const item = photoFilesToUpload[index];
+            if (!item) return;
+            uploadFiles[index] = await photoUploadFileMetadata(item.file);
+          },
+        );
+
         const prepareResponse = await fetch("/api/uploads", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -907,11 +919,7 @@ export function AddEventPage({
             albumSlug,
             eventSlug,
             eventName: uploadTarget === "new" ? eventName : undefined,
-            files: photoFilesToUpload.map((item) => ({
-              fileName: item.file.name,
-              size: item.file.size,
-              contentType: item.file.type || "application/octet-stream",
-            })),
+            files: uploadFiles,
           }),
         });
 

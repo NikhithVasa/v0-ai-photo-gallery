@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
+import { ensurePhotoSortSchema } from "@/lib/photo-sort";
 import { signedUploadUrl } from "@/lib/s3";
 import {
   requireAdminAccess,
@@ -13,6 +14,7 @@ interface UploadFileInput {
   contentType: string;
   width?: number | null;
   height?: number | null;
+  originalTakenAt?: string | null;
 }
 
 interface UploadRequestBody {
@@ -277,6 +279,12 @@ function imageDimensionValue(value: unknown) {
   return Math.round(value);
 }
 
+function originalTakenAtValue(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as UploadRequestBody;
@@ -293,6 +301,8 @@ export async function POST(request: Request) {
     if (!files.length) {
       return NextResponse.json({ error: "files are required" }, { status: 400 });
     }
+
+    await ensurePhotoSortSchema();
 
     const album = await createOrGetAlbum(body);
     if (!album) {
@@ -332,6 +342,7 @@ export async function POST(request: Request) {
                   file_size_bytes,
                   width,
                   height,
+                  original_taken_at,
                   original_s3_key,
                   ai_input_s3_key,
                   clean_preview_s3_key,
@@ -364,6 +375,7 @@ export async function POST(request: Request) {
                   $14,
                   $15,
                   $16,
+                  $17,
                   'pending',
                   'pending',
                   'pending',
@@ -386,6 +398,7 @@ export async function POST(request: Request) {
                   file.size,
                   imageDimensionValue(file.width),
                   imageDimensionValue(file.height),
+                  originalTakenAtValue(file.originalTakenAt),
                   keys.originalS3Key,
                   keys.aiInputS3Key,
                   keys.cleanPreviewS3Key,

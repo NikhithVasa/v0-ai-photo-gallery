@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { useGoogleImageImport } from "@/hooks/use-google-image-import";
+import { photoUploadFileMetadata } from "@/lib/photo-upload-metadata";
 import {
   IMAGE_UPLOAD_ACCEPT,
   isSupportedImageFile,
@@ -106,6 +107,7 @@ interface UploadFileRequest {
   fileName: string;
   size: number;
   contentType: string;
+  originalTakenAt?: string | null;
 }
 
 interface ProcessingStatusResponse {
@@ -561,11 +563,7 @@ export function UploadPage() {
           async (index) => {
             const item = batch[index];
             if (!item) return;
-            batchFiles[index] = {
-              fileName: item.file.name,
-              size: item.file.size,
-              contentType: item.file.type || "application/octet-stream",
-            };
+            batchFiles[index] = await photoUploadFileMetadata(item.file);
           },
         );
 

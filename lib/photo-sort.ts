@@ -46,6 +46,7 @@ export function ensurePhotoSortSchema() {
     await query(
       `
       ALTER TABLE photos
+        ADD COLUMN IF NOT EXISTS original_taken_at timestamptz,
         ADD COLUMN IF NOT EXISTS custom_sort_order integer
       `,
       [],
@@ -70,6 +71,14 @@ export function ensurePhotoSortSchema() {
       `
       CREATE INDEX IF NOT EXISTS photos_album_event_custom_sort_idx
       ON photos (album_id, album_event_id, custom_sort_order)
+      `,
+      [],
+    );
+
+    await query(
+      `
+      CREATE INDEX IF NOT EXISTS photos_album_event_original_taken_idx
+      ON photos (album_id, album_event_id, original_taken_at)
       `,
       [],
     );
