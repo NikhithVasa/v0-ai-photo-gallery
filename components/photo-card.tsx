@@ -1469,7 +1469,7 @@ interface PhotoLightboxProps {
   allPeople?: Person[];
   canManagePeople?: boolean;
   originRect?: PhotoOpenRect;
-  onClose: () => void;
+  onClose: (index?: number) => void;
   onNavigate: (index: number) => void;
   onPersonClick?: (person: PhotoPerson) => void;
   onPeopleChanged?: () => void | Promise<void>;
@@ -1568,6 +1568,7 @@ export function PhotoLightbox({
   } | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
   const swipeCommitTimerRef = useRef<number | null>(null);
+  const pendingSwipeIndexRef = useRef<number | null>(null);
   const isMobilePointerRef = useRef(isMobilePointer);
   const isPeopleOpenRef = useRef(isPeopleOpen);
   const isFilterPanelOpenRef = useRef(isFilterPanelOpen);
@@ -1966,6 +1967,8 @@ export function PhotoLightbox({
         window.clearTimeout(swipeCommitTimerRef.current);
       }
 
+      pendingSwipeIndexRef.current = null;
+
       if (controlsTimerRef.current) {
         window.clearTimeout(controlsTimerRef.current);
       }
@@ -1995,6 +1998,10 @@ export function PhotoLightbox({
       window.scrollTo(0, scrollY);
     };
   }, []);
+
+  useEffect(() => {
+    pendingSwipeIndexRef.current = null;
+  }, [currentIndex]);
 
   useLayoutEffect(() => {
     const frame = photoFrameRef.current;
@@ -2381,19 +2388,21 @@ export function PhotoLightbox({
   function closeWithAnimation() {
     if (isClosing) return;
 
+    const closeIndex = pendingSwipeIndexRef.current ?? currentIndex;
+
     const frame = photoFrameRef.current;
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
 
     if (!frame || !originRect || prefersReducedMotion) {
-      onClose();
+      onClose(closeIndex);
       return;
     }
 
     const targetRect = frame.getBoundingClientRect();
     if (!targetRect.width || !targetRect.height) {
-      onClose();
+      onClose(closeIndex);
       return;
     }
 
@@ -2418,7 +2427,7 @@ export function PhotoLightbox({
       transformOrigin: "center center",
     });
 
-    window.setTimeout(onClose, 300);
+    window.setTimeout(() => onClose(closeIndex), 300);
   }
 
   const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
@@ -2436,6 +2445,8 @@ export function PhotoLightbox({
       window.clearTimeout(swipeCommitTimerRef.current);
       swipeCommitTimerRef.current = null;
     }
+
+    pendingSwipeIndexRef.current = null;
 
     setIsDragging(true);
     setIsAnimatingSwipe(false);
@@ -2509,14 +2520,17 @@ export function PhotoLightbox({
 
       swipeCommitTimerRef.current = window.setTimeout(() => {
         setIsAnimatingSwipe(false);
+        pendingSwipeIndexRef.current = null;
       }, animationDuration);
 
       return;
     }
 
     const direction = committedDragOffset < 0 ? "next" : "previous";
+    const targetIndex = direction === "next" ? nextIndex : previousIndex;
     const finalOffset = direction === "next" ? -frameWidth : frameWidth;
 
+    pendingSwipeIndexRef.current = targetIndex;
     dragOffsetRef.current = finalOffset;
     setDragOffset(finalOffset);
 
@@ -2527,17 +2541,14 @@ export function PhotoLightbox({
       setIsPeopleOpen(false);
       setIsDownloadHovering(false);
 
-      if (direction === "next") {
-        onNavigate(nextIndex);
-      } else {
-        onNavigate(previousIndex);
-      }
+      onNavigate(targetIndex);
+      pendingSwipeIndexRef.current = null;
     }, animationDuration);
   };
 
   const handlePersonClick = (person: PhotoPerson) => {
     onPersonClick?.(person);
-    onClose();
+    onClose(currentIndex);
   };
 
   const startRenamePerson = (person: PhotoPerson) => {

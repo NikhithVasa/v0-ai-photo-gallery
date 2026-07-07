@@ -734,8 +734,8 @@ export function PhotosGrid({
     setLightboxState({ index, originRect });
   }, [ensurePhotoIndexRendered, logGridScrollDebug, orderedPhotos]);
 
-  const handleCloseLightbox = useCallback(() => {
-    const index = lightboxState?.index ?? -1;
+  const handleCloseLightbox = useCallback((closeIndex?: number) => {
+    const index = closeIndex ?? lightboxState?.index ?? -1;
     const photo = index >= 0 ? orderedPhotos[index] : undefined;
     const tile = photo ? photoTileRefs.current.get(photo.id) : null;
 
@@ -746,7 +746,6 @@ export function PhotosGrid({
 
     if (tile) {
       tile.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
-      pendingLightboxRestorePhotoIdRef.current = null;
     }
 
     logGridScrollDebug("close lightbox", {
