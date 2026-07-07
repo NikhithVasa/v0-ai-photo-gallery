@@ -216,6 +216,20 @@ interface PhotosGridProps {
   designSettings?: AlbumDesignSettings | null;
 }
 
+function photoTileOpenRect(tile: HTMLElement | null): PhotoOpenRect | undefined {
+  if (!tile) return undefined;
+
+  const rect = tile.getBoundingClientRect();
+  if (!rect.width || !rect.height) return undefined;
+
+  return {
+    top: rect.top,
+    left: rect.left,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
 function photosUrl(
   albumSlug: string,
   shareToken: string,
@@ -314,6 +328,8 @@ export function PhotosGrid({
   designSettings,
 }: PhotosGridProps) {
   const gridRootRef = useRef<HTMLDivElement | null>(null);
+  const photoTileRefs = useRef(new Map<string, HTMLDivElement>());
+  const pendingLightboxRestorePhotoIdRef = useRef<string | null>(null);
   const [isScrollDebugEnabled, setIsScrollDebugEnabled] = useState(false);
   const photosRequestUrl = useMemo(
     () =>
@@ -398,6 +414,17 @@ export function PhotosGrid({
     setVisiblePhotoCount(INITIAL_VISIBLE_PHOTO_COUNT);
     lastTriggeredKeyRef.current = null;
   }, [photosRequestUrl]);
+
+  const ensurePhotoIndexRendered = useCallback(
+    (index: number) => {
+      if (!shouldProgressivelyRenderPhotos) return;
+
+      setVisiblePhotoCount((current) =>
+        Math.max(current, Math.min(index + 1, orderedPhotos.length)),
+      );
+    },
+    [orderedPhotos.length, shouldProgressivelyRenderPhotos],
+  );
 
   const logGridScrollDebug = useCallback(
     (label: string, extra: Record<string, unknown> = {}) => {
@@ -692,9 +719,62 @@ export function PhotosGrid({
   }, [logGridScrollDebug]);
 
   const handleNavigate = useCallback((index: number) => {
-    logGridScrollDebug("navigate lightbox", { index });
-    setLightboxState({ index });
-  }, [logGridScrollDebug]);
+    const photo = orderedPhotos[index];
+    const originRect = photo
+      ? photoTileOpenRect(photoTileRefs.current.get(photo.id) ?? null)
+      : undefined;
+
+    ensurePhotoIndexRendered(index);
+
+    logGridScrollDebug("navigate lightbox", {
+      index,
+      photoId: photo?.id ?? null,
+      hasOriginRect: Boolean(originRect),
+    });
+    setLightboxState({ index, originRect });
+  }, [ensurePhotoIndexRendered, logGridScrollDebug, orderedPhotos]);
+
+  const handleCloseLightbox = useCallback(() => {
+    const index = lightboxState?.index ?? -1;
+    const photo = index >= 0 ? orderedPhotos[index] : undefined;
+    const tile = photo ? photoTileRefs.current.get(photo.id) : null;
+
+    if (photo) {
+      pendingLightboxRestorePhotoIdRef.current = photo.id;
+      ensurePhotoIndexRendered(index);
+    }
+
+    if (tile) {
+      tile.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+      pendingLightboxRestorePhotoIdRef.current = null;
+    }
+
+    logGridScrollDebug("close lightbox", {
+      index: index >= 0 ? index : null,
+      photoId: photo?.id ?? null,
+      restoredTile: Boolean(tile),
+    });
+    setLightboxState(null);
+  }, [ensurePhotoIndexRendered, lightboxState, logGridScrollDebug, orderedPhotos]);
+
+  useEffect(() => {
+    if (lightboxState !== null) return;
+
+    const photoId = pendingLightboxRestorePhotoIdRef.current;
+    if (!photoId) return;
+
+    const tile = photoTileRefs.current.get(photoId);
+    if (!tile) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      tile.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+      if (pendingLightboxRestorePhotoIdRef.current === photoId) {
+        pendingLightboxRestorePhotoIdRef.current = null;
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [lightboxState, visiblePhotos]);
 
   useEffect(() => {
     if (!openPhotoId || !data?.photos?.length) return;
@@ -1003,6 +1083,13 @@ export function PhotosGrid({
         {visiblePhotos.map((photo, index) => (
           <div
             key={photo.id}
+            ref={(node) => {
+              if (node) {
+                photoTileRefs.current.set(photo.id, node);
+              } else {
+                photoTileRefs.current.delete(photo.id);
+              }
+            }}
             className={`relative max-w-full overflow-hidden rounded-[22px] shadow-[0_16px_45px_rgba(0,0,0,0.12)] ring-1 ring-white/70 transition-transform duration-300 ease-out sm:min-w-[min(44vw,190px)] sm:hover:-translate-y-1.5 ${
               isSinglePhoto ? "w-full sm:w-[min(100%,420px)]" : "w-full"
             }`}
@@ -1063,7 +1150,7 @@ export function PhotosGrid({
           allPeople={people}
           canManagePeople={canManagePeople}
           originRect={lightboxState.originRect}
-          onClose={() => setLightboxState(null)}
+          onClose={handleCloseLightbox}
           onNavigate={handleNavigate}
           onPersonClick={
             onPhotoPersonClick || onPersonClick
