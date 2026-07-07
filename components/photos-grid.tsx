@@ -109,13 +109,8 @@ function dateMs(value?: string | null) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-const fileNameCollator = new Intl.Collator(undefined, {
-  numeric: true,
-  sensitivity: "base",
-});
-
 function fileNameValue(photo: Photo) {
-  return photo.fileName?.trim() || null;
+  return photo.fileName?.trim().toLowerCase() || null;
 }
 
 function compareFileNames(a: Photo, b: Photo) {
@@ -126,7 +121,9 @@ function compareFileNames(a: Photo, b: Photo) {
   if (!aFileName) return 1;
   if (!bFileName) return -1;
 
-  return fileNameCollator.compare(aFileName, bFileName);
+  if (aFileName < bFileName) return -1;
+  if (aFileName > bFileName) return 1;
+  return 0;
 }
 
 function withCustomPositions(photos: Photo[]) {
