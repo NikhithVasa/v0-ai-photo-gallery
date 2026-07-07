@@ -864,6 +864,15 @@ type MobileLightboxZoomGesture =
       startClientY: number;
       startOffsetX: number;
       startOffsetY: number;
+    }
+  | {
+      type: "dismiss";
+      startClientX: number;
+      startClientY: number;
+      lastClientX: number;
+      lastClientY: number;
+      startedAt: number;
+      isDraggingDown: boolean;
     };
 
 const DEFAULT_MOBILE_LIGHTBOX_ZOOM: MobileLightboxZoomState = {
@@ -914,15 +923,20 @@ function touchCenterRelativeToFrame(
 ) {
   const firstTouch = touches[0];
   const secondTouch = touches[1];
-  const rect = frame?.getBoundingClientRect();
 
-  if (!firstTouch || !secondTouch || !rect) {
+  if (!firstTouch || !secondTouch) {
     return { centerX: 0, centerY: 0 };
   }
 
+  const rect = frame?.getBoundingClientRect();
+  const left = rect?.left ?? 0;
+  const top = rect?.top ?? 0;
+  const width = rect?.width ?? window.innerWidth;
+  const height = rect?.height ?? window.innerHeight;
+
   return {
-    centerX: (firstTouch.clientX + secondTouch.clientX) / 2 - rect.left - rect.width / 2,
-    centerY: (firstTouch.clientY + secondTouch.clientY) / 2 - rect.top - rect.height / 2,
+    centerX: (firstTouch.clientX + secondTouch.clientX) / 2 - left - width / 2,
+    centerY: (firstTouch.clientY + secondTouch.clientY) / 2 - top - height / 2,
   };
 }
 
@@ -1647,6 +1661,7 @@ export function PhotoLightbox({
     DEFAULT_MOBILE_LIGHTBOX_ZOOM,
   );
   const [isMobileZooming, setIsMobileZooming] = useState(false);
+  const [mobileDismissOffset, setMobileDismissOffset] = useState(0);
 
   const photoFrameRef = useRef<HTMLDivElement>(null);
   const mobileZoomFrameRef = useRef<HTMLDivElement>(null);
@@ -1658,6 +1673,11 @@ export function PhotoLightbox({
     DEFAULT_MOBILE_LIGHTBOX_ZOOM,
   );
   const mobileZoomGestureRef = useRef<MobileLightboxZoomGesture | null>(null);
+  const lastMobileTapRef = useRef<{
+    time: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -2020,6 +2040,7 @@ export function PhotoLightbox({
       mobileZoomGestureRef.current = null;
       setMobileZoom(DEFAULT_MOBILE_LIGHTBOX_ZOOM);
       setIsMobileZooming(false);
+      setMobileDismissOffset(0);
       showControlsBriefly();
       setIsPeopleOpen(false);
       setIsFilterPanelOpen(false);
@@ -2071,6 +2092,7 @@ export function PhotoLightbox({
     mobileZoomGestureRef.current = null;
     setMobileZoom(DEFAULT_MOBILE_LIGHTBOX_ZOOM);
     setIsMobileZooming(false);
+    setMobileDismissOffset(0);
 
     if (isMobilePointer && areControlsReady) {
       setAreControlsVisible(true);
@@ -2737,6 +2759,14 @@ export function PhotoLightbox({
     return ((rawIndex % photos.length) + photos.length) % photos.length;
   };
 
+  const resetMobileZoom = () => {
+    mobileZoomRef.current = DEFAULT_MOBILE_LIGHTBOX_ZOOM;
+    mobileZoomGestureRef.current = null;
+    setMobileZoom(DEFAULT_MOBILE_LIGHTBOX_ZOOM);
+    setIsMobileZooming(false);
+    setMobileDismissOffset(0);
+  };
+
   const updateMobileZoom = (nextZoom: MobileLightboxZoomState) => {
     const clampedZoom = clampMobileLightboxZoom(
       nextZoom,
@@ -2777,10 +2807,13 @@ export function PhotoLightbox({
       return;
     }
 
-    if (mobileZoomRef.current.scale <= LIGHTBOX_MIN_ZOOM) return;
-
     const touch = event.touches[0];
     if (!touch) return;
+
+    if (mobileZoomRef.current.scale <= LIGHTBOX_MIN_ZOOM) {
+      startMobileDismissGesture(touch);
+      return;
+    }
 
     mobileZoomGestureRef.current = {
       type: "pan",
@@ -2791,6 +2824,39 @@ export function PhotoLightbox({
     };
     setIsMobileZooming(true);
     event.preventDefault();
+  };
+
+  const rememberMobileTap = (touch: React.Touch) => {
+    const now = performance.now();
+    const previousTap = lastMobileTapRef.current;
+
+    if (
+      previousTap &&
+      now - previousTap.time <= 300 &&
+      Math.hypot(touch.clientX - previousTap.x, touch.clientY - previousTap.y) <= 36
+    ) {
+      resetMobileZoom();
+      lastMobileTapRef.current = null;
+      return;
+    }
+
+    lastMobileTapRef.current = {
+      time: now,
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  };
+
+  const startMobileDismissGesture = (touch: React.Touch) => {
+    mobileZoomGestureRef.current = {
+      type: "dismiss",
+      startClientX: touch.clientX,
+      startClientY: touch.clientY,
+      lastClientX: touch.clientX,
+      lastClientY: touch.clientY,
+      startedAt: performance.now(),
+      isDraggingDown: false,
+    };
   };
 
   const handleMobileLightboxTouchMove = (
@@ -2821,6 +2887,29 @@ export function PhotoLightbox({
       return;
     }
 
+    if (gesture.type === "dismiss" && event.touches.length === 1) {
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      const deltaX = touch.clientX - gesture.startClientX;
+      const deltaY = touch.clientY - gesture.startClientY;
+      gesture.lastClientX = touch.clientX;
+      gesture.lastClientY = touch.clientY;
+
+      if (
+        deltaY > 10 &&
+        Math.abs(deltaY) > Math.abs(deltaX) * 1.25
+      ) {
+        gesture.isDraggingDown = true;
+      }
+
+      if (!gesture.isDraggingDown) return;
+
+      setMobileDismissOffset(Math.max(0, deltaY));
+      event.preventDefault();
+      return;
+    }
+
     if (gesture.type === "pan" && event.touches.length === 1) {
       const touch = event.touches[0];
       if (!touch) return;
@@ -2839,6 +2928,8 @@ export function PhotoLightbox({
   ) => {
     if (!isMobilePointer) return;
 
+    const gesture = mobileZoomGestureRef.current;
+
     if (event.touches.length === 1 && mobileZoomRef.current.scale > LIGHTBOX_MIN_ZOOM) {
       const touch = event.touches[0];
       if (touch) {
@@ -2851,6 +2942,38 @@ export function PhotoLightbox({
         };
         return;
       }
+    }
+
+    if (gesture?.type === "dismiss") {
+      const deltaX = gesture.lastClientX - gesture.startClientX;
+      const deltaY = gesture.lastClientY - gesture.startClientY;
+      const elapsed = Math.max(performance.now() - gesture.startedAt, 1);
+      const velocityY = deltaY / elapsed;
+      const shouldClose =
+        gesture.isDraggingDown &&
+        deltaY > 72 &&
+        Math.abs(deltaY) > Math.abs(deltaX) * 1.25 &&
+        velocityY > 0.18;
+
+      mobileZoomGestureRef.current = null;
+      setIsMobileZooming(false);
+      setMobileDismissOffset(0);
+
+      if (shouldClose) {
+        closeWithAnimation();
+        return;
+      }
+
+      const tap = event.changedTouches[0];
+      if (!gesture.isDraggingDown && tap) {
+        rememberMobileTap(tap);
+      }
+
+      return;
+    }
+
+    if (gesture?.type === "pan" && event.changedTouches[0]) {
+      rememberMobileTap(event.changedTouches[0]);
     }
 
     mobileZoomGestureRef.current = null;
@@ -3059,9 +3182,20 @@ export function PhotoLightbox({
   const imageClassName =
     "pointer-events-none h-full w-full cursor-default select-none object-contain";
   const lightboxEnterDurationClass = isClosing ? "duration-300" : "duration-700";
+  const isMobileZoomed = mobileZoom.scale > LIGHTBOX_MIN_ZOOM;
+  const mobileZoomImageStyle = {
+    transform: `translate3d(${mobileZoom.offsetX}px, ${mobileZoom.offsetY}px, 0) scale(${mobileZoom.scale})`,
+  } satisfies CSSProperties;
+  const mobileFrameTransform = mobileDismissOffset > 0
+    ? `${entryStyle.transform ?? ""} translate3d(0, ${mobileDismissOffset}px, 0)`
+    : entryStyle.transform;
+  const mobileFrameOpacity = mobileDismissOffset > 0
+    ? Math.max(0.35, 1 - mobileDismissOffset / 420)
+    : entryStyle.opacity;
 
   return (
     <div
+      ref={mobileZoomFrameRef}
       className={`fixed inset-0 z-50 flex cursor-default items-center justify-center text-white transition-colors ${lightboxEnterDurationClass} ease-in-out ${
         isBackdropVisible ? "bg-black" : "bg-black/0"
       }`}
@@ -3146,6 +3280,55 @@ export function PhotoLightbox({
         <ChevronRight className="h-6 w-6" strokeWidth={1.5} />
       </button>
 
+      {isMobilePointer && isMobileZoomed && currentDisplayBaseUrl ? (
+        <div
+          className="absolute inset-0 z-10 overflow-hidden"
+          style={{ touchAction: "none" }}
+          onClick={(event) => event.stopPropagation()}
+          onDoubleClick={(event) => {
+            event.stopPropagation();
+            resetMobileZoom();
+          }}
+          onTouchStart={handleMobileLightboxTouchStart}
+          onTouchMove={handleMobileLightboxTouchMove}
+          onTouchEnd={handleMobileLightboxTouchEnd}
+          onTouchCancel={handleMobileLightboxTouchEnd}
+        >
+          <div
+            className={`absolute inset-0 ${!isMobileZooming ? "transition-transform duration-200 ease-out" : ""}`}
+            style={mobileZoomImageStyle}
+          >
+            <WatermarkedImage
+              src={currentImageUrl || currentDisplayBaseUrl}
+              alt={photo.caption || "Photo"}
+              className={`${imageClassName} absolute inset-0`}
+              decoding="async"
+              fetchPriority="high"
+              draggable={false}
+              settings={shareSettings}
+              fit="contain"
+              style={selectedInstagramFilterImageStyle}
+            />
+
+            {upgradedImageUrl ? (
+              <FadingWatermarkedImage
+                src={upgradedImageUrl}
+                alt={photo.caption || "Photo"}
+                className={`${imageClassName} absolute inset-0`}
+                decoding="async"
+                fetchPriority="high"
+                draggable={false}
+                settings={shareSettings}
+                fit="contain"
+                style={selectedInstagramFilterImageStyle}
+              />
+            ) : null}
+
+            <InstagramFilterOverlay filter={selectedInstagramFilter} />
+          </div>
+        </div>
+      ) : null}
+
       <div
         ref={touchSurfaceRef}
         className="relative flex h-full w-full cursor-default items-center justify-center px-3 py-16 sm:px-6 sm:py-20"
@@ -3172,6 +3355,8 @@ export function PhotoLightbox({
             style={{
               width: photoFrameWidth,
               ...entryStyle,
+              opacity: mobileFrameOpacity,
+              transform: mobileFrameTransform,
               touchAction: isMobilePointer ? "pan-x" : "pan-y",
             }}
             onMouseEnter={() => {
@@ -3188,7 +3373,6 @@ export function PhotoLightbox({
           >
             <div
               className="relative overflow-hidden"
-              ref={mobileZoomFrameRef}
               style={{
                 aspectRatio: displayAspectRatio,
                 maxHeight: photoFrameMaxHeight,
@@ -3216,8 +3400,8 @@ export function PhotoLightbox({
                   onTouchCancel={handleMobileLightboxTouchEnd}
                   className="absolute inset-0 flex snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden"
                   style={{
-                    overflowX: mobileZoom.scale > LIGHTBOX_MIN_ZOOM ? "hidden" : undefined,
-                    touchAction: mobileZoom.scale > LIGHTBOX_MIN_ZOOM ? "none" : "pan-x",
+                    overflowX: isMobileZoomed ? "hidden" : undefined,
+                    touchAction: isMobileZoomed ? "none" : "pan-x",
                   }}
                 >
                   {nativeLightboxOffsets.map((offset) => {
@@ -3226,20 +3410,13 @@ export function PhotoLightbox({
                     const targetImageUrl = offset === 0
                       ? currentImageUrl
                       : getLightboxUrl(targetPhoto);
-                    const mobileZoomStyle = offset === 0
-                      ? {
-                          transform: `translate3d(${mobileZoom.offsetX}px, ${mobileZoom.offsetY}px, 0) scale(${mobileZoom.scale})`,
-                        }
-                      : undefined;
-
                     return (
                       <div
                         key={`${offset}:${targetPhoto.id}`}
                         className="relative flex h-full w-full shrink-0 snap-start cursor-default items-center justify-center"
                       >
                         <div
-                          className={`absolute inset-0 ${offset === 0 && !isMobileZooming ? "transition-transform duration-200 ease-out" : ""}`}
-                          style={mobileZoomStyle}
+                          className={`absolute inset-0 ${offset === 0 && isMobileZoomed ? "opacity-0" : ""}`}
                         >
                           {targetImageUrl ? (
                             <WatermarkedImage
