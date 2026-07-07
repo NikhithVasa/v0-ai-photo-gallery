@@ -169,8 +169,11 @@ function previewUrlsForPhoto(
 }
 
 const LIGHTBOX_PRELOAD_RADIUS = 3;
-const DEFAULT_SWIPE_ANIMATION_MS = 240;
-const MIN_SWIPE_ANIMATION_MS = 120;
+const SWIPE_SPRING_STIFFNESS = 420;
+const SWIPE_SPRING_DAMPING = 34;
+const SWIPE_MAX_RELEASE_VELOCITY = 3600;
+const SWIPE_SETTLE_DISTANCE = 0.5;
+const SWIPE_SETTLE_VELOCITY = 28;
 
 function lightboxPreloadIndices(
   currentIndex: number,
@@ -1553,9 +1556,6 @@ export function PhotoLightbox({
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isAnimatingSwipe, setIsAnimatingSwipe] = useState(false);
-  const [swipeAnimationDurationMs, setSwipeAnimationDurationMs] = useState(
-    DEFAULT_SWIPE_ANIMATION_MS,
-  );
 
   const photoFrameRef = useRef<HTMLDivElement>(null);
   const touchSurfaceRef = useRef<HTMLDivElement>(null);
@@ -1565,9 +1565,12 @@ export function PhotoLightbox({
     x: number;
     y: number;
     time: number;
+    lastX: number;
+    lastTime: number;
+    velocityX: number;
   } | null>(null);
   const controlsTimerRef = useRef<number | null>(null);
-  const swipeCommitTimerRef = useRef<number | null>(null);
+  const swipeAnimationFrameRef = useRef<number | null>(null);
   const pendingSwipeIndexRef = useRef<number | null>(null);
   const isMobilePointerRef = useRef(isMobilePointer);
   const isPeopleOpenRef = useRef(isPeopleOpen);
@@ -1954,7 +1957,6 @@ export function PhotoLightbox({
     setDragOffset(0);
     setIsDragging(false);
     setIsAnimatingSwipe(false);
-    setSwipeAnimationDurationMs(DEFAULT_SWIPE_ANIMATION_MS);
 
     if (isMobilePointer && areControlsReady) {
       setAreControlsVisible(true);
@@ -1963,8 +1965,8 @@ export function PhotoLightbox({
 
   useEffect(() => {
     return () => {
-      if (swipeCommitTimerRef.current) {
-        window.clearTimeout(swipeCommitTimerRef.current);
+      if (swipeAnimationFrameRef.current) {
+        window.cancelAnimationFrame(swipeAnimationFrameRef.current);
       }
 
       pendingSwipeIndexRef.current = null;
@@ -2430,20 +2432,94 @@ export function PhotoLightbox({
     window.setTimeout(() => onClose(closeIndex), 300);
   }
 
+  const finishSwipeAnimation = (
+    targetOffset: number,
+    releaseVelocity: number,
+    targetIndex: number | null,
+  ) => {
+    if (swipeAnimationFrameRef.current) {
+      window.cancelAnimationFrame(swipeAnimationFrameRef.current);
+      swipeAnimationFrameRef.current = null;
+    }
+
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    const completeSwipe = () => {
+      swipeAnimationFrameRef.current = null;
+      dragOffsetRef.current = 0;
+      setDragOffset(0);
+      setIsAnimatingSwipe(false);
+
+      if (targetIndex !== null) {
+        setIsPeopleOpen(false);
+        setIsDownloadHovering(false);
+        onNavigate(targetIndex);
+      }
+
+      pendingSwipeIndexRef.current = null;
+    };
+
+    if (prefersReducedMotion) {
+      completeSwipe();
+      return;
+    }
+
+    let previousTimestamp: number | null = null;
+    let position = dragOffsetRef.current;
+    let velocity = Math.max(
+      -SWIPE_MAX_RELEASE_VELOCITY,
+      Math.min(SWIPE_MAX_RELEASE_VELOCITY, releaseVelocity * 1000),
+    );
+
+    const animate = (timestamp: number) => {
+      const elapsedSeconds = previousTimestamp === null
+        ? 1 / 60
+        : Math.min((timestamp - previousTimestamp) / 1000, 0.032);
+      previousTimestamp = timestamp;
+
+      const displacement = position - targetOffset;
+      const acceleration =
+        -SWIPE_SPRING_STIFFNESS * displacement - SWIPE_SPRING_DAMPING * velocity;
+
+      velocity += acceleration * elapsedSeconds;
+      position += velocity * elapsedSeconds;
+
+      if (
+        Math.abs(position - targetOffset) <= SWIPE_SETTLE_DISTANCE &&
+        Math.abs(velocity) <= SWIPE_SETTLE_VELOCITY
+      ) {
+        completeSwipe();
+        return;
+      }
+
+      dragOffsetRef.current = position;
+      setDragOffset(position);
+      swipeAnimationFrameRef.current = window.requestAnimationFrame(animate);
+    };
+
+    swipeAnimationFrameRef.current = window.requestAnimationFrame(animate);
+  };
+
   const handleTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
     if (photos.length <= 1 || isAnimatingSwipe) return;
 
     const touch = event.touches[0];
+    const timestamp = performance.now();
 
     touchStartRef.current = {
       x: touch.clientX,
       y: touch.clientY,
-      time: Date.now(),
+      time: timestamp,
+      lastX: touch.clientX,
+      lastTime: timestamp,
+      velocityX: 0,
     };
 
-    if (swipeCommitTimerRef.current) {
-      window.clearTimeout(swipeCommitTimerRef.current);
-      swipeCommitTimerRef.current = null;
+    if (swipeAnimationFrameRef.current) {
+      window.cancelAnimationFrame(swipeAnimationFrameRef.current);
+      swipeAnimationFrameRef.current = null;
     }
 
     pendingSwipeIndexRef.current = null;
@@ -2452,7 +2528,6 @@ export function PhotoLightbox({
     setIsAnimatingSwipe(false);
     dragOffsetRef.current = 0;
     setDragOffset(0);
-    setSwipeAnimationDurationMs(DEFAULT_SWIPE_ANIMATION_MS);
     setAreControlsVisible(true);
   };
 
@@ -2467,6 +2542,12 @@ export function PhotoLightbox({
     if (Math.abs(deltaY) > Math.abs(deltaX) * 1.25) {
       return;
     }
+
+    const timestamp = performance.now();
+    const elapsedSinceLastMove = Math.max(timestamp - start.lastTime, 1);
+    start.velocityX = (touch.clientX - start.lastX) / elapsedSinceLastMove;
+    start.lastX = touch.clientX;
+    start.lastTime = timestamp;
 
     const frameWidth =
       photoFrameRef.current?.getBoundingClientRect().width ||
@@ -2493,8 +2574,12 @@ export function PhotoLightbox({
     }
 
     const committedDragOffset = dragOffsetRef.current;
-    const elapsed = Math.max(Date.now() - start.time, 1);
-    const velocity = Math.abs(committedDragOffset) / elapsed;
+    const elapsed = Math.max(performance.now() - start.time, 1);
+    const averageVelocity = committedDragOffset / elapsed;
+    const releaseVelocity = Math.abs(start.velocityX) > 0.01
+      ? start.velocityX
+      : averageVelocity;
+    const releaseSpeed = Math.abs(releaseVelocity);
 
     const frameWidth =
       photoFrameRef.current?.getBoundingClientRect().width ||
@@ -2502,48 +2587,24 @@ export function PhotoLightbox({
       1;
 
     const threshold = Math.min(frameWidth * 0.24, 120);
-    const shouldNavigate = Math.abs(committedDragOffset) > threshold || velocity > 0.55;
-    const animationDuration = shouldNavigate
-      ? Math.max(
-          MIN_SWIPE_ANIMATION_MS,
-          Math.round(DEFAULT_SWIPE_ANIMATION_MS - Math.min(velocity, 1.4) * 70),
-        )
-      : 180;
+    const shouldNavigate = Math.abs(committedDragOffset) > threshold || releaseSpeed > 0.55;
 
     setIsDragging(false);
     setIsAnimatingSwipe(true);
-    setSwipeAnimationDurationMs(animationDuration);
 
     if (!shouldNavigate) {
-      dragOffsetRef.current = 0;
-      setDragOffset(0);
-
-      swipeCommitTimerRef.current = window.setTimeout(() => {
-        setIsAnimatingSwipe(false);
-        pendingSwipeIndexRef.current = null;
-      }, animationDuration);
-
+      finishSwipeAnimation(0, releaseVelocity, null);
       return;
     }
 
-    const direction = committedDragOffset < 0 ? "next" : "previous";
+    const direction = Math.abs(committedDragOffset) > threshold
+      ? committedDragOffset < 0 ? "next" : "previous"
+      : releaseVelocity < 0 ? "next" : "previous";
     const targetIndex = direction === "next" ? nextIndex : previousIndex;
     const finalOffset = direction === "next" ? -frameWidth : frameWidth;
 
     pendingSwipeIndexRef.current = targetIndex;
-    dragOffsetRef.current = finalOffset;
-    setDragOffset(finalOffset);
-
-    swipeCommitTimerRef.current = window.setTimeout(() => {
-      dragOffsetRef.current = 0;
-      setDragOffset(0);
-      setIsAnimatingSwipe(false);
-      setIsPeopleOpen(false);
-      setIsDownloadHovering(false);
-
-      onNavigate(targetIndex);
-      pendingSwipeIndexRef.current = null;
-    }, animationDuration);
+    finishSwipeAnimation(finalOffset, releaseVelocity, targetIndex);
   };
 
   const handlePersonClick = (person: PhotoPerson) => {
@@ -2697,11 +2758,6 @@ export function PhotoLightbox({
     ? "pointer-events-auto"
     : "pointer-events-none";
 
-  const swipeTrackClass =
-    isDragging || !isAnimatingSwipe
-      ? ""
-      : "transition-transform ease-out";
-
   const imageClassName =
     "pointer-events-none h-full w-full cursor-default select-none object-contain";
   const lightboxEnterDurationClass = isClosing ? "duration-300" : "duration-700";
@@ -2853,12 +2909,9 @@ export function PhotoLightbox({
 
               <div className="absolute inset-0 overflow-hidden">
                 <div
-                  className={`flex h-full w-full ${swipeTrackClass}`}
+                  className="flex h-full w-full"
                   style={{
                     transform: `translate3d(calc(-100% + ${dragOffset}px), 0, 0)`,
-                    transitionDuration: isDragging || !isAnimatingSwipe
-                      ? undefined
-                      : `${swipeAnimationDurationMs}ms`,
                   }}
                 >
                   <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
