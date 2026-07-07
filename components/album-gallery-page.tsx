@@ -2852,6 +2852,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   );
   const singleEvent = album?.events.length === 1 ? album.events[0] : null;
   const effectiveEventSlug = selectedEventSlug ?? singleEvent?.slug ?? null;
+  const effectiveSelectedEvent = selectedEvent ?? singleEvent;
+  const showAllEventFilter = album?.events.length !== 1;
   const coverEvent = selectedEvent ?? (!selectedEventSlug ? singleEvent : null);
   const displayCoverPhotoUrl = coverEvent?.coverPhotoUrl || album?.coverPhotoUrl;
   const coverPhotoAlt = coverEvent?.name || album?.name || "Album cover";
@@ -3943,7 +3945,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   };
 
-  const eventLabel = selectedEvent?.name ?? "All events";
+  const eventLabel = effectiveSelectedEvent?.name ?? "All events";
   const selectedPeopleLabel =
     selectedFilterPeople.length === 1
       ? selectedFilterPeople[0].displayName || selectedFilterPeople[0].defaultName
@@ -4369,17 +4371,19 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => changeEvent(null)}
-                  className={`h-8 shrink-0 cursor-pointer rounded-full px-3 text-sm font-medium transition ${
-                    !selectedEventSlug && activeTab === "photos"
-                      ? "bg-[#1d1d1f] text-white"
-                      : "bg-white/70 text-zinc-600 ring-1 ring-black/10"
-                  }`}
-                >
-                  All
-                </button>
+                {showAllEventFilter && (
+                  <button
+                    type="button"
+                    onClick={() => changeEvent(null)}
+                    className={`h-8 shrink-0 cursor-pointer rounded-full px-3 text-sm font-medium transition ${
+                      !selectedEventSlug && activeTab === "photos"
+                        ? "bg-[#1d1d1f] text-white"
+                        : "bg-white/70 text-zinc-600 ring-1 ring-black/10"
+                    }`}
+                  >
+                    All
+                  </button>
+                )}
 
                 {album.events.map((event) => (
                   <button
@@ -4387,7 +4391,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     type="button"
                     onClick={() => changeEvent(event.slug)}
                     className={`h-8 max-w-[170px] shrink-0 cursor-pointer truncate rounded-full px-3 text-sm font-medium transition ${
-                      selectedEventSlug === event.slug && activeTab === "photos"
+                      effectiveEventSlug === event.slug && activeTab === "photos"
                         ? "bg-[#1d1d1f] text-white"
                         : "bg-white/70 text-zinc-600 ring-1 ring-black/10"
                     }`}
@@ -4729,20 +4733,22 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={() => changeEvent(null)}
-                className={`max-w-full shrink-0 cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
-                  !selectedEventSlug && activeTab === "photos"
-                    ? "bg-[#1d1d1f] text-white"
-                    : "bg-white/70 text-zinc-600 ring-1 ring-black/10 hover:bg-white hover:text-zinc-950"
-                }`}
-              >
-                All
-                <span className="ml-2 text-xs opacity-70">
-                  {album.photoCount}
-                </span>
-              </button>
+              {showAllEventFilter && (
+                <button
+                  type="button"
+                  onClick={() => changeEvent(null)}
+                  className={`max-w-full shrink-0 cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
+                    !selectedEventSlug && activeTab === "photos"
+                      ? "bg-[#1d1d1f] text-white"
+                      : "bg-white/70 text-zinc-600 ring-1 ring-black/10 hover:bg-white hover:text-zinc-950"
+                  }`}
+                >
+                  All
+                  <span className="ml-2 text-xs opacity-70">
+                    {album.photoCount}
+                  </span>
+                </button>
+              )}
 
               {album.events.map((event) => (
                 <button
@@ -4750,7 +4756,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   type="button"
                   onClick={() => changeEvent(event.slug)}
                   className={`max-w-[240px] shrink-0 cursor-pointer truncate rounded-full px-4 py-2 text-sm font-medium transition ${
-                    selectedEventSlug === event.slug && activeTab === "photos"
+                    effectiveEventSlug === event.slug && activeTab === "photos"
                       ? "bg-[#1d1d1f] text-white"
                       : "bg-white/70 text-zinc-600 ring-1 ring-black/10 hover:bg-white hover:text-zinc-950"
                   }`}
