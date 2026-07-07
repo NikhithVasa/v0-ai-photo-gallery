@@ -715,6 +715,7 @@ async function downloadGoogleDriveImageWithCredentials(
   const metadataParams = new URLSearchParams({
     fields:
       "id,name,mimeType,resourceKey,size,modifiedTime,webViewLink,capabilities(canDownload)",
+    supportsAllDrives: "true",
   });
   const metadataResponse = await driveApiFetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
@@ -742,10 +743,14 @@ async function downloadGoogleDriveImageWithCredentials(
     throw new Error(`${metadata.name} cannot be downloaded`);
   }
 
+  const contentParams = new URLSearchParams({
+    alt: "media",
+    supportsAllDrives: "true",
+  });
   const contentResponse = await driveApiFetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
       metadata.id,
-    )}?alt=media`,
+    )}?${contentParams}`,
     credentials,
     driveResourceKeyHeader(metadata.id, metadata.resourceKey),
   );
