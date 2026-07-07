@@ -169,6 +169,8 @@ function previewUrlsForPhoto(
 }
 
 const LIGHTBOX_PRELOAD_RADIUS = 3;
+const DEFAULT_SWIPE_ANIMATION_MS = 240;
+const MIN_SWIPE_ANIMATION_MS = 120;
 
 function lightboxPreloadIndices(
   currentIndex: number,
@@ -1551,10 +1553,14 @@ export function PhotoLightbox({
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isAnimatingSwipe, setIsAnimatingSwipe] = useState(false);
+  const [swipeAnimationDurationMs, setSwipeAnimationDurationMs] = useState(
+    DEFAULT_SWIPE_ANIMATION_MS,
+  );
 
   const photoFrameRef = useRef<HTMLDivElement>(null);
   const touchSurfaceRef = useRef<HTMLDivElement>(null);
   const aiEditScrollRef = useRef<HTMLDivElement>(null);
+  const dragOffsetRef = useRef(0);
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -1943,9 +1949,11 @@ export function PhotoLightbox({
     setAiEditError("");
     setAiEditResult(null);
     setIsDownloadHovering(false);
+    dragOffsetRef.current = 0;
     setDragOffset(0);
     setIsDragging(false);
     setIsAnimatingSwipe(false);
+    setSwipeAnimationDurationMs(DEFAULT_SWIPE_ANIMATION_MS);
 
     if (isMobilePointer && areControlsReady) {
       setAreControlsVisible(true);
@@ -2431,7 +2439,9 @@ export function PhotoLightbox({
 
     setIsDragging(true);
     setIsAnimatingSwipe(false);
+    dragOffsetRef.current = 0;
     setDragOffset(0);
+    setSwipeAnimationDurationMs(DEFAULT_SWIPE_ANIMATION_MS);
     setAreControlsVisible(true);
   };
 
@@ -2456,6 +2466,7 @@ export function PhotoLightbox({
     const clampedDelta =
       Math.sign(deltaX) * Math.min(Math.abs(deltaX), resistanceLimit);
 
+    dragOffsetRef.current = clampedDelta;
     setDragOffset(clampedDelta);
   };
 
@@ -2465,12 +2476,14 @@ export function PhotoLightbox({
 
     if (!start || isAnimatingSwipe) {
       setIsDragging(false);
+      dragOffsetRef.current = 0;
       setDragOffset(0);
       return;
     }
 
+    const committedDragOffset = dragOffsetRef.current;
     const elapsed = Math.max(Date.now() - start.time, 1);
-    const velocity = Math.abs(dragOffset) / elapsed;
+    const velocity = Math.abs(committedDragOffset) / elapsed;
 
     const frameWidth =
       photoFrameRef.current?.getBoundingClientRect().width ||
@@ -2478,27 +2491,37 @@ export function PhotoLightbox({
       1;
 
     const threshold = Math.min(frameWidth * 0.24, 120);
-    const shouldNavigate = Math.abs(dragOffset) > threshold || velocity > 0.55;
+    const shouldNavigate = Math.abs(committedDragOffset) > threshold || velocity > 0.55;
+    const animationDuration = shouldNavigate
+      ? Math.max(
+          MIN_SWIPE_ANIMATION_MS,
+          Math.round(DEFAULT_SWIPE_ANIMATION_MS - Math.min(velocity, 1.4) * 70),
+        )
+      : 180;
 
     setIsDragging(false);
     setIsAnimatingSwipe(true);
+    setSwipeAnimationDurationMs(animationDuration);
 
     if (!shouldNavigate) {
+      dragOffsetRef.current = 0;
       setDragOffset(0);
 
       swipeCommitTimerRef.current = window.setTimeout(() => {
         setIsAnimatingSwipe(false);
-      }, 280);
+      }, animationDuration);
 
       return;
     }
 
-    const direction = dragOffset < 0 ? "next" : "previous";
+    const direction = committedDragOffset < 0 ? "next" : "previous";
     const finalOffset = direction === "next" ? -frameWidth : frameWidth;
 
+    dragOffsetRef.current = finalOffset;
     setDragOffset(finalOffset);
 
     swipeCommitTimerRef.current = window.setTimeout(() => {
+      dragOffsetRef.current = 0;
       setDragOffset(0);
       setIsAnimatingSwipe(false);
       setIsPeopleOpen(false);
@@ -2509,7 +2532,7 @@ export function PhotoLightbox({
       } else {
         onNavigate(previousIndex);
       }
-    }, 280);
+    }, animationDuration);
   };
 
   const handlePersonClick = (person: PhotoPerson) => {
@@ -2666,7 +2689,7 @@ export function PhotoLightbox({
   const swipeTrackClass =
     isDragging || !isAnimatingSwipe
       ? ""
-      : "transition-transform duration-300 ease-out";
+      : "transition-transform ease-out";
 
   const imageClassName =
     "pointer-events-none h-full w-full cursor-default select-none object-contain";
@@ -2822,6 +2845,9 @@ export function PhotoLightbox({
                   className={`flex h-full w-full ${swipeTrackClass}`}
                   style={{
                     transform: `translate3d(calc(-100% + ${dragOffset}px), 0, 0)`,
+                    transitionDuration: isDragging || !isAnimatingSwipe
+                      ? undefined
+                      : `${swipeAnimationDurationMs}ms`,
                   }}
                 >
                   <div className="flex h-full w-full shrink-0 cursor-default items-center justify-center">
