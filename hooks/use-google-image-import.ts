@@ -21,7 +21,7 @@ import {
   type GooglePhotosPickerSessionHandle,
 } from "@/lib/google-photos-picker";
 
-const GOOGLE_DRIVE_DOWNLOAD_CONCURRENCY = 4;
+const GOOGLE_DRIVE_DOWNLOAD_CONCURRENCY = 3;
 const MAX_IMPORT_ERROR_MESSAGES = 5;
 
 export interface GoogleImportedImage {

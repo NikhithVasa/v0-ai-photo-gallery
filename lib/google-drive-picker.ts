@@ -4,7 +4,7 @@ const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const GOOGLE_API_SCRIPT = "https://apis.google.com/js/api.js";
 const GOOGLE_IDENTITY_SCRIPT = "https://accounts.google.com/gsi/client";
 const GOOGLE_DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
-const DRIVE_API_RETRY_DELAYS_MS = [500, 1_000, 2_000];
+const DRIVE_API_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000];
 const DRIVE_FOLDER_LIST_CONCURRENCY = 4;
 const DRIVE_API_RETRYABLE_STATUSES = new Set([
   408,
@@ -15,6 +15,13 @@ const DRIVE_API_RETRYABLE_STATUSES = new Set([
   502,
   503,
   504,
+]);
+const DRIVE_API_RETRYABLE_REASONS = new Set([
+  "backendError",
+  "internalError",
+  "rateLimitExceeded",
+  "sharingRateLimitExceeded",
+  "userRateLimitExceeded",
 ]);
 
 interface GoogleTokenResponse {
@@ -182,6 +189,7 @@ class GoogleDriveApiError extends Error {
     message: string,
     readonly status: number,
     readonly retryAfterMs?: number,
+    readonly reasons: string[] = [],
   ) {
     super(message);
     this.name = "GoogleDriveApiError";
@@ -409,10 +417,31 @@ function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function isRetryableDriveError(error: unknown) {
+function retryDelayMs(error: unknown, fallbackMs: number) {
+  const retryAfterMsValue =
+    error instanceof GoogleDriveApiError ? error.retryAfterMs : undefined;
+  const baseDelay = retryAfterMsValue !== undefined ? retryAfterMsValue : fallbackMs;
+  return baseDelay + Math.floor(Math.random() * 250);
+}
+
+function isRetryableNetworkError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
   return (
-    error instanceof GoogleDriveApiError &&
-    DRIVE_API_RETRYABLE_STATUSES.has(error.status)
+    error.name === "AbortError" ||
+    error instanceof TypeError ||
+    message.includes("load failed") ||
+    message.includes("failed to fetch") ||
+    message.includes("networkerror")
+  );
+}
+
+function isRetryableDriveError(error: unknown) {
+  if (isRetryableNetworkError(error)) return true;
+  if (!(error instanceof GoogleDriveApiError)) return false;
+  return (
+    DRIVE_API_RETRYABLE_STATUSES.has(error.status) ||
+    error.reasons.some((reason) => DRIVE_API_RETRYABLE_REASONS.has(reason))
   );
 }
 
@@ -475,11 +504,23 @@ async function fetchDriveApiOnce(
 
   if (!response.ok) {
     let detail = "";
+    let reasons: string[] = [];
     try {
       const payload = (await response.json()) as {
-        error?: { message?: string };
+        error?: {
+          message?: string;
+          status?: string;
+          errors?: Array<{ reason?: string }>;
+        };
       };
-      detail = payload.error?.message || "";
+      reasons = [
+        ...(payload.error?.errors || []).map((error) => error.reason).filter(Boolean),
+        payload.error?.status,
+      ].filter((reason): reason is string => Boolean(reason));
+      detail = [
+        payload.error?.message,
+        reasons.length ? `reason: ${reasons.join(", ")}` : "",
+      ].filter(Boolean).join("; ");
     } catch {
       // Drive can return an empty or non-JSON error body.
     }
@@ -488,6 +529,7 @@ async function fetchDriveApiOnce(
       detail || `Google Drive request failed (${response.status})`,
       response.status,
       retryAfterMs(response),
+      reasons,
     );
   }
 
@@ -513,17 +555,42 @@ async function driveApiFetch(
         throw error;
       }
 
-      const delay =
-        error instanceof GoogleDriveApiError && error.retryAfterMs !== undefined
-          ? error.retryAfterMs
-          : retryDelay;
-      await wait(delay);
+      await wait(retryDelayMs(error, retryDelay));
     }
   }
 
   throw lastError instanceof Error
     ? lastError
     : new Error("Google Drive request failed");
+}
+
+async function driveApiBlobFetch(
+  url: string,
+  credentials: DriveApiCredentials,
+  resourceKeyHeader?: string | null,
+) {
+  let lastError: unknown;
+  const maxAttempts = DRIVE_API_RETRY_DELAYS_MS.length + 1;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const response = await fetchDriveApiOnce(url, credentials, resourceKeyHeader);
+      return await response.blob();
+    } catch (error) {
+      lastError = error;
+      const retryDelay = DRIVE_API_RETRY_DELAYS_MS[attempt];
+      const hasAnotherAttempt = retryDelay !== undefined;
+      if (!hasAnotherAttempt || !isRetryableDriveError(error)) {
+        throw error;
+      }
+
+      await wait(retryDelayMs(error, retryDelay));
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Google Drive download failed");
 }
 
 function isGoogleDriveFolder(file: GoogleDriveFileMetadata) {
@@ -747,14 +814,13 @@ async function downloadGoogleDriveImageWithCredentials(
     alt: "media",
     supportsAllDrives: "true",
   });
-  const contentResponse = await driveApiFetch(
+  const blob = await driveApiBlobFetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
       metadata.id,
     )}?${contentParams}`,
     credentials,
     driveResourceKeyHeader(metadata.id, metadata.resourceKey),
   );
-  const blob = await contentResponse.blob();
   const lastModified = metadata.modifiedTime
     ? new Date(metadata.modifiedTime).getTime()
     : Date.now();
