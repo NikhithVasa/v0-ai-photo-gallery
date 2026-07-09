@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "vercel": {
+      "command": "vercel",
+      "args": [],
+      "env": {
+        
+      }
+    }
+  }
+}

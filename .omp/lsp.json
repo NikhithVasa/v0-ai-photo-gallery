@@ -1,0 +1,22 @@
+{
+  "servers": {
+    "typescript-language-server": {
+      "command": "./node_modules/.bin/typescript-language-server",
+      "args": [
+        "--stdio"
+      ],
+      "fileTypes": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx"
+      ],
+      "rootMarkers": [
+        "package.json",
+        "tsconfig.json",
+        "jsconfig.json",
+        ".git"
+      ]
+    }
+  }
+}

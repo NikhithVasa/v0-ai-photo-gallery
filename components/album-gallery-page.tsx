@@ -617,18 +617,31 @@ function SearchResultsGrid({
 
 function ReelsFeed({
   reels,
-  onScrollPastEnd,
+  onOpenPhotos,
 }: {
   reels: AlbumReel[];
-  onScrollPastEnd: () => void;
+  onOpenPhotos: () => void;
 }) {
   const scrollerRef = useRef<HTMLElement | null>(null);
   const reelCardRefs = useRef(new Map<string, HTMLElement>());
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const activeReelIndexRef = useRef(0);
   const wheelGestureActiveRef = useRef(false);
-  const wheelGestureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scrollSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wheelGestureTimerRef = useRef<number | null>(null);
+  const scrollSyncTimerRef = useRef<number | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [activeReelIndex, setActiveReelIndex] = useState(0);
+
+  const setActiveReel = useCallback(
+    (index: number) => {
+      const lastIndex = Math.max(reels.length - 1, 0);
+      const nextIndex = Math.min(Math.max(index, 0), lastIndex);
+
+      activeReelIndexRef.current = nextIndex;
+      setActiveReelIndex(nextIndex);
+    },
+    [reels.length],
+  );
 
   const scrollToReel = useCallback(
     (index: number, behavior: ScrollBehavior) => {
@@ -637,13 +650,13 @@ function ReelsFeed({
       const card = reel ? reelCardRefs.current.get(reel.id) : null;
       if (!scroller || !card) return;
 
-      activeReelIndexRef.current = index;
+      setActiveReel(index);
       scroller.scrollTo({
         left: Math.max(0, card.offsetLeft - (scroller.clientWidth - card.clientWidth) / 2),
         behavior,
       });
     },
-    [reels],
+    [reels, setActiveReel],
   );
 
   const syncActiveReelToCenter = useCallback(() => {
@@ -666,84 +679,141 @@ function ReelsFeed({
       }
     });
 
-    activeReelIndexRef.current = closestIndex;
+    setActiveReel(closestIndex);
+  }, [reels, setActiveReel]);
+
+  const pauseInactiveVideos = useCallback(() => {
+    reels.forEach((reel, index) => {
+      const video = videoRefs.current.get(reel.id);
+      if (!video) return;
+
+      if (index !== activeReelIndexRef.current) {
+        video.pause();
+      }
+    });
   }, [reels]);
+
+  const playActiveVideo = useCallback(() => {
+    reels.forEach((reel, index) => {
+      const video = videoRefs.current.get(reel.id);
+      if (!video) return;
+
+      if (index === activeReelIndexRef.current) {
+        video.play().catch(() => {
+          // Autoplay can be delayed until the browser accepts muted playback.
+        });
+      } else {
+        video.pause();
+      }
+    });
+  }, [reels]);
+
+  const moveByDirection = useCallback(
+    (direction: 1 | -1) => {
+      const nextIndex = activeReelIndexRef.current + direction;
+
+      if (nextIndex < 0) {
+        scrollToReel(0, "smooth");
+        return;
+      }
+
+      if (nextIndex >= reels.length) {
+        scrollToReel(reels.length - 1, "smooth");
+        return;
+      }
+
+      scrollToReel(nextIndex, "smooth");
+    },
+    [reels.length, scrollToReel],
+  );
 
   const handleWheel = (event: ReactWheelEvent<HTMLElement>) => {
     if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
 
     event.preventDefault();
 
-    if (wheelGestureTimerRef.current) {
-      clearTimeout(wheelGestureTimerRef.current);
+    if (wheelGestureTimerRef.current !== null) {
+      window.clearTimeout(wheelGestureTimerRef.current);
     }
 
-    wheelGestureTimerRef.current = setTimeout(() => {
+    wheelGestureTimerRef.current = window.setTimeout(() => {
       wheelGestureActiveRef.current = false;
     }, 220);
 
     if (wheelGestureActiveRef.current) return;
 
     wheelGestureActiveRef.current = true;
-    const direction = event.deltaY > 0 ? 1 : -1;
-    const nextIndex = activeReelIndexRef.current + direction;
-
-    if (nextIndex < 0) {
-      scrollToReel(0, "smooth");
-      return;
-    }
-
-    if (nextIndex >= reels.length) {
-      onScrollPastEnd();
-      return;
-    }
-
-    scrollToReel(nextIndex, "smooth");
+    moveByDirection(event.deltaY > 0 ? 1 : -1);
   };
 
   const handleScroll = () => {
-    if (scrollSyncTimerRef.current) {
-      clearTimeout(scrollSyncTimerRef.current);
+    if (scrollSyncTimerRef.current !== null) {
+      window.clearTimeout(scrollSyncTimerRef.current);
     }
 
-    scrollSyncTimerRef.current = setTimeout(syncActiveReelToCenter, 120);
+    scrollSyncTimerRef.current = window.setTimeout(syncActiveReelToCenter, 120);
+  };
+
+  const handleTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
+    const touch = event.touches[0];
+    touchStartRef.current = touch
+      ? { x: touch.clientX, y: touch.clientY }
+      : null;
+  };
+
+  const handleTouchMove = (event: ReactTouchEvent<HTMLElement>) => {
+    const start = touchStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 8) {
+      event.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = (event: ReactTouchEvent<HTMLElement>) => {
+    const start = touchStartRef.current;
+    const touch = event.changedTouches[0];
+    touchStartRef.current = null;
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaY) < 48 || Math.abs(deltaY) <= Math.abs(deltaX)) return;
+
+    moveByDirection(deltaY < 0 ? 1 : -1);
   };
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const video = entry.target as HTMLVideoElement;
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
-            video.play().catch(() => {
-              // Autoplay can be delayed until the browser accepts muted playback.
-            });
-          } else {
-            video.pause();
-          }
-        }
-      },
-      { threshold: [0, 0.65, 1] },
-    );
-
-    for (const video of videoRefs.current.values()) {
-      observer.observe(video);
-    }
-
-    return () => observer.disconnect();
-  }, [reels]);
+    activeReelIndexRef.current = activeReelIndex;
+    playActiveVideo();
+  }, [activeReelIndex, playActiveVideo]);
 
   useEffect(() => {
     activeReelIndexRef.current = 0;
+    setActiveReelIndex(0);
     requestAnimationFrame(() => scrollToReel(0, "auto"));
   }, [reels, scrollToReel]);
 
   useEffect(() => {
     return () => {
-      if (wheelGestureTimerRef.current) clearTimeout(wheelGestureTimerRef.current);
-      if (scrollSyncTimerRef.current) clearTimeout(scrollSyncTimerRef.current);
+      if (wheelGestureTimerRef.current !== null) {
+        window.clearTimeout(wheelGestureTimerRef.current);
+      }
+      if (scrollSyncTimerRef.current !== null) {
+        window.clearTimeout(scrollSyncTimerRef.current);
+      }
+      for (const video of videoRefs.current.values()) {
+        video.pause();
+      }
     };
   }, []);
+
+  useEffect(() => {
+    pauseInactiveVideos();
+  }, [activeReelIndex, pauseInactiveVideos]);
 
   if (!reels.length) return null;
 
@@ -752,10 +822,13 @@ function ReelsFeed({
       ref={scrollerRef}
       onWheel={handleWheel}
       onScroll={handleScroll}
-      className="-mx-4 h-[calc(100svh-140px)] min-h-[620px] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth snap-x snap-mandatory bg-black px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:-mx-6 sm:h-[calc(100svh-180px)] sm:px-6 lg:-mx-8 lg:px-8"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="relative -mx-4 h-[calc(100svh-118px)] overflow-x-auto overflow-y-hidden overscroll-contain scroll-smooth snap-x snap-mandatory bg-black px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:-mx-6 sm:h-[calc(100svh-180px)] sm:px-6 lg:-mx-8 lg:px-8"
     >
-      <div className="flex h-full w-max items-center gap-4 py-4 sm:gap-6 sm:py-8 lg:gap-8">
-        <div className="h-px w-[calc((100vw-min(72vw,330px))/2)] shrink-0 sm:w-[calc((100vw-min(32vw,330px))/2)] lg:w-[calc((100vw-330px)/2)]" />
+      <div className="flex h-full w-max items-center gap-3 py-3 pb-20 sm:gap-6 sm:py-6 sm:pb-20 lg:gap-8">
+        <div className="h-px w-[calc((100vw-min(76vw,340px))/2)] shrink-0 sm:w-[calc((100vw-min(32vw,330px))/2)] lg:w-[calc((100vw-330px)/2)]" />
         {reels.map((reel, index) => (
           <article
             ref={(node) => {
@@ -763,9 +836,15 @@ function ReelsFeed({
               else reelCardRefs.current.delete(reel.id);
             }}
             key={reel.id}
-            className="flex h-full w-[min(72vw,330px)] shrink-0 snap-center items-center justify-center overflow-hidden rounded-[28px] bg-[#ffc9c6] px-4 py-7 shadow-[0_24px_80px_rgba(0,0,0,0.34)] sm:w-[min(32vw,330px)] sm:px-6 sm:py-8 lg:w-[330px]"
+            className="flex h-full w-[min(76vw,340px)] shrink-0 snap-center items-center justify-center overflow-hidden rounded-[28px] bg-[#ffc9c6] px-3 py-4 shadow-[0_24px_80px_rgba(0,0,0,0.34)] sm:w-[min(32vw,330px)] sm:px-6 sm:py-6 lg:w-[330px]"
           >
-            <div className="relative h-[min(72svh,554px)] w-[min(58vw,255px)] flex-shrink-0 overflow-hidden rounded-[38px] bg-black p-2 shadow-[0_14px_36px_rgba(0,0,0,0.36)] ring-2 ring-zinc-300/80 [contain:content] sm:h-[554px] sm:w-[255px]">
+            <div
+              className="relative flex-shrink-0 overflow-hidden rounded-[38px] bg-black p-2 shadow-[0_14px_36px_rgba(0,0,0,0.36)] ring-2 ring-zinc-300/80 [contain:content]"
+              style={{
+                height: "min(calc(100% - 3.5rem), 554px)",
+                width: "min(58vw, 255px)",
+              }}
+            >
               <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
               {reel.videoUrl ? (
                 <video
@@ -774,13 +853,19 @@ function ReelsFeed({
                     else videoRefs.current.delete(reel.id);
                   }}
                   src={reel.videoUrl}
-                  className="h-full w-full rounded-[30px] object-cover"
+                  className="h-full w-full rounded-[30px] object-contain"
                   muted
                   playsInline
                   loop
                   autoPlay={index === 0}
-                  preload={index < 2 ? "auto" : "metadata"}
+                  preload={index === activeReelIndex ? "auto" : "metadata"}
                   controls
+                  tabIndex={index === activeReelIndex ? 0 : -1}
+                  onPlay={(event) => {
+                    if (index !== activeReelIndexRef.current) {
+                      event.currentTarget.pause();
+                    }
+                  }}
                 />
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center rounded-[30px] px-5 text-center text-white/60">
@@ -823,8 +908,20 @@ function ReelsFeed({
             </div>
           </article>
         ))}
-        <div className="h-px w-[calc((100vw-min(72vw,330px))/2)] shrink-0 sm:w-[calc((100vw-min(32vw,330px))/2)] lg:w-[calc((100vw-330px)/2)]" />
+        <div className="h-px w-[calc((100vw-min(76vw,340px))/2)] shrink-0 sm:w-[calc((100vw-min(32vw,330px))/2)] lg:w-[calc((100vw-330px)/2)]" />
       </div>
+
+      <button
+        type="button"
+        onClick={onOpenPhotos}
+        className="absolute bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 z-20 flex min-h-12 -translate-x-1/2 cursor-pointer items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-zinc-950 shadow-[0_16px_40px_rgba(0,0,0,0.32)] ring-1 ring-black/10 backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white/70"
+        aria-label="View all photos"
+      >
+        <span className="gallery-calm-bounce flex h-6 w-6 items-center justify-center">
+          <ChevronDown className="h-5 w-5" />
+        </span>
+        <span>All photos</span>
+      </button>
     </section>
   );
 }
@@ -4817,7 +4914,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         ) : !isPersonShare && activeTab === "reels" && visibleReels.length > 0 ? (
           <ReelsFeed
             reels={visibleReels}
-            onScrollPastEnd={() => changeEvent(null)}
+            onOpenPhotos={() => changeEvent(null)}
           />
         ) : !hideAi && apsaraTextSearch ? (
           <SearchResultsGrid

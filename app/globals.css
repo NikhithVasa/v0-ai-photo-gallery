@@ -184,6 +184,12 @@
   animation: gallery-calm-bounce 4.8s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .gallery-calm-bounce {
+    animation: none;
+  }
+}
+
 @keyframes click-loading-spin {
   to {
     transform: translate(-50%, -50%) rotate(360deg);
