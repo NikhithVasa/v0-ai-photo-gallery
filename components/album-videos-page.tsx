@@ -1435,13 +1435,11 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                     )}
                     <Link
                       href={timelineHref(video.id)}
-                      className="absolute inset-0 z-10 flex cursor-pointer items-center justify-center bg-black/10 transition-colors duration-200 hover:bg-black/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+                      className="absolute left-1/2 top-1/2 z-10 inline-flex min-h-11 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-950 shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-colors duration-200 hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                       aria-label={`Watch ${video.fileName || "the film"}`}
                     >
-                      <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-950 shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-colors duration-200 hover:bg-zinc-100">
-                        <Play className="h-4 w-4 fill-current" />
-                        Watch the film
-                      </span>
+                      <Play className="h-4 w-4 fill-current" />
+                      Watch the film
                     </Link>
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-center justify-between bg-gradient-to-t from-black/75 to-transparent p-3 text-white">
                       <span className="inline-flex items-center gap-1.5 text-xs font-medium">
