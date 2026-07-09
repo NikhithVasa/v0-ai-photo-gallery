@@ -66,6 +66,7 @@ The checked-in `.env.example` is minimal. Real deployments also need values for 
 | `S3_BUCKET` | `lib/s3.ts` | Bucket for uploaded and generated media. |
 | `PG_POOL_MAX` | `lib/db.ts` | Defaults to 1 for serverless safety. |
 | `NEXT_PUBLIC_FORCE_CLOUDFRONT_IMAGES`, `FORCE_CLOUDFRONT_IMAGES` | `lib/s3.ts` | Prefer CloudFront image URLs when available. |
+| `NEXT_PUBLIC_COMPOSABLE_LIGHTBOX` | `components/photo-card.tsx` | Set to `true` to use the composable Radix-style photo lightbox. |
 | `THUMB_PREFIX` | `lib/s3.ts` | Optional derived thumbnail prefix. |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | contact API | Contact form delivery. |
 

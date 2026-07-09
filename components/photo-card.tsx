@@ -40,6 +40,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Lightbox,
+  LightboxCaption,
+  LightboxClose,
+  LightboxContent,
+  LightboxCounter,
+  LightboxNext,
+  LightboxPrevious,
+  LightboxSlide,
+  LightboxTitle,
+  LightboxToolbar,
+  LightboxViewport,
+  LightboxZoomable,
+  LightboxZoomIn,
+  LightboxZoomOut,
+  LightboxZoomReset,
+} from "@/components/ui/lightbox";
 import { PhotoPresetPanel } from "@/components/photo-preset-panel";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { RetryingImage } from "@/components/retrying-image";
@@ -177,6 +194,8 @@ const SWIPE_SETTLE_VELOCITY = 28;
 const NATIVE_LIGHTBOX_SCROLL_RADIUS = 3;
 const LIGHTBOX_MIN_ZOOM = 1;
 const LIGHTBOX_MAX_ZOOM = 4;
+const COMPOSABLE_LIGHTBOX_ENABLED =
+  process.env.NEXT_PUBLIC_COMPOSABLE_LIGHTBOX === "true";
 
 function lightboxPreloadIndices(
   currentIndex: number,
@@ -2256,6 +2275,8 @@ export function PhotoLightbox({
   }, [currentIndex, isPlaying, onNavigate, photos.length, showControlsBriefly]);
 
   useEffect(() => {
+    if (COMPOSABLE_LIGHTBOX_ENABLED) return;
+
     const handleWindowKeyDown = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft") {
         handlePrev();
@@ -3192,6 +3213,177 @@ export function PhotoLightbox({
   const mobileFrameOpacity = mobileDismissOffset > 0
     ? Math.max(0.35, 1 - mobileDismissOffset / 420)
     : entryStyle.opacity;
+
+  if (COMPOSABLE_LIGHTBOX_ENABLED) {
+    return (
+      <Lightbox
+        open
+        index={currentIndex}
+        itemCount={photos.length}
+        maxZoom={LIGHTBOX_MAX_ZOOM}
+        minZoom={LIGHTBOX_MIN_ZOOM}
+        onIndexChange={navigateToIndex}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) closeWithAnimation();
+        }}
+      >
+        <LightboxContent
+          showCloseButton={false}
+          className="bg-black text-white"
+          onPointerMove={() => {
+            if (!isMobilePointer) showControlsBriefly();
+          }}
+        >
+          <LightboxTitle>{photoName}</LightboxTitle>
+
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/75 via-black/35 to-transparent px-4 pb-16 pt-4 sm:px-6">
+            <div className="mx-auto max-w-[70vw] truncate text-center text-sm font-medium text-white drop-shadow">
+              {photoName}
+            </div>
+          </div>
+
+          <LightboxToolbar className="justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsPlaying((current) => !current);
+                }}
+                className="inline-flex size-11 cursor-pointer items-center justify-center rounded-full bg-black/45 text-white shadow-sm backdrop-blur-md transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                aria-label={isPlaying ? "Pause slideshow" : "Play slideshow"}
+                aria-pressed={isPlaying}
+              >
+                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              </button>
+              <LightboxCounter />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <LightboxZoomOut />
+              <LightboxZoomReset />
+              <LightboxZoomIn />
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleShare();
+                }}
+                className="inline-flex size-11 cursor-pointer items-center justify-center rounded-full bg-black/45 text-white shadow-sm backdrop-blur-md transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                aria-label="Share photo"
+              >
+                <Share2 className="h-5 w-5" />
+              </button>
+              {canDownload && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleDownload();
+                  }}
+                  disabled={isDownloading}
+                  className="inline-flex size-11 cursor-pointer items-center justify-center rounded-full bg-black/45 text-white shadow-sm backdrop-blur-md transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-35"
+                  aria-label="Download photo"
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Download className="h-5 w-5" />
+                  )}
+                </button>
+              )}
+              <LightboxClose />
+            </div>
+          </LightboxToolbar>
+
+          <LightboxPrevious className="bg-white/75 text-zinc-950 hover:bg-white/90" />
+          <LightboxNext className="bg-white/75 text-zinc-950 hover:bg-white/90" />
+
+          <LightboxViewport>
+            {photos.map((targetPhoto, index) => {
+              const isCurrentPhoto = index === currentIndex;
+              const targetDisplayUrl = isCurrentPhoto
+                ? currentDisplayBaseUrl
+                : getLightboxUrl(targetPhoto);
+              const targetAspectRatio = targetPhoto.width && targetPhoto.height
+                ? targetPhoto.width / targetPhoto.height
+                : 3 / 2;
+              const targetFrameWidth = `min(calc(100vw - 1.5rem), 1200px, calc((100svh - 9.5rem) * ${targetAspectRatio}))`;
+
+              return (
+                <LightboxSlide key={targetPhoto.id} index={index}>
+                  {targetDisplayUrl ? (
+                    <div
+                      ref={isCurrentPhoto ? photoFrameRef : undefined}
+                      className={`relative overflow-hidden transition-[transform,opacity] ${lightboxEnterDurationClass} ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform`}
+                      style={{
+                        aspectRatio: targetAspectRatio,
+                        maxHeight: photoFrameMaxHeight,
+                        width: targetFrameWidth,
+                        ...(isCurrentPhoto
+                          ? {
+                              ...entryStyle,
+                              opacity: mobileFrameOpacity,
+                              transform: mobileFrameTransform,
+                            }
+                          : null),
+                      }}
+                    >
+                      <LightboxZoomable className="relative h-full w-full">
+                        <WatermarkedImage
+                          src={
+                            isCurrentPhoto
+                              ? currentImageUrl || targetDisplayUrl
+                              : targetDisplayUrl
+                          }
+                          alt={targetPhoto.caption || "Photo"}
+                          className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
+                          decoding={isCurrentPhoto ? "async" : undefined}
+                          fetchPriority={isCurrentPhoto ? "high" : undefined}
+                          draggable={false}
+                          settings={shareSettings}
+                          fit="contain"
+                          style={
+                            isCurrentPhoto ? selectedInstagramFilterImageStyle : undefined
+                          }
+                        />
+
+                        {isCurrentPhoto && upgradedImageUrl ? (
+                          <FadingWatermarkedImage
+                            src={upgradedImageUrl}
+                            alt={targetPhoto.caption || "Photo"}
+                            className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
+                            decoding="async"
+                            fetchPriority="high"
+                            draggable={false}
+                            settings={shareSettings}
+                            fit="contain"
+                            style={selectedInstagramFilterImageStyle}
+                          />
+                        ) : null}
+
+                        {isCurrentPhoto && (
+                          <InstagramFilterOverlay filter={selectedInstagramFilter} />
+                        )}
+                      </LightboxZoomable>
+                    </div>
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-sm text-white/60">
+                      No preview available
+                    </div>
+                  )}
+                </LightboxSlide>
+              );
+            })}
+          </LightboxViewport>
+
+          <LightboxCaption>
+            {photo.caption || photo.fileName || `Photo ${currentIndex + 1}`}
+          </LightboxCaption>
+        </LightboxContent>
+      </Lightbox>
+    );
+  }
 
   return (
     <div
