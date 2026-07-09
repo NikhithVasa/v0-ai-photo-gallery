@@ -453,6 +453,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadFileName, setUploadFileName] = useState("");
   const [isRunningAi, setIsRunningAi] = useState(false);
+  const [timelinePlaybackFailed, setTimelinePlaybackFailed] = useState(false);
 
   const videosUrl = `/api/albums/${encodeURIComponent(albumSlug)}/videos`;
   const { data, error, isLoading, mutate } = useSWR<VideosResponse>(videosUrl, fetcher, {
@@ -626,6 +627,10 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   useEffect(() => {
     setActiveTimelineTargetId(null);
   }, [timelineVideo?.id]);
+
+  useEffect(() => {
+    setTimelinePlaybackFailed(false);
+  }, [timelineVideo?.id, timelineVideo?.videoUrl]);
 
   useEffect(() => {
     if (!isUploadingVideo) return;
@@ -955,15 +960,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                   ref={timelineStageRef}
                   className={`group relative min-h-0 overflow-hidden bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] ${isTimelineFullscreen ? "h-screen w-screen rounded-none" : "rounded-[1.35rem] sm:rounded-[1.75rem]"}`}
                 >
-                  {timelineVideo.playbackStatus === "processing" ? (
-                    <div className="flex h-full min-h-[28rem] items-center justify-center px-6 text-center text-white">
-                      <div>
-                        <Loader2 className="mx-auto h-10 w-10 animate-spin text-white/80" />
-                        <p className="mt-4 text-sm font-semibold">Optimizing video for playback</p>
-                        <p className="mt-1 text-xs text-white/60">This page will update automatically when processing finishes.</p>
-                      </div>
-                    </div>
-                  ) : timelineVideo.videoUrl ? (
+                  {timelineVideo.videoUrl && !timelinePlaybackFailed ? (
                     <video
                       ref={timelineVideoRef}
                       src={timelineVideo.videoUrl}
@@ -982,12 +979,24 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                       onPlay={() => setIsTimelinePlaying(true)}
                       onPause={() => setIsTimelinePlaying(false)}
                       onEnded={() => setIsTimelinePlaying(false)}
+                      onError={() => setTimelinePlaybackFailed(true)}
                     />
                   ) : (
-                    <div className="flex h-full min-h-[28rem] items-center justify-center px-6 text-center text-zinc-400">
+                    <div className="flex h-full min-h-[28rem] items-center justify-center px-6 text-center text-white">
                       <div>
-                        <VideoIcon className="mx-auto h-16 w-16" />
-                        {timelineVideo.playbackError ? <p className="mt-3 max-w-md text-sm">{timelineVideo.playbackError}</p> : null}
+                        {timelineVideo.playbackStatus === "processing" ? (
+                          <Loader2 className="mx-auto h-10 w-10 animate-spin text-white/80" />
+                        ) : (
+                          <VideoIcon className="mx-auto h-16 w-16 text-white/60" />
+                        )}
+                        <p className="mt-4 text-sm font-semibold">
+                          {timelineVideo.playbackStatus === "processing" ? "Preparing a compatible version" : "Video cannot be played"}
+                        </p>
+                        <p className="mt-1 max-w-md text-xs text-white/60">
+                          {timelineVideo.playbackStatus === "processing"
+                            ? "The uploaded file is not supported by this browser. This page will switch automatically when processing finishes."
+                            : timelineVideo.playbackError || "The video format is not supported by this browser."}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -1411,12 +1420,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                   className="group overflow-hidden rounded-2xl border border-black/10 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div className="relative aspect-video bg-zinc-900">
-                    {video.playbackStatus === "processing" ? (
-                      <div className="flex h-full flex-col items-center justify-center text-center text-white/75">
-                        <Loader2 className="h-8 w-8 animate-spin" />
-                        <span className="mt-2 text-xs font-semibold">Optimizing video</span>
-                      </div>
-                    ) : video.videoUrl ? (
+                    {video.videoUrl ? (
                       <video
                         src={video.videoUrl}
                         preload="metadata"
@@ -1435,8 +1439,8 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                       aria-label={`Watch ${video.fileName || "the film"}`}
                     >
                       <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-950 shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-colors duration-200 hover:bg-zinc-100">
-                        {video.playbackStatus === "processing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-                        {video.playbackStatus === "processing" ? "Processing film" : "Watch the film"}
+                        <Play className="h-4 w-4 fill-current" />
+                        Watch the film
                       </span>
                     </Link>
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-center justify-between bg-gradient-to-t from-black/75 to-transparent p-3 text-white">
@@ -1451,7 +1455,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                     <Button
                       type="button"
                       size="sm"
-                      className="absolute right-3 top-3 rounded-full bg-white text-zinc-950 shadow hover:bg-zinc-100"
+                      className="absolute right-3 top-3 z-20 rounded-full bg-white text-zinc-950 shadow hover:bg-zinc-100"
                       onClick={(event) => {
                         event.stopPropagation();
                         openAiDialog(video);
