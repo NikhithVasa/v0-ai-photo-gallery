@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import {
@@ -8,6 +8,10 @@ import {
   ArrowLeft,
   ImageUp,
   Loader2,
+  Maximize2,
+  Minimize2,
+  Pause,
+  Play,
   PlayCircle,
   Share2,
   Sparkles,
@@ -428,6 +432,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   const videoInputRef = useRef<HTMLInputElement>(null);
   const selfieInputRef = useRef<HTMLInputElement>(null);
   const timelineVideoRef = useRef<HTMLVideoElement>(null);
+  const timelineStageRef = useRef<HTMLDivElement>(null);
   const isTimelineRoute = Boolean(timelineVideoId);
   const [selectedEventSlug, setSelectedEventSlug] = useState("");
   const [aiVideo, setAiVideo] = useState<AlbumVideo | null>(null);
@@ -435,6 +440,10 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   const [activeTimelineTargetId, setActiveTimelineTargetId] = useState<string | null>(null);
   const [previewFace, setPreviewFace] = useState<{ imageUrl: string; label: string } | null>(null);
   const [isTimelinePanelOpen, setIsTimelinePanelOpen] = useState(false);
+  const [timelineCurrentTime, setTimelineCurrentTime] = useState(0);
+  const [timelineDurationSec, setTimelineDurationSec] = useState(0);
+  const [isTimelinePlaying, setIsTimelinePlaying] = useState(false);
+  const [isTimelineFullscreen, setIsTimelineFullscreen] = useState(false);
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const [selfieFiles, setSelfieFiles] = useState<File[]>([]);
   const [discoverPeople, setDiscoverPeople] = useState(false);
@@ -597,6 +606,17 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
       : "This run does not have per-face timeline data yet. Re-run AI to filter by a specific person."
     : "No AI intervals are available for this video yet.";
 
+  const playbackDurationSec = Math.max(
+    timelineDurationSec,
+    timelineVideo?.durationSec ?? 0,
+    1,
+  );
+
+  const playbackProgressPercent = Math.min(
+    100,
+    Math.max(0, (timelineCurrentTime / playbackDurationSec) * 100),
+  );
+
   useEffect(() => {
     setActiveTimelineTargetId(null);
   }, [timelineVideo?.id]);
@@ -614,6 +634,17 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isUploadingVideo]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const fullscreenElement = document.fullscreenElement;
+      const stage = timelineStageRef.current;
+      setIsTimelineFullscreen(Boolean(stage && fullscreenElement === stage));
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   function togglePersonSelection(personId: string) {
     setSelectedPersonIds((current) =>
@@ -641,6 +672,48 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
     if (selfieInputRef.current) selfieInputRef.current.value = "";
   }
 
+
+  async function toggleTimelinePlayback() {
+    const video = timelineVideoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      try {
+        await video.play();
+      } catch {
+        // Browser autoplay policies can block play until a direct user gesture.
+      }
+      return;
+    }
+
+    video.pause();
+  }
+
+  function seekTimelineFromClientX(clientX: number, track: HTMLDivElement) {
+    const video = timelineVideoRef.current;
+    const rect = track.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const nextTime = ratio * playbackDurationSec;
+
+    setTimelineCurrentTime(nextTime);
+    if (video) video.currentTime = nextTime;
+  }
+
+  function handlePlaybackBarClick(event: ReactMouseEvent<HTMLDivElement>) {
+    seekTimelineFromClientX(event.clientX, event.currentTarget);
+  }
+
+  async function toggleTimelineFullscreen() {
+    const stage = timelineStageRef.current;
+    if (!stage) return;
+
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+
+    await stage.requestFullscreen().catch(() => undefined);
+  }
   async function seekAndPlay(seconds?: number | null) {
     const video = timelineVideoRef.current;
     if (!video || seconds === null || seconds === undefined) return;
@@ -872,14 +945,29 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
           ) : (
             <div className={`grid min-h-0 gap-4 ${isTimelinePanelOpen ? "xl:grid-cols-[minmax(0,1fr)_380px]" : ""}`}>
               <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
-                <div className="group relative min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
+                <div
+                  ref={timelineStageRef}
+                  className={`group relative min-h-0 overflow-hidden bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] ${isTimelineFullscreen ? "h-screen w-screen rounded-none" : "rounded-[1.35rem] sm:rounded-[1.75rem]"}`}
+                >
                   {timelineVideo.videoUrl ? (
                     <video
                       ref={timelineVideoRef}
                       src={timelineVideo.videoUrl}
-                      controls
                       playsInline
-                      className="h-full w-full object-contain"
+                      className="h-full w-full cursor-pointer object-contain"
+                      onClick={() => void toggleTimelinePlayback()}
+                      onLoadedMetadata={(event) => {
+                        const duration = event.currentTarget.duration;
+                        if (Number.isFinite(duration)) setTimelineDurationSec(duration);
+                      }}
+                      onDurationChange={(event) => {
+                        const duration = event.currentTarget.duration;
+                        if (Number.isFinite(duration)) setTimelineDurationSec(duration);
+                      }}
+                      onTimeUpdate={(event) => setTimelineCurrentTime(event.currentTarget.currentTime)}
+                      onPlay={() => setIsTimelinePlaying(true)}
+                      onPause={() => setIsTimelinePlaying(false)}
+                      onEnded={() => setIsTimelinePlaying(false)}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-zinc-500">
@@ -920,6 +1008,96 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                       </div>
                     </div>
                   </div>
+                  {timelineVideo.videoUrl ? (
+                    <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/65 to-transparent px-3 pb-3 pt-16 text-white sm:px-4 sm:pb-4">
+                      <div className="flex items-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => void toggleTimelinePlayback()}
+                          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-zinc-950 shadow-lg transition hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-white/70"
+                          aria-label={isTimelinePlaying ? "Pause video" : "Play video"}
+                        >
+                          {isTimelinePlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 translate-x-0.5" />}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-white/80">
+                            <span>{timelineCurrentTime > 0 ? formatDuration(timelineCurrentTime) : "0:00"}</span>
+                            <span>{formatDuration(playbackDurationSec)}</span>
+                          </div>
+                          <div
+                            className="relative h-12 cursor-pointer touch-none"
+                            onClick={handlePlaybackBarClick}
+                            role="slider"
+                            aria-label="Video playback timeline with face occurrences"
+                            aria-valuemin={0}
+                            aria-valuemax={Math.round(playbackDurationSec)}
+                            aria-valuenow={Math.round(timelineCurrentTime)}
+                            tabIndex={0}
+                            onKeyDown={(event) => {
+                              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                              event.preventDefault();
+                              const nextTime = Math.min(
+                                playbackDurationSec,
+                                Math.max(0, timelineCurrentTime + (event.key === "ArrowRight" ? 5 : -5)),
+                              );
+                              setTimelineCurrentTime(nextTime);
+                              if (timelineVideoRef.current) timelineVideoRef.current.currentTime = nextTime;
+                            }}
+                          >
+                            <div className="absolute inset-x-0 bottom-3 h-1.5 rounded-full bg-white/25" />
+                            <div
+                              className="absolute bottom-3 left-0 h-1.5 rounded-full bg-white"
+                              style={{ width: `${playbackProgressPercent}%` }}
+                            />
+                            {visibleTimelineMatches.map((match, index) => {
+                              const start = Math.max(0, Number(match.startSec ?? 0));
+                              const end = Math.max(start + 0.5, Number(match.endSec ?? start + 0.5));
+                              const target = targetForMatch(match) ?? activeTimelineTarget;
+                              const targetIndex = target?.index ?? match.targetIndex ?? 0;
+                              const color = targetColors[targetIndex % targetColors.length];
+                              const left = Math.min(100, (start / playbackDurationSec) * 100);
+                              const width = Math.max(0.75, Math.min(100, ((end - start) / playbackDurationSec) * 100));
+                              const label = target?.label || `Face ${index + 1}`;
+
+                              return (
+                                <button
+                                  key={`playback-${match.id}`}
+                                  type="button"
+                                  className="absolute top-0 z-10 flex h-8 w-8 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-white p-0.5 shadow-[0_8px_24px_rgba(0,0,0,0.32)] ring-2 ring-black/20 transition hover:-translate-y-1 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white"
+                                  style={{ left: `${left}%` }}
+                                  title={`${label} at ${formatDuration(start)}`}
+                                  aria-label={`Play ${label} occurrence at ${formatDuration(start)}`}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    void seekAndPlay(start);
+                                  }}
+                                >
+                                  {target?.imageUrl ? (
+                                    <img src={target.imageUrl} alt="" loading="lazy" decoding="async" className="h-full w-full rounded-full object-cover" />
+                                  ) : (
+                                    <User className="h-4 w-4 text-zinc-600" />
+                                  )}
+                                  <span
+                                    className="pointer-events-none absolute -bottom-1 left-1/2 h-1.5 -translate-x-1/2 rounded-full"
+                                    style={{ width: `${Math.max(10, width * 2)}px`, backgroundColor: color }}
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void toggleTimelineFullscreen()}
+                          className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/15 text-white shadow-lg ring-1 ring-white/15 backdrop-blur transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/70"
+                          aria-label={isTimelineFullscreen ? "Exit full screen" : "Play video full screen"}
+                        >
+                          {isTimelineFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="rounded-[1.35rem] border border-black/10 bg-white/90 p-3 shadow-sm backdrop-blur-xl sm:rounded-[1.75rem] sm:p-4">
@@ -1216,30 +1394,38 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                   className="group overflow-hidden rounded-2xl border border-black/10 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div className="relative aspect-video bg-zinc-900">
-                    <Link href={timelineHref(video.id)} className="block h-full" aria-label={`Open ${video.fileName || "video"}`}>
-                      {video.videoUrl ? (
-                        <video
-                          src={video.videoUrl}
-                          preload="metadata"
-                          muted
-                          playsInline
-                          className="h-full w-full object-cover opacity-90 transition group-hover:opacity-100"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-zinc-400">
-                          <VideoIcon className="h-12 w-12" />
-                        </div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 to-transparent p-3 text-white">
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-                          <PlayCircle className="h-4 w-4" />
-                          {formatDuration(video.durationSec)}
-                        </span>
-                        <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold capitalize ${statusTone(video.detectionStatus)}`}>
-                          {videoStatusLabel(video.detectionStatus)}
-                        </span>
+                    {video.videoUrl ? (
+                      <video
+                        src={video.videoUrl}
+                        preload="metadata"
+                        muted
+                        playsInline
+                        className="h-full w-full object-cover opacity-90 transition duration-200 group-hover:opacity-100"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-zinc-400">
+                        <VideoIcon className="h-12 w-12" />
                       </div>
+                    )}
+                    <Link
+                      href={timelineHref(video.id)}
+                      className="absolute inset-0 z-10 flex cursor-pointer items-center justify-center bg-black/10 transition-colors duration-200 hover:bg-black/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+                      aria-label={`Watch ${video.fileName || "the film"}`}
+                    >
+                      <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-950 shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-colors duration-200 hover:bg-zinc-100">
+                        <Play className="h-4 w-4 fill-current" />
+                        Watch the film
+                      </span>
                     </Link>
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-center justify-between bg-gradient-to-t from-black/75 to-transparent p-3 text-white">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                        <PlayCircle className="h-4 w-4" />
+                        {formatDuration(video.durationSec)}
+                      </span>
+                      <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold capitalize ${statusTone(video.detectionStatus)}`}>
+                        {videoStatusLabel(video.detectionStatus)}
+                      </span>
+                    </div>
                     <Button
                       type="button"
                       size="sm"
