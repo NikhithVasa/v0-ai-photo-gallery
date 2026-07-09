@@ -836,7 +836,7 @@ function ReelsFeed({
               else reelCardRefs.current.delete(reel.id);
             }}
             key={reel.id}
-            className="flex h-full w-[min(76vw,340px)] shrink-0 snap-center items-center justify-center overflow-hidden rounded-[28px] bg-[#ffc9c6] px-3 py-4 shadow-[0_24px_80px_rgba(0,0,0,0.34)] sm:w-[min(32vw,330px)] sm:px-6 sm:py-6 lg:w-[330px]"
+            className="flex h-full w-[min(76vw,340px)] shrink-0 snap-center items-center justify-center overflow-hidden rounded-[28px] bg-transparent px-3 py-4 sm:w-[min(32vw,330px)] sm:px-6 sm:py-6 lg:w-[330px]"
           >
             <div
               className="relative flex-shrink-0 overflow-hidden rounded-[38px] bg-black p-2 shadow-[0_14px_36px_rgba(0,0,0,0.36)] ring-2 ring-zinc-300/80 [contain:content]"
@@ -914,7 +914,7 @@ function ReelsFeed({
       <button
         type="button"
         onClick={onOpenPhotos}
-        className="absolute bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 z-20 flex min-h-12 -translate-x-1/2 cursor-pointer items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-zinc-950 shadow-[0_16px_40px_rgba(0,0,0,0.32)] ring-1 ring-black/10 backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white/70"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 z-40 flex min-h-12 -translate-x-1/2 cursor-pointer items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-zinc-950 shadow-[0_16px_40px_rgba(0,0,0,0.32)] ring-1 ring-black/10 backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white/70"
         aria-label="View all photos"
       >
         <span className="gallery-calm-bounce flex h-6 w-6 items-center justify-center">
