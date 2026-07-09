@@ -823,7 +823,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   if (isTimelineRoute) {
     return (
       <main className="min-h-screen bg-[#f5f5f7] text-zinc-950">
-        <div className="mx-auto grid min-h-screen w-full max-w-7xl grid-rows-[auto_minmax(0,1fr)] gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
+        <div className="grid min-h-screen w-full grid-rows-[auto_minmax(0,1fr)] gap-4 px-2 py-2 sm:px-3 sm:py-3 lg:px-4">
           <header className="flex items-center justify-between gap-3 rounded-[1.35rem] border border-black/10 bg-white/80 px-3 py-2 shadow-sm backdrop-blur-xl sm:rounded-[1.75rem] sm:px-4">
             <div className="flex min-w-0 items-center gap-3">
               <Button asChild variant="ghost" size="icon" className="rounded-full">
@@ -870,7 +870,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
               {isLoading ? "Loading video..." : "This video could not be found."}
             </div>
           ) : (
-            <div className={`grid min-h-0 gap-4 ${isTimelinePanelOpen ? "lg:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
+            <div className={`grid min-h-0 gap-4 ${isTimelinePanelOpen ? "xl:grid-cols-[minmax(0,1fr)_380px]" : ""}`}>
               <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
                 <div className="group relative min-h-0 overflow-hidden rounded-[1.35rem] bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] sm:rounded-[1.75rem]">
                   {timelineVideo.videoUrl ? (
@@ -901,7 +901,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="pointer-events-auto hidden h-9 rounded-full border-white/20 bg-black/35 px-3 text-white backdrop-blur hover:bg-black/55 lg:inline-flex"
+                          className="pointer-events-auto hidden h-9 rounded-full border-white/20 bg-black/35 px-3 text-white backdrop-blur hover:bg-black/55 xl:inline-flex"
                           onClick={() => setIsTimelinePanelOpen((open) => !open)}
                         >
                           {isTimelinePanelOpen ? "Hide details" : "Details"}
@@ -922,9 +922,16 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                   </div>
                 </div>
 
-                <div className="rounded-[1.35rem] border border-black/10 bg-white/80 p-3 shadow-sm backdrop-blur-xl sm:rounded-[1.75rem] sm:p-4">
+                <div className="rounded-[1.35rem] border border-black/10 bg-white/90 p-3 shadow-sm backdrop-blur-xl sm:rounded-[1.75rem] sm:p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-950">Face occurrences</p>
+                      <p className="text-xs font-medium text-zinc-500">Tap a face to filter, then tap a marker to play that moment.</p>
+                    </div>
+                    <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-600">{visibleTimelineMatches.length} matches</span>
+                  </div>
                   {timelineTargets.length > 0 && (
-                    <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-2 sm:gap-3">
+                    <div className="mb-4 flex w-full items-center gap-2 overflow-x-auto pb-2 sm:gap-3">
                       <button
                         type="button"
                         onClick={() => setActiveTimelineTargetId(null)}
@@ -1027,7 +1034,7 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                 </div>
               </section>
 
-              <aside className={`hidden min-h-0 overflow-auto rounded-[1.75rem] border border-black/10 bg-white/80 p-4 shadow-sm backdrop-blur-xl ${isTimelinePanelOpen ? "lg:block" : "lg:hidden"}`}>
+              <aside className={`hidden min-h-0 overflow-auto rounded-[1.75rem] border border-black/10 bg-white/80 p-4 shadow-sm backdrop-blur-xl ${isTimelinePanelOpen ? "xl:block" : "xl:hidden"}`}>
                 <div className="mb-4 grid grid-cols-3 gap-2 text-center text-xs text-zinc-600">
                   <div className="rounded-2xl bg-zinc-100 p-3">{formatDuration(timelineVideo.durationSec)}</div>
                   <div className="rounded-2xl bg-zinc-100 p-3">{visibleTimelineMatches.length} matches</div>
@@ -1088,22 +1095,22 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
         </div>
 
         <Dialog open={Boolean(previewFace)} onOpenChange={(open) => !open && setPreviewFace(null)}>
-          <DialogContent className="w-[min(92vw,560px)] overflow-hidden border-black/10 bg-zinc-950 p-0 text-white shadow-2xl sm:max-w-none">
+          <DialogContent showCloseButton={false} className="h-dvh max-h-dvh w-screen max-w-none overflow-hidden rounded-none border-0 bg-zinc-950 p-0 text-white shadow-2xl sm:max-w-none">
             <DialogTitle className="sr-only">{previewFace?.label || "Face preview"}</DialogTitle>
             <button
               type="button"
               onClick={() => setPreviewFace(null)}
-              className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/65"
+              className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur transition hover:bg-black/75 focus:outline-none focus:ring-2 focus:ring-white/50"
               aria-label="Close face preview"
             >
               <X className="h-4 w-4" />
             </button>
-            <div className="flex min-h-[320px] items-center justify-center bg-black sm:min-h-[420px]">
+            <div className="flex h-dvh items-center justify-center bg-black p-3 sm:p-6">
               {previewFace?.imageUrl ? (
-                <img src={previewFace.imageUrl} alt={previewFace.label} className="max-h-[78vh] w-full object-contain" />
+                <img src={previewFace.imageUrl} alt={previewFace.label} className="max-h-full max-w-full object-contain" />
               ) : null}
             </div>
-            <div className="border-t border-white/10 px-4 py-3 text-sm font-medium text-zinc-100">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-12 text-sm font-medium text-zinc-100 sm:px-6">
               {previewFace?.label || "Face preview"}
             </div>
           </DialogContent>
