@@ -92,6 +92,8 @@ interface AlbumVideo {
   fileName: string | null;
   originalS3Key: string | null;
   videoUrl: string | null;
+  playbackStatus: string;
+  playbackError: string | null;
   durationSec: number;
   detectionParams: Record<string, unknown>;
   targetPersonId: string | null;
@@ -455,7 +457,11 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
   const videosUrl = `/api/albums/${encodeURIComponent(albumSlug)}/videos`;
   const { data, error, isLoading, mutate } = useSWR<VideosResponse>(videosUrl, fetcher, {
     refreshInterval: (latest) =>
-      latest?.videos.some((video) => video.detectionStatus === "processing") ? 5000 : 0,
+      latest?.videos.some((video) =>
+        video.detectionStatus === "processing" || video.playbackStatus === "processing",
+      )
+        ? 5000
+        : 0,
   });
   const { data: peopleData } = useSWR<PeopleResponse>(`/api/albums/${encodeURIComponent(albumSlug)}/people`, fetcher);
 
@@ -949,7 +955,15 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                   ref={timelineStageRef}
                   className={`group relative min-h-0 overflow-hidden bg-black shadow-[0_18px_60px_rgba(0,0,0,0.18)] ${isTimelineFullscreen ? "h-screen w-screen rounded-none" : "rounded-[1.35rem] sm:rounded-[1.75rem]"}`}
                 >
-                  {timelineVideo.videoUrl ? (
+                  {timelineVideo.playbackStatus === "processing" ? (
+                    <div className="flex h-full min-h-[28rem] items-center justify-center px-6 text-center text-white">
+                      <div>
+                        <Loader2 className="mx-auto h-10 w-10 animate-spin text-white/80" />
+                        <p className="mt-4 text-sm font-semibold">Optimizing video for playback</p>
+                        <p className="mt-1 text-xs text-white/60">This page will update automatically when processing finishes.</p>
+                      </div>
+                    </div>
+                  ) : timelineVideo.videoUrl ? (
                     <video
                       ref={timelineVideoRef}
                       src={timelineVideo.videoUrl}
@@ -970,8 +984,11 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                       onEnded={() => setIsTimelinePlaying(false)}
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-zinc-500">
-                      <VideoIcon className="h-16 w-16" />
+                    <div className="flex h-full min-h-[28rem] items-center justify-center px-6 text-center text-zinc-400">
+                      <div>
+                        <VideoIcon className="mx-auto h-16 w-16" />
+                        {timelineVideo.playbackError ? <p className="mt-3 max-w-md text-sm">{timelineVideo.playbackError}</p> : null}
+                      </div>
                     </div>
                   )}
                   <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/80 via-black/35 to-transparent p-3 text-white opacity-100 transition-opacity duration-200 sm:p-4 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
@@ -1394,7 +1411,12 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                   className="group overflow-hidden rounded-2xl border border-black/10 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div className="relative aspect-video bg-zinc-900">
-                    {video.videoUrl ? (
+                    {video.playbackStatus === "processing" ? (
+                      <div className="flex h-full flex-col items-center justify-center text-center text-white/75">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                        <span className="mt-2 text-xs font-semibold">Optimizing video</span>
+                      </div>
+                    ) : video.videoUrl ? (
                       <video
                         src={video.videoUrl}
                         preload="metadata"
@@ -1413,8 +1435,8 @@ export function AlbumVideosPage({ albumSlug, timelineVideoId }: AlbumVideosPageP
                       aria-label={`Watch ${video.fileName || "the film"}`}
                     >
                       <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-950 shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-colors duration-200 hover:bg-zinc-100">
-                        <Play className="h-4 w-4 fill-current" />
-                        Watch the film
+                        {video.playbackStatus === "processing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+                        {video.playbackStatus === "processing" ? "Processing film" : "Watch the film"}
                       </span>
                     </Link>
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-center justify-between bg-gradient-to-t from-black/75 to-transparent p-3 text-white">

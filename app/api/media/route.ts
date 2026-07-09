@@ -141,7 +141,10 @@ async function requireMediaAccess(request: Request, key: string) {
         ON a.id = v.album_id
        AND COALESCE(a.is_deleted, false) = false
       WHERE COALESCE(v.is_deleted, false) = false
-        AND v.original_s3_key = $1
+        AND $1 = ANY(ARRAY[
+          v.original_s3_key,
+          to_jsonb(v)->>'playback_s3_key'
+        ]::text[])
 
       UNION
 
