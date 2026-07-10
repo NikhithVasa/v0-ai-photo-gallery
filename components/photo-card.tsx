@@ -33,6 +33,7 @@ import {
   Wand2,
   X,
 } from "lucide-react";
+import { Joyride, type Step } from "react-joyride";
 import { useSWRConfig } from "swr";
 import {
   DropdownMenu,
@@ -196,6 +197,10 @@ const LIGHTBOX_MIN_ZOOM = 1;
 const LIGHTBOX_MAX_ZOOM = 4;
 const COMPOSABLE_LIGHTBOX_ENABLED =
   process.env.NEXT_PUBLIC_COMPOSABLE_LIGHTBOX === "true";
+const LIGHTBOX_ONBOARDING_STORAGE_KEY = "saathidesk:photo-lightbox-onboarding";
+const LIGHTBOX_ONBOARDING_DELAY_MS = 30_000;
+
+type LightboxOnboardingStep = "people" | "edit";
 
 function lightboxPreloadIndices(
   currentIndex: number,
@@ -1644,6 +1649,8 @@ export function PhotoLightbox({
   const [isClosing, setIsClosing] = useState(false);
   const [isMobilePointer, setIsMobilePointer] = useState(false);
   const [isDownloadHovering, setIsDownloadHovering] = useState(false);
+  const [onboardingStep, setOnboardingStep] =
+    useState<LightboxOnboardingStep | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [entryStyle, setEntryStyle] = useState<CSSProperties>({
     opacity: 0,
@@ -1713,6 +1720,7 @@ export function PhotoLightbox({
   const isPeopleOpenRef = useRef(isPeopleOpen);
   const isFilterPanelOpenRef = useRef(isFilterPanelOpen);
   const isDownloadHoveringRef = useRef(isDownloadHovering);
+  const isOnboardingRunningRef = useRef(false);
   const isAnimatingSwipeRef = useRef(isAnimatingSwipe);
   const isMountedRef = useRef(false);
   const hasPlayedEntryAnimationRef = useRef(false);
@@ -1781,6 +1789,27 @@ export function PhotoLightbox({
     [allPeopleById, photo.people, shareToken],
   );
   const canManageLightboxPeople = canManagePeople && !shareToken;
+  const onboardingSteps = useMemo<Step[]>(
+    () => [
+      {
+        target: '[data-lightbox-onboarding="people"]',
+        title: "See who’s in this photo",
+        content: "Click the people avatars to explore everyone in this photo.",
+        placement: "top-end",
+        skipBeacon: true,
+        buttons: [],
+      },
+      {
+        target: '[data-lightbox-onboarding="edit"]',
+        title: "Try an AI edit",
+        content: "Click the wand to edit this photo with AI.",
+        placement: "top-start",
+        skipBeacon: true,
+        buttons: [],
+      },
+    ],
+    [],
+  );
   const selectedInstagramFilter = useMemo(
     () => instagramFilterByKey(selectedInstagramFilterKey),
     [selectedInstagramFilterKey],
@@ -2028,6 +2057,58 @@ export function PhotoLightbox({
     setFilterDownloadError("");
   }, [photo.id]);
 
+  useEffect(() => {
+    let storedStep: string | null = null;
+
+    try {
+      storedStep = window.localStorage.getItem(LIGHTBOX_ONBOARDING_STORAGE_KEY);
+    } catch {
+      // Storage can be unavailable in private browsing; keep the guide visit-local.
+    }
+
+    if (storedStep === "done" || hidePeople || COMPOSABLE_LIGHTBOX_ENABLED) return;
+
+    const nextStep: LightboxOnboardingStep =
+      storedStep === "edit" ? "edit" : "people";
+    const timer = window.setTimeout(() => {
+      setAreControlsVisible(true);
+      setOnboardingStep(nextStep);
+    }, LIGHTBOX_ONBOARDING_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [hidePeople, photo.id]);
+
+  useEffect(() => {
+    isOnboardingRunningRef.current = onboardingStep !== null;
+
+    if (onboardingStep === null) return;
+
+    setAreControlsVisible(true);
+    if (controlsTimerRef.current) {
+      window.clearTimeout(controlsTimerRef.current);
+      controlsTimerRef.current = null;
+    }
+  }, [onboardingStep]);
+
+  const completeOnboardingStep = useCallback(
+    (completedStep: LightboxOnboardingStep) => {
+      if (onboardingStep !== completedStep) return;
+
+      const nextStep = completedStep === "people" ? "edit" : "done";
+      setOnboardingStep(null);
+
+      try {
+        window.localStorage.setItem(
+          LIGHTBOX_ONBOARDING_STORAGE_KEY,
+          nextStep,
+        );
+      } catch {
+        // Keep the current visit functional when storage is unavailable.
+      }
+    },
+    [onboardingStep],
+  );
+
   const startControlsTimer = useCallback(() => {
     if (controlsTimerRef.current) {
       window.clearTimeout(controlsTimerRef.current);
@@ -2037,6 +2118,7 @@ export function PhotoLightbox({
       controlsTimerRef.current = null;
 
       if (isMobilePointerRef.current) return;
+      if (isOnboardingRunningRef.current) return;
 
       if (
         !isPeopleOpenRef.current &&
@@ -3386,6 +3468,33 @@ export function PhotoLightbox({
   }
 
   return (
+    <>
+      <Joyride
+        run={onboardingStep !== null}
+        stepIndex={onboardingStep === "edit" ? 1 : 0}
+        steps={onboardingSteps}
+        options={{
+          blockTargetInteraction: false,
+          dismissKeyAction: false,
+          hideOverlay: true,
+          overlayClickAction: false,
+          primaryColor: "#18181b",
+          showProgress: false,
+          spotlightPadding: 6,
+          spotlightRadius: 16,
+          zIndex: 80,
+        }}
+        styles={{
+          tooltip: {
+            borderRadius: 12,
+            maxWidth: 300,
+            padding: 16,
+          },
+          tooltipContent: {
+            padding: 0,
+          },
+        }}
+      />
     <div
       ref={mobileZoomFrameRef}
       className={`fixed inset-0 z-50 flex cursor-default items-center justify-center text-white transition-colors ${lightboxEnterDurationClass} ease-in-out ${
@@ -3778,7 +3887,9 @@ export function PhotoLightbox({
                 {canEditPhoto && (
                   <button
                     type="button"
+                    data-lightbox-onboarding="edit"
                     onClick={() => {
+                      completeOnboardingStep("edit");
                       setAreControlsVisible(true);
                       setIsPeopleOpen(false);
                       setIsPresetPanelOpen(false);
@@ -3837,7 +3948,9 @@ export function PhotoLightbox({
               {!hidePeople && <div className="relative">
                 <button
                   type="button"
+                  data-lightbox-onboarding="people"
                   onClick={() => {
+                    completeOnboardingStep("people");
                     setAreControlsVisible(true);
                     setIsPeopleOpen((current) => !current);
                   }}
@@ -4482,5 +4595,6 @@ export function PhotoLightbox({
         </aside>
       )}
     </div>
+    </>
   );
 }

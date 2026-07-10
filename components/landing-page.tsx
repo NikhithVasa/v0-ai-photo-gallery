@@ -34,7 +34,7 @@ import {
   type MotionProps,
   type Variants,
 } from "framer-motion";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
 import { BentoGrid } from "@/components/ui/bento-grid";
@@ -515,16 +515,13 @@ export function LandingPage() {
   const stagger = useStagger();
 
   return (
-    <main className="min-h-screen bg-[#F7F5F0] text-[#1C1B18] antialiased">
+    <main className="min-h-screen overflow-hidden bg-[#F7F5F0] text-[#1C1B18] antialiased">
       <MarketingHeader />
       <Hero reveal={reveal} />
-      <LandingFeatureRail />
-      <InteractiveSearchDemo />
-      <AiDiscoveryShowcase reveal={reveal} stagger={stagger} />
-      <GalleryPreview reveal={reveal} stagger={stagger} />
+      <AudienceWorkflow />
+      <ProductTour reveal={reveal} />
+      <ProductStories reveal={reveal} />
       <LandingFeatureIndex reveal={reveal} stagger={stagger} />
-      <AiWorkflow reveal={reveal} stagger={stagger} />
-      <MomentsCarousel reveal={reveal} />
       <OpenSourceCallout reveal={reveal} />
       <FinalCTA reveal={reveal} />
       <MarketingFooter />
@@ -952,9 +949,9 @@ const landingFeatureRail = [
 ] as const;
 
 const searchDemoQueries = [
-  { query: "Find every photo of the bride with her grandparents", result: "38 matching photos", image: "/reception.png", tags: ["Bride", "Family", "Reception"] },
-  { query: "Show the sharpest couple portraits at golden hour", result: "16 keepers from 64 frames", image: "/glow_1.png", tags: ["Best photos", "Couple", "Golden hour"] },
-  { query: "Only photos where these three people are together", result: "21 private matches", image: "/laugh_1.png", tags: ["People filter", "Together", "Private"] },
+  { query: "Find photos of the bride with her grandparents", result: "Family moments", image: "/reception.png", tags: ["Bride", "Family", "Reception"] },
+  { query: "Show couple portraits at golden hour", result: "Golden-hour portraits", image: "/glow_1.png", tags: ["Couple", "Portrait", "Golden hour"] },
+  { query: "Only photos where these people are together", result: "People together", image: "/laugh_1.png", tags: ["People filter", "Together", "Private album"] },
 ] as const;
 
 function InteractiveSearchDemo() {
@@ -1055,7 +1052,7 @@ function OpenSourceCallout({ reveal }: { reveal: MotionProps }) {
       <motion.div {...reveal} className="grid overflow-hidden rounded-[2rem] border border-[#D9D1C6] bg-[#E9E1D6] lg:grid-cols-[1.1fr_0.9fr]">
         <div className="p-7 sm:p-12">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#8A6534]">Free and open source</p>
-          <h2 className="mt-4 max-w-2xl font-serif text-4xl leading-[1.05] text-[#1F1B16] sm:text-6xl">The full gallery stack. No paid tier hiding the useful parts.</h2>
+          <h2 className="mt-4 max-w-2xl font-serif text-4xl leading-[1.05] text-[#1F1B16] sm:text-6xl">A gallery stack you can inspect, adapt, and run.</h2>
           <p className="mt-5 max-w-xl text-base leading-7 text-[#655D54]">Private galleries, people filters, AI search, culling, edits, collages, watermarks, and controlled downloads are part of the same MIT-licensed project.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/login?mode=signup" className="inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-[#171411] px-6 text-sm font-semibold text-white transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30">Start free <ArrowRight className="h-4 w-4" /></Link>
@@ -1063,7 +1060,7 @@ function OpenSourceCallout({ reveal }: { reveal: MotionProps }) {
           </div>
         </div>
         <div className="grid grid-cols-2 border-t border-[#D0C5B7] lg:border-l lg:border-t-0">
-          {[['$0','Subscription'],['MIT','License'],['RAW','Originals kept'],['AI','Album scoped']].map(([value,label]) => (
+          {[['Open','Source'],['MIT','License'],['RAW','Originals kept'],['AI','Album scoped']].map(([value,label]) => (
             <div key={label} className="flex min-h-40 flex-col justify-end border-b border-r border-[#D0C5B7] p-6 last:border-b-0">
               <strong className="font-serif text-4xl text-[#1F1B16]">{value}</strong>
               <span className="mt-2 text-xs uppercase tracking-[0.14em] text-[#756B60]">{label}</span>
@@ -1222,37 +1219,82 @@ export function MarketingHeader() {
 }
 
 function Hero({ reveal }: { reveal: MotionProps }) {
-  const prefersReducedMotion = useReducedMotion();
   return (
-    <section className="relative isolate min-h-[calc(100svh-4.5rem)] overflow-hidden bg-[#EDE8DF] text-[#171411]">
-      <div aria-hidden className="absolute inset-0 -z-30 bg-[radial-gradient(circle_at_75%_20%,rgba(227,192,135,0.5),transparent_30%),radial-gradient(circle_at_15%_80%,rgba(127,151,131,0.24),transparent_32%)]" />
-      <div aria-hidden className="absolute inset-0 -z-20 opacity-30 [background-image:linear-gradient(rgba(23,20,17,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(23,20,17,0.06)_1px,transparent_1px)] [background-size:72px_72px]" />
-      <div className="mx-auto grid min-h-[calc(100svh-4.5rem)] max-w-[92rem] gap-10 px-5 pb-14 pt-12 sm:px-8 sm:pt-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-14">
-        <motion.div {...reveal} className="relative z-10 max-w-3xl">
-          <p className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/55 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#6D5737] backdrop-blur"><Sparkles className="h-3.5 w-3.5" /> Built for photographers and wedding studios</p>
-          <h1 className="mt-7 font-serif text-[clamp(3.7rem,8vw,7.8rem)] leading-[0.86] tracking-[-0.055em] text-[#171411]">Deliver the whole story.<span className="block italic text-[#735244]">Without the hunt.</span></h1>
-          <p className="mt-7 max-w-xl text-base leading-7 text-[#5E564D] sm:text-lg">Upload the full event once. SaathiDesk finds people and moments, helps you choose the strongest frames, and gives every client a private gallery built around their story.</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/login?mode=signup" className="group inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-[#171411] px-6 text-sm font-semibold text-white transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30">Start free <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
-            <a href="#search-demo" className="inline-flex h-12 cursor-pointer items-center rounded-full border border-black/15 bg-white/55 px-6 text-sm font-semibold text-[#171411] transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20">See search in action</a>
+    <section className="relative overflow-hidden bg-[#EDE8DF] pb-16 pt-14 text-[#171411] sm:pb-24 sm:pt-20">
+      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_82%_8%,rgba(202,161,110,0.34),transparent_30%),radial-gradient(circle_at_8%_72%,rgba(112,138,116,0.22),transparent_28%)]" />
+      <div className="relative mx-auto max-w-[92rem] px-5 sm:px-8">
+        <motion.div {...reveal} className="mx-auto max-w-6xl text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#725C3D]">The wedding photo workspace</p>
+          <h1 className="mt-5 font-serif text-[clamp(3.5rem,9vw,8.5rem)] leading-[0.84] tracking-[-0.055em]">One home for the<br /><span className="italic text-[#744E43]">whole celebration.</span></h1>
+          <p className="mx-auto mt-7 max-w-2xl text-base leading-7 text-[#5E564D] sm:text-xl sm:leading-8">Bring in every event, find the people and moments that matter, review the strongest frames, and deliver a private gallery without breaking the story across tools.</p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Link href="/login?mode=signup" className="group inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-[#171411] px-6 text-sm font-semibold text-white transition-colors hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#171411]/40">Start free <ArrowRight className="h-4 w-4 transition-transform motion-reduce:transition-none group-hover:translate-x-0.5" /></Link>
+            <a href="#product-tour" className="inline-flex h-12 cursor-pointer items-center rounded-full border border-black/15 bg-white/55 px-6 text-sm font-semibold transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black/25">Tour the workspace</a>
           </div>
-          <div className="mt-10 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium text-[#6E665D]"><span>Free to use</span><span>MIT licensed</span><span>Originals stay untouched</span></div>
         </motion.div>
-        <motion.div {...reveal} className="relative mx-auto w-full max-w-[760px] lg:mx-0">
-          <div className="relative aspect-[1.08/1] overflow-hidden rounded-[2rem] bg-[#171411] shadow-[0_45px_100px_-50px_rgba(23,20,17,0.7)] ring-1 ring-black/10">
-            <Image src="/hero_one.png" alt="SaathiDesk event gallery" fill priority sizes="(min-width:1024px) 55vw, 100vw" className="object-cover opacity-90" />
-            <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/10" />
-            <div className="absolute left-5 right-5 top-5 flex items-center justify-between rounded-full bg-black/35 px-4 py-2.5 text-xs text-white backdrop-blur-md"><span className="font-semibold">Reception · 1,284 moments</span><span>AI ready</span></div>
-            <div className="absolute bottom-5 left-5 right-5 rounded-[1.4rem] bg-[#FAF7F2]/94 p-4 text-[#171411] shadow-xl backdrop-blur-xl">
-              <div className="flex items-center gap-3 rounded-full bg-white px-4 py-3 ring-1 ring-black/10"><Search className="h-4 w-4 text-[#7D6D5D]" /><span className="truncate text-sm text-[#5B524A]">bride laughing with family near the stage</span><Sparkles className="ml-auto h-4 w-4 text-[#9A753C]" /></div>
-              <div className="mt-3 flex items-center justify-between gap-3 text-xs"><span className="text-[#776E65]">24 matching photos</span><span className="rounded-full bg-[#171411] px-3 py-1.5 font-semibold text-white">View matches</span></div>
+        <motion.div {...reveal} className="mx-auto mt-12 max-w-7xl sm:mt-16">
+          <SoftwareWindow title="Aanya & Dev · Wedding weekend" status="AI processing complete">
+            <div className="grid min-h-[420px] grid-cols-[4.5rem_1fr] bg-[#F4F1EB] sm:grid-cols-[12rem_1fr] lg:min-h-[610px]">
+              <DemoSidebar active="Photos" />
+              <div className="min-w-0 p-3 sm:p-6">
+                <div className="flex flex-col gap-3 border-b border-black/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div><p className="text-xs font-semibold text-[#80766B]">Reception</p><h2 className="mt-1 text-xl font-semibold sm:text-2xl">All moments</h2></div>
+                  <div className="flex gap-2"><DemoControl icon={Search} label="Search" /><DemoControl icon={Users} label="People" /></div>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+                  {["/reception.png", "/laugh_1.png", "/glow_1.png", "/First%20look.png", "/filter_1.png", "/collage.png", "/download.png", "/hero_one.png"].map((src, index) => <div key={src} className={`relative overflow-hidden rounded-lg bg-[#D8D1C7] ${index === 0 || index === 5 ? "aspect-[4/5] sm:row-span-2" : "aspect-square"}`}><Image src={src} alt="" fill sizes="(min-width:640px) 22vw, 45vw" className="object-cover" /><span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-[10px] font-medium text-white">{index < 3 ? "Keeper" : "Ready"}</span></div>)}
+                </div>
+              </div>
             </div>
-          </div>
-          {!prefersReducedMotion ? <motion.div aria-hidden className="absolute -right-4 top-1/4 h-28 w-28 rounded-full border border-white/50 bg-[#D9C6A4]/55 blur-xl" animate={{ y: [0, -18, 0] }} transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }} /> : null}
+          </SoftwareWindow>
         </motion.div>
       </div>
     </section>
   );
+}
+
+function SoftwareWindow({ title, status, children }: { title: string; status: string; children: ReactNode }) {
+  return <div className="overflow-hidden rounded-[1.25rem] border border-black/15 bg-[#1D1B19] shadow-[0_45px_100px_-48px_rgba(23,20,17,0.65)] sm:rounded-[2rem]"><div className="flex min-h-14 items-center gap-3 border-b border-white/10 px-4 text-white sm:px-6"><div aria-hidden className="flex gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#D27B68]" /><span className="h-2.5 w-2.5 rounded-full bg-[#D7AF62]" /><span className="h-2.5 w-2.5 rounded-full bg-[#79977D]" /></div><span className="min-w-0 flex-1 truncate text-xs font-semibold sm:text-sm">{title}</span><span className="hidden items-center gap-1.5 text-xs text-white/60 sm:flex"><CheckCircle2 className="h-3.5 w-3.5 text-[#A7C6A9]" />{status}</span></div>{children}</div>;
+}
+
+function DemoSidebar({ active }: { active: string }) {
+  return <nav aria-label="Demo navigation" className="border-r border-black/10 bg-[#E9E3DA] p-2 sm:p-4"><div className="mb-6 hidden font-serif text-lg sm:block">SaathiDesk</div>{[[Camera,"Photos"],[Users,"People"],[SlidersHorizontal,"Cull"],[Wand2,"Finish"],[Share2,"Share"]].map(([Icon,label]) => { const DemoIcon = Icon as LucideIcon; return <div key={label as string} className={`mb-1 flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 text-xs font-semibold sm:justify-start sm:px-3 ${active === label ? "bg-[#1D1B19] text-white" : "text-[#71685F]"}`}><DemoIcon className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">{label as string}</span></div>;})}</nav>;
+}
+
+function DemoControl({ icon: Icon, label, active = false }: { icon: LucideIcon; label: string; active?: boolean }) {
+  return <span className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-xs font-semibold ${active ? "border-[#1D1B19] bg-[#1D1B19] text-white" : "border-black/10 bg-white text-[#514A43]"}`}><Icon className="h-3.5 w-3.5" />{label}</span>;
+}
+
+const audienceWorkflows = [
+  { id: "photographers", label: "Photographers", title: "Stay in the creative flow.", body: "Move from upload queues to event organization, AI-assisted review, finishing, and client delivery in one album.", active: "Cull", note: "Review · Needs attention", action: "Keep selected" },
+  { id: "studios", label: "Studios", title: "Keep every job legible.", body: "Organize customers, albums, events, cover images, processing state, and sharing permissions from a consistent workspace.", active: "Photos", note: "Albums · This season", action: "Open album" },
+  { id: "clients", label: "Clients & guests", title: "Find the moments you came for.", body: "Open a private gallery, browse by event or people, search visual details, select favorites, and download when enabled.", active: "People", note: "People · Reception", action: "View photos" },
+] as const;
+
+function AudienceWorkflow() {
+  const [active, setActive] = useState(0);
+  const workflow = audienceWorkflows[active];
+  return <section className="bg-[#171411] py-20 text-[#FAF7F2] sm:py-28"><div className="mx-auto max-w-7xl px-5 sm:px-8"><div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#D9BF8D]">Built around the handoff</p><h2 className="mt-4 font-serif text-4xl leading-[0.95] sm:text-6xl">One wedding.<br />Three ways in.</h2><div className="mt-8 flex flex-wrap gap-2" role="tablist" aria-label="Audience workflows">{audienceWorkflows.map((item,index) => <button key={item.id} role="tab" aria-selected={index === active} aria-controls="audience-demo" type="button" onClick={() => setActive(index)} className={`min-h-11 cursor-pointer rounded-full px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E7D6B5] ${index === active ? "bg-[#F5EF45] text-black" : "bg-white/8 text-white hover:bg-white/15"}`}>{item.label}</button>)}</div><h3 className="mt-8 font-serif text-3xl">{workflow.title}</h3><p className="mt-3 max-w-lg leading-7 text-white/60">{workflow.body}</p></div><div id="audience-demo" role="tabpanel"><SoftwareWindow title={workflow.note} status="Album ready"><div className="grid min-h-[390px] grid-cols-[4.5rem_1fr] bg-[#F2EEE7] sm:grid-cols-[10rem_1fr]"><DemoSidebar active={workflow.active} /><div className="p-3 sm:p-5"><div className="flex items-center justify-between"><div><p className="text-xs text-[#766D63]">Aanya & Dev</p><p className="mt-1 font-semibold text-[#1D1B19]">{workflow.note}</p></div><DemoControl icon={ArrowRight} label={workflow.action} active /></div><div className="mt-5 grid grid-cols-3 gap-2">{["/laugh_1.png","/reception.png","/glow_1.png","/First%20look.png","/hero_one.png","/filter_1.png"].map((src,index) => <div key={src} className="relative aspect-[4/5] overflow-hidden rounded-lg bg-[#D7D0C6]"><Image src={src} alt="" fill sizes="20vw" className="object-cover" />{index < 2 ? <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#F5EF45] text-black"><CheckCircle2 className="h-3.5 w-3.5" /></span> : null}</div>)}</div></div></div></SoftwareWindow></div></div></div></section>;
+}
+
+const tourSteps = [
+  { label: "Bring it in", title: "Upload by event", body: "Add photos from a device, Google Drive, or Google Photos. The queue keeps processing and retry state visible.", active: "Photos", image: "/hero_one.png" },
+  { label: "Make it findable", title: "Build people and scene context", body: "Album-scoped processing prepares previews, face groups, descriptions, and search metadata.", active: "People", image: "/laugh_1.png" },
+  { label: "Shape the set", title: "Review with context", body: "Use duplicate clusters, quality signals, photo types, and best-by-person views as a starting point for your choices.", active: "Cull", image: "/glow_1.png" },
+  { label: "Hand it over", title: "Share on your terms", body: "Set passcodes, watermarked previews, and download controls before sending the album link.", active: "Share", image: "/reception.png" },
+] as const;
+
+function ProductTour({ reveal }: { reveal: MotionProps }) {
+  const [step, setStep] = useState(0); const current = tourSteps[step];
+  return <section id="product-tour" className="scroll-mt-20 bg-[#F7F5F0] py-20 sm:py-28"><div className="mx-auto max-w-7xl px-5 sm:px-8"><motion.div {...reveal} className="max-w-4xl"><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8A6534]">Product tour</p><h2 className="mt-4 font-serif text-5xl leading-[0.94] sm:text-7xl">The full journey stays visible.</h2></motion.div><div className="mt-10 grid gap-6 lg:grid-cols-[0.65fr_1.35fr]"><div className="space-y-2" role="tablist" aria-label="Product tour">{tourSteps.map((item,index) => <button key={item.label} role="tab" aria-selected={index === step} type="button" onClick={() => setStep(index)} className={`w-full cursor-pointer rounded-xl border p-4 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30 ${index === step ? "border-[#171411] bg-[#171411] text-white" : "border-black/10 bg-white hover:border-black/25"}`}><span className="text-xs font-bold uppercase tracking-[0.14em] opacity-55">0{index+1} · {item.label}</span><span className="mt-2 block text-lg font-semibold">{item.title}</span>{index === step ? <span className="mt-2 block text-sm leading-6 text-white/60">{item.body}</span> : null}</button>)}</div><div role="tabpanel"><SoftwareWindow title={current.title} status={`Step ${step+1} of 4`}><div className="grid min-h-[440px] grid-cols-[4.5rem_1fr] bg-[#EFEAE2] sm:grid-cols-[10rem_1fr]"><DemoSidebar active={current.active} /><div className="p-4 sm:p-6"><div className="flex flex-wrap gap-2"><DemoControl icon={Layers3} label="Reception" active /><DemoControl icon={SlidersHorizontal} label="Filters" /><DemoControl icon={Share2} label="Actions" /></div><div className="relative mt-5 min-h-[300px] overflow-hidden rounded-xl bg-[#CCC3B7]"><Image key={current.image} src={current.image} alt="Wedding gallery workflow preview" fill sizes="(min-width:1024px) 50vw, 80vw" className="object-cover" /><div className="absolute inset-x-3 bottom-3 rounded-xl bg-[#FBF8F2]/95 p-4 shadow-lg"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#171411] text-white"><CheckCircle2 className="h-4 w-4" /></span><div><p className="text-sm font-semibold text-[#171411]">{current.title}</p><p className="text-xs text-[#70675D]">{current.body}</p></div></div></div></div></div></div></SoftwareWindow></div></div></div></section>;
+}
+
+function ProductStories({ reveal }: { reveal: MotionProps }) {
+  return <div className="bg-[#F7F5F0]"><StorySection reveal={reveal} eyebrow="01 · Ingest + organize" title="A calm intake for a very big day." body="Split a wedding into events, watch uploads move through the queue, retry failed files, and keep the original source attached to the right album." tone="bg-[#C8D5C5]" active="Photos" image="/First%20look.png" chips={["Device", "Google Drive", "Google Photos", "Processing"]} /><InteractiveSearchDemo /><StorySection reveal={reveal} eyebrow="03 · Cull + finish" title="Decisions beside the frames." body="Review duplicate clusters and quality signals, mark keepers, then move selected photos into presets, AI edits, or collage layouts while originals remain available." tone="bg-[#E6C7BC]" active="Cull" image="/filter_1.png" chips={["Needs review", "Duplicates", "Best by person", "Presets"]} reverse /><StorySection reveal={reveal} eyebrow="04 · Private delivery" title="A gallery with boundaries built in." body="Choose the cover, event order, passcode, watermark, and download permissions. Clients receive a focused album rather than a folder of files." tone="bg-[#C7C2E3]" active="Share" image="/download.png" chips={["Passcode", "Watermark", "Selected download", "Share link"]} /></div>;
+}
+
+function StorySection({ reveal, eyebrow, title, body, tone, active, image, chips, reverse = false }: { reveal: MotionProps; eyebrow: string; title: string; body: string; tone: string; active: string; image: string; chips: readonly string[]; reverse?: boolean }) {
+  return <section className={`${tone} py-20 sm:py-28`}><div className={`mx-auto grid max-w-[92rem] gap-10 px-5 sm:px-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center ${reverse ? "lg:[&>*:first-child]:order-2" : ""}`}><motion.div {...reveal}><p className="text-xs font-bold uppercase tracking-[0.18em] text-black/55">{eyebrow}</p><h2 className="mt-4 font-serif text-5xl leading-[0.94] tracking-[-0.035em] sm:text-7xl">{title}</h2><p className="mt-6 max-w-xl text-base leading-7 text-black/65 sm:text-lg">{body}</p><div className="mt-7 flex flex-wrap gap-2">{chips.map(chip => <span key={chip} className="rounded-full border border-black/15 bg-white/35 px-3 py-2 text-xs font-semibold">{chip}</span>)}</div></motion.div><SoftwareWindow title="Aanya & Dev" status="Changes saved"><div className="grid min-h-[480px] grid-cols-[4.5rem_1fr] bg-[#F2EEE8] sm:grid-cols-[10rem_1fr]"><DemoSidebar active={active} /><div className="p-3 sm:p-5"><div className="flex items-center justify-between"><DemoControl icon={SlidersHorizontal} label={chips[0]} active /><DemoControl icon={CheckCircle2} label="Apply" /></div><div className="relative mt-4 min-h-[350px] overflow-hidden rounded-xl"><Image src={image} alt="SaathiDesk product workflow" fill sizes="(min-width:1024px) 55vw, 80vw" className="object-cover" /><div className="absolute inset-x-3 bottom-3 grid grid-cols-3 gap-2 rounded-xl bg-[#171411]/90 p-3 text-white backdrop-blur"><div><p className="text-[10px] uppercase text-white/45">Status</p><p className="mt-1 text-xs font-semibold">Ready</p></div><div><p className="text-[10px] uppercase text-white/45">Event</p><p className="mt-1 text-xs font-semibold">Reception</p></div><div><p className="text-[10px] uppercase text-white/45">Action</p><p className="mt-1 text-xs font-semibold">{chips[1]}</p></div></div></div></div></div></SoftwareWindow></div></section>;
 }
 
 function DocsHub({
