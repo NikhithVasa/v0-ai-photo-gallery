@@ -33,6 +33,27 @@ function runpodApiKey() {
   return apiKey;
 }
 
+function runpodErrorMessage(
+  operation: "health check" | "job submission",
+  status: number,
+  data: Record<string, unknown>,
+) {
+  const resetSafetyNote =
+    operation === "health check" ? " No album AI data was deleted." : "";
+
+  if (status === 404) {
+    return `Configured RunPod endpoint was not found. Verify RUNPOD_ENDPOINT_ID and confirm it is an active queue-based Serverless endpoint.${resetSafetyNote}`;
+  }
+
+  if (status === 401 || status === 403) {
+    return `RunPod rejected the configured API key. Verify RUNPOD_API_KEY.${resetSafetyNote}`;
+  }
+
+  return typeof data.error === "string"
+    ? data.error
+    : `RunPod ${operation} failed (${status})`;
+}
+
 export async function checkRunpodEndpoint() {
   const apiKey = runpodApiKey();
   const url = runpodOperationUrl("health");
@@ -48,11 +69,7 @@ export async function checkRunpodEndpoint() {
   >;
 
   if (!response.ok) {
-    const message =
-      typeof data.error === "string"
-        ? data.error
-        : `RunPod health check failed (${response.status})`;
-    throw new Error(`${message}: ${url}`);
+    throw new Error(runpodErrorMessage("health check", response.status, data));
   }
 
   return data;
@@ -76,11 +93,7 @@ export async function submitRunpodJob(input: Record<string, unknown>) {
   >;
 
   if (!response.ok) {
-    const message =
-      typeof data.error === "string"
-        ? data.error
-        : `RunPod request failed (${response.status})`;
-    throw new Error(`${message}: ${url}`);
+    throw new Error(runpodErrorMessage("job submission", response.status, data));
   }
 
   return data;
