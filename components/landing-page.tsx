@@ -35,6 +35,7 @@ import {
   type Variants,
 } from "framer-motion";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
 import { BentoGrid } from "@/components/ui/bento-grid";
 import { BorderBeam } from "@/components/ui/border-beam";
@@ -518,12 +519,12 @@ export function LandingPage() {
       <MarketingHeader />
       <Hero reveal={reveal} />
       <LandingFeatureRail />
+      <InteractiveSearchDemo />
       <AiDiscoveryShowcase reveal={reveal} stagger={stagger} />
-      <AiWorkflow reveal={reveal} stagger={stagger} />
-      <PromptGuide reveal={reveal} stagger={stagger} />
-      <MomentsCarousel reveal={reveal} />
       <GalleryPreview reveal={reveal} stagger={stagger} />
       <LandingFeatureIndex reveal={reveal} stagger={stagger} />
+      <AiWorkflow reveal={reveal} stagger={stagger} />
+      <MomentsCarousel reveal={reveal} />
       <OpenSourceCallout reveal={reveal} />
       <FinalCTA reveal={reveal} />
       <MarketingFooter />
@@ -537,14 +538,408 @@ export function LegacyLandingPage() {
 
   return (
     <main className="min-h-screen bg-[#F7F5F0] text-[#1C1B18] antialiased">
-      <MarketingHeader />
-      <Hero reveal={reveal} />
+      <LegacyMarketingHeader />
+      <LegacyHero reveal={reveal} />
       <AiDiscoveryShowcase reveal={reveal} stagger={stagger} />
       <MomentsCarousel reveal={reveal} />
-      <GalleryPreview reveal={reveal} stagger={stagger} />
-      <FinalCTA reveal={reveal} />
+      <LegacyGalleryPreview reveal={reveal} stagger={stagger} />
+      <LegacyFinalCTA reveal={reveal} />
       <MarketingFooter />
     </main>
+  );
+}
+
+export function LegacyMarketingHeader() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-black/[0.06] bg-[#F7F5F0]/90 backdrop-blur-xl">
+      <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-5 sm:px-8">
+        <Link
+          href="/"
+          className="group inline-flex items-center gap-2 text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 rounded-md"
+          aria-label="SaathiDesk home"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1C1B18] text-[#F7F5F0] transition-transform duration-300 group-hover:scale-[1.03]">
+            <Camera className="h-4 w-4" strokeWidth={1.75} />
+          </span>
+          <span className="font-serif text-lg leading-none tracking-tight">
+            SaathiDesk
+          </span>
+        </Link>
+
+        <nav className="flex items-center gap-1 sm:gap-2">
+          <Link
+            href="/docs"
+            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 md:inline-flex"
+          >
+            Docs
+          </Link>
+          <Link
+            href="/how-ai-works"
+            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 lg:inline-flex"
+          >
+            How AI works
+          </Link>
+          <Link
+            href="/login"
+            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 sm:inline-flex"
+          >
+            Galleries
+          </Link>
+          <Link
+            href="/login"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#1C1B18] px-4 text-sm font-medium text-[#F7F5F0] shadow-sm transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
+          >
+            Open album
+            <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+          </Link>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+const heroPetals = [
+  { left: "8%", top: "18%", delay: 0.4, duration: 18, scale: 0.85 },
+  { left: "18%", top: "62%", delay: 2.8, duration: 22, scale: 1.05 },
+  { left: "34%", top: "24%", delay: 1.6, duration: 19, scale: 0.7 },
+  { left: "58%", top: "14%", delay: 3.4, duration: 24, scale: 1.2 },
+  { left: "72%", top: "72%", delay: 0.9, duration: 21, scale: 0.9 },
+  { left: "86%", top: "34%", delay: 2.1, duration: 20, scale: 0.75 },
+];
+
+const heroParticles = [
+  { left: "12%", top: "38%", delay: 0.2 },
+  { left: "24%", top: "78%", delay: 1.3 },
+  { left: "43%", top: "18%", delay: 2.4 },
+  { left: "66%", top: "52%", delay: 0.9 },
+  { left: "79%", top: "21%", delay: 1.8 },
+  { left: "91%", top: "67%", delay: 2.9 },
+];
+
+function LegacyHero({ reveal }: { reveal: MotionProps }) {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <section className="relative isolate min-h-[calc(100svh-10rem)] overflow-hidden bg-[#F6F0E9] text-[#1F1B16] sm:min-h-[calc(100svh-9rem)]">
+      <Image
+        src="/glow_1.png"
+        alt="SaathiDesk wedding gallery moment"
+        fill
+        priority
+        sizes="100vw"
+        className="-z-30 object-cover object-[72%_48%] opacity-[0.34] brightness-[1.08] saturate-[0.78] contrast-[0.98]"
+      />
+
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(246,240,233,0.96)_0%,rgba(246,240,233,0.9)_54%,rgba(22,17,12,0.58)_100%)]"
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_50%_18%,rgba(232,199,126,0.28)_0%,rgba(232,199,126,0)_38%),radial-gradient(ellipse_at_18%_78%,rgba(89,38,47,0.2)_0%,rgba(89,38,47,0)_32%),linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_48%,rgba(0,0,0,0.42)_100%)]"
+      />
+
+      {!prefersReducedMotion ? (
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute -left-24 top-0 -z-10 h-full w-[42rem] rotate-[-13deg] bg-[linear-gradient(90deg,rgba(255,247,226,0)_0%,rgba(255,247,226,0.42)_38%,rgba(216,177,101,0.2)_50%,rgba(255,247,226,0)_72%)] blur-2xl"
+          animate={{ x: ["-10%", "18%", "-6%"], opacity: [0.25, 0.72, 0.3] }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+        />
+      ) : null}
+
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(116deg,rgba(255,248,233,0.18)_0%,rgba(255,248,233,0.04)_26%,rgba(255,248,233,0)_42%),repeating-linear-gradient(100deg,rgba(89,38,47,0.08)_0px,rgba(89,38,47,0.08)_1px,rgba(255,255,255,0)_1px,rgba(255,255,255,0)_10px)] opacity-45 mix-blend-multiply"
+      />
+
+      {!prefersReducedMotion ? (
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+          {heroPetals.map((petal, index) => (
+            <motion.span
+              key={`petal-${index}`}
+              className="absolute h-3 w-1.5 rounded-full bg-[#E8CFC3]/70 shadow-[0_0_18px_rgba(255,235,202,0.25)]"
+              style={{ left: petal.left, top: petal.top, scale: petal.scale }}
+              animate={{
+                x: [0, 24, -18, 12],
+                y: [0, -28, 30, 0],
+                rotate: [0, 42, -24, 12],
+                opacity: [0.16, 0.6, 0.26, 0.16],
+              }}
+              transition={{
+                duration: petal.duration,
+                delay: petal.delay,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
+          ))}
+
+          {heroParticles.map((particle, index) => (
+            <motion.span
+              key={`particle-${index}`}
+              className="absolute h-1 w-1 rounded-full bg-[#F4D795]/75"
+              style={{ left: particle.left, top: particle.top }}
+              animate={{ opacity: [0.12, 0.65, 0.18], y: [0, -18, 0] }}
+              transition={{
+                duration: 8 + index,
+                delay: particle.delay,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      <div className="relative mx-auto flex min-h-[calc(100svh-10rem)] max-w-7xl items-start justify-center px-5 pb-12 pt-20 text-center sm:min-h-[calc(100svh-9rem)] sm:px-8 sm:pt-28 lg:pt-32">
+        <motion.div {...reveal} className="mx-auto max-w-[880px]">
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-[#B88A2D]">
+            Private AI wedding galleries
+          </p>
+          <h1 className="mt-7 [font-family:var(--font-editorial),Georgia,serif] text-[4.25rem] font-medium leading-[0.96] tracking-normal text-[#59262F] [text-wrap:balance] sm:text-[4.75rem]">
+            SaathiDesk
+          </h1>
+          <p className="mx-auto mt-3 max-w-[760px] [font-family:var(--font-editorial),Georgia,serif] text-[2.65rem] font-light italic leading-[0.98] tracking-normal text-[#1F1B16]/65 [text-wrap:balance] sm:text-[3.4rem]">
+            A cinematic gallery where every face, feeling, and frame stays
+            beautifully findable.
+          </p>
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-[#2F2924]/78 sm:text-lg">
+            Curate wedding albums with semantic search, people filters, AI
+            finishing, private sharing, and downloads wrapped in a polished
+            ivory, gold, and black delivery experience.
+          </p>
+
+          <AiPrivacyNotice
+            className="mt-6 max-w-2xl border-[#E8C77E]/35 bg-[#0E0C09]/55 text-[#F7EBDD] backdrop-blur-md"
+            iconClassName="text-[#E8C77E]"
+          />
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/login"
+              className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#F4D795] px-6 text-sm font-semibold text-[#120F0A] shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition duration-500 hover:bg-[#FFE8A8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/60"
+            >
+              Open your album
+              <ArrowRight
+                className="h-4 w-4 transition-transform duration-500 group-hover:translate-x-1"
+                strokeWidth={1.75}
+              />
+            </Link>
+
+            <Link
+              href="/login?mode=signup"
+              className="inline-flex h-12 items-center rounded-full border border-[#F4D795]/45 bg-[#090806]/40 px-6 text-sm font-medium text-[#FFF8EC] backdrop-blur-md transition duration-500 hover:border-[#F4D795]/80 hover:bg-[#090806]/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/45"
+            >
+              Sign Up
+            </Link>
+
+            <Link
+              href="/docs"
+              className="inline-flex h-12 items-center rounded-full border border-[#FFF8EC]/25 bg-[#FFF8EC]/10 px-6 text-sm font-medium text-[#FFF8EC] backdrop-blur-md transition duration-500 hover:bg-[#FFF8EC]/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/45"
+            >
+              Read the docs
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#F7F5F0] via-[#F7F5F0]/55 to-transparent"
+      />
+    </section>
+  );
+}
+
+function LegacyGalleryPreview({
+  reveal,
+  stagger,
+}: {
+  reveal: MotionProps;
+  stagger: MotionProps;
+}) {
+  return (
+    <section className="relative border-y border-[#E8DED2]/70 bg-[#EEEAE2]">
+      <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+        <motion.div
+          {...reveal}
+          className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+        >
+          <div className="max-w-xl">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#A77C45]">
+              A glimpse
+            </p>
+            <h2 className="mt-3 font-serif text-3xl leading-tight text-[#1F1B16] sm:text-4xl">
+              The whole day, <span className="italic">held in light.</span>
+            </h2>
+            <p className="mt-3 text-base text-[#6F675E]">
+              Masonry-style galleries, face filters and a focused viewer that
+              feels as good on a phone as on a 27-inch screen.
+            </p>
+          </div>
+
+          <Link
+            href="/login"
+            className="group inline-flex h-11 w-fit items-center gap-1.5 rounded-full border border-[#D6C8B8] bg-white px-5 text-sm font-medium text-[#1F1B16] transition hover:border-[#C8B8A6] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
+          >
+            Browse galleries
+            <ArrowRight
+              className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5"
+              strokeWidth={1.75}
+            />
+          </Link>
+        </motion.div>
+
+        <motion.div
+          {...stagger}
+          className="mt-10 grid auto-rows-[150px] grid-cols-2 gap-3 sm:auto-rows-[180px] sm:grid-cols-3 sm:gap-4 lg:auto-rows-[200px] lg:grid-cols-4"
+        >
+          {galleryTiles.map((tile, idx) => (
+            <motion.div
+              key={tile.label + idx}
+              variants={itemVariants}
+              className={`group relative overflow-hidden rounded-xl shadow-sm ring-1 ring-[#1F1B16]/5 transition duration-500 hover:shadow-lg ${tile.className}`}
+              style={{ background: tile.gradient }}
+            >
+              {tile.src ? (
+                <Image
+                  src={tile.src}
+                  alt={tile.label}
+                  fill
+                  sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                  className="object-cover"
+                />
+              ) : null}
+
+              <div
+                aria-hidden
+                className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                style={{
+                  background:
+                    "radial-gradient(60% 60% at 50% 50%, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)",
+                }}
+              />
+
+              <div
+                aria-hidden
+                className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent opacity-90"
+              />
+
+              {tile.badge && (
+                <div
+                  className={`absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full ring-1 backdrop-blur ${
+                    badgeToneClasses[tile.badge.tone]
+                  }`}
+                >
+                  <tile.badge.icon className="h-3.5 w-3.5" strokeWidth={2} />
+                </div>
+              )}
+
+              <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
+                <p className="font-serif text-base leading-tight text-white drop-shadow-sm sm:text-lg">
+                  {tile.label}
+                </p>
+
+                {tile.people ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/85 px-2 py-0.5 text-[11px] font-medium text-[#3A2A22] ring-1 ring-[#1F1B16]/5 backdrop-blur">
+                    <Users className="h-3 w-3" strokeWidth={2} />
+                    {tile.people}
+                  </span>
+                ) : null}
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        <motion.div
+          {...reveal}
+          className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-[#8B8176]"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Selected and event downloads
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
+            AI photo edits
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Share2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Watermarked share links
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Camera className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Collage exports
+          </span>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function LegacyFinalCTA({ reveal }: { reveal: MotionProps }) {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+      <motion.div
+        {...reveal}
+        className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#171411] px-6 py-14 text-center text-[#FAF7F2] shadow-[0_30px_80px_-45px_rgba(0,0,0,0.8)] sm:px-12 sm:py-20"
+      >
+        {!prefersReducedMotion ? (
+          <AnimatedGridPattern
+            width={56}
+            height={56}
+            numSquares={10}
+            maxOpacity={0.08}
+            duration={6}
+            repeatDelay={2}
+            className="fill-[#E7D6B5]/10 stroke-white/[0.06] [mask-image:radial-gradient(500px_circle_at_center,black,transparent)]"
+          />
+        ) : null}
+
+        <p className="relative text-xs font-medium uppercase tracking-[0.18em] text-[#E7D6B5]/90">
+          Ready when you are
+        </p>
+        <h2 className="relative mx-auto mt-3 max-w-2xl font-serif text-3xl leading-tight sm:text-5xl">
+          Open your album. <span className="italic">Relive the day.</span>
+        </h2>
+        <p className="relative mx-auto mt-4 max-w-xl text-base text-[#D6C8B8] sm:text-lg">
+          Sign in to your private gallery and let the photos find you.
+        </p>
+
+        <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/login"
+            className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#FAF7F2] px-6 text-sm font-medium text-[#1F1B16] shadow-lg shadow-black/20 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 cursor-pointer"
+          >
+            Open your album
+            <ArrowRight
+              className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5"
+              strokeWidth={1.75}
+            />
+          </Link>
+
+          <Link
+            href="/contact"
+            className="inline-flex h-12 items-center rounded-full border border-white/20 px-6 text-sm font-medium text-[#FAF7F2] transition hover:border-white/40 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 cursor-pointer"
+          >
+            Talk to us
+          </Link>
+        </div>
+
+        {!prefersReducedMotion ? (
+          <BorderBeam
+            size={160}
+            duration={16}
+            colorFrom="#D8C7A4"
+            colorTo="#78846F"
+            borderWidth={1}
+          />
+        ) : null}
+      </motion.div>
+    </section>
   );
 }
 
@@ -555,6 +950,52 @@ const landingFeatureRail = [
   ["04", "Finish", "AI edits, LUTs, collages"],
   ["05", "Deliver", "Private links, watermarks, downloads"],
 ] as const;
+
+const searchDemoQueries = [
+  { query: "Find every photo of the bride with her grandparents", result: "38 matching photos", image: "/reception.png", tags: ["Bride", "Family", "Reception"] },
+  { query: "Show the sharpest couple portraits at golden hour", result: "16 keepers from 64 frames", image: "/glow_1.png", tags: ["Best photos", "Couple", "Golden hour"] },
+  { query: "Only photos where these three people are together", result: "21 private matches", image: "/laugh_1.png", tags: ["People filter", "Together", "Private"] },
+] as const;
+
+function InteractiveSearchDemo() {
+  const [activeQuery, setActiveQuery] = useState(0);
+  const demo = searchDemoQueries[activeQuery];
+
+  return (
+    <section id="search-demo" className="scroll-mt-20 overflow-hidden bg-[#F5EF45] text-[#151515]">
+      <div className="mx-auto max-w-[92rem] px-5 py-20 sm:px-8 sm:py-28">
+        <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em]">Try the idea</p>
+            <h2 className="mt-4 max-w-xl text-5xl font-semibold leading-[0.94] tracking-[-0.045em] sm:text-7xl">A thousand photos. One sentence.</h2>
+            <p className="mt-6 max-w-lg text-base leading-7 text-black/65 sm:text-lg">Clients do not want to scroll forever. Type a person, a relationship, a scene, or a visible detail. SaathiDesk returns the photos that match.</p>
+            <div className="mt-8 space-y-2">
+              {searchDemoQueries.map((item, index) => (
+                <button key={item.query} type="button" onClick={() => setActiveQuery(index)} className={`flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-2xl px-4 text-left text-sm font-semibold transition ${index === activeQuery ? "bg-black text-white" : "bg-white/45 text-black hover:bg-white/70"}`} aria-pressed={index === activeQuery}>
+                  <Search className="h-4 w-4 shrink-0" /><span>{item.query}</span><ArrowRight className="ml-auto h-4 w-4 shrink-0" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-[2rem] bg-[#171717] p-3 shadow-[0_38px_80px_-38px_rgba(0,0,0,0.55)] sm:p-5">
+            <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-4 text-sm text-[#343434] shadow-sm">
+              <Search className="h-5 w-5 shrink-0" /><span className="min-w-0 flex-1 truncate">{demo.query}</span><span className="rounded-full bg-[#F5EF45] px-3 py-1.5 text-xs font-bold text-black">Search</span>
+            </div>
+            <div className="relative mt-3 aspect-[4/3] overflow-hidden rounded-[1.45rem] bg-[#2A2A2A]">
+              <Image key={demo.image} src={demo.image} alt="Example gallery search result" fill sizes="(min-width:1024px) 55vw, 100vw" className="object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
+              <div className="absolute inset-x-5 bottom-5 text-white">
+                <p className="text-2xl font-semibold tracking-tight sm:text-4xl">{demo.result}</p>
+                <div className="mt-3 flex flex-wrap gap-2">{demo.tags.map((tag) => <span key={tag} className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold backdrop-blur">{tag}</span>)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function LandingFeatureRail() {
   return (
@@ -788,12 +1229,12 @@ function Hero({ reveal }: { reveal: MotionProps }) {
       <div aria-hidden className="absolute inset-0 -z-20 opacity-30 [background-image:linear-gradient(rgba(23,20,17,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(23,20,17,0.06)_1px,transparent_1px)] [background-size:72px_72px]" />
       <div className="mx-auto grid min-h-[calc(100svh-4.5rem)] max-w-[92rem] gap-10 px-5 pb-14 pt-12 sm:px-8 sm:pt-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-14">
         <motion.div {...reveal} className="relative z-10 max-w-3xl">
-          <p className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/55 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#6D5737] backdrop-blur"><Sparkles className="h-3.5 w-3.5" /> AI galleries for the whole event</p>
-          <h1 className="mt-7 font-serif text-[clamp(3.7rem,8vw,7.8rem)] leading-[0.86] tracking-[-0.055em] text-[#171411]">Shoot it.<span className="block italic text-[#735244]">Find it.</span><span className="block">Deliver it.</span></h1>
-          <p className="mt-7 max-w-xl text-base leading-7 text-[#5E564D] sm:text-lg">One private workspace for uploading a full event, finding every person and moment, reviewing the strongest frames, and handing clients a gallery that feels finished.</p>
+          <p className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/55 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#6D5737] backdrop-blur"><Sparkles className="h-3.5 w-3.5" /> Built for photographers and wedding studios</p>
+          <h1 className="mt-7 font-serif text-[clamp(3.7rem,8vw,7.8rem)] leading-[0.86] tracking-[-0.055em] text-[#171411]">Deliver the whole story.<span className="block italic text-[#735244]">Without the hunt.</span></h1>
+          <p className="mt-7 max-w-xl text-base leading-7 text-[#5E564D] sm:text-lg">Upload the full event once. SaathiDesk finds people and moments, helps you choose the strongest frames, and gives every client a private gallery built around their story.</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/login?mode=signup" className="group inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-[#171411] px-6 text-sm font-semibold text-white transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30">Build your gallery <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
-            <a href="#platform" className="inline-flex h-12 cursor-pointer items-center rounded-full border border-black/15 bg-white/55 px-6 text-sm font-semibold text-[#171411] transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20">Explore every feature</a>
+            <Link href="/login?mode=signup" className="group inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-[#171411] px-6 text-sm font-semibold text-white transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30">Start free <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
+            <a href="#search-demo" className="inline-flex h-12 cursor-pointer items-center rounded-full border border-black/15 bg-white/55 px-6 text-sm font-semibold text-[#171411] transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20">See search in action</a>
           </div>
           <div className="mt-10 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium text-[#6E665D]"><span>Free to use</span><span>MIT licensed</span><span>Originals stay untouched</span></div>
         </motion.div>
@@ -804,7 +1245,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
             <div className="absolute left-5 right-5 top-5 flex items-center justify-between rounded-full bg-black/35 px-4 py-2.5 text-xs text-white backdrop-blur-md"><span className="font-semibold">Reception · 1,284 moments</span><span>AI ready</span></div>
             <div className="absolute bottom-5 left-5 right-5 rounded-[1.4rem] bg-[#FAF7F2]/94 p-4 text-[#171411] shadow-xl backdrop-blur-xl">
               <div className="flex items-center gap-3 rounded-full bg-white px-4 py-3 ring-1 ring-black/10"><Search className="h-4 w-4 text-[#7D6D5D]" /><span className="truncate text-sm text-[#5B524A]">bride laughing with family near the stage</span><Sparkles className="ml-auto h-4 w-4 text-[#9A753C]" /></div>
-              <div className="mt-3 flex items-center justify-between gap-3 text-xs"><span className="text-[#776E65]">24 matching photos · 3 reels</span><span className="rounded-full bg-[#171411] px-3 py-1.5 font-semibold text-white">View moments</span></div>
+              <div className="mt-3 flex items-center justify-between gap-3 text-xs"><span className="text-[#776E65]">24 matching photos</span><span className="rounded-full bg-[#171411] px-3 py-1.5 font-semibold text-white">View matches</span></div>
             </div>
           </div>
           {!prefersReducedMotion ? <motion.div aria-hidden className="absolute -right-4 top-1/4 h-28 w-28 rounded-full border border-white/50 bg-[#D9C6A4]/55 blur-xl" animate={{ y: [0, -18, 0] }} transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }} /> : null}
@@ -1785,26 +2226,11 @@ function GalleryPreview({
           ))}
         </motion.div>
 
-        <motion.div
-          {...reveal}
-          className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-[#8B8176]"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Selected and event downloads
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
-            AI photo edits
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Share2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Watermarked share links
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Camera className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Collage exports
-          </span>
+        <motion.div {...reveal} className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-[#8B8176]">
+          <span className="inline-flex items-center gap-1.5"><Download className="h-3.5 w-3.5" strokeWidth={1.75} />Selected and event downloads</span>
+          <span className="inline-flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />AI photo edits</span>
+          <span className="inline-flex items-center gap-1.5"><Share2 className="h-3.5 w-3.5" strokeWidth={1.75} />Watermarked share links</span>
+          <span className="inline-flex items-center gap-1.5"><Camera className="h-3.5 w-3.5" strokeWidth={1.75} />Collage exports</span>
         </motion.div>
       </div>
     </section>
@@ -1813,64 +2239,18 @@ function GalleryPreview({
 
 function FinalCTA({ reveal }: { reveal: MotionProps }) {
   const prefersReducedMotion = useReducedMotion();
-
   return (
     <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
-      <motion.div
-        {...reveal}
-        className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#171411] px-6 py-14 text-center text-[#FAF7F2] shadow-[0_30px_80px_-45px_rgba(0,0,0,0.8)] sm:px-12 sm:py-20"
-      >
-        {!prefersReducedMotion ? (
-          <AnimatedGridPattern
-            width={56}
-            height={56}
-            numSquares={10}
-            maxOpacity={0.08}
-            duration={6}
-            repeatDelay={2}
-            className="fill-[#E7D6B5]/10 stroke-white/[0.06] [mask-image:radial-gradient(500px_circle_at_center,black,transparent)]"
-          />
-        ) : null}
-
-        <p className="relative text-xs font-medium uppercase tracking-[0.18em] text-[#E7D6B5]/90">
-          Ready when you are
-        </p>
-        <h2 className="relative mx-auto mt-3 max-w-2xl font-serif text-3xl leading-tight sm:text-5xl">
-          Open your album. <span className="italic">Relive the day.</span>
-        </h2>
-        <p className="relative mx-auto mt-4 max-w-xl text-base text-[#D6C8B8] sm:text-lg">
-          Sign in to your private gallery and let the photos find you.
-        </p>
-
+      <motion.div {...reveal} className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#171411] px-6 py-14 text-center text-[#FAF7F2] shadow-[0_30px_80px_-45px_rgba(0,0,0,0.8)] sm:px-12 sm:py-20">
+        {!prefersReducedMotion ? <AnimatedGridPattern width={56} height={56} numSquares={10} maxOpacity={0.08} duration={6} repeatDelay={2} className="fill-[#E7D6B5]/10 stroke-white/[0.06] [mask-image:radial-gradient(500px_circle_at_center,black,transparent)]" /> : null}
+        <p className="relative text-xs font-medium uppercase tracking-[0.18em] text-[#E7D6B5]/90">Your next delivery</p>
+        <h2 className="relative mx-auto mt-3 max-w-3xl font-serif text-3xl leading-tight sm:text-5xl">Give clients a gallery they can actually find themselves in.</h2>
+        <p className="relative mx-auto mt-4 max-w-xl text-base text-[#D6C8B8] sm:text-lg">Start with one album. Upload the event, run AI when you are ready, and send a private link when the story feels complete.</p>
         <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link
-            href="/login"
-            className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#FAF7F2] px-6 text-sm font-medium text-[#1F1B16] shadow-lg shadow-black/20 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 cursor-pointer"
-          >
-            Open your album
-            <ArrowRight
-              className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5"
-              strokeWidth={1.75}
-            />
-          </Link>
-
-          <Link
-            href="/contact"
-            className="inline-flex h-12 items-center rounded-full border border-white/20 px-6 text-sm font-medium text-[#FAF7F2] transition hover:border-white/40 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 cursor-pointer"
-          >
-            Talk to us
-          </Link>
+          <Link href="/login?mode=signup" className="group inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-[#FAF7F2] px-6 text-sm font-medium text-[#1F1B16] shadow-lg shadow-black/20 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50">Start a free gallery <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" strokeWidth={1.75} /></Link>
+          <Link href="/login" className="inline-flex h-12 cursor-pointer items-center rounded-full border border-white/20 px-6 text-sm font-medium text-[#FAF7F2] transition hover:border-white/40 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40">Open a shared gallery</Link>
         </div>
-
-        {!prefersReducedMotion ? (
-          <BorderBeam
-            size={160}
-            duration={16}
-            colorFrom="#D8C7A4"
-            colorTo="#78846F"
-            borderWidth={1}
-          />
-        ) : null}
+        {!prefersReducedMotion ? <BorderBeam size={160} duration={16} colorFrom="#D8C7A4" colorTo="#78846F" borderWidth={1} /> : null}
       </motion.div>
     </section>
   );
