@@ -40,6 +40,7 @@ import {
   Users,
   Video,
   X,
+  Maximize2,
   DownloadIcon,
 } from "lucide-react";
 import { PeopleGrid } from "@/components/people-grid";
@@ -273,6 +274,19 @@ interface AlbumReel {
   playbackStatus?: "uploading" | "processing" | "ready" | "failed" | string;
   playbackError?: string | null;
   createdAt: string | null;
+  durationSec: number;
+  matches: Array<{
+    id: string;
+    startSec: number;
+    endSec: number;
+    personId: string | null;
+    targetIndex: number | null;
+  }>;
+  targetImages: Array<{
+    index: number;
+    personId: string | null;
+    url: string | null;
+  }>;
 }
 
 interface AlbumVideosResponse {
@@ -626,6 +640,26 @@ function ReelsFeed({
   const reelCardRefs = useRef(new Map<string, HTMLElement>());
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const activeReelIndexRef = useRef(0);
+  const reelStageRefs = useRef(new Map<string, HTMLDivElement>());
+  const [reelTimes, setReelTimes] = useState<Record<string, number>>({});
+  const [fullscreenReelId, setFullscreenReelId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const active = [...reelStageRefs.current.entries()].find(([, stage]) => stage === document.fullscreenElement);
+      setFullscreenReelId(active?.[0] ?? null);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const toggleReelFullscreen = async (reelId: string) => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    await reelStageRefs.current.get(reelId)?.requestFullscreen().catch(() => undefined);
+  };
   const wheelGestureActiveRef = useRef(false);
   const wheelGestureTimerRef = useRef<number | null>(null);
   const scrollSyncTimerRef = useRef<number | null>(null);
@@ -839,13 +873,17 @@ function ReelsFeed({
             className="flex h-full w-[min(76vw,340px)] shrink-0 snap-center items-center justify-center overflow-hidden rounded-[28px] bg-transparent px-3 py-4 sm:w-[min(32vw,330px)] sm:px-6 sm:py-6 lg:w-[330px]"
           >
             <div
-              className="relative flex-shrink-0 overflow-hidden rounded-[38px] bg-black p-2 shadow-[0_14px_36px_rgba(0,0,0,0.36)] ring-2 ring-zinc-300/80 [contain:content]"
-              style={{
+              ref={(node) => {
+                if (node) reelStageRefs.current.set(reel.id, node);
+                else reelStageRefs.current.delete(reel.id);
+              }}
+              className={`relative flex-shrink-0 overflow-hidden bg-black shadow-[0_14px_36px_rgba(0,0,0,0.36)] ring-2 ring-zinc-300/80 [contain:content] ${fullscreenReelId === reel.id ? "h-screen w-screen rounded-none p-0 ring-0" : "rounded-[38px] p-2"}`}
+              style={fullscreenReelId === reel.id ? undefined : {
                 height: "min(calc(100% - 3.5rem), 554px)",
                 width: "min(58vw, 255px)",
               }}
             >
-              <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-black" />
+              {fullscreenReelId !== reel.id ? <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-black" /> : null}
               {reel.videoUrl ? (
                 <video
                   ref={(node) => {
@@ -853,18 +891,20 @@ function ReelsFeed({
                     else videoRefs.current.delete(reel.id);
                   }}
                   src={reel.videoUrl}
-                  className="h-full w-full rounded-[30px] object-contain"
+                  className={`h-full w-full object-contain ${fullscreenReelId === reel.id ? "rounded-none" : "rounded-[30px]"}`}
                   muted
                   playsInline
                   loop
                   autoPlay={index === 0}
                   preload={index === activeReelIndex ? "auto" : "metadata"}
-                  controls
                   tabIndex={index === activeReelIndex ? 0 : -1}
+                  onTimeUpdate={(event) => setReelTimes((current) => ({ ...current, [reel.id]: event.currentTarget.currentTime }))}
+                  onClick={(event) => {
+                    if (event.currentTarget.paused) void event.currentTarget.play();
+                    else event.currentTarget.pause();
+                  }}
                   onPlay={(event) => {
-                    if (index !== activeReelIndexRef.current) {
-                      event.currentTarget.pause();
-                    }
+                    if (index !== activeReelIndexRef.current) event.currentTarget.pause();
                   }}
                 />
               ) : (
@@ -883,6 +923,37 @@ function ReelsFeed({
                 </div>
               )}
 
+              <button
+                type="button"
+                onClick={() => void toggleReelFullscreen(reel.id)}
+                className="absolute right-4 top-12 z-30 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/65 text-white shadow-lg backdrop-blur transition hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                aria-label={fullscreenReelId === reel.id ? "Exit fullscreen" : "View reel fullscreen"}
+              >
+                <Maximize2 className="h-5 w-5" />
+              </button>
+
+              {reel.matches.map((match) => {
+                const active = (reelTimes[reel.id] ?? 0) >= match.startSec && (reelTimes[reel.id] ?? 0) <= match.endSec;
+                if (!active) return null;
+                const image = reel.targetImages.find((target) =>
+                  match.personId ? target.personId === match.personId : target.index === match.targetIndex,
+                );
+                if (!image?.url) return null;
+                return (
+                  <button
+                    key={match.id}
+                    type="button"
+                    onClick={() => {
+                      const video = videoRefs.current.get(reel.id);
+                      if (video) video.currentTime = match.startSec;
+                    }}
+                    className="absolute bottom-20 left-4 z-30 h-11 w-11 cursor-pointer overflow-hidden rounded-full border-2 border-white bg-zinc-800 shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    aria-label="Replay this person occurrence"
+                  >
+                    <Image src={image.url} alt="Person in this scene" fill sizes="44px" className="object-cover" unoptimized />
+                  </button>
+                );
+              })}
               {reel.videoUrl && reel.playbackStatus === "processing" ? (
                 <div className="pointer-events-none absolute right-4 top-12 z-20 rounded-full bg-black/65 px-3 py-1 text-[11px] font-semibold text-white shadow-lg backdrop-blur">
                   Optimizing video
@@ -2801,15 +2872,10 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     useState<PersonReturnTarget>({ kind: "photos" });
   const [photoIdToReopen, setPhotoIdToReopen] = useState<string | null>(null);
   const [selectedPeopleIds, setSelectedPeopleIds] = useState<string[]>([]);
-  const [peopleMatchMode, setPeopleMatchMode] =
-    useState<PeopleMatchMode>("all");
-  const [peopleMatchModeBeforeOnly, setPeopleMatchModeBeforeOnly] =
-    useState<PeopleMatchMode>("all");
-  const [peopleMatchModeBeforeGroup, setPeopleMatchModeBeforeGroup] =
-    useState<PeopleMatchMode>("all");
-  const [selectedEventSlug, setSelectedEventSlug] = useState<string | null>(
-    null
-  );
+  const [peopleMatchMode, setPeopleMatchMode] = useState<PeopleMatchMode>("all");
+  const [peopleMatchModeBeforeOnly, setPeopleMatchModeBeforeOnly] = useState<PeopleMatchMode>("all");
+  const [peopleMatchModeBeforeGroup, setPeopleMatchModeBeforeGroup] = useState<PeopleMatchMode>("all");
+  const [selectedEventSlug, setSelectedEventSlug] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const {
     isVerified: isPasswordVerified,
@@ -2867,10 +2933,17 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   );
 
+  const videosParams = new URLSearchParams();
+  if (selectedPeopleIds.length) {
+    videosParams.set("people", selectedPeopleIds.join(","));
+    videosParams.set("peopleMode", peopleMatchMode);
+  }
+  const videosPath = `/videos${videosParams.size ? `?${videosParams.toString()}` : ""}`;
+
   const { data: videosData } = useSWR<AlbumVideosResponse>(
     data?.album &&
       (!data.album.passwordRequired || isPasswordVerified || isShareView)
-      ? albumApiUrl(albumSlug, "/videos", shareToken)
+      ? albumApiUrl(albumSlug, videosPath, shareToken)
       : null,
     fetcher,
     {
@@ -4931,6 +5004,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           />
         ) : (
           <section className="space-y-3 sm:space-y-5">
+            {scopedPeopleIds.length > 0 && visibleReels.length > 0 ? (
+              <div className="space-y-3">
+                <div className="px-2 sm:px-0">
+                  <p className="text-sm font-medium text-zinc-500">Videos with selected people</p>
+                  <h2 className="text-2xl font-semibold tracking-normal text-zinc-950">Reels</h2>
+                </div>
+                <ReelsFeed reels={visibleReels} onOpenPhotos={() => undefined} />
+              </div>
+            ) : null}
             {scopedPeopleIds.length > 0 && (
               <div className="flex items-center justify-between gap-3 px-2 sm:px-0">
                 {!isPersonShare && <button

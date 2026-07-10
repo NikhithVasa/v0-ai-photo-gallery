@@ -27,6 +27,10 @@ interface AlbumRow {
   customer_id: string | null;
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 interface EventRow {
   id: string;
   slug: string;
@@ -368,6 +372,12 @@ export async function GET(request: Request, { params }: Props) {
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumAccess(request, albumSlug);
     if (accessDenied) return accessDenied;
+    const { searchParams } = new URL(request.url);
+    const personIds = (searchParams.get("people") ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => id && isUuid(id));
+    const peopleMode = searchParams.get("peopleMode") ?? "all";
 
     const album = await albumBySlug(albumSlug);
     if (!album) return NextResponse.json({ error: "Album not found" }, { status: 404 });
@@ -444,10 +454,27 @@ export async function GET(request: Request, { params }: Props) {
         ON m.video_id = v.id
       WHERE lower(a.slug) = lower($1)
         AND COALESCE(v.is_deleted, false) = false
+        AND (
+          $2::uuid[] IS NULL
+          OR CASE
+            WHEN $3::text = 'any' OR $3::text = 'subset' THEN EXISTS (
+              SELECT 1 FROM video_face_matches vm
+              WHERE vm.video_id = v.id AND vm.person_id = ANY($2::uuid[])
+            )
+            WHEN $3::text = 'group' THEN (
+              SELECT COUNT(DISTINCT vm.person_id) FROM video_face_matches vm
+              WHERE vm.video_id = v.id AND vm.person_id = ANY($2::uuid[])
+            ) >= 2
+            ELSE (
+              SELECT COUNT(DISTINCT vm.person_id) FROM video_face_matches vm
+              WHERE vm.video_id = v.id AND vm.person_id = ANY($2::uuid[])
+            ) = cardinality($2::uuid[])
+          END
+        )
       GROUP BY v.id, e.slug, e.name
       ORDER BY v.created_at DESC
       `,
-      [albumSlug],
+      [albumSlug, personIds.length ? personIds : null, peopleMode],
     );
 
     return NextResponse.json({
