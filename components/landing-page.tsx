@@ -35,7 +35,6 @@ import {
   type Variants,
 } from "framer-motion";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
 import { BentoGrid } from "@/components/ui/bento-grid";
 import { BorderBeam } from "@/components/ui/border-beam";
@@ -517,57 +516,121 @@ export function LandingPage() {
   return (
     <main className="min-h-screen bg-[#F7F5F0] text-[#1C1B18] antialiased">
       <MarketingHeader />
-
       <Hero reveal={reveal} />
-
-      <section className="border-y border-[#E8DED2]/70 bg-white/60">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 py-10 text-center sm:flex-row sm:justify-between sm:gap-8 sm:py-12 sm:text-left">
-          <motion.div {...reveal} className="max-w-2xl">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#A77C45]">
-              Powered by AI
-            </p>
-            <h2 className="mt-2 font-serif text-2xl leading-tight text-[#1F1B16] sm:text-3xl">
-              Search by face, by feeling, by moment.
-            </h2>
-            <p className="mt-2 text-sm text-[#6F675E] sm:text-base">
-              Every photo is indexed by who is in it and what is happening — so
-              the right memory surfaces in a single tap.
-            </p>
-          </motion.div>
-
-          <motion.div
-            {...reveal}
-            className="flex flex-wrap items-center justify-center gap-2 sm:justify-end"
-          >
-            {[
-              "Face grouping",
-              "Semantic search",
-              "AI photo editing",
-              "Collage exports",
-              "Upload retries",
-              "Watermarked sharing",
-            ].map((chip) => (
-              <span
-                key={chip}
-                className="inline-flex items-center rounded-full border border-[#E8DED2] bg-white px-3 py-1 text-xs font-medium text-[#4F473F] shadow-[0_1px_0_rgba(0,0,0,0.02)]"
-              >
-                {chip}
-              </span>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
+      <LandingFeatureRail />
       <AiDiscoveryShowcase reveal={reveal} stagger={stagger} />
-
+      <AiWorkflow reveal={reveal} stagger={stagger} />
+      <PromptGuide reveal={reveal} stagger={stagger} />
       <MomentsCarousel reveal={reveal} />
-
       <GalleryPreview reveal={reveal} stagger={stagger} />
-
+      <LandingFeatureIndex reveal={reveal} stagger={stagger} />
+      <OpenSourceCallout reveal={reveal} />
       <FinalCTA reveal={reveal} />
-
       <MarketingFooter />
     </main>
+  );
+}
+
+export function LegacyLandingPage() {
+  const reveal = useReveal();
+  const stagger = useStagger();
+
+  return (
+    <main className="min-h-screen bg-[#F7F5F0] text-[#1C1B18] antialiased">
+      <MarketingHeader />
+      <Hero reveal={reveal} />
+      <AiDiscoveryShowcase reveal={reveal} stagger={stagger} />
+      <MomentsCarousel reveal={reveal} />
+      <GalleryPreview reveal={reveal} stagger={stagger} />
+      <FinalCTA reveal={reveal} />
+      <MarketingFooter />
+    </main>
+  );
+}
+
+const landingFeatureRail = [
+  ["01", "Upload", "Device, Drive, Photos, RAW"],
+  ["02", "Discover", "People, groups, visual search"],
+  ["03", "Review", "Culling, duplicates, best by person"],
+  ["04", "Finish", "AI edits, LUTs, collages"],
+  ["05", "Deliver", "Private links, watermarks, downloads"],
+] as const;
+
+function LandingFeatureRail() {
+  return (
+    <section aria-label="SaathiDesk workflow" className="border-y border-black/10 bg-[#171411] text-[#FAF7F2]">
+      <div className="mx-auto grid max-w-7xl divide-y divide-white/10 px-5 sm:px-8 md:grid-cols-5 md:divide-x md:divide-y-0">
+        {landingFeatureRail.map(([number, title, body]) => (
+          <a key={number} href="#platform" className="group flex min-h-28 cursor-pointer items-start gap-4 py-5 transition-colors hover:bg-white/[0.04] md:px-5 md:first:pl-0">
+            <span className="font-serif text-xs tracking-[0.18em] text-[#E7D6B5]/65">{number}</span>
+            <span>
+              <strong className="block text-sm font-semibold text-white">{title}</strong>
+              <span className="mt-1 block text-xs leading-5 text-white/55">{body}</span>
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LandingFeatureIndex({ reveal, stagger }: { reveal: MotionProps; stagger: MotionProps }) {
+  return (
+    <section id="platform" className="relative overflow-hidden bg-[#171411] text-[#FAF7F2]">
+      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(199,161,91,0.18),transparent_30%),radial-gradient(circle_at_90%_70%,rgba(104,128,109,0.18),transparent_34%)]" />
+      <div className="relative mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+        <motion.div {...reveal} className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:items-end">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#E7D6B5]">One working album</p>
+            <h2 className="mt-3 font-serif text-4xl leading-[1.02] sm:text-6xl">Everything after the shutter.</h2>
+          </div>
+          <p className="max-w-2xl text-base leading-7 text-white/60 sm:text-lg">SaathiDesk keeps the original files, the AI work, the review decisions, and the client delivery in one album. No feature lives in a disconnected side tool.</p>
+        </motion.div>
+
+        <motion.div {...stagger} className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {featureGuides.map((guide, index) => {
+            const Icon = guide.icon;
+            return (
+              <motion.article key={guide.id} variants={itemVariants} className={`group flex min-h-72 flex-col rounded-[1.5rem] border border-white/10 p-6 transition duration-300 hover:-translate-y-1 hover:border-white/25 ${index === 0 || index === 5 ? "bg-[#F0E4D5] text-[#1F1B16]" : "bg-white/[0.045]"}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-[0.17em] opacity-60">{guide.eyebrow}</span>
+                  <span className={`flex h-11 w-11 items-center justify-center rounded-full ${index === 0 || index === 5 ? "bg-[#171411] text-white" : "bg-white/10 text-[#E7D6B5]"}`}><Icon className="h-5 w-5" strokeWidth={1.6} /></span>
+                </div>
+                <h3 className="mt-12 font-serif text-3xl leading-tight">{guide.title}</h3>
+                <p className="mt-4 text-sm leading-6 opacity-65">{guide.body}</p>
+                <div className="mt-auto pt-7 text-xs font-medium uppercase tracking-[0.14em] opacity-55">{guide.routeLabel}</div>
+              </motion.article>
+            );
+          })}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function OpenSourceCallout({ reveal }: { reveal: MotionProps }) {
+  return (
+    <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+      <motion.div {...reveal} className="grid overflow-hidden rounded-[2rem] border border-[#D9D1C6] bg-[#E9E1D6] lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="p-7 sm:p-12">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#8A6534]">Free and open source</p>
+          <h2 className="mt-4 max-w-2xl font-serif text-4xl leading-[1.05] text-[#1F1B16] sm:text-6xl">The full gallery stack. No paid tier hiding the useful parts.</h2>
+          <p className="mt-5 max-w-xl text-base leading-7 text-[#655D54]">Private galleries, people filters, AI search, culling, edits, collages, watermarks, and controlled downloads are part of the same MIT-licensed project.</p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link href="/login?mode=signup" className="inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-[#171411] px-6 text-sm font-semibold text-white transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30">Start free <ArrowRight className="h-4 w-4" /></Link>
+            <Link href="/docs" className="inline-flex h-12 cursor-pointer items-center rounded-full border border-[#BDB2A4] bg-white/55 px-6 text-sm font-semibold text-[#1F1B16] transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20">See how it works</Link>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 border-t border-[#D0C5B7] lg:border-l lg:border-t-0">
+          {[['$0','Subscription'],['MIT','License'],['RAW','Originals kept'],['AI','Album scoped']].map(([value,label]) => (
+            <div key={label} className="flex min-h-40 flex-col justify-end border-b border-r border-[#D0C5B7] p-6 last:border-b-0">
+              <strong className="font-serif text-4xl text-[#1F1B16]">{value}</strong>
+              <span className="mt-2 text-xs uppercase tracking-[0.14em] text-[#756B60]">{label}</span>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </section>
   );
 }
 
@@ -701,201 +764,52 @@ export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.06] bg-[#F7F5F0]/90 backdrop-blur-xl">
       <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-5 sm:px-8">
-        <Link
-          href="/"
-          className="group inline-flex items-center gap-2 text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 rounded-md"
-          aria-label="SaathiDesk home"
-        >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1C1B18] text-[#F7F5F0] transition-transform duration-300 group-hover:scale-[1.03]">
-            <Camera className="h-4 w-4" strokeWidth={1.75} />
-          </span>
-          <span className="font-serif text-lg leading-none tracking-tight">
-            SaathiDesk
-          </span>
+        <Link href="/" className="group inline-flex items-center gap-2 rounded-md text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30" aria-label="SaathiDesk home">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1C1B18] text-[#F7F5F0] transition-transform duration-300 group-hover:scale-[1.03]"><Camera className="h-4 w-4" strokeWidth={1.75} /></span>
+          <span className="font-serif text-lg leading-none tracking-tight">SaathiDesk</span>
         </Link>
-
         <nav className="flex items-center gap-1 sm:gap-2">
-          <Link
-            href="/docs"
-            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 md:inline-flex"
-          >
-            Docs
-          </Link>
-          <Link
-            href="/how-ai-works"
-            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 lg:inline-flex"
-          >
-            How AI works
-          </Link>
-          <Link
-            href="/login"
-            className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 sm:inline-flex"
-          >
-            Galleries
-          </Link>
-          <Link
-            href="/login"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-[#1C1B18] px-4 text-sm font-medium text-[#F7F5F0] shadow-sm transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 cursor-pointer"
-          >
-            Open album
-            <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
-          </Link>
+          <a href="#platform" className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 md:inline-flex">Features</a>
+          <Link href="/docs" className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 md:inline-flex">Docs</Link>
+          <Link href="/how-ai-works" className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 lg:inline-flex">How AI works</Link>
+          <Link href="/login" className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 sm:inline-flex">Sign in</Link>
+          <Link href="/login?mode=signup" className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full bg-[#1C1B18] px-4 text-sm font-medium text-[#F7F5F0] shadow-sm transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30">Start free <ArrowRight className="h-4 w-4" strokeWidth={1.75} /></Link>
         </nav>
       </div>
     </header>
   );
 }
 
-const heroPetals = [
-  { left: "8%", top: "18%", delay: 0.4, duration: 18, scale: 0.85 },
-  { left: "18%", top: "62%", delay: 2.8, duration: 22, scale: 1.05 },
-  { left: "34%", top: "24%", delay: 1.6, duration: 19, scale: 0.7 },
-  { left: "58%", top: "14%", delay: 3.4, duration: 24, scale: 1.2 },
-  { left: "72%", top: "72%", delay: 0.9, duration: 21, scale: 0.9 },
-  { left: "86%", top: "34%", delay: 2.1, duration: 20, scale: 0.75 },
-];
-
-const heroParticles = [
-  { left: "12%", top: "38%", delay: 0.2 },
-  { left: "24%", top: "78%", delay: 1.3 },
-  { left: "43%", top: "18%", delay: 2.4 },
-  { left: "66%", top: "52%", delay: 0.9 },
-  { left: "79%", top: "21%", delay: 1.8 },
-  { left: "91%", top: "67%", delay: 2.9 },
-];
-
 function Hero({ reveal }: { reveal: MotionProps }) {
   const prefersReducedMotion = useReducedMotion();
-
   return (
-    <section className="relative isolate min-h-[calc(100svh-10rem)] overflow-hidden bg-[#F6F0E9] text-[#1F1B16] sm:min-h-[calc(100svh-9rem)]">
-      <Image
-        src="/glow_1.png"
-        alt="SaathiDesk wedding gallery moment"
-        fill
-        priority
-        sizes="100vw"
-        className="-z-30 object-cover object-[72%_48%] opacity-[0.34] brightness-[1.08] saturate-[0.78] contrast-[0.98]"
-      />
-
-      <div
-        aria-hidden
-        className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(246,240,233,0.96)_0%,rgba(246,240,233,0.9)_54%,rgba(22,17,12,0.58)_100%)]"
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_50%_18%,rgba(232,199,126,0.28)_0%,rgba(232,199,126,0)_38%),radial-gradient(ellipse_at_18%_78%,rgba(89,38,47,0.2)_0%,rgba(89,38,47,0)_32%),linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_48%,rgba(0,0,0,0.42)_100%)]"
-      />
-
-      {!prefersReducedMotion ? (
-        <motion.div
-          aria-hidden
-          className="pointer-events-none absolute -left-24 top-0 -z-10 h-full w-[42rem] rotate-[-13deg] bg-[linear-gradient(90deg,rgba(255,247,226,0)_0%,rgba(255,247,226,0.42)_38%,rgba(216,177,101,0.2)_50%,rgba(255,247,226,0)_72%)] blur-2xl"
-          animate={{ x: ["-10%", "18%", "-6%"], opacity: [0.25, 0.72, 0.3] }}
-          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-        />
-      ) : null}
-
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(116deg,rgba(255,248,233,0.18)_0%,rgba(255,248,233,0.04)_26%,rgba(255,248,233,0)_42%),repeating-linear-gradient(100deg,rgba(89,38,47,0.08)_0px,rgba(89,38,47,0.08)_1px,rgba(255,255,255,0)_1px,rgba(255,255,255,0)_10px)] opacity-45 mix-blend-multiply"
-      />
-
-      {!prefersReducedMotion ? (
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-          {heroPetals.map((petal, index) => (
-            <motion.span
-              key={`petal-${index}`}
-              className="absolute h-3 w-1.5 rounded-full bg-[#E8CFC3]/70 shadow-[0_0_18px_rgba(255,235,202,0.25)]"
-              style={{ left: petal.left, top: petal.top, scale: petal.scale }}
-              animate={{
-                x: [0, 24, -18, 12],
-                y: [0, -28, 30, 0],
-                rotate: [0, 42, -24, 12],
-                opacity: [0.16, 0.6, 0.26, 0.16],
-              }}
-              transition={{
-                duration: petal.duration,
-                delay: petal.delay,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
-          ))}
-
-          {heroParticles.map((particle, index) => (
-            <motion.span
-              key={`particle-${index}`}
-              className="absolute h-1 w-1 rounded-full bg-[#F4D795]/75"
-              style={{ left: particle.left, top: particle.top }}
-              animate={{ opacity: [0.12, 0.65, 0.18], y: [0, -18, 0] }}
-              transition={{
-                duration: 8 + index,
-                delay: particle.delay,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      <div className="relative mx-auto flex min-h-[calc(100svh-10rem)] max-w-7xl items-start justify-center px-5 pb-12 pt-20 text-center sm:min-h-[calc(100svh-9rem)] sm:px-8 sm:pt-28 lg:pt-32">
-        <motion.div {...reveal} className="mx-auto max-w-[880px]">
-          <p className="text-xs font-medium uppercase tracking-[0.28em] text-[#B88A2D]">
-            Private AI wedding galleries
-          </p>
-          <h1 className="mt-7 [font-family:var(--font-editorial),Georgia,serif] text-[4.25rem] font-medium leading-[0.96] tracking-normal text-[#59262F] [text-wrap:balance] sm:text-[4.75rem]">
-            SaathiDesk
-          </h1>
-          <p className="mx-auto mt-3 max-w-[760px] [font-family:var(--font-editorial),Georgia,serif] text-[2.65rem] font-light italic leading-[0.98] tracking-normal text-[#1F1B16]/65 [text-wrap:balance] sm:text-[3.4rem]">
-            A cinematic gallery where every face, feeling, and frame stays
-            beautifully findable.
-          </p>
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-[#2F2924]/78 sm:text-lg">
-            Curate wedding albums with semantic search, people filters, AI
-            finishing, private sharing, and downloads wrapped in a polished
-            ivory, gold, and black delivery experience.
-          </p>
-
-          <AiPrivacyNotice
-            className="mt-6 max-w-2xl border-[#E8C77E]/35 bg-[#0E0C09]/55 text-[#F7EBDD] backdrop-blur-md"
-            iconClassName="text-[#E8C77E]"
-          />
-
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/login"
-              className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#F4D795] px-6 text-sm font-semibold text-[#120F0A] shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition duration-500 hover:bg-[#FFE8A8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/60"
-            >
-              Open your album
-              <ArrowRight
-                className="h-4 w-4 transition-transform duration-500 group-hover:translate-x-1"
-                strokeWidth={1.75}
-              />
-            </Link>
-
-            <Link
-              href="/login?mode=signup"
-              className="inline-flex h-12 items-center rounded-full border border-[#F4D795]/45 bg-[#090806]/40 px-6 text-sm font-medium text-[#FFF8EC] backdrop-blur-md transition duration-500 hover:border-[#F4D795]/80 hover:bg-[#090806]/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/45"
-            >
-              Sign Up
-            </Link>
-
-            <Link
-              href="/docs"
-              className="inline-flex h-12 items-center rounded-full border border-[#FFF8EC]/25 bg-[#FFF8EC]/10 px-6 text-sm font-medium text-[#FFF8EC] backdrop-blur-md transition duration-500 hover:bg-[#FFF8EC]/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/45"
-            >
-              Read the docs
-            </Link>
+    <section className="relative isolate min-h-[calc(100svh-4.5rem)] overflow-hidden bg-[#EDE8DF] text-[#171411]">
+      <div aria-hidden className="absolute inset-0 -z-30 bg-[radial-gradient(circle_at_75%_20%,rgba(227,192,135,0.5),transparent_30%),radial-gradient(circle_at_15%_80%,rgba(127,151,131,0.24),transparent_32%)]" />
+      <div aria-hidden className="absolute inset-0 -z-20 opacity-30 [background-image:linear-gradient(rgba(23,20,17,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(23,20,17,0.06)_1px,transparent_1px)] [background-size:72px_72px]" />
+      <div className="mx-auto grid min-h-[calc(100svh-4.5rem)] max-w-[92rem] gap-10 px-5 pb-14 pt-12 sm:px-8 sm:pt-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-14">
+        <motion.div {...reveal} className="relative z-10 max-w-3xl">
+          <p className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/55 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#6D5737] backdrop-blur"><Sparkles className="h-3.5 w-3.5" /> AI galleries for the whole event</p>
+          <h1 className="mt-7 font-serif text-[clamp(3.7rem,8vw,7.8rem)] leading-[0.86] tracking-[-0.055em] text-[#171411]">Shoot it.<span className="block italic text-[#735244]">Find it.</span><span className="block">Deliver it.</span></h1>
+          <p className="mt-7 max-w-xl text-base leading-7 text-[#5E564D] sm:text-lg">One private workspace for uploading a full event, finding every person and moment, reviewing the strongest frames, and handing clients a gallery that feels finished.</p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link href="/login?mode=signup" className="group inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-[#171411] px-6 text-sm font-semibold text-white transition hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30">Build your gallery <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
+            <a href="#platform" className="inline-flex h-12 cursor-pointer items-center rounded-full border border-black/15 bg-white/55 px-6 text-sm font-semibold text-[#171411] transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black/20">Explore every feature</a>
           </div>
+          <div className="mt-10 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium text-[#6E665D]"><span>Free to use</span><span>MIT licensed</span><span>Originals stay untouched</span></div>
+        </motion.div>
+        <motion.div {...reveal} className="relative mx-auto w-full max-w-[760px] lg:mx-0">
+          <div className="relative aspect-[1.08/1] overflow-hidden rounded-[2rem] bg-[#171411] shadow-[0_45px_100px_-50px_rgba(23,20,17,0.7)] ring-1 ring-black/10">
+            <Image src="/hero_one.png" alt="SaathiDesk event gallery" fill priority sizes="(min-width:1024px) 55vw, 100vw" className="object-cover opacity-90" />
+            <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/10" />
+            <div className="absolute left-5 right-5 top-5 flex items-center justify-between rounded-full bg-black/35 px-4 py-2.5 text-xs text-white backdrop-blur-md"><span className="font-semibold">Reception · 1,284 moments</span><span>AI ready</span></div>
+            <div className="absolute bottom-5 left-5 right-5 rounded-[1.4rem] bg-[#FAF7F2]/94 p-4 text-[#171411] shadow-xl backdrop-blur-xl">
+              <div className="flex items-center gap-3 rounded-full bg-white px-4 py-3 ring-1 ring-black/10"><Search className="h-4 w-4 text-[#7D6D5D]" /><span className="truncate text-sm text-[#5B524A]">bride laughing with family near the stage</span><Sparkles className="ml-auto h-4 w-4 text-[#9A753C]" /></div>
+              <div className="mt-3 flex items-center justify-between gap-3 text-xs"><span className="text-[#776E65]">24 matching photos · 3 reels</span><span className="rounded-full bg-[#171411] px-3 py-1.5 font-semibold text-white">View moments</span></div>
+            </div>
+          </div>
+          {!prefersReducedMotion ? <motion.div aria-hidden className="absolute -right-4 top-1/4 h-28 w-28 rounded-full border border-white/50 bg-[#D9C6A4]/55 blur-xl" animate={{ y: [0, -18, 0] }} transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }} /> : null}
         </motion.div>
       </div>
-
-      <div
-        aria-hidden
-        className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#F7F5F0] via-[#F7F5F0]/55 to-transparent"
-      />
     </section>
   );
 }
