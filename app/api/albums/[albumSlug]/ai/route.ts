@@ -95,6 +95,25 @@ async function startAiWorker(
   return payload;
 }
 
+function lambdaRunpodEndpointId(payload: Record<string, unknown> | null) {
+  if (!payload) return null;
+
+  for (const value of [payload.endpointId, payload.endpoint_id]) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+
+  const record =
+    payload.runpodJobRecord && typeof payload.runpodJobRecord === "object"
+      ? (payload.runpodJobRecord as Record<string, unknown>)
+      : null;
+
+  for (const value of [record?.endpointId, record?.endpoint_id]) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+
+  return null;
+}
+
 function slugList(value: unknown) {
   if (!Array.isArray(value)) return [];
   return Array.from(
@@ -641,8 +660,27 @@ export async function POST(request: Request, { params }: Props) {
       }));
     }
 
+    let runpodEndpointId: string | null = null;
+    let lambda: Record<string, unknown> | null = null;
+
     if (action === "reset_album_ai") {
-      await checkRunpodEndpoint();
+      try {
+        await checkRunpodEndpoint();
+      } catch (error) {
+        lambda = await startAiWorker(
+          album.id,
+          null,
+          "full_album_reset",
+          input,
+        );
+        runpodEndpointId = lambdaRunpodEndpointId(lambda);
+
+        if (!runpodEndpointId) {
+          throw error;
+        }
+
+        await checkRunpodEndpoint(runpodEndpointId);
+      }
     }
 
     const reset =
@@ -665,19 +703,21 @@ export async function POST(request: Request, { params }: Props) {
       "rebuild_search",
       "reset_album_ai",
     ]).has(action as AiAction);
-    const lambda = shouldStartLambda
-      ? await startAiWorker(
-          album.id,
-          action === "reset_album_ai" ? null : events[0]?.id ?? null,
-          action === "reset_album_ai"
-            ? "full_album_reset"
-            : "new_photos_only",
-          input,
-        )
-      : null;
+    if (shouldStartLambda && !lambda) {
+      lambda = await startAiWorker(
+        album.id,
+        action === "reset_album_ai" ? null : events[0]?.id ?? null,
+        action === "reset_album_ai"
+          ? "full_album_reset"
+          : "new_photos_only",
+        input,
+      );
+    }
 
     const shouldSubmitRunpod = action !== "rebuild_search";
-    const runpod = shouldSubmitRunpod ? await submitRunpodJob(input) : null;
+    const runpod = shouldSubmitRunpod
+      ? await submitRunpodJob(input, runpodEndpointId ?? undefined)
+      : null;
     return NextResponse.json({ ok: true, input, runpod, reset, lambda });
   } catch (error) {
     console.error("Error submitting AI job:", error);

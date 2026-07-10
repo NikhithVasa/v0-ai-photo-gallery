@@ -4,10 +4,16 @@ function withoutRunSuffix(value: string) {
   return value.replace(/\/+$/, "").replace(/\/run$/i, "");
 }
 
-function runpodOperationUrl(operation: "health" | "run") {
+function runpodOperationUrl(operation: "health" | "run", endpointIdOverride?: string) {
   const endpointUrl = process.env.RUNPOD_ENDPOINT_URL?.trim();
   const endpointId =
-    process.env.RUNPOD_ENDPOINT_ID?.trim() || DEFAULT_RUNPOD_ENDPOINT_ID;
+    endpointIdOverride?.trim() ||
+    process.env.RUNPOD_ENDPOINT_ID?.trim() ||
+    DEFAULT_RUNPOD_ENDPOINT_ID;
+
+  if (endpointIdOverride) {
+    return `https://api.runpod.ai/v2/${endpointId}/${operation}`;
+  }
 
   if (endpointUrl) {
     if (/^https?:\/\//i.test(endpointUrl)) {
@@ -54,9 +60,9 @@ function runpodErrorMessage(
     : `RunPod ${operation} failed (${status})`;
 }
 
-export async function checkRunpodEndpoint() {
+export async function checkRunpodEndpoint(endpointId?: string) {
   const apiKey = runpodApiKey();
-  const url = runpodOperationUrl("health");
+  const url = runpodOperationUrl("health", endpointId);
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -74,10 +80,9 @@ export async function checkRunpodEndpoint() {
 
   return data;
 }
-
-export async function submitRunpodJob(input: Record<string, unknown>) {
+export async function submitRunpodJob(input: Record<string, unknown>, endpointId?: string) {
   const apiKey = runpodApiKey();
-  const url = runpodOperationUrl("run");
+  const url = runpodOperationUrl("run", endpointId);
   const response = await fetch(url, {
     method: "POST",
     headers: {
