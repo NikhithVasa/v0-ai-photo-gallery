@@ -13,7 +13,10 @@ export default function HomePage() {
         }}
       />
       <PreAuthMotionBoundary>
-        <LandingPageExperience enabled={process.env.NEXT_PUBLIC_FEATURE_RICH_LANDING === "true"} />
+        <LandingPageExperience
+          enabled={process.env.NEXT_PUBLIC_FEATURE_RICH_LANDING === "true"}
+          vibrant={process.env.NEXT_PUBLIC_FEATURE_VIBRANT_LANDING === "true"}
+        />
       </PreAuthMotionBoundary>
     </>
   );

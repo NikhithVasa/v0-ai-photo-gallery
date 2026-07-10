@@ -510,12 +510,75 @@ const featureGuides: Array<{
   },
 ];
 
-export function LandingPage() {
+const vibrantLandingStyles = `
+  [data-landing-palette="vibrant"] {
+    --vibrant-ink: #101828;
+    --vibrant-cobalt: #315CFF;
+    --vibrant-coral: #FF5C5C;
+    --vibrant-aqua: #45E0D0;
+    --vibrant-lilac: #B8A1FF;
+    --vibrant-off-white: #F7F8FC;
+    background: var(--vibrant-off-white);
+    color: var(--vibrant-ink);
+  }
+  [data-landing-palette="vibrant"] [class~="bg-[#F7F5F0]"],
+  [data-landing-palette="vibrant"] [class~="bg-[#FAF7F2]"],
+  [data-landing-palette="vibrant"] [class~="bg-[#F4F1EB]"],
+  [data-landing-palette="vibrant"] [class~="bg-[#F2EEE8]"] { background-color: var(--vibrant-off-white) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#F7F5F0]/90"] { background-color: rgb(247 248 252 / 0.94) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#EDE8DF]"] { background-color: #EEF1FF !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#E9E3DA]"],
+  [data-landing-palette="vibrant"] [class~="bg-[#E9E1D6]"] { background-color: #E8EDFF !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#C8D5C5]"] { background-color: var(--vibrant-aqua) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#E6C7BC]"] { background-color: var(--vibrant-coral) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#C7C2E3]"],
+  [data-landing-palette="vibrant"] [class~="bg-[#F0E4D5]"] { background-color: var(--vibrant-lilac) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#F5EF45]"] { background-color: var(--vibrant-aqua) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#171411]"],
+  [data-landing-palette="vibrant"] [class~="bg-[#171717]"],
+  [data-landing-palette="vibrant"] [class~="bg-[#1D1B19]"] { background-color: var(--vibrant-ink) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#171411]/90"] { background-color: rgb(16 24 40 / 0.92) !important; }
+  [data-landing-palette="vibrant"] [class~="text-[#1C1B18]"],
+  [data-landing-palette="vibrant"] [class~="text-[#1F1B16]"],
+  [data-landing-palette="vibrant"] [class~="text-[#171411]"],
+  [data-landing-palette="vibrant"] [class~="text-[#514A43]"],
+  [data-landing-palette="vibrant"] [class~="text-[#5E564D]"],
+  [data-landing-palette="vibrant"] [class~="text-[#655D54]"],
+  [data-landing-palette="vibrant"] [class~="text-[#71685F]"],
+  [data-landing-palette="vibrant"] [class~="text-[#756B60]"],
+  [data-landing-palette="vibrant"] [class~="text-[#80766B]"] { color: var(--vibrant-ink) !important; }
+  [data-landing-palette="vibrant"] [class~="text-[#4F473F]"],
+  [data-landing-palette="vibrant"] [class~="text-[#6F675E]"] { color: #344054 !important; }
+  [data-landing-palette="vibrant"] [class~="text-[#725C3D]"],
+  [data-landing-palette="vibrant"] [class~="text-[#744E43]"],
+  [data-landing-palette="vibrant"] [class~="text-[#8A6534]"] { color: var(--vibrant-cobalt) !important; }
+  [data-landing-palette="vibrant"] [class~="text-[#D9BF8D]"],
+  [data-landing-palette="vibrant"] [class~="text-[#E7D6B5]/65"],
+  [data-landing-palette="vibrant"] [class~="text-[#E7D6B5]/90"] { color: var(--vibrant-aqua) !important; }
+  [data-landing-palette="vibrant"] [class~="text-[#E7D6B5]"] { color: var(--vibrant-lilac) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#1C1B18]"] { background-color: var(--vibrant-cobalt) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#F5EF45]"][class~="text-black"] { background-color: var(--vibrant-cobalt) !important; color: var(--vibrant-off-white) !important; }
+  [data-landing-palette="vibrant"] [class~="border-[#D9D1C6]"],
+  [data-landing-palette="vibrant"] [class~="border-[#D0C5B7]"],
+  [data-landing-palette="vibrant"] [class~="border-[#BDB2A4]"] { border-color: rgb(49 92 255 / 0.3) !important; }
+  [data-landing-palette="vibrant"] [class*="rgba(202,161,110"],
+  [data-landing-palette="vibrant"] [class*="rgba(199,161,91"] { background-image: radial-gradient(circle at 82% 8%, rgb(184 161 255 / 0.55), transparent 30%), radial-gradient(circle at 8% 72%, rgb(69 224 208 / 0.35), transparent 28%) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#D27B68]"] { background-color: var(--vibrant-coral) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#D7AF62]"] { background-color: var(--vibrant-lilac) !important; }
+  [data-landing-palette="vibrant"] [class~="bg-[#79977D]"] { background-color: var(--vibrant-aqua) !important; }
+  [data-landing-palette="vibrant"] [class~="text-[#A7C6A9]"] { color: var(--vibrant-aqua) !important; }
+`;
+
+export function LandingPage({ vibrant = false }: { vibrant?: boolean }) {
   const reveal = useReveal();
   const stagger = useStagger();
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#F7F5F0] text-[#1C1B18] antialiased">
+    <main
+      data-landing-palette={vibrant ? "vibrant" : undefined}
+      className="min-h-screen overflow-hidden bg-[#F7F5F0] text-[#1C1B18] antialiased"
+    >
+      <style>{vibrantLandingStyles}</style>
       <MarketingHeader />
       <Hero reveal={reveal} />
       <AudienceWorkflow />
@@ -528,6 +591,7 @@ export function LandingPage() {
     </main>
   );
 }
+
 
 export function LegacyLandingPage() {
   const reveal = useReveal();

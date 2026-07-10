@@ -197,7 +197,10 @@ const LIGHTBOX_MIN_ZOOM = 1;
 const LIGHTBOX_MAX_ZOOM = 4;
 const COMPOSABLE_LIGHTBOX_ENABLED =
   process.env.NEXT_PUBLIC_COMPOSABLE_LIGHTBOX === "true";
-const LIGHTBOX_ONBOARDING_STORAGE_KEY = "saathidesk:photo-lightbox-onboarding";
+const LIGHTBOX_PEOPLE_ONBOARDING_STORAGE_KEY =
+  "saathidesk:photo-lightbox-onboarding:people";
+const LIGHTBOX_EDIT_ONBOARDING_STORAGE_KEY =
+  "saathidesk:photo-lightbox-onboarding:edit";
 const LIGHTBOX_ONBOARDING_DELAY_MS = 30_000;
 
 type LightboxOnboardingStep = "people" | "edit";
@@ -2058,18 +2061,25 @@ export function PhotoLightbox({
   }, [photo.id]);
 
   useEffect(() => {
-    let storedStep: string | null = null;
+    let hasSeenPeoplePrompt = false;
+    let hasSeenEditPrompt = false;
 
     try {
-      storedStep = window.localStorage.getItem(LIGHTBOX_ONBOARDING_STORAGE_KEY);
+      hasSeenPeoplePrompt =
+        window.localStorage.getItem(LIGHTBOX_PEOPLE_ONBOARDING_STORAGE_KEY) ===
+        "seen";
+      hasSeenEditPrompt =
+        window.localStorage.getItem(LIGHTBOX_EDIT_ONBOARDING_STORAGE_KEY) ===
+        "seen";
     } catch {
       // Storage can be unavailable in private browsing; keep the guide visit-local.
     }
 
-    if (storedStep === "done" || hidePeople || COMPOSABLE_LIGHTBOX_ENABLED) return;
+    if (hasSeenEditPrompt || hidePeople || COMPOSABLE_LIGHTBOX_ENABLED) return;
 
-    const nextStep: LightboxOnboardingStep =
-      storedStep === "edit" ? "edit" : "people";
+    const nextStep: LightboxOnboardingStep = hasSeenPeoplePrompt
+      ? "edit"
+      : "people";
     const timer = window.setTimeout(() => {
       setAreControlsVisible(true);
       setOnboardingStep(nextStep);
@@ -2094,14 +2104,14 @@ export function PhotoLightbox({
     (completedStep: LightboxOnboardingStep) => {
       if (onboardingStep !== completedStep) return;
 
-      const nextStep = completedStep === "people" ? "edit" : "done";
+      const storageKey =
+        completedStep === "people"
+          ? LIGHTBOX_PEOPLE_ONBOARDING_STORAGE_KEY
+          : LIGHTBOX_EDIT_ONBOARDING_STORAGE_KEY;
       setOnboardingStep(null);
 
       try {
-        window.localStorage.setItem(
-          LIGHTBOX_ONBOARDING_STORAGE_KEY,
-          nextStep,
-        );
+        window.localStorage.setItem(storageKey, "seen");
       } catch {
         // Keep the current visit functional when storage is unavailable.
       }
