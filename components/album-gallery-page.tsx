@@ -366,6 +366,13 @@ function formatAlbumDate(value?: string | null) {
   }).format(new Date(year, month - 1, day));
 }
 
+function formatExpiryBannerDate(value?: string | null) {
+  if (!value) return null;
+
+  const formatted = formatAlbumDate(value);
+  return formatted || value;
+}
+
 function todayIsoDate() {
   const date = new Date();
   const year = date.getFullYear();
@@ -2891,6 +2898,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [isPhotoSelectionMode, setIsPhotoSelectionMode] = useState(false);
   const [selectedDownloadPhotoIds, setSelectedDownloadPhotoIds] = useState<string[]>([]);
   const [isShareAiGuideOpen, setIsShareAiGuideOpen] = useState(false);
+  const [isShareExpiryBannerVisible, setIsShareExpiryBannerVisible] =
+    useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [eventNameDraft, setEventNameDraft] = useState("");
   const [isSavingEventName, setIsSavingEventName] = useState(false);
@@ -3107,6 +3116,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       },
   );
   const shareSettings = publicShareData?.share ?? null;
+  const shareExpiryLabel = formatExpiryBannerDate(shareSettings?.expiresAt);
   const hideAi =
     isShareView && (!shareSettings || Boolean(shareSettings.hideAi));
   const sharePersonIds = useMemo(() => {
@@ -3196,6 +3206,24 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
     setIsShareAiGuideOpen(true);
   }, [hideAi, isShareView, shareToken]);
+
+  useEffect(() => {
+    if (!isShareView || !shareToken || !shareSettings?.expiresAt) {
+      setIsShareExpiryBannerVisible(false);
+      return;
+    }
+
+    const storageKey = `saathidesk:share-expiry-banner:${shareToken}`;
+
+    try {
+      if (window.localStorage.getItem(storageKey)) return;
+      window.localStorage.setItem(storageKey, "seen");
+      setIsShareExpiryBannerVisible(true);
+    } catch {
+      // If storage is unavailable, still show it during this visit.
+      setIsShareExpiryBannerVisible(true);
+    }
+  }, [isShareView, shareSettings?.expiresAt, shareToken]);
 
   isCoverDismissedRef.current = isCoverDismissed;
 
@@ -4990,6 +5018,22 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       </header>
 
       <div className="mx-auto max-w-7xl px-2 py-3 sm:px-4 sm:py-8 lg:px-6">
+        {isShareView && isShareExpiryBannerVisible && shareExpiryLabel && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-[0_8px_22px_rgba(120,80,20,0.12)]">
+            <p className="font-medium">
+              This link expires on {shareExpiryLabel}.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsShareExpiryBannerVisible(false)}
+              className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-amber-900/80 transition hover:bg-amber-100 hover:text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+              aria-label="Dismiss expiry notice"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {selectedPerson ? (
           <PersonView
             albumSlug={albumSlug}
