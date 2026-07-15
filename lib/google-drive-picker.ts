@@ -181,6 +181,12 @@ interface DriveApiFileListResponse {
   files?: DriveApiFileResponse[];
 }
 
+export interface GoogleDriveUploadResult {
+  id: string;
+  name: string;
+  webViewLink?: string;
+}
+
 let librariesPromise: Promise<GoogleBrowserApi> | null = null;
 let cachedAccessToken: { value: string; expiresAt: number } | null = null;
 
@@ -227,6 +233,17 @@ function getGoogleDriveApiKey() {
   }
 
   return apiKey;
+}
+
+function getGoogleDriveClientId() {
+  const clientId =
+    process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID ||
+    process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID;
+  if (!clientId) {
+    throw new Error("Google Drive upload is missing NEXT_PUBLIC_GOOGLE_DRIVE_CLIENT_ID");
+  }
+
+  return clientId;
 }
 
 function loadScript(src: string) {
@@ -773,6 +790,53 @@ export async function importPublicGoogleDriveFolder(
 export async function prepareGoogleDrivePicker() {
   getGoogleDriveConfig();
   await loadGoogleLibraries();
+}
+
+export async function uploadBlobToGoogleDrive(
+  blob: Blob,
+  fileName: string,
+): Promise<GoogleDriveUploadResult> {
+  const googleApi = await loadGoogleLibraries();
+  const accessToken = await requestDriveAccessToken(
+    googleApi,
+    getGoogleDriveClientId(),
+  );
+  const sessionResponse = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,webViewLink",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Length": String(blob.size),
+        "X-Upload-Content-Type": blob.type || "application/octet-stream",
+      },
+      body: JSON.stringify({ name: fileName }),
+    },
+  );
+
+  if (!sessionResponse.ok) {
+    throw new Error("Google Drive could not start the album upload");
+  }
+
+  const uploadUrl = sessionResponse.headers.get("location");
+  if (!uploadUrl) {
+    throw new Error("Google Drive did not provide an upload session");
+  }
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": blob.type || "application/octet-stream",
+    },
+    body: blob,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error("Google Drive album upload failed");
+  }
+
+  return (await uploadResponse.json()) as GoogleDriveUploadResult;
 }
 
 async function downloadGoogleDriveImageWithCredentials(

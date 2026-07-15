@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   CalendarDays,
   ChevronDown,
+  CloudUpload,
   Copy,
   Download,
   ExternalLink,
@@ -69,9 +70,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { ToastAction } from "@/components/ui/toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,6 +97,7 @@ import {
   normalizeShareBackgroundColor,
   shareBackgroundRgba,
 } from "@/lib/share-theme";
+import { uploadBlobToGoogleDrive } from "@/lib/google-drive-picker";
 import type {
   AlbumDetail,
   AlbumDesignSettings,
@@ -1312,6 +1316,10 @@ function AlbumDownloadMenu({
   selectedDownloadPhotoIds: string[];
   downloadsEnabled?: boolean;
 }) {
+  const [driveUploadState, setDriveUploadState] = useState<
+    "idle" | "preparing" | "uploading"
+  >("idle");
+
   if (!downloadsEnabled) return null;
 
   const downloadUrl = (options?: {
@@ -1345,6 +1353,48 @@ function AlbumDownloadMenu({
   };
 
   const selectedEvent = events.find((event) => event.slug === selectedEventSlug);
+  const uploadAlbumToDrive = async () => {
+    try {
+      setDriveUploadState("preparing");
+      const response = await fetch(downloadUrl());
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(payload?.error || "Could not prepare the album");
+      }
+
+      const disposition = response.headers.get("content-disposition") || "";
+      const fileName =
+        disposition.match(/filename="([^"]+)"/i)?.[1] || `${albumSlug}-all.zip`;
+      const albumZip = await response.blob();
+
+      setDriveUploadState("uploading");
+      const uploadedFile = await uploadBlobToGoogleDrive(albumZip, fileName);
+      toast({
+        title: "Album uploaded to Google Drive",
+        description: uploadedFile.name,
+        action: uploadedFile.webViewLink
+          ? <ToastAction
+              altText="Open in Google Drive"
+              onClick={() =>
+                window.open(uploadedFile.webViewLink, "_blank", "noopener,noreferrer")
+              }
+            >
+              Open Drive
+            </ToastAction>
+          : undefined,
+      });
+    } catch (error) {
+      toast({
+        title: "Could not upload album",
+        description: error instanceof Error ? error.message : "Google Drive upload failed",
+        variant: "destructive",
+      });
+    } finally {
+      setDriveUploadState("idle");
+    }
+  };
   const peopleLabel =
     selectedPeople.length === 1
       ? selectedPeople[0].displayName || selectedPeople[0].defaultName
@@ -1391,6 +1441,23 @@ function AlbumDownloadMenu({
             {formatItems()}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          disabled={driveUploadState !== "idle"}
+          onSelect={() => void uploadAlbumToDrive()}
+        >
+          {driveUploadState === "idle" ? (
+            <CloudUpload className="h-4 w-4" />
+          ) : (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          )}
+          {driveUploadState === "preparing"
+            ? "Preparing album..."
+            : driveUploadState === "uploading"
+              ? "Uploading to Drive..."
+              : "Upload all to Google Drive"}
+        </DropdownMenuItem>
 
         {selectedDownloadPhotoIds.length > 0 && (
           <DropdownMenuSub>

@@ -69,6 +69,10 @@ Photos Library API scopes.
 If the External OAuth app is still in testing mode, add each developer/test
 Google account under **OAuth consent screen -> Test users**.
 
+Before making Google Drive export available to all album visitors, publish the
+External OAuth app to **Production**. In testing mode, Google rejects
+authorization from accounts that are not listed as test users.
+
 Add this OAuth client's authorized JavaScript origin for local development:
 
 ```text
