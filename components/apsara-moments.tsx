@@ -27,14 +27,26 @@ import type { Person, Photo } from "@/lib/types";
 
 interface ApsaraFloatingTriggerProps {
   onClick: () => void;
+  galleryFooterVisible?: boolean;
+  mobileGalleryActionsVisible?: boolean;
 }
 
-export function ApsaraFloatingTrigger({ onClick }: ApsaraFloatingTriggerProps) {
+export function ApsaraFloatingTrigger({
+  onClick,
+  galleryFooterVisible = false,
+  mobileGalleryActionsVisible = false,
+}: ApsaraFloatingTriggerProps) {
+  const footerOffset = galleryFooterVisible
+    ? mobileGalleryActionsVisible
+      ? "bottom-[9.5rem] sm:bottom-24"
+      : "bottom-[5.5rem] sm:bottom-24"
+    : "bottom-20 sm:bottom-7";
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className="fixed bottom-20 left-5 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200 bg-white/90 text-sm font-medium text-zinc-900 shadow-sm backdrop-blur transition hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:bottom-7 sm:left-auto sm:right-7 sm:w-auto sm:gap-2 sm:px-4"
+      className={`fixed left-5 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200 bg-white/90 text-sm font-medium text-zinc-900 shadow-sm backdrop-blur transition hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:left-auto sm:right-7 sm:w-auto sm:gap-2 sm:px-4 ${footerOffset}`}
       aria-label="Open SaathiDesk AI photo search"
     >
       <MessageCircle className="h-4 w-4" />
@@ -943,6 +955,8 @@ interface ApsaraMomentsRootProps {
   onPersonOpen?: (person: Person) => void;
   onPeopleSelectionApply?: (people: Person[], mode: PeopleMatchMode) => void;
   onTextSearch?: (query: string, people: Person[]) => void;
+  galleryFooterVisible?: boolean;
+  mobileGalleryActionsVisible?: boolean;
 }
 
 export function ApsaraMomentsRoot({
@@ -957,6 +971,8 @@ export function ApsaraMomentsRoot({
   onPersonOpen,
   onPeopleSelectionApply,
   onTextSearch,
+  galleryFooterVisible = false,
+  mobileGalleryActionsVisible = false,
 }: ApsaraMomentsRootProps) {
   const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(false);
   const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
@@ -964,7 +980,11 @@ export function ApsaraMomentsRoot({
 
   return (
     <>
-      <ApsaraFloatingTrigger onClick={() => setIsOpen(true)} />
+      <ApsaraFloatingTrigger
+        onClick={() => setIsOpen(true)}
+        galleryFooterVisible={galleryFooterVisible}
+        mobileGalleryActionsVisible={mobileGalleryActionsVisible}
+      />
       <ApsaraMomentsOverlay
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}

@@ -334,6 +334,16 @@ function normalizePhotographerRouteSegment(value: string) {
   return normalized || "photographer";
 }
 
+function fittedPhotographerNameSize(
+  name: string,
+  availableWidth: number,
+  minimumSize: number,
+  maximumSize: number,
+) {
+  const estimatedSize = availableWidth / Math.max(name.trim().length * 0.58, 1);
+  return `${Math.max(minimumSize, Math.min(maximumSize, estimatedSize))}px`;
+}
+
 function withShareParam(url: string, shareToken = "") {
   if (!shareToken) return url;
   const separator = url.includes("?") ? "&" : "?";
@@ -3408,6 +3418,18 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     photographerRouteSegment,
   ]);
   const photographerName = album?.customer?.name || coverCreditName;
+  const headerPhotographerNameSize = fittedPhotographerNameSize(
+    photographerName,
+    224,
+    12,
+    20,
+  );
+  const footerPhotographerNameSize = fittedPhotographerNameSize(
+    photographerName,
+    176,
+    10,
+    14,
+  );
   const photographerPhone = album?.customer?.phone?.trim() || "";
   const photographerInstagramUrl = `https://www.instagram.com/${encodeURIComponent(
     photographerRouteSegment,
@@ -4696,9 +4718,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             <div className="relative hidden w-full items-center gap-5 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(300px,460px)_minmax(0,1fr)] sm:gap-4 lg:gap-6">
               <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center sm:justify-end">
                 <div className="whitespace-nowrap text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:-rotate-90 sm:translate-x-6 lg:translate-x-8">
-                  <span>Photos by</span>
+                  <span>PHOTOS BY</span>
                   <Link
                     href={photographerCardHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="ml-1 text-zinc-800 underline-offset-2 transition hover:underline"
                   >
                     {coverCreditName}
@@ -4962,13 +4986,18 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
               <div className="flex min-w-0 items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
-                    Photographer
+                <div className="w-44 shrink-0 sm:w-56">
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                    PHOTOS BY
                   </p>
-                  <h1 className="truncate text-[17px] font-semibold tracking-normal text-[#1d1d1f] sm:text-xl">
+                  <h1
+                    className="truncate font-semibold tracking-normal text-[#1d1d1f]"
+                    style={{ fontSize: headerPhotographerNameSize }}
+                  >
                     <Link
                       href={photographerCardHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="underline-offset-2 transition hover:underline"
                     >
                       {album.customer?.name || coverCreditName}
@@ -5694,10 +5723,20 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
             <div className="flex min-w-0 items-center gap-1">
               <Link
                 href={photographerCardHref}
-                className="max-w-[11rem] truncate rounded-full px-2 py-1.5 text-sm font-semibold text-zinc-800 transition hover:bg-black/5 sm:max-w-xs sm:px-3"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-28 shrink-0 flex-col justify-center rounded-lg px-2 py-1 text-zinc-800 transition hover:bg-black/5 sm:w-44 sm:px-3"
                 aria-label={`View ${photographerName} visiting card`}
               >
-                {photographerName}
+                <span className="truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                  PHOTOS BY
+                </span>
+                <span
+                  className="truncate font-semibold tracking-normal text-zinc-800"
+                  style={{ fontSize: footerPhotographerNameSize }}
+                >
+                  {photographerName}
+                </span>
               </Link>
 
               {photographerPhone ? (
@@ -5712,6 +5751,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               ) : (
                 <Link
                   href={photographerCardHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-600 transition hover:bg-black/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
                   aria-label={`View ${photographerName} contact details`}
                   title="View contact details"
@@ -5807,6 +5848,8 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
           onPersonOpen={openPerson}
           onPeopleSelectionApply={filterByPeopleSelection}
           onTextSearch={runApsaraTextSearch}
+          galleryFooterVisible={isCoverDismissed}
+          mobileGalleryActionsVisible={showMobileGalleryActions}
         />
       )}
     </main>
