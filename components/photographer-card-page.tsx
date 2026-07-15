@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Edit3,
@@ -40,6 +40,7 @@ export function PhotographerCardPage({
   initialProfile,
   canEdit,
 }: PhotographerCardPageProps) {
+  const router = useRouter();
   const storageKey = useMemo(
     () => `photographer-card:${photographerSlug}`,
     [photographerSlug],
@@ -75,19 +76,35 @@ export function PhotographerCardPage({
 
   const websiteUrl = formatWebsiteUrl(profile.website);
 
+  const goBackToGallery = () => {
+    if (typeof window === "undefined") {
+      router.push("/");
+      return;
+    }
+
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    const fallbackAlbumPath = `/${encodeURIComponent(photographerSlug)}`;
+    router.push(fallbackAlbumPath);
+  };
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f7f3ee] px-4 py-8 text-[#1a1a1a] sm:px-8">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(210,170,120,0.22),transparent_38%),radial-gradient(circle_at_85%_15%,rgba(38,93,85,0.16),transparent_32%),linear-gradient(160deg,#f7f3ee_0%,#efe6da_58%,#f9f6f1_100%)]" />
 
       <div className="relative mx-auto w-full max-w-4xl">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <Link
-            href="/"
+          <button
+            type="button"
+            onClick={goBackToGallery}
             className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-4 py-2 text-sm font-medium shadow-sm backdrop-blur transition hover:bg-white"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to gallery
-          </Link>
+          </button>
 
           <div className="flex items-center gap-2">
             {!canEdit && (
