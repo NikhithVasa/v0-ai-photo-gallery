@@ -1538,11 +1538,14 @@ function PeopleShareDialog({
   albumSlug,
   people,
   onlyPeople,
+  shareToken = "",
 }: {
   albumSlug: string;
   people: Person[];
   onlyPeople: boolean;
+  shareToken?: string;
 }) {
+  const isClientShare = Boolean(shareToken);
   const defaultName = useMemo(() => peopleShareDefaultName(people), [people]);
   const [isOpen, setIsOpen] = useState(false);
   const [linkName, setLinkName] = useState(`${defaultName}'s photos`);
@@ -1588,7 +1591,9 @@ function PeopleShareDialog({
 
     try {
       const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/share/person`,
+        `/api/albums/${encodeURIComponent(albumSlug)}/share/person${
+          shareToken ? `?share=${encodeURIComponent(shareToken)}` : ""
+        }`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1677,23 +1682,25 @@ function PeopleShareDialog({
             />
           </div>
 
-          <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
-            <div>
-              <Label htmlFor="people-share-only">Only them</Label>
-              <p className="text-xs leading-5 text-zinc-500">
-                {people.length === 1
-                  ? "Only photos where this person appears alone."
-                  : "Only photos containing exactly these people."}
-              </p>
+          {!isClientShare && (
+            <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+              <div>
+                <Label htmlFor="people-share-only">Only them</Label>
+                <p className="text-xs leading-5 text-zinc-500">
+                  {people.length === 1
+                    ? "Only photos where this person appears alone."
+                    : "Only photos containing exactly these people."}
+                </p>
+              </div>
+              <Switch
+                id="people-share-only"
+                checked={onlyPerson}
+                onCheckedChange={setOnlyPerson}
+              />
             </div>
-            <Switch
-              id="people-share-only"
-              checked={onlyPerson}
-              onCheckedChange={setOnlyPerson}
-            />
-          </div>
+          )}
 
-          <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+          {!isClientShare && <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
             <Label className="text-sm font-medium">Background</Label>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-9">
               {SHARE_BACKGROUND_COLORS.map((color) => {
@@ -1720,9 +1727,9 @@ function PeopleShareDialog({
                 );
               })}
             </div>
-          </div>
+          </div>}
 
-          <div className="space-y-2">
+          {!isClientShare && <div className="space-y-2">
             <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
               <Label htmlFor="people-share-downloads">Allow downloads</Label>
               <Switch
@@ -1749,9 +1756,9 @@ function PeopleShareDialog({
                 onCheckedChange={setAllowEventTabs}
               />
             </div>
-          </div>
+          </div>}
 
-          <div className="space-y-1.5">
+          {!isClientShare && <div className="space-y-1.5">
             <Label
               htmlFor="people-share-passcode"
               className="flex items-center gap-2"
@@ -1771,9 +1778,9 @@ function PeopleShareDialog({
               autoComplete="off"
               className="font-mono"
             />
-          </div>
+          </div>}
 
-          <div className="space-y-1.5">
+          {!isClientShare && <div className="space-y-1.5">
             <Label htmlFor="people-share-expires-at">Expires on</Label>
             <Input
               id="people-share-expires-at"
@@ -1782,7 +1789,7 @@ function PeopleShareDialog({
               value={expiresAt}
               onChange={(event) => setExpiresAt(event.target.value)}
             />
-          </div>
+          </div>}
 
           {shareUrl && (
             <div className="flex min-w-0 gap-2">
@@ -4750,11 +4757,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     </button>
                   )}
 
-                  {!isShareView && selectedPeopleIds.length >= 1 && (
+                  {selectedPeopleIds.length >= 1 && (
                     <PeopleShareDialog
                       albumSlug={albumSlug}
                       people={selectedFilterPeople}
                       onlyPeople={peopleMatchMode === "only"}
+                      shareToken={shareToken}
                     />
                   )}
 

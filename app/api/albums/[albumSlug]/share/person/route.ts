@@ -4,6 +4,7 @@ import { query, queryOne } from "@/lib/db";
 import { ensureAlbumShareLinkSchema } from "@/lib/customer-schema";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 import { customerPublicUrl } from "@/lib/customer-host";
+import { getShareLinkAccess } from "@/lib/share-access";
 import {
   DEFAULT_SHARE_BACKGROUND_COLOR,
   isShareBackgroundColor,
@@ -83,7 +84,11 @@ export async function POST(request: Request, { params }: Props) {
 
     const { albumSlug } = await params;
     const accessDenied = await requireAlbumCustomerAccess(albumSlug);
-    if (accessDenied) return accessDenied;
+    const parentShareAccess = accessDenied
+      ? await getShareLinkAccess(request, albumSlug)
+      : null;
+    if (accessDenied && !parentShareAccess) return accessDenied;
+    const isClientShare = Boolean(parentShareAccess);
 
     const body = (await request.json().catch(() => ({}))) as {
       personId?: unknown;
@@ -167,6 +172,44 @@ export async function POST(request: Request, { params }: Props) {
       return NextResponse.json({ error: "Person not found" }, { status: 404 });
     }
 
+    if (
+      parentShareAccess?.personIds.length &&
+      personIds.some((personId) => !parentShareAccess.personIds.includes(personId))
+    ) {
+      return NextResponse.json({ error: "Person not available" }, { status: 403 });
+    }
+
+    const allowDownloads = isClientShare
+      ? false
+      : Boolean(body.allowDownloads);
+    const watermarkEnabled = isClientShare
+      ? Boolean(parentShareAccess?.watermarkEnabled)
+      : Boolean(body.watermarkEnabled);
+    const watermarkText = isClientShare
+      ? parentShareAccess?.watermarkText || album.customer_name || album.name
+      : album.customer_name || album.name;
+    const watermarkMode = isClientShare
+      ? parentShareAccess?.watermarkMode || "corners"
+      : "corners";
+    const watermarkPositions = isClientShare
+      ? parentShareAccess?.watermarkPositions.length
+        ? parentShareAccess.watermarkPositions
+        : ["bottom_right"]
+      : ["bottom_right"];
+    const allowEventTabs = isClientShare
+      ? Boolean(parentShareAccess?.allowEventTabs)
+      : Boolean(body.allowEventTabs);
+    const onlyPerson = isClientShare
+      ? Boolean(parentShareAccess?.onlyPerson || body.onlyPerson)
+      : Boolean(body.onlyPerson);
+    const effectiveBackgroundColor = isClientShare
+      ? normalizeShareBackgroundColor(parentShareAccess?.backgroundColor)
+      : backgroundColor;
+    const effectiveExpiresAt = isClientShare
+      ? parentShareAccess?.expiresAt ?? null
+      : expiresAt;
+    const effectivePasscode = isClientShare ? null : passcode;
+
     const token = randomUUID().replace(/-/g, "");
     const share = await queryOne<{ token: string }>(
       `
@@ -203,9 +246,9 @@ export async function POST(request: Request, { params }: Props) {
         $6,
         $7,
         $8,
-        COALESCE($6, $5),
-        'corners',
-        ARRAY['bottom_right']::text[],
+        $18,
+        $19,
+        $20::text[],
         $9,
         $10::date,
         $11,
@@ -227,17 +270,20 @@ export async function POST(request: Request, { params }: Props) {
         album.customer_id,
         album.name,
         album.customer_name,
-        Boolean(body.allowDownloads),
-        Boolean(body.watermarkEnabled),
-        backgroundColor || DEFAULT_SHARE_BACKGROUND_COLOR,
-        expiresAt,
-        passcode,
+        allowDownloads,
+        watermarkEnabled,
+        effectiveBackgroundColor || DEFAULT_SHARE_BACKGROUND_COLOR,
+        effectiveExpiresAt,
+        effectivePasscode,
         personIds[0],
         personIds,
         personName,
         linkName,
-        Boolean(body.onlyPerson),
-        Boolean(body.allowEventTabs),
+        onlyPerson,
+        allowEventTabs,
+        watermarkText,
+        watermarkMode,
+        watermarkPositions,
       ],
     );
 
@@ -256,13 +302,13 @@ export async function POST(request: Request, { params }: Props) {
         personIds,
         personName,
         linkName,
-        onlyPerson: Boolean(body.onlyPerson),
-        allowDownloads: Boolean(body.allowDownloads),
-        watermarkEnabled: Boolean(body.watermarkEnabled),
-        allowEventTabs: Boolean(body.allowEventTabs),
-        backgroundColor,
-        expiresAt,
-        passcode,
+        onlyPerson,
+        allowDownloads,
+        watermarkEnabled,
+        allowEventTabs,
+        backgroundColor: effectiveBackgroundColor,
+        expiresAt: effectiveExpiresAt,
+        passcode: effectivePasscode,
       },
     });
   } catch (error) {

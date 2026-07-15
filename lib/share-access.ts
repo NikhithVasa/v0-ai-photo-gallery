@@ -6,6 +6,8 @@ import { hasValidSharePasscodeAccess } from "@/lib/share-passcode";
 export interface ShareLinkAccess {
   token: string;
   albumSlug: string;
+  expiresAt: string | null;
+  backgroundColor: string | null;
   allowDownloads: boolean;
   watermarkEnabled: boolean;
   watermarkText: string | null;
@@ -22,6 +24,8 @@ export interface ShareLinkAccess {
 interface ShareAccessRow {
   token: string;
   album_slug: string;
+  expires_at: Date | string | null;
+  background_color: string | null;
   allow_downloads: boolean;
   watermark_enabled: boolean;
   watermark_text: string | null;
@@ -50,6 +54,8 @@ export async function getShareLinkAccess(
     SELECT
       s.token,
       a.slug AS album_slug,
+      s.expires_at,
+      s.background_color,
       s.allow_downloads,
       s.watermark_enabled,
       s.watermark_text,
@@ -89,6 +95,11 @@ export async function getShareLinkAccess(
   return {
     token: row.token,
     albumSlug: row.album_slug,
+    expiresAt:
+      row.expires_at instanceof Date
+        ? row.expires_at.toISOString().slice(0, 10)
+        : row.expires_at,
+    backgroundColor: row.background_color,
     allowDownloads: row.allow_downloads,
     watermarkEnabled: row.watermark_enabled,
     watermarkText: row.watermark_text,

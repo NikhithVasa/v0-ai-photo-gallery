@@ -66,11 +66,14 @@ function PersonShareDialog({
   albumSlug,
   person,
   onlyPerson,
+  shareToken = "",
 }: {
   albumSlug: string;
   person: Person;
   onlyPerson: boolean;
+  shareToken?: string;
 }) {
+  const isClientShare = Boolean(shareToken);
   const defaultPersonName = person.displayName || person.defaultName;
   const [isOpen, setIsOpen] = useState(false);
   const [personName, setPersonName] = useState(defaultPersonName);
@@ -114,7 +117,9 @@ function PersonShareDialog({
 
     try {
       const response = await fetch(
-        `/api/albums/${encodeURIComponent(albumSlug)}/share/person`,
+        `/api/albums/${encodeURIComponent(albumSlug)}/share/person${
+          shareToken ? `?share=${encodeURIComponent(shareToken)}` : ""
+        }`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -172,7 +177,7 @@ function PersonShareDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-1.5">
+          {!isClientShare && <div className="space-y-1.5">
             <Label htmlFor="person-share-name">Person name</Label>
             <Input
               id="person-share-name"
@@ -181,7 +186,7 @@ function PersonShareDialog({
               placeholder="Person name"
               maxLength={120}
             />
-          </div>
+          </div>}
 
           <div className="space-y-1.5">
             <Label htmlFor="person-share-link-name">Shared link name</Label>
@@ -200,7 +205,7 @@ function PersonShareDialog({
               : "This link includes photos containing this person."}
           </p>
 
-          <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
+          {!isClientShare && <div className="space-y-3 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
             <Label className="text-sm font-medium">Background</Label>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-9">
               {SHARE_BACKGROUND_COLORS.map((color) => {
@@ -227,9 +232,9 @@ function PersonShareDialog({
                 );
               })}
             </div>
-          </div>
+          </div>}
 
-          <div className="space-y-2">
+          {!isClientShare && <div className="space-y-2">
             <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 p-3">
               <Label htmlFor="person-share-downloads">Allow downloads</Label>
               <Switch
@@ -256,9 +261,9 @@ function PersonShareDialog({
                 onCheckedChange={setAllowEventTabs}
               />
             </div>
-          </div>
+          </div>}
 
-          <Accordion
+          {!isClientShare && <Accordion
             type="single"
             collapsible
             className="rounded-[18px] border border-zinc-200/70 bg-zinc-50/70 px-3"
@@ -289,9 +294,9 @@ function PersonShareDialog({
                 />
               </AccordionContent>
             </AccordionItem>
-          </Accordion>
+          </Accordion>}
 
-          <div className="space-y-1.5">
+          {!isClientShare && <div className="space-y-1.5">
             <Label htmlFor="person-share-expires-at">Expires on</Label>
             <Input
               id="person-share-expires-at"
@@ -300,7 +305,7 @@ function PersonShareDialog({
               value={expiresAt}
               onChange={(event) => setExpiresAt(event.target.value)}
             />
-          </div>
+          </div>}
 
           {shareUrl && (
             <div className="flex min-w-0 gap-2">
@@ -456,13 +461,12 @@ export function PersonView({
           >
             Only them
           </button>
-          {!shareToken && (
-            <PersonShareDialog
-              albumSlug={albumSlug}
-              person={person}
-              onlyPerson={onlyPerson}
-            />
-          )}
+          <PersonShareDialog
+            albumSlug={albumSlug}
+            person={person}
+            onlyPerson={onlyPerson}
+            shareToken={shareToken}
+          />
           {data?.photos ? (
             <span className="text-sm text-muted-foreground">
               Showing {data.photos.length}{" "}
