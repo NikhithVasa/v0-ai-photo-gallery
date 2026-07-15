@@ -36,6 +36,7 @@ import {
 } from "framer-motion";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
+import { AvalHero } from "@/components/aval-hero";
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
 import { BentoGrid } from "@/components/ui/bento-grid";
 import { BorderBeam } from "@/components/ui/border-beam";
@@ -682,18 +683,16 @@ function LegacyHero({ reveal }: { reveal: MotionProps }) {
 
   return (
     <section className="relative isolate min-h-[calc(100svh-10rem)] overflow-hidden bg-[#F6F0E9] text-[#1F1B16] sm:min-h-[calc(100svh-9rem)]">
-      <Image
-        src="/glow_1.png"
-        alt="SaathiDesk wedding gallery moment"
-        fill
-        priority
-        sizes="100vw"
-        className="-z-30 object-cover object-[72%_48%] opacity-[0.34] brightness-[1.08] saturate-[0.78] contrast-[0.98]"
-      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-30 overflow-hidden opacity-[0.72] brightness-[1.04] saturate-[0.9] contrast-[1.02]"
+      >
+        <AvalHero />
+      </div>
 
       <div
         aria-hidden
-        className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(246,240,233,0.96)_0%,rgba(246,240,233,0.9)_54%,rgba(22,17,12,0.58)_100%)]"
+        className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(246,240,233,0.88)_0%,rgba(246,240,233,0.62)_54%,rgba(22,17,12,0.52)_100%)]"
       />
       <div
         aria-hidden
@@ -1285,6 +1284,16 @@ export function MarketingHeader() {
 function Hero({ reveal }: { reveal: MotionProps }) {
   return (
     <section className="relative overflow-hidden bg-[#EDE8DF] pb-16 pt-14 text-[#171411] sm:pb-24 sm:pt-20">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden opacity-[0.24] saturate-[0.7]"
+      >
+        <AvalHero />
+      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[#EDE8DF]/65"
+      />
       <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_82%_8%,rgba(202,161,110,0.34),transparent_30%),radial-gradient(circle_at_8%_72%,rgba(112,138,116,0.22),transparent_28%)]" />
       <div className="relative mx-auto max-w-[92rem] px-5 sm:px-8">
         <motion.div {...reveal} className="mx-auto max-w-6xl text-center">
