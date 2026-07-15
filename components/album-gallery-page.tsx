@@ -5645,21 +5645,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                   )}
                 </div>
               )}
-              {isShareView && !hideAi && (
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/70 bg-white/72 px-4 py-3 text-sm text-zinc-600 shadow-[0_10px_30px_rgba(0,0,0,0.06)] backdrop-blur">
-                  <span className="font-medium text-zinc-700">
-                    New here? Find photos faster with People and SaathiDesk AI.
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsShareAiGuideOpen(true)}
-                    className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-zinc-950 px-3 text-xs font-semibold text-white transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-950/25"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    How it works
-                  </button>
-                </div>
-              )}
             </div>
 
             <PhotosGrid
