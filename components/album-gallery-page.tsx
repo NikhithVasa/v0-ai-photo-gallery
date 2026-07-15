@@ -1634,16 +1634,15 @@ function PeopleShareDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          className={`${navPillButtonClass} min-w-[120px]`}
-          aria-label="Share selected people"
-        >
-          <Share2 className="h-4 w-4 shrink-0" />
-          <span>Share people</span>
-        </button>
-      </DialogTrigger>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className={`${navPillButtonClass} min-w-[120px]`}
+        aria-label="Share selected people"
+      >
+        <Share2 className="pointer-events-none h-4 w-4 shrink-0" />
+        <span className="pointer-events-none">Share people</span>
+      </button>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share people photos</DialogTitle>
