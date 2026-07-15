@@ -44,7 +44,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { useGoogleImageImport } from "@/hooks/use-google-image-import";
+import {
+  useGoogleImageImport,
+  type GoogleImportedImage,
+} from "@/hooks/use-google-image-import";
 import { photoPreviewImageUrl } from "@/lib/photo-image-url";
 import { photoUploadFileMetadata } from "@/lib/photo-upload-metadata";
 import {
@@ -80,7 +83,7 @@ type AiAction =
   | "reset_album_ai";
 
 const PHOTO_UPLOAD_MAX_RETRIES = 3;
-const PHOTO_UPLOAD_RETRY_DELAY_MS = 600;
+const PHOTO_UPLOAD_RETRY_DELAY_MS = 1_000;
 const PHOTO_UPLOAD_CONCURRENCY = 5;
 const VIDEO_UPLOAD_CONCURRENCY = 3;
 const VIDEO_UPLOAD_ACCEPT = "video/mp4,video/quicktime,video/x-m4v,video/webm";
@@ -165,6 +168,8 @@ interface QueuedFile {
   kind: "photo" | "reel";
   status: UploadStatus;
   source?: "google-drive" | "google-photos";
+  sourceExternalId?: string;
+  sourceModifiedAt?: string;
   error?: string;
 }
 
@@ -173,7 +178,8 @@ interface PreparedUpload {
   fileName: string;
   contentType: string;
   originalS3Key: string;
-  uploadUrl: string;
+  uploadUrl?: string;
+  skipped?: boolean;
 }
 
 interface PreparedCoverUpload {
@@ -373,11 +379,7 @@ export function AddEventPage({
     message: googleImportMessage,
     setGoogleDriveFolderLink,
   } = useGoogleImageImport({
-    onImages: (images) =>
-      addMediaFiles(
-        images.map((image) => image.file),
-        images[0]?.source,
-      ),
+    onImages: (images) => addImportedMedia(images),
   });
 
   const { data, error, isLoading, mutate: mutateAlbum } = useSWR<{
@@ -541,6 +543,27 @@ export function AddEventPage({
     setErrorMessage("");
     setCompletedUpload(null);
     if (mediaInputRef.current) mediaInputRef.current.value = "";
+  };
+
+  const addImportedMedia = (images: GoogleImportedImage[]) => {
+    const media = images.filter((image) => isSupportedImageFile(image.file));
+    if (!media.length) return;
+
+    setQueuedFiles((current) => [
+      ...current,
+      ...media.map((image) => ({
+        localId: crypto.randomUUID(),
+        file: image.file,
+        kind: "photo" as const,
+        status: "ready" as UploadStatus,
+        source: image.source,
+        sourceExternalId:
+          image.googleDriveMetadata?.id ?? image.googlePhotosMetadata?.id,
+        sourceModifiedAt: image.googleDriveMetadata?.modifiedTime,
+      })),
+    ]);
+    setErrorMessage("");
+    setCompletedUpload(null);
   };
 
   const addMedia = (files: FileList | null) => {
@@ -898,16 +921,28 @@ export function AddEventPage({
       let preparedEvent: { slug: string; name: string } | null = null;
       let preparedUploads: PreparedUpload[] = [];
       const completedPhotoIds: string[] = [];
+      let skippedPhotoCount = 0;
 
       if (photoFilesToUpload.length) {
-        const uploadFiles: Awaited<ReturnType<typeof photoUploadFileMetadata>>[] = [];
+        const uploadFiles: Array<
+          Awaited<ReturnType<typeof photoUploadFileMetadata>> & {
+            sourceProvider?: QueuedFile["source"];
+            sourceExternalId?: string;
+            sourceModifiedAt?: string;
+          }
+        > = [];
         await runWithConcurrency(
           photoFilesToUpload.length,
           PHOTO_UPLOAD_CONCURRENCY,
           async (index) => {
             const item = photoFilesToUpload[index];
             if (!item) return;
-            uploadFiles[index] = await photoUploadFileMetadata(item.file);
+            uploadFiles[index] = {
+              ...(await photoUploadFileMetadata(item.file)),
+              sourceProvider: item.source,
+              sourceExternalId: item.sourceExternalId,
+              sourceModifiedAt: item.sourceModifiedAt,
+            };
           },
         );
 
@@ -970,6 +1005,13 @@ export function AddEventPage({
           const upload = preparedUploads[index];
           const item = photoFilesToUpload[index];
           if (!upload || !item) return;
+          if (upload.skipped) {
+            skippedPhotoCount += 1;
+            completedLocalIds.add(item.localId);
+            updateFile(item.localId, { status: "uploaded" });
+            return;
+          }
+          if (!upload.uploadUrl) return;
           let uploadSucceeded = false;
           let lastUploadError = "Upload failed";
 
@@ -1022,7 +1064,7 @@ export function AddEventPage({
             }
 
             if (!uploadSucceeded && attempt < PHOTO_UPLOAD_MAX_RETRIES) {
-              await wait(PHOTO_UPLOAD_RETRY_DELAY_MS);
+              await wait(PHOTO_UPLOAD_RETRY_DELAY_MS * 2 ** attempt);
             }
           }
 
@@ -1040,7 +1082,11 @@ export function AddEventPage({
         },
       );
 
-      if (photoFilesToUpload.length && !completedPhotoIds.length) {
+      if (
+        photoFilesToUpload.length &&
+        !completedPhotoIds.length &&
+        !skippedPhotoCount
+      ) {
         throw new Error("No photos were uploaded");
       }
 
@@ -1159,7 +1205,7 @@ export function AddEventPage({
         title: "Media uploaded successfully",
         description: `${completedPhotoIds.length} photo${
           completedPhotoIds.length === 1 ? "" : "s"
-        } and ${completedReelIds.length} reel${
+        } added, ${skippedPhotoCount} already imported, and ${completedReelIds.length} reel${
           completedReelIds.length === 1 ? "" : "s"
         } added to ${preparedEvent.name}.`,
       });

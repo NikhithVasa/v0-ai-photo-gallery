@@ -4,7 +4,7 @@ const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const GOOGLE_API_SCRIPT = "https://apis.google.com/js/api.js";
 const GOOGLE_IDENTITY_SCRIPT = "https://accounts.google.com/gsi/client";
 const GOOGLE_DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
-const DRIVE_API_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000];
+const DRIVE_API_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 32_000];
 const DRIVE_FOLDER_LIST_CONCURRENCY = 4;
 const DRIVE_API_RETRYABLE_STATUSES = new Set([
   408,

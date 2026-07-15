@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { ensurePhotoSortSchema } from "@/lib/photo-sort";
 import { signedUploadUrl } from "@/lib/s3";
+import { ensureUploadSourceSchema } from "@/lib/upload-source-schema";
 import {
   requireAdminAccess,
   requireAlbumCustomerAccess,
@@ -15,6 +16,9 @@ interface UploadFileInput {
   width?: number | null;
   height?: number | null;
   originalTakenAt?: string | null;
+  sourceProvider?: "google-drive" | "google-photos";
+  sourceExternalId?: string | null;
+  sourceModifiedAt?: string | null;
 }
 
 interface UploadRequestBody {
@@ -43,6 +47,7 @@ interface EventRow {
 interface PhotoInsertRow {
   id: string;
   original_s3_key: string;
+  upload_status?: string | null;
 }
 
 function slugify(value: string) {
@@ -285,6 +290,15 @@ function originalTakenAtValue(value: unknown) {
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
 }
 
+function sourceProviderValue(value: unknown) {
+  return value === "google-drive" || value === "google-photos" ? value : null;
+}
+
+function sourceExternalIdValue(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  return value.trim().slice(0, 512);
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as UploadRequestBody;
@@ -302,7 +316,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "files are required" }, { status: 400 });
     }
 
-    await ensurePhotoSortSchema();
+    await Promise.all([ensurePhotoSortSchema(), ensureUploadSourceSchema()]);
 
     const album = await createOrGetAlbum(body);
     if (!album) {
@@ -322,6 +336,38 @@ export async function POST(request: Request) {
           let attempt = 0;
           while (true) {
             try {
+              const sourceProvider = sourceProviderValue(file.sourceProvider);
+              const sourceExternalId = sourceExternalIdValue(
+                file.sourceExternalId,
+              );
+              const existing =
+                sourceProvider && sourceExternalId
+                  ? await queryOne<PhotoInsertRow>(
+                      `
+                      SELECT id, original_s3_key, upload_status
+                      FROM photos
+                      WHERE album_event_id = $1::uuid
+                        AND source_provider = $2
+                        AND source_external_id = $3
+                        AND COALESCE(is_deleted, false) = false
+                      ORDER BY created_at DESC
+                      LIMIT 1
+                      `,
+                      [event.id, sourceProvider, sourceExternalId],
+                    )
+                  : null;
+
+              if (existing?.upload_status === "completed") {
+                return {
+                  id: existing.id,
+                  fileName: file.fileName,
+                  size: file.size,
+                  contentType: contentTypeFromFile(file),
+                  originalS3Key: existing.original_s3_key,
+                  skipped: true,
+                };
+              }
+
               const keys = buildPhotoKeys(
                 album.slug,
                 event.slug,
@@ -329,7 +375,7 @@ export async function POST(request: Request) {
                 event.source_prefix
               );
               const contentType = contentTypeFromFile(file);
-              const row = await queryOne<PhotoInsertRow>(
+              const row = existing ?? await queryOne<PhotoInsertRow>(
                 `
                 INSERT INTO photos(
                   album_id,
@@ -343,6 +389,9 @@ export async function POST(request: Request) {
                   width,
                   height,
                   original_taken_at,
+                  source_provider,
+                  source_external_id,
+                  source_modified_at,
                   original_s3_key,
                   ai_input_s3_key,
                   clean_preview_s3_key,
@@ -376,6 +425,9 @@ export async function POST(request: Request) {
                   $15,
                   $16,
                   $17,
+                  $18,
+                  $19,
+                  $20,
                   'pending',
                   'pending',
                   'pending',
@@ -399,6 +451,9 @@ export async function POST(request: Request) {
                   imageDimensionValue(file.width),
                   imageDimensionValue(file.height),
                   originalTakenAtValue(file.originalTakenAt),
+                  sourceProvider,
+                  sourceExternalId,
+                  originalTakenAtValue(file.sourceModifiedAt),
                   keys.originalS3Key,
                   keys.aiInputS3Key,
                   keys.cleanPreviewS3Key,
@@ -421,7 +476,9 @@ export async function POST(request: Request) {
             } catch (err: any) {
               attempt++;
               if (attempt > 2) throw err;
-              await new Promise((resolve) => setTimeout(resolve, 500));
+              await new Promise((resolve) =>
+                setTimeout(resolve, 500 * 2 ** (attempt - 1)),
+              );
             }
           }
         })

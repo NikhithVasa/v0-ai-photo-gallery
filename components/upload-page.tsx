@@ -81,6 +81,8 @@ interface QueuedFile {
   file: File;
   status: UploadStatus;
   source?: "google-drive" | "google-photos";
+  sourceExternalId?: string;
+  sourceModifiedAt?: string;
   s3Key?: string;
   photoId?: string;
   progress?: number;
@@ -93,7 +95,8 @@ interface PreparedUpload {
   fileName: string;
   contentType: string;
   originalS3Key: string;
-  uploadUrl: string;
+  uploadUrl?: string;
+  skipped?: boolean;
 }
 
 interface PreparedUploadsResponse {
@@ -108,6 +111,9 @@ interface UploadFileRequest {
   size: number;
   contentType: string;
   originalTakenAt?: string | null;
+  sourceProvider?: "google-drive" | "google-photos";
+  sourceExternalId?: string;
+  sourceModifiedAt?: string;
 }
 
 interface ProcessingStatusResponse {
@@ -244,6 +250,9 @@ export function UploadPage() {
             localId: crypto.randomUUID(),
             file: image.file,
             source: image.source,
+            sourceExternalId:
+              image.googleDriveMetadata?.id ?? image.googlePhotosMetadata?.id,
+            sourceModifiedAt: image.googleDriveMetadata?.modifiedTime,
             status: "queued" as UploadStatus,
           })),
           ...current,
@@ -524,6 +533,11 @@ export function UploadPage() {
         }
 
         if (uploadSucceeded) break;
+        if (attempt < 3) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1_000 * 2 ** (attempt - 1)),
+          );
+        }
       }
 
       if (!uploadSucceeded) {
@@ -546,6 +560,7 @@ export function UploadPage() {
 
     const completedPhotoIds: string[] = [];
     const completedLocalIds = new Set<string>();
+    let skippedPhotoCount = 0;
     let album: PreparedUploadsResponse["album"];
     let event: PreparedUploadsResponse["event"];
 
@@ -563,7 +578,12 @@ export function UploadPage() {
           async (index) => {
             const item = batch[index];
             if (!item) return;
-            batchFiles[index] = await photoUploadFileMetadata(item.file);
+            batchFiles[index] = {
+              ...(await photoUploadFileMetadata(item.file)),
+              sourceProvider: item.source,
+              sourceExternalId: item.sourceExternalId,
+              sourceModifiedAt: item.sourceModifiedAt,
+            };
           },
         );
 
@@ -615,6 +635,18 @@ export function UploadPage() {
           const item = batch[index];
           const upload = uploads[index];
           if (!item || !upload) return;
+          if (upload.skipped) {
+            skippedPhotoCount += 1;
+            completedLocalIds.add(item.localId);
+            updateFile(item.localId, {
+              status: "uploaded",
+              photoId: upload.id,
+              progress: 100,
+              error: undefined,
+            });
+            return;
+          }
+          if (!upload.uploadUrl) return;
           const photoId = await uploadPreparedFile(item, upload);
           if (photoId) {
             completedPhotoIds.push(photoId);
@@ -645,13 +677,20 @@ export function UploadPage() {
         );
       }
 
+      if (!completedPhotoIds.length && skippedPhotoCount) {
+        setMessage(
+          `${skippedPhotoCount} photo${skippedPhotoCount === 1 ? " was" : "s were"} already imported. Nothing new to upload.`,
+        );
+        return;
+      }
+
       if (!completedPhotoIds.length) {
         setMessage("Upload failed. Retry upload.");
         return;
       }
 
       setMessage(
-        `Upload complete: ${completedPhotoIds.length} / ${filesToUpload.length}`
+        `Upload complete: ${completedPhotoIds.length} new, ${skippedPhotoCount} already imported.`,
       );
 
       if (album?.id && event?.id) {

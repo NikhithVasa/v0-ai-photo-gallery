@@ -242,7 +242,7 @@ export function useGoogleImageImport({
 
     try {
       const selection = await importPublicGoogleDriveFolder(folderLink);
-      const importedAny = await importGoogleDriveFiles({
+      await importGoogleDriveFiles({
         files: selection.files,
         summary: selection.summary,
         emptyMessage: "No Google Drive images found in the public folder.",
@@ -250,7 +250,6 @@ export function useGoogleImageImport({
           downloadPublicGoogleDriveImage(selectedFile, selection.apiKey),
       });
 
-      if (importedAny) setGoogleDriveFolderLink("");
     } catch (error) {
       setMessage(
         error instanceof Error
