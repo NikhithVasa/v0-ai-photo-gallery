@@ -39,6 +39,7 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
     /^\/share\/[^/]+\/(?:opengraph-image|twitter-image)$/.test(pathname)
   )
     return true;
+  if (/^\/[^/]+\/card$/.test(pathname)) return true;
   if (/^\/albums\/[^/]+$/.test(pathname)) return true;
 
   return false;

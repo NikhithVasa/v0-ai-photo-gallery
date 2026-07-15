@@ -320,6 +320,18 @@ function uploadQuery(selectedEventSlug: string | null) {
   return `?event=${encodeURIComponent(selectedEventSlug)}`;
 }
 
+function normalizePhotographerRouteSegment(value: string) {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return normalized || "photographer";
+}
+
 function withShareParam(url: string, shareToken = "") {
   if (!shareToken) return url;
   const separator = url.includes("?") ? "&" : "?";
@@ -636,17 +648,31 @@ function ReelsFeed({
   reels: AlbumReel[];
   onOpenPhotos: () => void;
 }) {
-  const scrollerRef = useRef<HTMLElement | null>(null);
-  const reelCardRefs = useRef(new Map<string, HTMLElement>());
+  const viewerRef = useRef<HTMLElement | null>(null);
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const activeReelIndexRef = useRef(0);
   const reelStageRefs = useRef(new Map<string, HTMLDivElement>());
+  const wheelGestureActiveRef = useRef(false);
+  const wheelGestureTimerRef = useRef<number | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [activeReelIndex, setActiveReelIndex] = useState(0);
   const [reelTimes, setReelTimes] = useState<Record<string, number>>({});
   const [fullscreenReelId, setFullscreenReelId] = useState<string | null>(null);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handleMotionPreferenceChange = () => setPrefersReducedMotion(mediaQuery.matches);
+    handleMotionPreferenceChange();
+    mediaQuery.addEventListener("change", handleMotionPreferenceChange);
+    return () => mediaQuery.removeEventListener("change", handleMotionPreferenceChange);
+  }, []);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const active = [...reelStageRefs.current.entries()].find(([, stage]) => stage === document.fullscreenElement);
+      const active = [...reelStageRefs.current.entries()].find(
+        ([, stage]) => stage === document.fullscreenElement,
+      );
       setFullscreenReelId(active?.[0] ?? null);
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
@@ -660,139 +686,43 @@ function ReelsFeed({
     }
     await reelStageRefs.current.get(reelId)?.requestFullscreen().catch(() => undefined);
   };
-  const wheelGestureActiveRef = useRef(false);
-  const wheelGestureTimerRef = useRef<number | null>(null);
-  const scrollSyncTimerRef = useRef<number | null>(null);
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const [activeReelIndex, setActiveReelIndex] = useState(0);
 
   const setActiveReel = useCallback(
     (index: number) => {
       const lastIndex = Math.max(reels.length - 1, 0);
       const nextIndex = Math.min(Math.max(index, 0), lastIndex);
-
       activeReelIndexRef.current = nextIndex;
       setActiveReelIndex(nextIndex);
     },
     [reels.length],
   );
 
-  const scrollToReel = useCallback(
-    (index: number, behavior: ScrollBehavior) => {
-      const scroller = scrollerRef.current;
-      const reel = reels[index];
-      const card = reel ? reelCardRefs.current.get(reel.id) : null;
-      if (!scroller || !card) return;
-
-      setActiveReel(index);
-      scroller.scrollTo({
-        left: Math.max(0, card.offsetLeft - (scroller.clientWidth - card.clientWidth) / 2),
-        behavior,
-      });
-    },
-    [reels, setActiveReel],
-  );
-
-  const syncActiveReelToCenter = useCallback(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-
-    const scrollerCenter = scroller.scrollLeft + scroller.clientWidth / 2;
-    let closestIndex = activeReelIndexRef.current;
-    let closestDistance = Number.POSITIVE_INFINITY;
-
-    reels.forEach((reel, index) => {
-      const card = reelCardRefs.current.get(reel.id);
-      if (!card) return;
-
-      const cardCenter = card.offsetLeft + card.clientWidth / 2;
-      const distance = Math.abs(scrollerCenter - cardCenter);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestIndex = index;
-      }
-    });
-
-    setActiveReel(closestIndex);
-  }, [reels, setActiveReel]);
-
-  const pauseInactiveVideos = useCallback(() => {
-    reels.forEach((reel, index) => {
-      const video = videoRefs.current.get(reel.id);
-      if (!video) return;
-
-      if (index !== activeReelIndexRef.current) {
-        video.pause();
-      }
-    });
-  }, [reels]);
-
-  const playActiveVideo = useCallback(() => {
-    reels.forEach((reel, index) => {
-      const video = videoRefs.current.get(reel.id);
-      if (!video) return;
-
-      if (index === activeReelIndexRef.current) {
-        video.play().catch(() => {
-          // Autoplay can be delayed until the browser accepts muted playback.
-        });
-      } else {
-        video.pause();
-      }
-    });
-  }, [reels]);
-
   const moveByDirection = useCallback(
     (direction: 1 | -1) => {
-      const nextIndex = activeReelIndexRef.current + direction;
-
-      if (nextIndex < 0) {
-        scrollToReel(0, "smooth");
-        return;
-      }
-
-      if (nextIndex >= reels.length) {
-        scrollToReel(reels.length - 1, "smooth");
-        return;
-      }
-
-      scrollToReel(nextIndex, "smooth");
+      setActiveReel(activeReelIndexRef.current + direction);
     },
-    [reels.length, scrollToReel],
+    [setActiveReel],
   );
 
   const handleWheel = (event: ReactWheelEvent<HTMLElement>) => {
-    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX) || event.deltaY === 0) return;
     event.preventDefault();
 
     if (wheelGestureTimerRef.current !== null) {
       window.clearTimeout(wheelGestureTimerRef.current);
     }
-
     wheelGestureTimerRef.current = window.setTimeout(() => {
       wheelGestureActiveRef.current = false;
-    }, 220);
+    }, 500);
 
     if (wheelGestureActiveRef.current) return;
-
     wheelGestureActiveRef.current = true;
     moveByDirection(event.deltaY > 0 ? 1 : -1);
   };
 
-  const handleScroll = () => {
-    if (scrollSyncTimerRef.current !== null) {
-      window.clearTimeout(scrollSyncTimerRef.current);
-    }
-
-    scrollSyncTimerRef.current = window.setTimeout(syncActiveReelToCenter, 120);
-  };
-
   const handleTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
     const touch = event.touches[0];
-    touchStartRef.current = touch
-      ? { x: touch.clientX, y: touch.clientY }
-      : null;
+    touchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
   };
 
   const handleTouchMove = (event: ReactTouchEvent<HTMLElement>) => {
@@ -816,181 +746,252 @@ function ReelsFeed({
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
     if (Math.abs(deltaY) < 48 || Math.abs(deltaY) <= Math.abs(deltaX)) return;
-
     moveByDirection(deltaY < 0 ? 1 : -1);
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.target instanceof HTMLButtonElement) return;
+
+    if (event.key === "ArrowDown" || event.key === "PageDown") {
+      event.preventDefault();
+      moveByDirection(1);
+    } else if (event.key === "ArrowUp" || event.key === "PageUp") {
+      event.preventDefault();
+      moveByDirection(-1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setActiveReel(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setActiveReel(reels.length - 1);
+    }
+  };
+
+  const playActiveVideo = useCallback(() => {
+    reels.forEach((reel, index) => {
+      const video = videoRefs.current.get(reel.id);
+      if (!video) return;
+      if (index === activeReelIndexRef.current) {
+        video.play().catch(() => {
+          // Muted autoplay can still wait for the browser's media policy.
+        });
+      } else {
+        video.pause();
+      }
+    });
+  }, [reels]);
+
   useEffect(() => {
-    activeReelIndexRef.current = activeReelIndex;
     playActiveVideo();
   }, [activeReelIndex, playActiveVideo]);
 
   useEffect(() => {
     activeReelIndexRef.current = 0;
     setActiveReelIndex(0);
-    requestAnimationFrame(() => scrollToReel(0, "auto"));
-  }, [reels, scrollToReel]);
+  }, [reels]);
 
   useEffect(() => {
     return () => {
       if (wheelGestureTimerRef.current !== null) {
         window.clearTimeout(wheelGestureTimerRef.current);
       }
-      if (scrollSyncTimerRef.current !== null) {
-        window.clearTimeout(scrollSyncTimerRef.current);
-      }
-      for (const video of videoRefs.current.values()) {
-        video.pause();
-      }
+      for (const video of videoRefs.current.values()) video.pause();
     };
   }, []);
-
-  useEffect(() => {
-    pauseInactiveVideos();
-  }, [activeReelIndex, pauseInactiveVideos]);
 
   if (!reels.length) return null;
 
   return (
     <section
-      ref={scrollerRef}
+      ref={viewerRef}
+      tabIndex={0}
+      aria-label="Album reels viewer"
+      aria-roledescription="vertical reel viewer"
       onWheel={handleWheel}
-      onScroll={handleScroll}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="relative -mx-4 h-[calc(100svh-118px)] overflow-x-auto overflow-y-hidden overscroll-contain scroll-smooth snap-x snap-mandatory bg-black px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:-mx-6 sm:h-[calc(100svh-180px)] sm:px-6 lg:-mx-8 lg:px-8"
+      onTouchCancel={() => {
+        touchStartRef.current = null;
+      }}
+      onKeyDown={handleKeyDown}
+      className="relative -mx-2 h-[calc(100svh-7.25rem)] touch-none overflow-hidden bg-zinc-950 text-white outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80 sm:-mx-4 sm:h-[calc(100svh-11.25rem)] lg:-mx-6"
     >
-      <div className="flex h-full w-max items-center gap-3 py-3 pb-20 sm:gap-6 sm:py-6 sm:pb-20 lg:gap-8">
-        <div className="h-px w-[calc((100vw-min(76vw,340px))/2)] shrink-0 sm:w-[calc((100vw-min(32vw,330px))/2)] lg:w-[calc((100vw-330px)/2)]" />
-        {reels.map((reel, index) => (
-          <article
-            ref={(node) => {
-              if (node) reelCardRefs.current.set(reel.id, node);
-              else reelCardRefs.current.delete(reel.id);
-            }}
-            key={reel.id}
-            className="flex h-full w-[min(76vw,340px)] shrink-0 snap-center items-center justify-center overflow-hidden rounded-[28px] bg-transparent px-3 py-4 sm:w-[min(32vw,330px)] sm:px-6 sm:py-6 lg:w-[330px]"
-          >
-            <div
-              ref={(node) => {
-                if (node) reelStageRefs.current.set(reel.id, node);
-                else reelStageRefs.current.delete(reel.id);
-              }}
-              className={`relative flex-shrink-0 overflow-hidden bg-black shadow-[0_14px_36px_rgba(0,0,0,0.36)] ring-2 ring-zinc-300/80 [contain:content] ${fullscreenReelId === reel.id ? "h-screen w-screen rounded-none p-0 ring-0" : "rounded-[38px] p-2"}`}
-              style={fullscreenReelId === reel.id ? undefined : {
-                height: "min(calc(100% - 3.5rem), 554px)",
-                width: "min(58vw, 255px)",
-              }}
+      <div
+        className={`h-full ${prefersReducedMotion ? "" : "transition-transform duration-300 ease-out"}`}
+        style={{ transform: `translateY(-${activeReelIndex * 100}%)` }}
+      >
+        {reels.map((reel, index) => {
+          const isActive = index === activeReelIndex;
+          const isFullscreen = fullscreenReelId === reel.id;
+
+          return (
+            <article
+              key={reel.id}
+              aria-hidden={!isActive}
+              aria-label={`${reel.fileName || `Reel ${index + 1}`}, ${index + 1} of ${reels.length}`}
+              className="flex h-full w-full shrink-0 items-center justify-center bg-zinc-950"
             >
-              {fullscreenReelId !== reel.id ? <div className="pointer-events-none absolute left-1/2 top-3 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-black" /> : null}
-              {reel.videoUrl ? (
-                <video
-                  ref={(node) => {
-                    if (node) videoRefs.current.set(reel.id, node);
-                    else videoRefs.current.delete(reel.id);
-                  }}
-                  src={reel.videoUrl}
-                  className={`h-full w-full object-contain ${fullscreenReelId === reel.id ? "rounded-none" : "rounded-[30px]"}`}
-                  muted
-                  playsInline
-                  loop
-                  autoPlay={index === 0}
-                  preload={index === activeReelIndex ? "auto" : "metadata"}
-                  tabIndex={index === activeReelIndex ? 0 : -1}
-                  onTimeUpdate={(event) => setReelTimes((current) => ({ ...current, [reel.id]: event.currentTarget.currentTime }))}
-                  onClick={(event) => {
-                    if (event.currentTarget.paused) void event.currentTarget.play();
-                    else event.currentTarget.pause();
-                  }}
-                  onPlay={(event) => {
-                    if (index !== activeReelIndexRef.current) event.currentTarget.pause();
-                  }}
-                />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center rounded-[30px] px-5 text-center text-white/60">
-                  {reel.playbackStatus === "failed" ? (
-                    <X className="h-10 w-10 text-rose-200" />
-                  ) : (
-                    <Loader2 className="h-10 w-10 animate-spin" />
-                  )}
-                  <p className="mt-3 text-sm font-semibold text-white">
-                    {reel.playbackStatus === "failed" ? "Video processing failed" : "Video is processing. Please wait."}
+              <div
+                ref={(node) => {
+                  if (node) reelStageRefs.current.set(reel.id, node);
+                  else reelStageRefs.current.delete(reel.id);
+                }}
+                className={`relative h-full w-full overflow-hidden bg-black [contain:content] ${
+                  isFullscreen ? "h-screen w-screen" : ""
+                }`}
+              >
+                {reel.videoUrl ? (
+                  <video
+                    ref={(node) => {
+                      if (node) videoRefs.current.set(reel.id, node);
+                      else videoRefs.current.delete(reel.id);
+                    }}
+                    src={reel.videoUrl}
+                    className="h-full w-full bg-black object-contain"
+                    muted
+                    playsInline
+                    loop
+                    autoPlay={index === 0}
+                    preload={isActive ? "auto" : "metadata"}
+                    tabIndex={isActive ? 0 : -1}
+                    aria-label={`${reel.fileName || `Reel ${index + 1}`}. Select to play or pause.`}
+                    onTimeUpdate={(event) =>
+                      setReelTimes((current) => ({
+                        ...current,
+                        [reel.id]: event.currentTarget.currentTime,
+                      }))
+                    }
+                    onClick={(event) => {
+                      if (event.currentTarget.paused) void event.currentTarget.play();
+                      else event.currentTarget.pause();
+                    }}
+                    onPlay={(event) => {
+                      if (index !== activeReelIndexRef.current) event.currentTarget.pause();
+                    }}
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center text-white/65">
+                    {reel.playbackStatus === "failed" ? (
+                      <X className="h-10 w-10 text-rose-200" />
+                    ) : (
+                      <Loader2 className={`h-10 w-10 ${prefersReducedMotion ? "" : "animate-spin"}`} />
+                    )}
+                    <p className="mt-4 text-base font-semibold text-white">
+                      {reel.playbackStatus === "failed"
+                        ? "Video processing failed"
+                        : "Video is processing. Please wait."}
+                    </p>
+                    {reel.playbackError ? (
+                      <p className="mt-2 max-w-sm text-sm text-white/65">{reel.playbackError}</p>
+                    ) : null}
+                  </div>
+                )}
+
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/70 via-black/25 to-transparent" />
+                <button
+                  type="button"
+                  tabIndex={isActive ? 0 : -1}
+                  onClick={() => void toggleReelFullscreen(reel.id)}
+                  className="absolute right-4 top-4 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-white shadow-lg backdrop-blur transition-colors hover:bg-black/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  aria-label={isFullscreen ? "Exit fullscreen" : "View reel fullscreen"}
+                >
+                  <Maximize2 className="h-5 w-5" />
+                </button>
+
+                {reel.matches.map((match) => {
+                  const active =
+                    (reelTimes[reel.id] ?? 0) >= match.startSec &&
+                    (reelTimes[reel.id] ?? 0) <= match.endSec;
+                  if (!active) return null;
+                  const image = reel.targetImages.find((target) =>
+                    match.personId
+                      ? target.personId === match.personId
+                      : target.index === match.targetIndex,
+                  );
+                  if (!image?.url) return null;
+                  return (
+                    <button
+                      key={match.id}
+                      type="button"
+                      tabIndex={isActive ? 0 : -1}
+                      onClick={() => {
+                        const video = videoRefs.current.get(reel.id);
+                        if (video) video.currentTime = match.startSec;
+                      }}
+                      className="absolute bottom-24 left-4 z-30 h-12 w-12 overflow-hidden rounded-full border-2 border-white bg-zinc-800 shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      aria-label="Replay this person occurrence"
+                    >
+                      <Image
+                        src={image.url}
+                        alt="Person in this scene"
+                        fill
+                        sizes="48px"
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </button>
+                  );
+                })}
+
+                {reel.videoUrl && reel.playbackStatus === "processing" ? (
+                  <div className="pointer-events-none absolute left-4 top-5 z-20 rounded-full bg-black/65 px-3 py-1 text-xs font-semibold text-white shadow-lg backdrop-blur">
+                    Optimizing video
+                  </div>
+                ) : null}
+                {reel.videoUrl && reel.playbackStatus === "failed" ? (
+                  <div className="pointer-events-none absolute left-4 right-20 top-4 z-20 rounded-xl bg-rose-950/85 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur">
+                    Video optimization failed. Playing original.
+                  </div>
+                ) : null}
+
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-24 text-white sm:px-5 sm:pb-5">
+                  <p className="truncate text-base font-semibold drop-shadow-sm">
+                    {reel.fileName || `Reel ${index + 1}`}
                   </p>
-                  {reel.playbackError ? (
-                    <p className="mt-2 line-clamp-3 text-xs text-white/55">{reel.playbackError}</p>
+                  {reel.eventName ? (
+                    <p className="mt-1 truncate text-sm font-medium text-white/75">
+                      {reel.eventName}
+                    </p>
                   ) : null}
                 </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => void toggleReelFullscreen(reel.id)}
-                className="absolute right-4 top-12 z-30 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-black/65 text-white shadow-lg backdrop-blur transition hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                aria-label={fullscreenReelId === reel.id ? "Exit fullscreen" : "View reel fullscreen"}
-              >
-                <Maximize2 className="h-5 w-5" />
-              </button>
-
-              {reel.matches.map((match) => {
-                const active = (reelTimes[reel.id] ?? 0) >= match.startSec && (reelTimes[reel.id] ?? 0) <= match.endSec;
-                if (!active) return null;
-                const image = reel.targetImages.find((target) =>
-                  match.personId ? target.personId === match.personId : target.index === match.targetIndex,
-                );
-                if (!image?.url) return null;
-                return (
-                  <button
-                    key={match.id}
-                    type="button"
-                    onClick={() => {
-                      const video = videoRefs.current.get(reel.id);
-                      if (video) video.currentTime = match.startSec;
-                    }}
-                    className="absolute bottom-20 left-4 z-30 h-11 w-11 cursor-pointer overflow-hidden rounded-full border-2 border-white bg-zinc-800 shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                    aria-label="Replay this person occurrence"
-                  >
-                    <Image src={image.url} alt="Person in this scene" fill sizes="44px" className="object-cover" unoptimized />
-                  </button>
-                );
-              })}
-              {reel.videoUrl && reel.playbackStatus === "processing" ? (
-                <div className="pointer-events-none absolute right-4 top-12 z-20 rounded-full bg-black/65 px-3 py-1 text-[11px] font-semibold text-white shadow-lg backdrop-blur">
-                  Optimizing video
-                </div>
-              ) : null}
-
-              {reel.videoUrl && reel.playbackStatus === "failed" ? (
-                <div className="pointer-events-none absolute inset-x-4 top-12 z-20 rounded-2xl bg-rose-950/75 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur">
-                  Video optimization failed. Playing original.
-                </div>
-              ) : null}
-
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
-                <p className="truncate text-sm font-semibold">
-                  {reel.fileName || `Reel ${index + 1}`}
-                </p>
-                {reel.eventName && (
-                  <p className="mt-0.5 truncate text-xs font-medium text-white/65">
-                    {reel.eventName}
-                  </p>
-                )}
               </div>
-            </div>
-          </article>
-        ))}
-        <div className="h-px w-[calc((100vw-min(76vw,340px))/2)] shrink-0 sm:w-[calc((100vw-min(32vw,330px))/2)] lg:w-[calc((100vw-330px)/2)]" />
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="pointer-events-none absolute right-3 top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-2 sm:right-5">
+        <button
+          type="button"
+          onClick={() => moveByDirection(-1)}
+          disabled={activeReelIndex === 0}
+          className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-white shadow-lg backdrop-blur transition-colors hover:bg-black/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-35"
+          aria-label="Previous reel"
+        >
+          <ChevronDown className="h-5 w-5 rotate-180" />
+        </button>
+        <span className="rounded-full bg-black/65 px-2.5 py-1 text-xs font-semibold tabular-nums text-white shadow-lg backdrop-blur" aria-live="polite">
+          {activeReelIndex + 1} / {reels.length}
+        </span>
+        <button
+          type="button"
+          onClick={() => moveByDirection(1)}
+          disabled={activeReelIndex === reels.length - 1}
+          className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-black/65 text-white shadow-lg backdrop-blur transition-colors hover:bg-black/85 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-35"
+          aria-label="Next reel"
+        >
+          <ChevronDown className="h-5 w-5" />
+        </button>
       </div>
 
       <button
         type="button"
         onClick={onOpenPhotos}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 z-40 flex min-h-12 -translate-x-1/2 cursor-pointer items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-zinc-950 shadow-[0_16px_40px_rgba(0,0,0,0.32)] ring-1 ring-black/10 backdrop-blur transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-white/70"
+        className="absolute bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 z-40 flex min-h-11 -translate-x-1/2 items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-zinc-950 shadow-[0_16px_40px_rgba(0,0,0,0.32)] ring-1 ring-black/10 backdrop-blur transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
         aria-label="View all photos"
       >
-        <span className="gallery-calm-bounce flex h-6 w-6 items-center justify-center">
-          <ChevronDown className="h-5 w-5" />
-        </span>
+        <ChevronDown className={`h-5 w-5 ${prefersReducedMotion ? "" : "gallery-calm-bounce"}`} />
         <span>All photos</span>
       </button>
     </section>
@@ -3072,6 +3073,30 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
   const albumDateLabel = formatAlbumDate(album?.albumDate);
   const coverCreditName = album?.customer?.name || album?.name || "";
+  const photographerRouteSegment = normalizePhotographerRouteSegment(
+    album?.customer?.slug || coverCreditName,
+  );
+  const photographerCardHref = useMemo(() => {
+    const params = new URLSearchParams({
+      mode: isShareView ? "view" : "edit",
+      name: coverCreditName || "Photographer",
+      company: `${coverCreditName || "Photographer"} Studio`,
+      role: "Wedding and Event Photography",
+      instagram: `@${photographerRouteSegment}`,
+      website: `https://${photographerRouteSegment}.studio`,
+    });
+
+    if (album?.customer?.email) params.set("email", album.customer.email);
+    if (album?.customer?.phone) params.set("phone", album.customer.phone);
+
+    return `/${encodeURIComponent(photographerRouteSegment)}/card?${params.toString()}`;
+  }, [
+    album?.customer?.email,
+    album?.customer?.phone,
+    coverCreditName,
+    isShareView,
+    photographerRouteSegment,
+  ]);
   const { data: publicShareData, isLoading: isLoadingPublicShare } =
     useSWR<PublicShareResponse>(
       shareToken ? `/api/share/${encodeURIComponent(shareToken)}` : null,
@@ -4332,7 +4357,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               <div className="order-2 flex justify-center sm:order-1 sm:h-[340px] sm:items-center sm:justify-end">
                 <div className="whitespace-nowrap text-center text-[11px] font-medium tracking-normal text-zinc-500 sm:-rotate-90 sm:translate-x-6 lg:translate-x-8">
                   <span>Photos by</span>
-                  <span className="ml-1 text-zinc-800">{coverCreditName}</span>
+                  <Link
+                    href={photographerCardHref}
+                    className="ml-1 text-zinc-800 underline-offset-2 transition hover:underline"
+                  >
+                    {coverCreditName}
+                  </Link>
                 </div>
               </div>
 
@@ -4597,7 +4627,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                     Photographer
                   </p>
                   <h1 className="truncate text-[17px] font-semibold tracking-normal text-[#1d1d1f] sm:text-xl">
-                    {album.customer?.name || coverCreditName}
+                    <Link
+                      href={photographerCardHref}
+                      className="underline-offset-2 transition hover:underline"
+                    >
+                      {album.customer?.name || coverCreditName}
+                    </Link>
                   </h1>
                   <p className="truncate text-xs font-medium text-zinc-500">
                     {isPersonShare
