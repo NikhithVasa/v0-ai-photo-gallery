@@ -440,6 +440,12 @@ export function AddEventPage({
       !isGoogleImporting &&
       (uploadTarget === "new" ? title.trim() : selectedExistingEventSlug),
   );
+  const canUseHeaderUpload = Boolean(
+    !isUploading &&
+      !isGoogleImporting &&
+      (uploadTarget === "new" ? title.trim() : selectedExistingEventSlug) &&
+      (filesReadyToUpload.length || uploadTarget === "existing"),
+  );
   const canSaveCover = Boolean(
     coverFile &&
       !isUploading &&
@@ -1703,8 +1709,14 @@ export function AddEventPage({
             </Link>
             <button
               type="button"
-              onClick={createEvent}
-              disabled={!canCreate}
+              onClick={() => {
+                if (filesReadyToUpload.length) {
+                  void createEvent();
+                  return;
+                }
+                mediaInputRef.current?.click();
+              }}
+              disabled={!canUseHeaderUpload}
               className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
             >
               {isUploading ? (
