@@ -125,6 +125,41 @@ export async function GET(request: Request, { params }: Props) {
         JOIN customer_albums a ON a.id = pe.album_id
         WHERE COALESCE(pe.is_hidden, false) = false
         GROUP BY pe.album_id
+      ),
+
+      fallback_covers AS (
+        SELECT
+          a.id AS album_id,
+          COALESCE(
+            (
+              SELECT e.cover_photo_s3_key
+              FROM album_events e
+              WHERE e.album_id = a.id
+                AND COALESCE(e.is_deleted, false) = false
+                AND e.cover_photo_s3_key IS NOT NULL
+              ORDER BY e.sort_order ASC NULLS LAST, e.name ASC, e.id ASC
+              LIMIT 1
+            ),
+            (
+              SELECT COALESCE(
+                p.thumbnail_s3_key,
+                p.clean_preview_s3_key,
+                p.original_s3_key
+              )
+              FROM photos p
+              WHERE p.album_id = a.id
+                AND COALESCE(p.is_deleted, false) = false
+                AND p.upload_status = 'completed'
+                AND COALESCE(
+                  p.thumbnail_s3_key,
+                  p.clean_preview_s3_key,
+                  p.original_s3_key
+                ) IS NOT NULL
+              ORDER BY p.created_at ASC NULLS LAST, p.id ASC
+              LIMIT 1
+            )
+          ) AS cover_photo_s3_key
+        FROM customer_albums a
       )
 
       SELECT
@@ -136,7 +171,7 @@ export async function GET(request: Request, { params }: Props) {
         a.expires_at,
         a.is_expired,
         a.password_required,
-        a.cover_photo_s3_key,
+        COALESCE(a.cover_photo_s3_key, fc.cover_photo_s3_key) AS cover_photo_s3_key,
         COALESCE(ec.event_count, 0)::int AS event_count,
         COALESCE(pc.photo_count, 0)::int AS photo_count,
         COALESCE(pec.people_count, 0)::int AS people_count,
@@ -155,6 +190,7 @@ export async function GET(request: Request, { params }: Props) {
       LEFT JOIN event_counts ec ON ec.album_id = a.id
       LEFT JOIN photo_counts pc ON pc.album_id = a.id
       LEFT JOIN people_counts pec ON pec.album_id = a.id
+      LEFT JOIN fallback_covers fc ON fc.album_id = a.id
       ORDER BY a.created_at DESC NULLS LAST, a.name ASC
       `,
       [customerSlug, hideExpired]
