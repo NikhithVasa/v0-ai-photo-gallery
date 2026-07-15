@@ -26,8 +26,10 @@ import {
   Loader2,
   LayoutTemplate,
   Lock,
+  Instagram,
   Palette,
   Pencil,
+  Phone,
   Images,
   Plus,
   Search,
@@ -3405,6 +3407,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     isShareView,
     photographerRouteSegment,
   ]);
+  const photographerName = album?.customer?.name || coverCreditName;
+  const photographerPhone = album?.customer?.phone?.trim() || "";
+  const photographerInstagramUrl = `https://www.instagram.com/${encodeURIComponent(
+    photographerRouteSegment,
+  )}`;
   const { data: publicShareData, isLoading: isLoadingPublicShare } =
     useSWR<PublicShareResponse>(
       shareToken ? `/api/share/${encodeURIComponent(shareToken)}` : null,
@@ -3456,6 +3463,12 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     () => albumDesignTitleStyle(isShareView ? shareSettings?.designSettings : album?.designSettings),
     [album?.designSettings, isShareView, shareSettings?.designSettings],
   );
+  const showMobileGalleryActions =
+    isCoverDismissed &&
+    activeTab === "photos" &&
+    !selectedPerson &&
+    !isPersonShare &&
+    !hideAi;
 
   useEffect(() => {
     if (autoReelsTabAppliedRef.current || !currentScopeHasReels || selectedPerson || isPersonShare) {
@@ -5317,7 +5330,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-2 py-3 sm:px-4 sm:py-8 lg:px-6">
+      <div className="mx-auto max-w-7xl px-2 pb-28 pt-3 sm:px-4 sm:pb-28 sm:pt-8 lg:px-6">
         {isShareView && isShareExpiryBannerVisible && shareExpiryLabel && (
           <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-[0_8px_22px_rgba(120,80,20,0.12)]">
             <p className="font-medium">
@@ -5656,11 +5669,73 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         />
       )}
 
-      {isCoverDismissed &&
-        activeTab === "photos" &&
-        !selectedPerson &&
-        !isPersonShare &&
-        !hideAi && (
+      {isCoverDismissed && (
+        <footer
+          className={`fixed left-0 right-0 z-30 px-2 transition duration-300 ease-out sm:bottom-3 sm:px-5 ${
+            showMobileGalleryActions ? "bottom-[4.75rem]" : "bottom-2"
+          } ${
+            isNavHidden
+              ? "pointer-events-none translate-y-[calc(100%+5rem)] opacity-0"
+              : "translate-y-0 opacity-100"
+          }`}
+          aria-label="Gallery footer"
+        >
+          <div
+            className="mx-auto flex min-h-12 max-w-7xl items-center justify-between gap-3 rounded-[22px] border border-zinc-200/80 bg-white/[0.86] px-3 py-2 shadow-[0_14px_40px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:px-4"
+            style={{ backgroundColor: galleryNavColor }}
+          >
+            <Link
+              href="/"
+              className="shrink-0 font-serif text-base font-bold text-[#1d1d1f] transition hover:text-zinc-600 sm:text-lg"
+            >
+              SaathiDesk
+            </Link>
+
+            <div className="flex min-w-0 items-center gap-1">
+              <Link
+                href={photographerCardHref}
+                className="max-w-[11rem] truncate rounded-full px-2 py-1.5 text-sm font-semibold text-zinc-800 transition hover:bg-black/5 sm:max-w-xs sm:px-3"
+                aria-label={`View ${photographerName} visiting card`}
+              >
+                {photographerName}
+              </Link>
+
+              {photographerPhone ? (
+                <a
+                  href={`tel:${photographerPhone}`}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-600 transition hover:bg-black/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+                  aria-label={`Call ${photographerName}`}
+                  title={`Call ${photographerPhone}`}
+                >
+                  <Phone className="h-4 w-4" />
+                </a>
+              ) : (
+                <Link
+                  href={photographerCardHref}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-600 transition hover:bg-black/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+                  aria-label={`View ${photographerName} contact details`}
+                  title="View contact details"
+                >
+                  <Phone className="h-4 w-4" />
+                </Link>
+              )}
+
+              <a
+                href={photographerInstagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-600 transition hover:bg-black/5 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20"
+                aria-label={`Open ${photographerName} on Instagram`}
+                title={`@${photographerRouteSegment}`}
+              >
+                <Instagram className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
+        </footer>
+      )}
+
+      {showMobileGalleryActions && (
         <div
           className={`fixed bottom-4 left-1/2 z-40 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 gap-1 rounded-full bg-zinc-950/92 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 sm:hidden ${
             isShareView ? "grid-cols-2" : "grid-cols-4"
