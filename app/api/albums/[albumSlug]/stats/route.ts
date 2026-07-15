@@ -102,29 +102,22 @@ export async function GET(request: Request, { params }: Props) {
             )
             AND (
               $2::uuid[] IS NULL
+              OR $3::boolean = false
               OR (
                 (
                   SELECT COUNT(DISTINCT scoped_pp.person_id)
                   FROM photo_people scoped_pp
                   WHERE scoped_pp.photo_id = p.id
                     AND scoped_pp.person_id = ANY($2::uuid[])
-                ) = (
+                ) = cardinality($2::uuid[])
+                AND (
                   SELECT COUNT(DISTINCT scoped_pp.person_id)
                   FROM photo_people scoped_pp
                   JOIN people scoped_pe
                     ON scoped_pe.id = scoped_pp.person_id
                    AND COALESCE(scoped_pe.is_hidden, false) = false
                   WHERE scoped_pp.photo_id = p.id
-                )
-                AND (
-                  $3::boolean = false
-                  OR (
-                    SELECT COUNT(DISTINCT scoped_pp.person_id)
-                    FROM photo_people scoped_pp
-                    WHERE scoped_pp.photo_id = p.id
-                      AND scoped_pp.person_id = ANY($2::uuid[])
-                  ) = cardinality($2::uuid[])
-                )
+                ) = cardinality($2::uuid[])
               )
             )
             AND COALESCE(p.is_deleted, false) = false
@@ -204,29 +197,22 @@ export async function GET(request: Request, { params }: Props) {
             )
             AND (
               $2::uuid[] IS NULL
+              OR $3::boolean = false
               OR (
                 (
                   SELECT COUNT(DISTINCT scoped_pp.person_id)
                   FROM photo_people scoped_pp
                   WHERE scoped_pp.photo_id = p.id
                     AND scoped_pp.person_id = ANY($2::uuid[])
-                ) = (
+                ) = cardinality($2::uuid[])
+                AND (
                   SELECT COUNT(DISTINCT scoped_pp.person_id)
                   FROM photo_people scoped_pp
                   JOIN people scoped_pe
                     ON scoped_pe.id = scoped_pp.person_id
                    AND COALESCE(scoped_pe.is_hidden, false) = false
                   WHERE scoped_pp.photo_id = p.id
-                )
-                AND (
-                  $3::boolean = false
-                  OR (
-                    SELECT COUNT(DISTINCT scoped_pp.person_id)
-                    FROM photo_people scoped_pp
-                    WHERE scoped_pp.photo_id = p.id
-                      AND scoped_pp.person_id = ANY($2::uuid[])
-                  ) = cardinality($2::uuid[])
-                )
+                ) = cardinality($2::uuid[])
               )
             )
             AND COALESCE(is_deleted, false) = false

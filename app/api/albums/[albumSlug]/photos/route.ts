@@ -173,24 +173,11 @@ export async function GET(request: Request, { params }: Props) {
               WHERE pp.photo_id = p.id
                 AND pp.person_id = ANY($3::uuid[])
             ) >= 2
-            WHEN $4::text = 'subset' THEN (
-              SELECT COUNT(DISTINCT pp.person_id)
+            WHEN $4::text = 'subset' THEN EXISTS (
+              SELECT 1
               FROM photo_people pp
               WHERE pp.photo_id = p.id
                 AND pp.person_id = ANY($3::uuid[])
-            ) >= 1
-            AND (
-              SELECT COUNT(DISTINCT pp.person_id)
-              FROM photo_people pp
-              WHERE pp.photo_id = p.id
-                AND pp.person_id = ANY($3::uuid[])
-            ) = (
-              SELECT COUNT(DISTINCT pp.person_id)
-              FROM photo_people pp
-              JOIN people pe
-                ON pe.id = pp.person_id
-               AND COALESCE(pe.is_hidden, false) = false
-              WHERE pp.photo_id = p.id
             )
             ELSE EXISTS (
               SELECT 1
