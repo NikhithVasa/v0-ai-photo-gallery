@@ -723,7 +723,7 @@ function ReelsFeed({
     [setActiveReel],
   );
 
-  const handleWheel = (event: ReactWheelEvent<HTMLElement>) => {
+  const handleWheel = useCallback((event: WheelEvent) => {
     if (Math.abs(event.deltaY) <= Math.abs(event.deltaX) || event.deltaY === 0) return;
     event.preventDefault();
 
@@ -737,7 +737,15 @@ function ReelsFeed({
     if (wheelGestureActiveRef.current) return;
     wheelGestureActiveRef.current = true;
     moveByDirection(event.deltaY > 0 ? 1 : -1);
-  };
+  }, [moveByDirection]);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    viewer.addEventListener("wheel", handleWheel, { passive: false });
+    return () => viewer.removeEventListener("wheel", handleWheel);
+  }, [handleWheel]);
 
   const handleTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
     const touch = event.touches[0];
@@ -826,7 +834,6 @@ function ReelsFeed({
       tabIndex={0}
       aria-label="Album reels viewer"
       aria-roledescription="vertical reel viewer"
-      onWheel={handleWheel}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -875,12 +882,13 @@ function ReelsFeed({
                     preload={isActive ? "auto" : "metadata"}
                     tabIndex={isActive ? 0 : -1}
                     aria-label={`${reel.fileName || `Reel ${index + 1}`}. Select to play or pause.`}
-                    onTimeUpdate={(event) =>
+                    onTimeUpdate={(event) => {
+                      const currentTime = event.currentTarget.currentTime;
                       setReelTimes((current) => ({
                         ...current,
-                        [reel.id]: event.currentTarget.currentTime,
-                      }))
-                    }
+                        [reel.id]: currentTime,
+                      }));
+                    }}
                     onClick={(event) => {
                       if (event.currentTarget.paused) void event.currentTarget.play();
                       else event.currentTarget.pause();

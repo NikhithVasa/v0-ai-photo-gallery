@@ -1,6 +1,6 @@
 import type { CompletedPart } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
-import { queryOne } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import { requireAlbumCustomerAccess } from "@/lib/auth-access";
 import {
   abortMultipartUpload,
@@ -147,6 +147,17 @@ export async function POST(request: Request, { params }: Props) {
 
     if (body.action === "abort") {
       await abortMultipartUpload({ key: video.original_s3_key, uploadId });
+      await query(
+        `
+        UPDATE videos
+        SET is_deleted = true,
+            updated_at = now()
+        WHERE id = $1::uuid
+          AND original_s3_key = $2
+          AND COALESCE(is_deleted, false) = false
+        `,
+        [video.id, video.original_s3_key],
+      );
       return NextResponse.json({ ok: true });
     }
 
