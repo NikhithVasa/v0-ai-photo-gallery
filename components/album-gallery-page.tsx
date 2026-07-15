@@ -1834,6 +1834,12 @@ interface ShareLinkSummary {
   peopleCount: number;
   onlyPerson: boolean;
   allowDownloads: boolean;
+  hideAi: boolean;
+  watermarkEnabled: boolean;
+  watermarkText: string | null;
+  watermarkMode: AlbumShareSettings["watermarkMode"];
+  watermarkPositions: string[];
+  allowEventTabs: boolean;
   backgroundColor: string;
   expiresAt: string | null;
   hasPasscode: boolean;
@@ -1857,6 +1863,11 @@ function ShareLinksManager({
   );
   const [deletingToken, setDeletingToken] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [editingLink, setEditingLink] = useState<ShareLinkSummary | null>(null);
+  const [editPasscode, setEditPasscode] = useState("");
+  const [clearEditPasscode, setClearEditPasscode] = useState(false);
+  const [editStatus, setEditStatus] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const links = data?.links ?? [];
 
@@ -1864,6 +1875,87 @@ function ShareLinksManager({
     await navigator.clipboard?.writeText(link.url);
     setCopiedToken(link.token);
     window.setTimeout(() => setCopiedToken(null), 1500);
+  };
+
+  const openEditor = (link: ShareLinkSummary) => {
+    setEditingLink({ ...link, watermarkPositions: [...link.watermarkPositions] });
+    setEditPasscode("");
+    setClearEditPasscode(false);
+    setEditStatus("");
+  };
+
+  const updateEditingLink = (updates: Partial<ShareLinkSummary>) => {
+    setEditingLink((current) => current ? { ...current, ...updates } : current);
+  };
+
+  const toggleEditWatermarkPosition = (position: string) => {
+    if (!editingLink) return;
+    const positions = editingLink.watermarkPositions.includes(position)
+      ? editingLink.watermarkPositions.filter((item) => item !== position)
+      : [...editingLink.watermarkPositions, position];
+    updateEditingLink({
+      watermarkPositions: positions.length ? positions : ["bottom_right"],
+    });
+  };
+
+  const saveEditedLink = async () => {
+    if (!editingLink || isSavingEdit) return;
+    if (editPasscode && editPasscode.length < 4) {
+      setEditStatus("Passcode must be at least 4 characters");
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setEditStatus("");
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/share/links?token=${encodeURIComponent(editingLink.token)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: editingLink.name,
+            onlyPerson: editingLink.onlyPerson,
+            allowDownloads: editingLink.allowDownloads,
+            hideAi: editingLink.hideAi,
+            watermarkEnabled: editingLink.watermarkEnabled,
+            watermarkText: editingLink.watermarkText,
+            watermarkMode: editingLink.watermarkMode,
+            watermarkPositions: editingLink.watermarkPositions,
+            allowEventTabs: editingLink.allowEventTabs,
+            backgroundColor: editingLink.backgroundColor,
+            expiresAt: editingLink.expiresAt,
+            passcode: editPasscode || undefined,
+            clearPasscode: clearEditPasscode,
+          }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        link?: ShareLinkSummary;
+        error?: string;
+      };
+      if (!response.ok || !payload.link) {
+        throw new Error(payload.error || "Failed to update share link");
+      }
+
+      await mutate(
+        (current) => current
+          ? {
+              links: current.links.map((link) =>
+                link.token === payload.link?.token ? payload.link : link,
+              ),
+            }
+          : current,
+        { revalidate: false },
+      );
+      setEditingLink(null);
+    } catch (error) {
+      setEditStatus(
+        error instanceof Error ? error.message : "Failed to update share link",
+      );
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const deleteLink = async (link: ShareLinkSummary) => {
@@ -2009,6 +2101,16 @@ function ShareLinksManager({
                   type="button"
                   variant="ghost"
                   size="icon"
+                  onClick={() => openEditor(link)}
+                  aria-label="Edit link settings"
+                  className="rounded-xl"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => deleteLink(link)}
                   disabled={deletingToken === link.token}
                   aria-label="Delete link"
@@ -2025,6 +2127,197 @@ function ShareLinksManager({
           ))}
         </ul>
       )}
+
+      <Dialog
+        open={Boolean(editingLink)}
+        onOpenChange={(open) => {
+          if (!open && !isSavingEdit) setEditingLink(null);
+        }}
+      >
+        <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit share link</DialogTitle>
+            <DialogDescription>
+              Changes apply to this existing URL immediately.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingLink && (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-share-name">Link name</Label>
+                <Input
+                  id="edit-share-name"
+                  value={editingLink.name}
+                  onChange={(event) => updateEditingLink({ name: event.target.value })}
+                  maxLength={120}
+                />
+              </div>
+
+              {editingLink.type === "person" && (
+                <div className="flex items-center justify-between gap-4 rounded-[18px] border border-zinc-200 bg-zinc-50 p-3">
+                  <div>
+                    <Label htmlFor="edit-share-only">Only them</Label>
+                    <p className="text-xs text-zinc-500">Exclude photos containing other people.</p>
+                  </div>
+                  <Switch
+                    id="edit-share-only"
+                    checked={editingLink.onlyPerson}
+                    onCheckedChange={(onlyPerson) => updateEditingLink({ onlyPerson })}
+                  />
+                </div>
+              )}
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="flex items-center justify-between gap-3 rounded-[18px] border border-zinc-200 bg-zinc-50 p-3">
+                  <Label htmlFor="edit-share-downloads">Allow downloads</Label>
+                  <Switch
+                    id="edit-share-downloads"
+                    checked={editingLink.allowDownloads}
+                    onCheckedChange={(allowDownloads) => updateEditingLink({ allowDownloads })}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-[18px] border border-zinc-200 bg-zinc-50 p-3">
+                  <Label htmlFor="edit-share-hide-ai">Hide AI</Label>
+                  <Switch
+                    id="edit-share-hide-ai"
+                    checked={editingLink.hideAi}
+                    onCheckedChange={(hideAi) => updateEditingLink({ hideAi })}
+                  />
+                </div>
+                {editingLink.type === "person" && (
+                  <div className="flex items-center justify-between gap-3 rounded-[18px] border border-zinc-200 bg-zinc-50 p-3 sm:col-span-2">
+                    <Label htmlFor="edit-share-events">Allow event tabs</Label>
+                    <Switch
+                      id="edit-share-events"
+                      checked={editingLink.allowEventTabs}
+                      onCheckedChange={(allowEventTabs) => updateEditingLink({ allowEventTabs })}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 rounded-[18px] border border-zinc-200 bg-zinc-50 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="edit-share-watermark">Watermark</Label>
+                  <Switch
+                    id="edit-share-watermark"
+                    checked={editingLink.watermarkEnabled}
+                    onCheckedChange={(watermarkEnabled) => updateEditingLink({ watermarkEnabled })}
+                  />
+                </div>
+                {editingLink.watermarkEnabled && (
+                  <>
+                    <Input
+                      value={editingLink.watermarkText ?? ""}
+                      onChange={(event) => updateEditingLink({ watermarkText: event.target.value })}
+                      placeholder="Watermark text"
+                      maxLength={120}
+                    />
+                    <select
+                      value={editingLink.watermarkMode}
+                      onChange={(event) => updateEditingLink({
+                        watermarkMode: event.target.value as AlbumShareSettings["watermarkMode"],
+                      })}
+                      className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                      aria-label="Watermark mode"
+                    >
+                      <option value="corners">Corners</option>
+                      <option value="full">Full image</option>
+                    </select>
+                    {editingLink.watermarkMode === "corners" && (
+                      <div className="grid grid-cols-2 gap-2 text-xs text-zinc-600">
+                        {cornerOptions.map((position) => (
+                          <label key={position.id} className="flex items-center gap-2">
+                            <Checkbox
+                              checked={editingLink.watermarkPositions.includes(position.id)}
+                              onCheckedChange={() => toggleEditWatermarkPosition(position.id)}
+                            />
+                            {position.label}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Background</Label>
+                <div className="grid grid-cols-9 gap-2">
+                  {SHARE_BACKGROUND_COLORS.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => updateEditingLink({ backgroundColor: color.value })}
+                      aria-label={`${color.label} background`}
+                      aria-pressed={editingLink.backgroundColor === color.value}
+                      className={`aspect-square rounded-full ring-offset-2 ${
+                        editingLink.backgroundColor === color.value
+                          ? "ring-2 ring-zinc-950"
+                          : "ring-1 ring-black/10"
+                      }`}
+                      style={{ backgroundColor: color.value }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-share-expiry">Expires on</Label>
+                  <Input
+                    id="edit-share-expiry"
+                    type="date"
+                    min={todayIsoDate()}
+                    value={editingLink.expiresAt ?? ""}
+                    onChange={(event) => updateEditingLink({ expiresAt: event.target.value || null })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-share-passcode">
+                    {editingLink.hasPasscode ? "New passcode" : "Passcode"}
+                  </Label>
+                  <Input
+                    id="edit-share-passcode"
+                    value={editPasscode}
+                    onChange={(event) => setEditPasscode(event.target.value)}
+                    placeholder={editingLink.hasPasscode ? "Leave blank to keep" : "Optional"}
+                    maxLength={64}
+                  />
+                </div>
+              </div>
+
+              {editingLink.hasPasscode && (
+                <label className="flex items-center gap-2 text-sm text-zinc-600">
+                  <Checkbox
+                    checked={clearEditPasscode}
+                    onCheckedChange={(checked) => setClearEditPasscode(checked === true)}
+                  />
+                  Remove current passcode
+                </label>
+              )}
+
+              {editStatus && <p className="text-sm text-rose-600">{editStatus}</p>}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditingLink(null)}
+              disabled={isSavingEdit}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={saveEditedLink} disabled={isSavingEdit}>
+              {isSavingEdit && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
