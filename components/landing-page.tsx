@@ -35,8 +35,7 @@ import {
   type Variants,
 } from "framer-motion";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
-import { AvalHero } from "@/components/aval-hero";
+import { ArcGalleryHero } from "@/components/arc-gallery-hero";
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
 import { BentoGrid } from "@/components/ui/bento-grid";
 import { BorderBeam } from "@/components/ui/border-beam";
@@ -581,7 +580,7 @@ export function LandingPage({ vibrant = false }: { vibrant?: boolean }) {
     >
       <style>{vibrantLandingStyles}</style>
       <MarketingHeader />
-      <Hero reveal={reveal} />
+      <ArcGalleryHero />
       <AudienceWorkflow />
       <ProductTour reveal={reveal} />
       <ProductStories reveal={reveal} />
@@ -601,7 +600,7 @@ export function LegacyLandingPage() {
   return (
     <main className="min-h-screen bg-[#F7F5F0] text-[#1C1B18] antialiased">
       <LegacyMarketingHeader />
-      <LegacyHero reveal={reveal} />
+      <ArcGalleryHero />
       <AiDiscoveryShowcase reveal={reveal} stagger={stagger} />
       <MomentsCarousel reveal={reveal} />
       <LegacyGalleryPreview reveal={reveal} stagger={stagger} />
@@ -660,157 +659,6 @@ export function LegacyMarketingHeader() {
   );
 }
 
-const heroPetals = [
-  { left: "8%", top: "18%", delay: 0.4, duration: 18, scale: 0.85 },
-  { left: "18%", top: "62%", delay: 2.8, duration: 22, scale: 1.05 },
-  { left: "34%", top: "24%", delay: 1.6, duration: 19, scale: 0.7 },
-  { left: "58%", top: "14%", delay: 3.4, duration: 24, scale: 1.2 },
-  { left: "72%", top: "72%", delay: 0.9, duration: 21, scale: 0.9 },
-  { left: "86%", top: "34%", delay: 2.1, duration: 20, scale: 0.75 },
-];
-
-const heroParticles = [
-  { left: "12%", top: "38%", delay: 0.2 },
-  { left: "24%", top: "78%", delay: 1.3 },
-  { left: "43%", top: "18%", delay: 2.4 },
-  { left: "66%", top: "52%", delay: 0.9 },
-  { left: "79%", top: "21%", delay: 1.8 },
-  { left: "91%", top: "67%", delay: 2.9 },
-];
-
-function LegacyHero({ reveal }: { reveal: MotionProps }) {
-  const prefersReducedMotion = useReducedMotion();
-
-  return (
-    <section className="relative isolate min-h-[calc(100svh-10rem)] overflow-hidden bg-[#F6F0E9] text-[#1F1B16] sm:min-h-[calc(100svh-9rem)]">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-30 overflow-hidden opacity-[0.72] brightness-[1.04] saturate-[0.9] contrast-[1.02]"
-      >
-        <AvalHero />
-      </div>
-
-      <div
-        aria-hidden
-        className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(246,240,233,0.88)_0%,rgba(246,240,233,0.62)_54%,rgba(22,17,12,0.52)_100%)]"
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_50%_18%,rgba(232,199,126,0.28)_0%,rgba(232,199,126,0)_38%),radial-gradient(ellipse_at_18%_78%,rgba(89,38,47,0.2)_0%,rgba(89,38,47,0)_32%),linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_48%,rgba(0,0,0,0.42)_100%)]"
-      />
-
-      {!prefersReducedMotion ? (
-        <motion.div
-          aria-hidden
-          className="pointer-events-none absolute -left-24 top-0 -z-10 h-full w-[42rem] rotate-[-13deg] bg-[linear-gradient(90deg,rgba(255,247,226,0)_0%,rgba(255,247,226,0.42)_38%,rgba(216,177,101,0.2)_50%,rgba(255,247,226,0)_72%)] blur-2xl"
-          animate={{ x: ["-10%", "18%", "-6%"], opacity: [0.25, 0.72, 0.3] }}
-          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-        />
-      ) : null}
-
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(116deg,rgba(255,248,233,0.18)_0%,rgba(255,248,233,0.04)_26%,rgba(255,248,233,0)_42%),repeating-linear-gradient(100deg,rgba(89,38,47,0.08)_0px,rgba(89,38,47,0.08)_1px,rgba(255,255,255,0)_1px,rgba(255,255,255,0)_10px)] opacity-45 mix-blend-multiply"
-      />
-
-      {!prefersReducedMotion ? (
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-          {heroPetals.map((petal, index) => (
-            <motion.span
-              key={`petal-${index}`}
-              className="absolute h-3 w-1.5 rounded-full bg-[#E8CFC3]/70 shadow-[0_0_18px_rgba(255,235,202,0.25)]"
-              style={{ left: petal.left, top: petal.top, scale: petal.scale }}
-              animate={{
-                x: [0, 24, -18, 12],
-                y: [0, -28, 30, 0],
-                rotate: [0, 42, -24, 12],
-                opacity: [0.16, 0.6, 0.26, 0.16],
-              }}
-              transition={{
-                duration: petal.duration,
-                delay: petal.delay,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
-          ))}
-
-          {heroParticles.map((particle, index) => (
-            <motion.span
-              key={`particle-${index}`}
-              className="absolute h-1 w-1 rounded-full bg-[#F4D795]/75"
-              style={{ left: particle.left, top: particle.top }}
-              animate={{ opacity: [0.12, 0.65, 0.18], y: [0, -18, 0] }}
-              transition={{
-                duration: 8 + index,
-                delay: particle.delay,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      <div className="relative mx-auto flex min-h-[calc(100svh-10rem)] max-w-7xl items-start justify-center px-5 pb-12 pt-20 text-center sm:min-h-[calc(100svh-9rem)] sm:px-8 sm:pt-28 lg:pt-32">
-        <motion.div {...reveal} className="mx-auto max-w-[880px]">
-          <p className="text-xs font-medium uppercase tracking-[0.28em] text-[#B88A2D]">
-            Private AI wedding galleries
-          </p>
-          <h1 className="mt-7 [font-family:var(--font-editorial),Georgia,serif] text-[4.25rem] font-medium leading-[0.96] tracking-normal text-[#59262F] [text-wrap:balance] sm:text-[4.75rem]">
-            SaathiDesk
-          </h1>
-          <p className="mx-auto mt-3 max-w-[760px] [font-family:var(--font-editorial),Georgia,serif] text-[2.65rem] font-light italic leading-[0.98] tracking-normal text-[#1F1B16]/65 [text-wrap:balance] sm:text-[3.4rem]">
-            A cinematic gallery where every face, feeling, and frame stays
-            beautifully findable.
-          </p>
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-[#2F2924]/78 sm:text-lg">
-            Curate wedding albums with semantic search, people filters, AI
-            finishing, private sharing, and downloads wrapped in a polished
-            ivory, gold, and black delivery experience.
-          </p>
-
-          <AiPrivacyNotice
-            className="mt-6 max-w-2xl border-[#E8C77E]/35 bg-[#0E0C09]/55 text-[#F7EBDD] backdrop-blur-md"
-            iconClassName="text-[#E8C77E]"
-          />
-
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/login"
-              className="group inline-flex h-12 items-center gap-2 rounded-full bg-[#F4D795] px-6 text-sm font-semibold text-[#120F0A] shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition duration-500 hover:bg-[#FFE8A8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/60"
-            >
-              Open your album
-              <ArrowRight
-                className="h-4 w-4 transition-transform duration-500 group-hover:translate-x-1"
-                strokeWidth={1.75}
-              />
-            </Link>
-
-            <Link
-              href="/login?mode=signup"
-              className="inline-flex h-12 items-center rounded-full border border-[#F4D795]/45 bg-[#090806]/40 px-6 text-sm font-medium text-[#FFF8EC] backdrop-blur-md transition duration-500 hover:border-[#F4D795]/80 hover:bg-[#090806]/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/45"
-            >
-              Sign Up
-            </Link>
-
-            <Link
-              href="/docs"
-              className="inline-flex h-12 items-center rounded-full border border-[#FFF8EC]/25 bg-[#FFF8EC]/10 px-6 text-sm font-medium text-[#FFF8EC] backdrop-blur-md transition duration-500 hover:bg-[#FFF8EC]/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4D795]/45"
-            >
-              Read the docs
-            </Link>
-          </div>
-        </motion.div>
-      </div>
-
-      <div
-        aria-hidden
-        className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#F7F5F0] via-[#F7F5F0]/55 to-transparent"
-      />
-    </section>
-  );
-}
 
 function LegacyGalleryPreview({
   reveal,
@@ -1281,50 +1129,6 @@ export function MarketingHeader() {
   );
 }
 
-function Hero({ reveal }: { reveal: MotionProps }) {
-  return (
-    <section className="relative overflow-hidden bg-[#EDE8DF] pb-16 pt-14 text-[#171411] sm:pb-24 sm:pt-20">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 overflow-hidden opacity-[0.24] saturate-[0.7]"
-      >
-        <AvalHero />
-      </div>
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[#EDE8DF]/65"
-      />
-      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_82%_8%,rgba(202,161,110,0.34),transparent_30%),radial-gradient(circle_at_8%_72%,rgba(112,138,116,0.22),transparent_28%)]" />
-      <div className="relative mx-auto max-w-[92rem] px-5 sm:px-8">
-        <motion.div {...reveal} className="mx-auto max-w-6xl text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#725C3D]">The wedding photo workspace</p>
-          <h1 className="mt-5 font-serif text-[clamp(3.5rem,9vw,8.5rem)] leading-[0.84] tracking-[-0.055em]">One home for the<br /><span className="italic text-[#744E43]">whole celebration.</span></h1>
-          <p className="mx-auto mt-7 max-w-2xl text-base leading-7 text-[#5E564D] sm:text-xl sm:leading-8">Bring in every event, find the people and moments that matter, review the strongest frames, and deliver a private gallery without breaking the story across tools.</p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link href="/login?mode=signup" className="group inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-[#171411] px-6 text-sm font-semibold text-white transition-colors hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#171411]/40">Start free <ArrowRight className="h-4 w-4 transition-transform motion-reduce:transition-none group-hover:translate-x-0.5" /></Link>
-            <a href="#product-tour" className="inline-flex h-12 cursor-pointer items-center rounded-full border border-black/15 bg-white/55 px-6 text-sm font-semibold transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-black/25">Tour the workspace</a>
-          </div>
-        </motion.div>
-        <motion.div {...reveal} className="mx-auto mt-12 max-w-7xl sm:mt-16">
-          <SoftwareWindow title="Aanya & Dev · Wedding weekend" status="AI processing complete">
-            <div className="grid min-h-[420px] grid-cols-[4.5rem_1fr] bg-[#F4F1EB] sm:grid-cols-[12rem_1fr] lg:min-h-[610px]">
-              <DemoSidebar active="Photos" />
-              <div className="min-w-0 p-3 sm:p-6">
-                <div className="flex flex-col gap-3 border-b border-black/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div><p className="text-xs font-semibold text-[#80766B]">Reception</p><h2 className="mt-1 text-xl font-semibold sm:text-2xl">All moments</h2></div>
-                  <div className="flex gap-2"><DemoControl icon={Search} label="Search" /><DemoControl icon={Users} label="People" /></div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-                  {["/reception.png", "/laugh_1.png", "/glow_1.png", "/First%20look.png", "/filter_1.png", "/collage.png", "/download.png", "/hero_one.png"].map((src, index) => <div key={src} className={`relative overflow-hidden rounded-lg bg-[#D8D1C7] ${index === 0 || index === 5 ? "aspect-[4/5] sm:row-span-2" : "aspect-square"}`}><Image src={src} alt="" fill sizes="(min-width:640px) 22vw, 45vw" className="object-cover" /><span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-[10px] font-medium text-white">{index < 3 ? "Keeper" : "Ready"}</span></div>)}
-                </div>
-              </div>
-            </div>
-          </SoftwareWindow>
-        </motion.div>
-      </div>
-    </section>
-  );
-}
 
 function SoftwareWindow({ title, status, children }: { title: string; status: string; children: ReactNode }) {
   return <div className="overflow-hidden rounded-[1.25rem] border border-black/15 bg-[#1D1B19] shadow-[0_45px_100px_-48px_rgba(23,20,17,0.65)] sm:rounded-[2rem]"><div className="flex min-h-14 items-center gap-3 border-b border-white/10 px-4 text-white sm:px-6"><div aria-hidden className="flex gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-[#D27B68]" /><span className="h-2.5 w-2.5 rounded-full bg-[#D7AF62]" /><span className="h-2.5 w-2.5 rounded-full bg-[#79977D]" /></div><span className="min-w-0 flex-1 truncate text-xs font-semibold sm:text-sm">{title}</span><span className="hidden items-center gap-1.5 text-xs text-white/60 sm:flex"><CheckCircle2 className="h-3.5 w-3.5 text-[#A7C6A9]" />{status}</span></div>{children}</div>;
