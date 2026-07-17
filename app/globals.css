@@ -264,6 +264,12 @@ body[data-app-click-loading='true']::after {
   width: 92.64%;
 }
 
+@media (max-width: 479px) {
+  .hero-browser-card {
+    width: 84.5%;
+  }
+}
+
 @media (min-width: 800px) {
   .hero-browser-card {
     width: 80%;

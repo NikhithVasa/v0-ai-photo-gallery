@@ -144,7 +144,7 @@ export function HeroBrowserStack() {
     <div
       ref={containerRef}
       aria-hidden="true"
-      className="relative mt-10 w-full max-w-sm pointer-events-none"
+      className="pointer-events-none relative mt-16 w-full max-w-sm md:w-[115%] md:max-w-none"
     >
       {cards.map((card, rank) => (
         <div
