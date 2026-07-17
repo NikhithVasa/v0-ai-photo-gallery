@@ -259,3 +259,25 @@ body[data-app-click-loading='true']::after {
   animation: app-click-loading-bar 1.2s ease-in-out infinite;
   pointer-events: none;
 }
+
+.hero-browser-card {
+  width: 92.64%;
+}
+
+@media (min-width: 800px) {
+  .hero-browser-card {
+    width: 80%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-browser-card {
+    width: 105.57%;
+  }
+}
+
+@media (min-width: 1440px) {
+  .hero-browser-card {
+    width: 99.44%;
+  }
+}
