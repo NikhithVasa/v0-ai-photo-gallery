@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { HeroBrowserStack } from "@/components/hero-browser-stack";
 
 const outcomes = [
   {
@@ -82,6 +83,7 @@ export function FreshHomepage() {
               From the first import to the private gallery, SaathiDesk keeps the
               work clear and the photographs central.
             </p>
+            <HeroBrowserStack />
           </div>
 
           <div className="md:col-span-8 md:col-start-5 lg:col-span-8 lg:col-start-5">

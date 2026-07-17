@@ -163,24 +163,24 @@ export function HeroBrowserStack() {
           >
             <path
               d="M14.89 14.798 1.269 289.628l13.298 13.234 456.868-.102-.632-288.293-13.4-13.24L14.89 14.799Z"
-              fill="#0c0a09"
-              stroke="#fff"
+              fill="#fff"
+              stroke="#0c0a09"
               strokeWidth="1.2"
             />
             <path
               d="M1.256 1.32h455.883v288.047H1.256z"
-              fill="#0c0a09"
-              stroke="#fff"
+              fill="#fff"
+              stroke="#0c0a09"
               strokeWidth="1.2"
             />
             <path
               d="m471.277 302.54-14.21-13.1"
               fill="none"
-              stroke="#fff"
+              stroke="#0c0a09"
               strokeLinecap="square"
               strokeWidth="1.2"
             />
-            <g fill="#fff">
+            <g fill="#0c0a09">
               <circle cx="27.107" cy="23.842" r="3.086" />
               <circle cx="37.845" cy="23.842" r="3.086" />
               <circle cx="48.582" cy="23.842" r="3.086" />
@@ -188,7 +188,7 @@ export function HeroBrowserStack() {
             <text
               x="446"
               y="27"
-              fill="#fff"
+              fill="#0c0a09"
               fontFamily="Arial, sans-serif"
               fontSize="9"
               fontWeight="700"
@@ -198,7 +198,7 @@ export function HeroBrowserStack() {
             </text>
           </svg>
 
-          <div className="absolute left-[5%] right-[8%] top-[15%] aspect-[1.856/1] overflow-hidden bg-stone-800">
+          <div className="absolute left-[5%] right-[8%] top-[15%] aspect-[1.856/1] overflow-hidden bg-white">
             <Image
               src={card.src}
               alt=""
