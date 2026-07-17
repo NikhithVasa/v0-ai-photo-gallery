@@ -78,7 +78,7 @@ export function HeroBrowserStack() {
       const remainingCards = Array.from(container.children).slice(1) as HTMLElement[];
       const frontRect = frontCard.getBoundingClientRect();
       const exitDistance = Math.round(
-        window.scrollY + frontRect.top + frontCard.offsetHeight,
+        window.scrollX + frontRect.left + frontCard.offsetWidth,
       );
       let phaseStartedAt: number | null = null;
 
@@ -88,7 +88,7 @@ export function HeroBrowserStack() {
 
         const progress = Math.min((timestamp - phaseStartedAt) / phaseDuration, 1);
         const easedProgress = easeInOutQuart(progress);
-        frontCard.style.transform = `translateX(0%) translateY(${-exitDistance * easedProgress}px)`;
+        frontCard.style.transform = `translateX(${-exitDistance * easedProgress}px) translateY(0%)`;
 
         if (progress < 1) {
           animationFrame = requestAnimationFrame(exitFrontCard);
