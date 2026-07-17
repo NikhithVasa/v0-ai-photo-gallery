@@ -1,5 +1,4 @@
-import { LandingPageExperience } from "@/components/landing-page-experience";
-import { PreAuthMotionBoundary } from "@/components/pre-auth-motion-boundary";
+import { FreshHomepage } from "@/components/fresh-homepage";
 import { getHomeStructuredData } from "@/lib/seo";
 
 export default function HomePage() {
@@ -12,12 +11,7 @@ export default function HomePage() {
           __html: JSON.stringify(getHomeStructuredData()),
         }}
       />
-      <PreAuthMotionBoundary>
-        <LandingPageExperience
-          enabled={process.env.NEXT_PUBLIC_FEATURE_RICH_LANDING === "true"}
-          vibrant={process.env.NEXT_PUBLIC_FEATURE_VIBRANT_LANDING === "true"}
-        />
-      </PreAuthMotionBoundary>
+      <FreshHomepage />
     </>
   );
 }
