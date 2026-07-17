@@ -752,7 +752,7 @@ function LegacyHero({ reveal }: { reveal: MotionProps }) {
         </div>
       ) : null}
 
-      <div className="relative mx-auto flex min-h-[calc(100svh-10rem)] max-w-7xl items-start justify-center px-5 pb-12 pt-20 text-center sm:min-h-[calc(100svh-9rem)] sm:px-8 sm:pt-28 lg:pt-32">
+      <div className="relative z-10 mx-auto flex min-h-[calc(100svh-10rem)] max-w-7xl items-start justify-center px-5 pb-12 pt-20 text-center sm:min-h-[calc(100svh-9rem)] sm:px-8 sm:pt-28 lg:pt-32">
         <motion.div {...reveal} className="mx-auto max-w-[880px]">
           <p className="text-xs font-medium uppercase tracking-[0.28em] text-[#B88A2D]">
             Private AI wedding galleries
@@ -1295,7 +1295,7 @@ function Hero({ reveal }: { reveal: MotionProps }) {
         className="pointer-events-none absolute inset-0 bg-[#EDE8DF]/65"
       />
       <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_82%_8%,rgba(202,161,110,0.34),transparent_30%),radial-gradient(circle_at_8%_72%,rgba(112,138,116,0.22),transparent_28%)]" />
-      <div className="relative mx-auto max-w-[92rem] px-5 sm:px-8">
+      <div className="relative z-10 mx-auto max-w-[92rem] px-5 sm:px-8">
         <motion.div {...reveal} className="mx-auto max-w-6xl text-center">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#725C3D]">The wedding photo workspace</p>
           <h1 className="mt-5 font-serif text-[clamp(3.5rem,9vw,8.5rem)] leading-[0.84] tracking-[-0.055em]">One home for the<br /><span className="italic text-[#744E43]">whole celebration.</span></h1>
