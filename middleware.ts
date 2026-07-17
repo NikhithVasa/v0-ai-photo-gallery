@@ -28,6 +28,7 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
     pathname === "/login" ||
     pathname === "/contact" ||
     pathname === "/docs" ||
+    pathname === "/photographers" ||
     pathname === "/how-ai-works" ||
     pathname === "/auth/callback"
   )
