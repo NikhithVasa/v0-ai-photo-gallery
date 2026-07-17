@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { HeroBrowserStack } from "@/components/hero-browser-stack";
+import { RotatingHeroKeyword } from "@/components/rotating-hero-keyword";
 
 const outcomes = [
   {
@@ -91,7 +92,8 @@ export function FreshHomepage() {
               id="home-heading"
               className="text-balance text-left font-editorial text-5xl font-medium leading-none tracking-tight sm:text-7xl md:text-right lg:text-8xl xl:text-9xl"
             >
-              The wedding is a story. Your workspace should know the plot.
+              The <RotatingHeroKeyword /> is a story. Your workspace should know
+              the plot.
             </h1>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 md:justify-end">
               <Link
