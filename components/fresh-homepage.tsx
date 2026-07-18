@@ -84,6 +84,20 @@ export function FreshHomepage() {
               From the first import to the private gallery, SaathiDesk keeps the
               work clear and the photographs central.
             </p>
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <Link
+                href="/login?mode=signup"
+                className={`inline-flex min-h-11 items-center border-b-2 border-orange-700 text-sm font-semibold text-stone-950 transition-colors hover:text-orange-700 ${focusClass}`}
+              >
+                Start your workspace
+              </Link>
+              <Link
+                href="/how-ai-works"
+                className={`inline-flex min-h-11 items-center text-sm font-medium text-stone-600 transition-colors hover:text-stone-950 ${focusClass}`}
+              >
+                See how AI search works
+              </Link>
+            </div>
             <HeroBrowserStack />
           </div>
 
@@ -99,20 +113,6 @@ export function FreshHomepage() {
                 Your workspace should know the plot.
               </span>
             </h1>
-            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 md:justify-end">
-              <Link
-                href="/login?mode=signup"
-                className={`inline-flex min-h-11 items-center border-b-2 border-orange-700 text-sm font-semibold text-stone-950 transition-colors hover:text-orange-700 ${focusClass}`}
-              >
-                Start your workspace
-              </Link>
-              <Link
-                href="/how-ai-works"
-                className={`inline-flex min-h-11 items-center text-sm font-medium text-stone-600 transition-colors hover:text-stone-950 ${focusClass}`}
-              >
-                See how AI search works
-              </Link>
-            </div>
           </div>
         </div>
       </section>

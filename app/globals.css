@@ -288,3 +288,36 @@ body[data-app-click-loading='true']::after {
   }
 }
 
+
+@keyframes hero-keyword-glint {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.7) rotate(0deg);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(16deg);
+  }
+}
+
+.hero-keyword-glint {
+  animation: hero-keyword-glint 1.5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.hero-keyword-glint--delayed {
+  animation-delay: -500ms;
+}
+
+.hero-keyword-glint--late {
+  animation-delay: -1s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-keyword-glint {
+    animation: none;
+  }
+}
