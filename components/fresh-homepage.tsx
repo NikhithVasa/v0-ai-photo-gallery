@@ -90,10 +90,14 @@ export function FreshHomepage() {
           <div className="md:col-span-8 md:col-start-5 lg:col-span-8 lg:col-start-5">
             <h1
               id="home-heading"
-              className="text-balance text-left font-editorial text-5xl font-medium leading-none tracking-tight sm:text-7xl md:text-right lg:text-8xl xl:text-9xl"
+              className="text-left font-editorial text-[clamp(1.75rem,4.2vw,4rem)] font-medium leading-[1.02] tracking-tight md:text-right"
             >
-              The <RotatingHeroKeyword /> is a story. Your workspace should know
-              the plot.
+              <span className="block whitespace-nowrap">
+                The <RotatingHeroKeyword /> is a story.
+              </span>
+              <span className="mt-[0.18em] block">
+                Your workspace should know the plot.
+              </span>
             </h1>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 md:justify-end">
               <Link

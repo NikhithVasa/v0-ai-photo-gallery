@@ -288,30 +288,3 @@ body[data-app-click-loading='true']::after {
   }
 }
 
-@keyframes hero-keyword-sparkle {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scale(0.65) rotate(0deg);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.15) rotate(18deg);
-  }
-}
-
-.hero-keyword-sparkle {
-  animation: hero-keyword-sparkle 1s ease-in-out infinite;
-  transform-origin: center;
-}
-
-.hero-keyword-sparkle--delayed {
-  animation-delay: -500ms;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-keyword-sparkle {
-    animation: none;
-  }
-}
