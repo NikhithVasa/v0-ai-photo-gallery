@@ -2,25 +2,25 @@ import type { Metadata } from "next";
 import { PhotographerBrochure } from "@/components/photographer-brochure";
 
 export const metadata: Metadata = {
-  title: "SaathiDesk for Wedding Photographers",
+  title: "SaathiDesk AI Capabilities Guide for Photographers",
   description:
-    "A complete guide to how SaathiDesk helps wedding photographers organize, search, review, finish, privately share, and deliver every shoot.",
+    "A complete guide to SaathiDesk AI search, People, assisted culling, generative photo edits, video face timelines, and processing controls.",
   alternates: {
     canonical: "/photographers",
   },
   openGraph: {
-    title: "SaathiDesk for Wedding Photographers",
+    title: "SaathiDesk AI Capabilities Guide for Photographers",
     description:
-      "From importing a shoot to delivering the final private gallery—see the complete SaathiDesk workflow.",
+      "See the complete, plain-language guide to SaathiDesk AI capabilities, controls, dependencies, and limits.",
     url: "/photographers",
     type: "website",
     images: ["/opengraph-image"],
   },
   twitter: {
     card: "summary_large_image",
-    title: "SaathiDesk for Wedding Photographers",
+    title: "SaathiDesk AI Capabilities Guide for Photographers",
     description:
-      "From importing a shoot to delivering the final private gallery—see the complete SaathiDesk workflow.",
+      "See the complete, plain-language guide to SaathiDesk AI capabilities, controls, dependencies, and limits.",
     images: ["/twitter-image"],
   },
 };
