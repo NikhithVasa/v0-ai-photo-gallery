@@ -45,6 +45,12 @@ export async function GET(request: Request, { params }: Props) {
 
     const { searchParams } = requestUrl;
     const eventSlug = searchParams.get("event") || null;
+    const rawLimit = Number.parseInt(searchParams.get("limit") || "", 10);
+    const rawOffset = Number.parseInt(searchParams.get("offset") || "0", 10);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.min(Math.max(rawLimit, 1), 100)
+      : null;
+    const offset = Number.isFinite(rawOffset) ? Math.max(rawOffset, 0) : 0;
     const requestedPersonIds = (searchParams.get("people") ?? "")
       .split(",")
       .map((id) => id.trim())
@@ -190,6 +196,8 @@ export async function GET(request: Request, { params }: Props) {
         AND COALESCE(p.is_deleted, false) = false
         AND p.upload_status = 'completed'
       ORDER BY ${orderBy}
+      LIMIT $6
+      OFFSET $7
       `,
       [
         albumSlug,
@@ -197,16 +205,20 @@ export async function GET(request: Request, { params }: Props) {
         personIds.length ? personIds : null,
         peopleMode,
         sharePersonIds.length ? sharePersonIds : null,
-      ]
+        limit === null ? null : limit + 1,
+        offset,
+      ],
     );
 
+    const hasMore = limit !== null && rows.length > limit;
+    const visibleRows = limit === null ? rows : rows.slice(0, limit);
     console.info("[share-debug] album photos API rows loaded", {
       albumSlug,
-      count: rows.length,
+      count: visibleRows.length,
     });
 
     const photos: Photo[] = await Promise.all(
-      rows.map((row) =>
+      visibleRows.map((row) =>
         toPhoto(row, {
           signMediaUrls: false,
           signPersonCoverUrls: false,
@@ -214,7 +226,7 @@ export async function GET(request: Request, { params }: Props) {
       ),
     );
     return NextResponse.json(
-      { photos, sortMode },
+      { photos, sortMode, hasMore },
       {
         headers: {
           "Cache-Control":

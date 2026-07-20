@@ -209,6 +209,7 @@ export function UploadPage() {
   const searchParams = useSearchParams();
   const initialAlbumSlug = searchParams.get("album") || "";
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const autoUploadPendingRef = useRef(false);
   const [mode, setMode] = useState<UploadMode>(initialAlbumSlug ? "existing" : "new");
   const [eventMode, setEventMode] = useState<EventMode>("existing");
   const [selectedAlbumSlug, setSelectedAlbumSlug] = useState(initialAlbumSlug);
@@ -244,6 +245,7 @@ export function UploadPage() {
     setGoogleDriveFolderLink,
   } = useGoogleImageImport({
     onImages: (images) => {
+      autoUploadPendingRef.current = true;
       setQueuedFiles((current) =>
         [
           ...images.map((image) => ({
@@ -301,14 +303,14 @@ export function UploadPage() {
           queuedFiles.length),
       )
     : 0;
-  const canUpload = Boolean(
-    queuedFiles.some((file) => file.status === "queued" || file.status === "failed") &&
-    !isUploading &&
-    !isImporting &&
-    (mode === "new"
-      ? newAlbumName.trim() && newEventName.trim()
-      : selectedAlbumSlug &&
-        (eventMode === "new" ? newEventName.trim() : selectedEventSlug))
+  const canAutoUpload = Boolean(
+    queuedFiles.some((file) => file.status === "queued") &&
+      !isUploading &&
+      !isImporting &&
+      (mode === "new"
+        ? newAlbumName.trim() && newEventName.trim()
+        : selectedAlbumSlug &&
+          (eventMode === "new" ? newEventName.trim() : selectedEventSlug)),
   );
 
   useEffect(() => {
@@ -341,6 +343,8 @@ export function UploadPage() {
     if (!files?.length) return;
 
     const supportedFiles = Array.from(files).filter(isSupportedImageFile);
+    if (!supportedFiles.length) return;
+    autoUploadPendingRef.current = true;
 
     setQueuedFiles((current) =>
       [
@@ -490,6 +494,7 @@ export function UploadPage() {
     const uploadPreparedFile = async (
       item: QueuedFile,
       upload: PreparedUpload,
+      uploadUrl: string,
     ): Promise<string | null> => {
       let uploadSucceeded = false;
       let lastError = "S3 upload failed";
@@ -504,7 +509,7 @@ export function UploadPage() {
         });
 
         uploadSucceeded = await uploadToUrl(
-          upload.uploadUrl,
+          uploadUrl,
           item.file,
           upload.contentType,
           (progress) => updateFile(item.localId, { progress }),
@@ -647,7 +652,7 @@ export function UploadPage() {
             return;
           }
           if (!upload.uploadUrl) return;
-          const photoId = await uploadPreparedFile(item, upload);
+          const photoId = await uploadPreparedFile(item, upload, upload.uploadUrl);
           if (photoId) {
             completedPhotoIds.push(photoId);
             completedLocalIds.add(item.localId);
@@ -716,6 +721,13 @@ export function UploadPage() {
   };
 
   useEffect(() => {
+    if (!autoUploadPendingRef.current || !canAutoUpload) return;
+
+    autoUploadPendingRef.current = false;
+    void uploadFiles();
+  }, [canAutoUpload, uploadFiles]);
+
+  useEffect(() => {
     if (!workerContext?.photoIds.length) return;
     if (!["ready", "created"].includes(aiWorkerState)) return;
     if (
@@ -759,8 +771,8 @@ export function UploadPage() {
 
           <div className="flex shrink-0 items-center gap-2">
             <Button
-              onClick={() => uploadFiles()}
-              disabled={!canUpload}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading || isImporting}
               className="shrink-0 rounded-full px-3 sm:px-4"
             >
               {isUploading ? (
@@ -768,7 +780,7 @@ export function UploadPage() {
               ) : (
                 <Upload className="mr-2 h-4 w-4" />
               )}
-              Upload
+              Add photos
             </Button>
             <AuthAvatarMenu />
           </div>

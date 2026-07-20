@@ -1,0 +1,314 @@
+.section {
+  overflow: hidden;
+  background: #fdfcfb;
+  padding-bottom: 56px;
+  color: #141414;
+}
+
+.headingBlock {
+  width: min(100%, 1280px);
+  margin: 0 auto 64px;
+  padding: 56px 32px 0;
+  text-align: left;
+}
+
+.eyebrow {
+  margin-bottom: 12px;
+  color: #a2594c;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.1em;
+}
+
+.headingBlock h2 {
+  margin-bottom: 8px;
+  color: #141414;
+  font-size: 35.2px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.intro {
+  color: #141414;
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+.workflow {
+  display: flex;
+  width: min(100%, 1280px);
+  margin: 0 auto;
+  align-items: center;
+  gap: 48px;
+  padding: 0 32px;
+}
+
+.mediaViewport {
+  position: relative;
+  width: 55%;
+  flex: none;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.mediaPlaceholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border: 1px dashed #78716c;
+  border-radius: inherit;
+  background-color: #1c1917;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+  color: #fafaf9;
+  text-align: center;
+}
+
+.mediaPlaceholder span {
+  color: #fb923c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.mediaPlaceholder strong {
+  margin-top: 10px;
+  font-size: clamp(22px, 2.2vw, 34px);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.mediaPlaceholder small {
+  margin-top: 10px;
+  color: #a8a29e;
+  font-size: 12px;
+}
+
+.stepPanel {
+  min-width: 0;
+  flex: 1;
+}
+
+.rule {
+  width: 96px;
+  height: 2px;
+  margin-bottom: 24px;
+  background: rgb(0 0 0 / 25%);
+}
+
+.stepViewport {
+  position: relative;
+  min-height: 112px;
+  overflow: hidden;
+}
+
+.step {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.number {
+  flex: none;
+  color: #a2594c;
+  font-size: 96px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.08em;
+  tab-size: 2;
+  user-select: none;
+}
+
+.step h3 {
+  margin-bottom: 2px;
+  color: #141414;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.step p {
+  max-width: 42ch;
+  color: rgb(20 20 20 / 70%);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.navigation {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  margin-top: 24px;
+}
+
+.arrowButton {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  cursor: pointer;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgb(20 20 20 / 42%);
+  transition: color 200ms ease-out, background-color 200ms ease-out;
+}
+
+.arrowButton:hover:not(:disabled) {
+  background: rgb(0 0 0 / 5%);
+  color: #141414;
+}
+
+.arrowButton:disabled {
+  cursor: default;
+  opacity: 0.2;
+}
+
+.arrowButton:focus-visible,
+.dotButton:focus-visible {
+  outline: 2px solid #a2594c;
+  outline-offset: 2px;
+}
+
+.arrowButton svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dots {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dots::-webkit-scrollbar {
+  display: none;
+}
+
+.dotButton {
+  display: grid;
+  width: 24px;
+  height: 44px;
+  flex: none;
+  cursor: pointer;
+  place-items: center;
+  border: 0;
+  background: transparent;
+}
+
+.dotButton span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 15%);
+  transition: width 200ms ease-out, background-color 200ms ease-out;
+}
+
+.dotButton:hover span {
+  background: rgb(0 0 0 / 30%);
+}
+
+.activeDot span {
+  width: 20px;
+  background: #4c95a2;
+}
+
+@media (max-width: 767px) {
+  .section {
+    padding-bottom: 40px;
+  }
+
+  .headingBlock {
+    margin-bottom: 32px;
+    padding: 40px 16px 0;
+  }
+
+  .headingBlock h2 {
+    font-size: 20px;
+    line-height: 1.4;
+  }
+
+  .intro {
+    max-width: 350px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .workflow {
+    display: block;
+    width: 100%;
+    padding: 0;
+  }
+
+  .mediaViewport {
+    width: auto;
+    margin: 0 16px;
+    border-radius: 0;
+  }
+
+  .mediaPlaceholder strong {
+    font-size: 24px;
+  }
+
+  .stepPanel {
+    margin-top: 16px;
+  }
+
+  .rule {
+    margin: 0 auto 8px;
+  }
+
+  .stepViewport {
+    min-height: 116px;
+  }
+
+  .step {
+    align-items: center;
+    padding: 16px 16px 8px;
+  }
+
+  .number {
+    font-size: 60px;
+  }
+
+  .step h3 {
+    font-size: 16px;
+  }
+
+  .step p {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .navigation {
+    gap: 0;
+    margin-top: 12px;
+    padding: 0 8px;
+  }
+
+  .dotButton {
+    width: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arrowButton,
+  .dotButton span {
+    transition: none;
+  }
+}

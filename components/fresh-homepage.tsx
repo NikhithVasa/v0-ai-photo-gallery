@@ -2,6 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { HeroBrowserStack } from "@/components/hero-browser-stack";
 import { RotatingHeroKeyword } from "@/components/rotating-hero-keyword";
+import { ReplitTestimonials } from "@/components/replit-testimonials";
+import { HomeFaq } from "@/components/home-faq";
+import { NewsletterSignup } from "@/components/newsletter-signup";
+import { FullWorkflow } from "@/components/full-workflow";
+import { SITE_NAME } from "@/lib/seo";
 
 const outcomes = [
   {
@@ -42,7 +47,7 @@ export function FreshHomepage() {
             href="/"
             className={`inline-flex min-h-11 items-center font-editorial text-2xl font-semibold tracking-tight ${focusClass}`}
           >
-            SaathiDesk
+            {SITE_NAME}
           </Link>
 
           <div className="flex items-center gap-1 sm:gap-3">
@@ -98,7 +103,7 @@ export function FreshHomepage() {
               A professional wedding photography workspace
             </p>
             <p className="mt-4 max-w-sm text-base leading-7 text-stone-600">
-              From the first import to the private gallery, SaathiDesk keeps the
+              From the first import to the private gallery, {SITE_NAME} keeps the
               work clear and the photographs central.
             </p>
             <div className="mt-7 flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
@@ -173,6 +178,8 @@ export function FreshHomepage() {
         </ol>
       </section>
 
+      <FullWorkflow />
+
       <section aria-labelledby="closing-heading" className="bg-stone-950 px-5 py-20 text-stone-50 sm:px-8 sm:py-28 lg:px-12 lg:py-36">
         <div className="mx-auto grid max-w-screen-2xl gap-10 md:grid-cols-12 md:items-end md:gap-6">
           <div className="md:col-span-8">
@@ -197,9 +204,15 @@ export function FreshHomepage() {
         </div>
       </section>
 
+      <HomeFaq />
+
+      <ReplitTestimonials />
+
+      <NewsletterSignup />
+
       <footer className="bg-stone-950 text-stone-400">
         <div className="mx-auto flex max-w-screen-2xl flex-col gap-6 border-t border-stone-800 px-5 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
-          <p>© {new Date().getFullYear()} SaathiDesk</p>
+          <p>© {new Date().getFullYear()} {SITE_NAME}</p>
           <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-6 gap-y-2">
             <Link href="/how-ai-works" className="min-h-11 content-center transition-colors hover:text-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transition-none">
               How AI works

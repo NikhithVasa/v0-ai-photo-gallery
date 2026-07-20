@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
+import { SITE_NAME } from "@/lib/seo";
 
 export function LoginPage() {
   const router = useRouter();
@@ -93,15 +94,15 @@ export function LoginPage() {
               href="/"
               className="mb-5 inline-block font-serif text-xl font-bold text-stone-950"
             >
-              SaathiDesk
+              {SITE_NAME}
             </Link>
             <h1 className="text-3xl font-serif font-bold text-stone-950 mb-2">
               {isSignUp ? "Create Account" : "Sign In"}
             </h1>
             <p className="text-stone-600">
               {isSignUp
-                ? "Join SaathiDesk to access your photo gallery"
-                : "Welcome back to SaathiDesk"}
+                ? `Join ${SITE_NAME} to access your photo gallery`
+                : `Welcome back to ${SITE_NAME}`}
             </p>
           </div>
 

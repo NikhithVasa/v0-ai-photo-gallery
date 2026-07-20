@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Camera } from "lucide-react";
 import type { ReactNode } from "react";
+import { SITE_NAME } from "@/lib/seo";
 
 interface LegalPageProps {
   children: ReactNode;
@@ -26,7 +27,7 @@ export function LegalPage({
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-950 text-[#fbfaf8]">
               <Camera className="h-4 w-4" strokeWidth={1.75} />
             </span>
-            SaathiDesk
+            {SITE_NAME}
           </Link>
 
           <Link
@@ -55,7 +56,7 @@ export function LegalPage({
 
       <footer className="border-t border-stone-200/70">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-2 px-5 py-8 text-xs text-stone-500 sm:px-8">
-          <span>© {new Date().getFullYear()} SaathiDesk</span>
+          <span>© {new Date().getFullYear()} {SITE_NAME}</span>
           <Link href="/legal/privacy-policy" className="hover:text-stone-950">
             Privacy Policy
           </Link>

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal-page";
-import { createPageMetadata } from "@/lib/seo";
+import { createPageMetadata, SITE_NAME } from "@/lib/seo";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Privacy Policy",
   description:
-    "How SaathiDesk collects, uses, stores, and protects personal information and Google user data.",
+    `How ${SITE_NAME} collects, uses, stores, and protects personal information and Google user data.`,
   path: "/legal/privacy-policy",
 });
 
@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage() {
     <LegalPage
       title="Privacy Policy"
       updated="June 4, 2026"
-      description="This Privacy Policy explains how SaathiDesk collects, uses, stores, and shares information when you use our private photo gallery, upload, search, editing, collage, and sharing services."
+      description={`This Privacy Policy explains how ${SITE_NAME} collects, uses, stores, and shares information when you use our private photo gallery, upload, search, editing, collage, and sharing services.`}
     >
       <section>
         <h2>Information we collect</h2>
@@ -41,10 +41,10 @@ export default function PrivacyPolicyPage() {
         <p>
           If you choose Google Sign-In, we receive basic account information
           made available through Google and use it to authenticate you and
-          maintain your SaathiDesk account.
+          maintain your {SITE_NAME} account.
         </p>
         <p>
-          If you choose <strong>Upload from Google Drive</strong>, SaathiDesk uses
+          If you choose <strong>Upload from Google Drive</strong>, {SITE_NAME} uses
           Google Drive Picker with the{" "}
           <code>https://www.googleapis.com/auth/drive.file</code> scope. We
           access only the files you explicitly select through the picker,
@@ -52,18 +52,18 @@ export default function PrivacyPolicyPage() {
           contents needed to import them.
         </p>
         <p>
-          If you choose <strong>Upload from Google Photos</strong>, SaathiDesk uses
+          If you choose <strong>Upload from Google Photos</strong>, {SITE_NAME} uses
           the Google Photos Picker API with the{" "}
           <code>
             https://www.googleapis.com/auth/photospicker.mediaitems.readonly
           </code>{" "}
           scope. We access only media items you explicitly select in the Photos
-          Picker. SaathiDesk does not use the legacy Google Photos Library API to
+          Picker. {SITE_NAME} does not use the legacy Google Photos Library API to
           browse your full photo library.
         </p>
         <p>
           Google Drive and Google Photos access tokens are short-lived and kept
-          in browser memory for the import process. SaathiDesk does not store these
+          in browser memory for the import process. {SITE_NAME} does not store these
           picker access tokens. Selected files become normal uploads after you
           import them and are then handled as described in this policy.
         </p>
@@ -89,7 +89,7 @@ export default function PrivacyPolicyPage() {
       <section>
         <h2>Google API Limited Use</h2>
         <p>
-          SaathiDesk&apos;s use and transfer of information received from Google
+          {SITE_NAME}&apos;s use and transfer of information received from Google
           APIs will adhere to the{" "}
           <a
             href="https://developers.google.com/terms/api-services-user-data-policy"
@@ -114,7 +114,7 @@ export default function PrivacyPolicyPage() {
         <h2>How information is shared</h2>
         <p>
           We may share information with service providers that help us operate
-          SaathiDesk, such as authentication, hosting, database, storage, and
+          {SITE_NAME}, such as authentication, hosting, database, storage, and
           infrastructure providers. These providers may process information
           only to perform services for us under appropriate obligations.
         </p>
@@ -122,7 +122,7 @@ export default function PrivacyPolicyPage() {
           Content may also be shared with gallery owners, authorized gallery
           users, or recipients of share links according to the permissions and
           settings selected in the service. We may disclose information when
-          required by law or necessary to protect users, SaathiDesk, or others.
+          required by law or necessary to protect users, {SITE_NAME}, or others.
         </p>
         <p>We do not sell personal information or Google user data.</p>
       </section>
@@ -140,7 +140,7 @@ export default function PrivacyPolicyPage() {
           You can remove photos using available gallery controls. To request
           deletion of your account or personal information, email{" "}
           <a href="mailto:support@saathidesk.com">support@saathidesk.com</a>. You
-          can revoke SaathiDesk&apos;s Google access at any time from your Google
+          can revoke {SITE_NAME}&apos;s Google access at any time from your Google
           Account permissions.
         </p>
       </section>
@@ -158,7 +158,7 @@ export default function PrivacyPolicyPage() {
       <section>
         <h2>Children&apos;s privacy</h2>
         <p>
-          SaathiDesk is not directed to children under 13, and we do not knowingly
+          {SITE_NAME} is not directed to children under 13, and we do not knowingly
           collect personal information directly from children under 13. Contact
           us if you believe a child has provided personal information.
         </p>

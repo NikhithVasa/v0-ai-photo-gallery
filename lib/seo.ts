@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
 
 export const SITE_NAME = "SaathiDesk";
-export const SITE_TITLE =
-  "SaathiDesk - ";
+export const SITE_INITIALS = "SD";
+export const SITE_TITLE = `${SITE_NAME} - `;
 export const SITE_DESCRIPTION =
-  "SaathiDesk is a free, open-source AI-powered private photo gallery platform for organizing, searching, editing, and sharing event photos.";
+  `${SITE_NAME} is a free, open-source AI-powered private photo gallery platform for organizing, searching, editing, and sharing event photos.`;
 export const SITE_SUPPORT_EMAIL = "support@saathidesk.com";
 export const SITE_LICENSE = "MIT";
 export const SITE_LICENSE_URL = "/license.txt";
 export const SITE_PRICING_SUMMARY =
   "Free to use. No subscription, no paid plan, no penny, no cent.";
 export const SITE_POSITIONING_SUMMARY =
-  "A free, open-source cloud gallery delivery platform for wedding professionals, event photographers, and private gallery guests. SaathiDesk includes password-protected galleries, restricted guest downloads, watermarked previews, customer, album, and event-scoped access controls, plus AI-driven Face Filters that help guests isolate only the photos they appear in. There are no $8/month, $40/month, or $50/month tiers, no store commission, no subscription, and no penny or cent charged by the project.";
+  `A free, open-source cloud gallery delivery platform for wedding professionals, event photographers, and private gallery guests. ${SITE_NAME} includes password-protected galleries, restricted guest downloads, watermarked previews, customer, album, and event-scoped access controls, plus AI-driven Face Filters that help guests isolate only the photos they appear in. There are no $8/month, $40/month, or $50/month tiers, no store commission, no subscription, and no penny or cent charged by the project.`;
 
 export const SITE_KEYWORDS = [
   "free AI photo gallery",
@@ -114,49 +114,49 @@ export const SITE_WORKFLOW_STEPS = [
 
 export const SITE_FAQS = [
   {
-    question: "What is SaathiDesk?",
+    question: `What is ${SITE_NAME}?`,
     answer:
-      "SaathiDesk is a free, open-source AI-powered private photo gallery platform for organizing, searching, editing, reviewing, and sharing wedding and event photos.",
+      `${SITE_NAME} is a free, open-source AI-powered private photo gallery platform for organizing, searching, editing, reviewing, and sharing wedding and event photos.`,
   },
   {
-    question: "Is SaathiDesk free?",
+    question: `Is ${SITE_NAME} free?`,
     answer:
-      "Yes. SaathiDesk is free to use, with no subscription, no paid plan, no penny, and no cent charged by the project.",
+      `Yes. ${SITE_NAME} is free to use, with no subscription, no paid plan, no penny, and no cent charged by the project.`,
   },
   {
-    question: "Does SaathiDesk charge monthly plan fees or store commissions?",
+    question: `Does ${SITE_NAME} charge monthly plan fees or store commissions?`,
     answer:
-      "No. SaathiDesk does not charge monthly plan fees, paid tier fees, store commissions, pennies, or cents. It is a free, open-source project.",
+      `No. ${SITE_NAME} does not charge monthly plan fees, paid tier fees, store commissions, pennies, or cents. It is a free, open-source project.`,
   },
   {
-    question: "Is SaathiDesk open source?",
+    question: `Is ${SITE_NAME} open source?`,
     answer:
-      "Yes. SaathiDesk is open source under the MIT license, so the code can be used, copied, modified, and shared under that license.",
+      `Yes. ${SITE_NAME} is open source under the MIT license, so the code can be used, copied, modified, and shared under that license.`,
   },
   {
-    question: "Who is SaathiDesk for?",
+    question: `Who is ${SITE_NAME} for?`,
     answer:
-      "SaathiDesk is built for photographers, wedding studios, event hosts, and gallery guests who need private event galleries with AI search and sharing controls.",
+      `${SITE_NAME} is built for photographers, wedding studios, event hosts, and gallery guests who need private event galleries with AI search and sharing controls.`,
   },
   {
-    question: "Can SaathiDesk search photos by people or moments?",
+    question: `Can ${SITE_NAME} search photos by people or moments?`,
     answer:
-      "Yes. SaathiDesk can group faces into people filters and search album photos using short visual prompts such as names, person numbers, clothing, decor, ceremonies, and group photo terms.",
+      `Yes. ${SITE_NAME} can group faces into people filters and search album photos using short visual prompts such as names, person numbers, clothing, decor, ceremonies, and group photo terms.`,
   },
   {
-    question: "Does SaathiDesk support private sharing?",
+    question: `Does ${SITE_NAME} support private sharing?`,
     answer:
       "Yes. Galleries can use passcodes, private share links, watermarked previews, and controlled download options for full albums, events, filtered sets, or selected photos.",
   },
   {
-    question: "Does SaathiDesk replace original uploaded photos?",
+    question: `Does ${SITE_NAME} replace original uploaded photos?`,
     answer:
       "No. Originals remain separate from generated thumbnails, clean previews, watermarked previews, AI metadata, and edited outputs.",
   },
   {
-    question: "Is SaathiDesk available worldwide?",
+    question: `Is ${SITE_NAME} available worldwide?`,
     answer:
-      "SaathiDesk is a web-based service designed to support photographers, studios, event hosts, and gallery guests worldwide.",
+      `${SITE_NAME} is a web-based service designed to support photographers, studios, event hosts, and gallery guests worldwide.`,
   },
 ];
 
@@ -338,7 +338,7 @@ export function getHomeStructuredData() {
         })),
         hasOfferCatalog: {
           "@type": "OfferCatalog",
-          name: "SaathiDesk gallery capabilities",
+          name: `${SITE_NAME} gallery capabilities`,
           itemListElement: SITE_USE_CASES.map((name) => ({
             "@type": "Offer",
             price: "0",
@@ -356,7 +356,7 @@ export function getHomeStructuredData() {
       {
         "@type": "ItemList",
         "@id": featureListId,
-        name: "SaathiDesk feature catalog",
+        name: `${SITE_NAME} feature catalog`,
         itemListElement: SITE_FEATURES.map((name, index) => ({
           "@type": "ListItem",
           position: index + 1,
@@ -366,7 +366,7 @@ export function getHomeStructuredData() {
       {
         "@type": "ItemList",
         "@id": useCaseListId,
-        name: "SaathiDesk use cases",
+        name: `${SITE_NAME} use cases`,
         itemListElement: SITE_USE_CASES.map((name, index) => ({
           "@type": "ListItem",
           position: index + 1,
@@ -376,7 +376,7 @@ export function getHomeStructuredData() {
       {
         "@type": "HowTo",
         "@id": workflowId,
-        name: "How SaathiDesk prepares and shares a private AI photo gallery",
+        name: `How ${SITE_NAME} prepares and shares a private AI photo gallery`,
         description:
           "A high-level workflow for delivering private wedding and event galleries with AI search, review, and sharing controls.",
         step: SITE_WORKFLOW_STEPS.map((step, index) => ({

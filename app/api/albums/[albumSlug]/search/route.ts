@@ -10,6 +10,7 @@ import {
 import { requireAlbumAccess } from "@/lib/album-access";
 import { getShareLinkAccess } from "@/lib/share-access";
 import type { Person } from "@/lib/types";
+import { SITE_NAME } from "@/lib/seo";
 
 const OPENROUTER_EMBEDDING_MODEL =
   process.env.OPENROUTER_EMBEDDING_MODEL ||
@@ -162,7 +163,7 @@ async function embedSearchQueryWithOpenRouter(
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "HTTP-Referer": openRouterReferer(request),
-      "X-Title": process.env.OPENROUTER_APP_TITLE || "Saathidesk AI Photo Search",
+      "X-Title": process.env.OPENROUTER_APP_TITLE || `${SITE_NAME} AI Photo Search`,
     },
     body: JSON.stringify({
       model: OPENROUTER_EMBEDDING_MODEL,

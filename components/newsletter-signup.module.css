@@ -1,0 +1,200 @@
+.section {
+  background: #161513;
+  color: #fcfafb;
+  font-family: Arial, sans-serif;
+  padding: 56px 0;
+}
+
+.container {
+  width: min(calc(100% - 40px), 1240px);
+  margin: 0 auto;
+}
+
+.outer {
+  min-height: 334px;
+  border: 1px solid #161513;
+  padding: 56px;
+}
+
+.inner {
+  display: flex;
+  width: min(100%, 378px);
+  min-height: 220px;
+  margin: 0 auto;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.copy h2 {
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: -0.03em;
+}
+
+.copy p {
+  max-width: 320px;
+  font-size: 16px;
+  font-weight: 300;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+}
+
+.form {
+  position: relative;
+  min-height: 82px;
+}
+
+.form input[type="email"] {
+  width: 100%;
+  height: 44px;
+  border: 1px solid #1a1a1a;
+  border-radius: 0;
+  background: #fcfafb;
+  padding: 10px 58px 10px 16px;
+  color: #161513;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+}
+
+.form input[type="email"]::placeholder {
+  color: #5d5a57;
+  opacity: 1;
+}
+
+.form input[type="email"]:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+
+.form input[type="email"]:disabled {
+  opacity: 0.72;
+}
+
+.form button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #161513;
+  transition: background-color 180ms ease-out;
+}
+
+.form button:hover:not(:disabled) {
+  background: #e9e6e4;
+}
+
+.form button:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: -3px;
+}
+
+.form button:disabled {
+  cursor: wait;
+}
+
+.form button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #b9b5b2;
+  border-top-color: #161513;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+.message {
+  min-height: 22px;
+  padding-top: 10px;
+  color: #fcfafb;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.error {
+  color: #ffb199;
+}
+
+.honeypot {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 767px) {
+  .section {
+    padding: 44px 0;
+  }
+
+  .outer {
+    min-height: 308px;
+    padding: 56px 40px;
+  }
+
+  .inner {
+    min-height: 194px;
+    gap: 28px;
+  }
+
+  .copy {
+    gap: 7px;
+  }
+
+  .copy h2 {
+    font-size: 24.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form button {
+    transition: none;
+  }
+
+  .spinner {
+    animation: none;
+  }
+}

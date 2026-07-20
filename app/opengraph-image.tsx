@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_PRICING_SUMMARY } from "@/lib/seo";
+import { SITE_DESCRIPTION, SITE_INITIALS, SITE_NAME, SITE_PRICING_SUMMARY } from "@/lib/seo";
 
 export const alt = `${SITE_NAME} AI photo gallery platform`;
 export const size = {
@@ -59,7 +59,7 @@ export default function Image() {
                 width: 56,
               }}
             >
-              SD
+              {SITE_INITIALS}
             </div>
             {SITE_NAME}
           </div>

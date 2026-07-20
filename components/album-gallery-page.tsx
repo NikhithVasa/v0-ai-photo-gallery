@@ -98,6 +98,7 @@ import {
   shareBackgroundRgba,
 } from "@/lib/share-theme";
 import { uploadBlobToGoogleDrive } from "@/lib/google-drive-picker";
+import { SITE_NAME } from "@/lib/seo";
 import type {
   AlbumDetail,
   AlbumDesignSettings,
@@ -159,7 +160,7 @@ const shareAiGuideItems = [
     icon: ShieldCheck,
   },
   {
-    title: "SaathiDesk AI",
+    title: `${SITE_NAME} AI`,
     body: "Search moments, outfits, scenes, and details.",
     desktopImageSrc: "/ai-guide/saathidesk-ai.png",
     icon: Sparkles,
@@ -1577,7 +1578,7 @@ function shareMessageTemplate({
   shareUrl: string;
   passcode?: string | null;
 }) {
-  const studioName = customerName?.trim() || "SaathiDesk";
+  const studioName = customerName?.trim() || SITE_NAME;
   const galleryName = albumName?.trim() || "Client";
   const accessCode = passcode?.trim() || "No access code required";
 
@@ -3187,7 +3188,7 @@ function ShareAiGuideDialog({
               Find photos faster
             </DialogTitle>
             <DialogDescription className="text-left text-sm leading-6 text-zinc-500">
-              Use People, groups, and SaathiDesk AI to reach the photos that
+              Use People, groups, and {SITE_NAME} AI to reach the photos that
               matter without scrolling the whole gallery.
             </DialogDescription>
           </DialogHeader>
@@ -4506,7 +4507,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         error: null,
       });
     } catch (searchError) {
-      console.error("SaathiDesk text search failed:", searchError);
+      console.error(`${SITE_NAME} text search failed:`, searchError);
       setApsaraTextSearch({
         query: trimmedQuery,
         photos: [],
@@ -5777,7 +5778,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
               href="/"
               className="shrink-0 font-serif text-base font-bold text-[#1d1d1f] transition hover:text-zinc-600 sm:text-lg"
             >
-              SaathiDesk
+              {SITE_NAME}
             </Link>
 
             <div className="flex min-w-0 items-center gap-1">

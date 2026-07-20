@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { z } from "zod";
+import { SITE_NAME } from "@/lib/seo";
 
 const CONTACT_EMAIL = "noreply@saathidesk.com";
 
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
 
   const apiKey = process.env.RESEND_API_KEY;
   const from =
-    process.env.RESEND_FROM_EMAIL ?? "SaathiDesk <onboarding@resend.dev>";
+    process.env.RESEND_FROM_EMAIL ?? `${SITE_NAME} <onboarding@resend.dev>`;
 
   if (!apiKey) {
     console.error("Contact form email is not configured.");
@@ -71,9 +72,9 @@ export async function POST(request: Request) {
       from,
       to: [CONTACT_EMAIL],
       replyTo: email,
-      subject: `New SaathiDesk contact request from ${name.replace(/[\r\n]+/g, " ")}`,
+      subject: `New ${SITE_NAME} contact request from ${name.replace(/[\r\n]+/g, " ")}`,
       html: `
-        <h1>New SaathiDesk contact request</h1>
+        <h1>New ${SITE_NAME} contact request</h1>
         <p><strong>Name:</strong> ${safeName}</p>
         <p><strong>Email:</strong> ${safeEmail}</p>
         <p><strong>Phone:</strong> ${safePhone}</p>
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
         <p>${safeDescription}</p>
       `,
       text: [
-        "New SaathiDesk contact request",
+        `New ${SITE_NAME} contact request`,
         "",
         `Name: ${name}`,
         `Email: ${email}`,

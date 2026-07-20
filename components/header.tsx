@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
+import { SITE_NAME } from "@/lib/seo";
 
 export function Header() {
   const { user } = useAuth();
@@ -13,7 +14,7 @@ export function Header() {
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center justify-between gap-3">
           <Link href="/" className="min-w-0 truncate font-serif text-xl font-bold text-stone-950">
-            SaathiDesk
+            {SITE_NAME}
           </Link>
 
           <div className="flex shrink-0 items-center gap-4">

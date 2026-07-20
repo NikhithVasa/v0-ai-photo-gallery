@@ -9,7 +9,7 @@ This map groups API routes by product area. Route handlers live under `app/api/`
 | `/api/albums` | Create and list albums. |
 | `/api/albums/stats` | Aggregate album stats. |
 | `/api/albums/[albumSlug]` | Read or update a single album. |
-| `/api/albums/[albumSlug]/photos` | List album photos with event, person, share, and sort filters. |
+| `/api/albums/[albumSlug]/photos` | List album photos with event, person, share, and sort filters; optional `limit` and `offset` paginate results and return `hasMore`. |
 | `/api/albums/[albumSlug]/photos/[photoId]` | Single photo updates and deletes. |
 | `/api/albums/[albumSlug]/photos/signed-urls` | Signed media URLs for photo display/download flows. |
 | `/api/albums/[albumSlug]/photos/sort` | Custom sort positions. |
@@ -71,6 +71,7 @@ This map groups API routes by product area. Route handlers live under `app/api/`
 | `/api/presets/[presetId]/save` | Save preset to account. |
 | `/api/presets/[presetId]/apply` | Apply preset to selected photos. |
 | `/api/contact` | Contact form email. |
+| `/api/newsletter` | Add a newsletter subscriber to Resend Contacts and the optional configured newsletter segment. |
 
 ## Route Handler Rules
 

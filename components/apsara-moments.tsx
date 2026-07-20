@@ -24,6 +24,7 @@ import {
 import type { PeopleMatchMode } from "@/components/photos-grid";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import type { Person, Photo } from "@/lib/types";
+import { SITE_NAME } from "@/lib/seo";
 
 interface ApsaraFloatingTriggerProps {
   onClick: () => void;
@@ -47,10 +48,10 @@ export function ApsaraFloatingTrigger({
       type="button"
       onClick={onClick}
       className={`fixed left-5 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200 bg-white/90 text-sm font-medium text-zinc-900 shadow-sm backdrop-blur transition hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:left-auto sm:right-7 sm:w-auto sm:gap-2 sm:px-4 ${footerOffset}`}
-      aria-label="Open SaathiDesk AI photo search"
+      aria-label={`Open ${SITE_NAME} AI photo search`}
     >
       <MessageCircle className="h-4 w-4" />
-      <span className="hidden sm:inline">SaathiDesk AI</span>
+      <span className="hidden sm:inline">{SITE_NAME} AI</span>
     </button>
   );
 }
@@ -494,7 +495,7 @@ export function ApsaraMomentsOverlay({
         setPeople(data.people ?? []);
       })
       .catch((error) => {
-        console.error("Failed to load people for SaathiDesk search:", error);
+        console.error(`Failed to load people for ${SITE_NAME} search:`, error);
         if (!isCancelled) setPeople([]);
       })
       .finally(() => {
@@ -564,7 +565,7 @@ export function ApsaraMomentsOverlay({
           "Selected people",
       );
     } catch (error) {
-      console.error("SaathiDesk AI search failed:", error);
+      console.error(`${SITE_NAME} AI search failed:`, error);
       setResults([]);
     } finally {
       setIsSearching(false);
@@ -674,13 +675,13 @@ export function ApsaraMomentsOverlay({
         type="button"
         className="absolute inset-0 cursor-default"
         onClick={onClose}
-        aria-label="Close SaathiDesk AI"
+        aria-label={`Close ${SITE_NAME} AI`}
       />
 
       <section
         className="relative z-10 flex h-full w-full max-w-[min(100vw,760px)] flex-col border-l border-zinc-200 bg-white shadow-xl transition-transform"
         onClick={(event) => event.stopPropagation()}
-        aria-label="SaathiDesk AI photo search"
+        aria-label={`${SITE_NAME} AI photo search`}
       >
         <header className="flex items-start justify-between px-6 pb-3 pt-7 sm:px-12 sm:pt-10">
           <h2 className="text-3xl font-normal tracking-normal text-zinc-900 sm:text-4xl">
@@ -690,7 +691,7 @@ export function ApsaraMomentsOverlay({
             type="button"
             onClick={onClose}
             className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-800 transition hover:bg-zinc-950/5 focus:outline-none focus:ring-2 focus:ring-zinc-300"
-            aria-label="Close SaathiDesk AI"
+            aria-label={`Close ${SITE_NAME} AI`}
           >
             <X className="h-7 w-7 stroke-1" />
           </button>

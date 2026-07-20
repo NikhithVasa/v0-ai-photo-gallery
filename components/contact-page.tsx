@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SITE_NAME } from "@/lib/seo";
 
 type SubmitState =
   | { status: "idle"; message: "" }
@@ -81,7 +82,7 @@ export function ContactPage() {
               <Camera className="h-4 w-4" strokeWidth={1.75} />
             </span>
             <span className="font-serif text-lg text-[#3A2A22]">
-              SaathiDesk
+              {SITE_NAME}
             </span>
           </Link>
 
@@ -104,7 +105,7 @@ export function ContactPage() {
             Let’s talk about your gallery.
           </h1>
           <p className="mt-6 max-w-lg text-base leading-7 text-[#6F655B] sm:text-lg">
-            Send us a note about SaathiDesk, your photo workflow, or any support
+            Send us a note about {SITE_NAME}, your photo workflow, or any support
             question. We’ll reply directly to the email you provide.
           </p>
 

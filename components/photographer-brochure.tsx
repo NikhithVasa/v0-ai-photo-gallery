@@ -1,5 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
+import { SITE_NAME } from "@/lib/seo";
+import { FullWorkflow } from "@/components/full-workflow";
 
 const focusClass =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-700 focus-visible:ring-offset-2 focus-visible:ring-offset-stone-100 motion-reduce:transition-none";
@@ -194,13 +196,13 @@ function SearchVisual() {
     <div className="grid gap-3">
       <figure className="bg-stone-950 p-3">
         <div className="relative aspect-[16/7] overflow-hidden bg-stone-900">
-          <Image src="/ai-guide/saathidesk-ai.png" alt="SaathiDesk natural-language search showing a moment query and matching wedding photographs" fill sizes="(min-width: 1024px) 46vw, 94vw" className="object-contain" />
+          <Image src="/ai-guide/saathidesk-ai.png" alt={`${SITE_NAME} natural-language search showing a moment query and matching wedding photographs`} fill sizes="(min-width: 1024px) 46vw, 94vw" className="object-contain" />
         </div>
         <figcaption className="mt-2 text-xs leading-5 text-stone-300">Actual product capture: a moment described in everyday language.</figcaption>
       </figure>
       <figure className="bg-stone-200 p-3">
         <div className="relative aspect-[16/5] overflow-hidden bg-stone-100">
-          <Image src="/ai-guide/only-them.png" alt="SaathiDesk People filter set to Only them for an exact selected-person search" fill sizes="(min-width: 1024px) 46vw, 94vw" className="object-contain" />
+          <Image src="/ai-guide/only-them.png" alt={`${SITE_NAME} People filter set to Only them for an exact selected-person search`} fill sizes="(min-width: 1024px) 46vw, 94vw" className="object-contain" />
         </div>
         <figcaption className="mt-2 text-xs leading-5 text-stone-600">Actual product capture: narrowing a search to exactly the selected People.</figcaption>
       </figure>
@@ -210,9 +212,9 @@ function SearchVisual() {
 
 function PeopleVisual() {
   const captures = [
-    ["/ai-guide/people-search.png", "SaathiDesk People search showing named face groups", "Browse and select People"],
-    ["/ai-guide/group-search.png", "SaathiDesk group filter showing photographs with two or more selected People", "Find selected People in group photographs"],
-    ["/ai-guide/find-yourself.png", "SaathiDesk Find Yourself panel for uploading a portrait and locating the nearest whole-image match", "Upload a portrait for Find Yourself"],
+    ["/ai-guide/people-search.png", `${SITE_NAME} People search showing named face groups`, "Browse and select People"],
+    ["/ai-guide/group-search.png", `${SITE_NAME} group filter showing photographs with two or more selected People`, "Find selected People in group photographs"],
+    ["/ai-guide/find-yourself.png", `${SITE_NAME} Find Yourself panel for uploading a portrait and locating the nearest whole-image match`, "Upload a portrait for Find Yourself"],
   ] as const;
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -280,7 +282,7 @@ export function PhotographerBrochure() {
     <main className="min-h-screen overflow-x-clip bg-stone-100 text-stone-950">
       <header className="border-b border-stone-300">
         <nav aria-label="Primary navigation" className="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-5 py-3 sm:px-8 lg:px-12">
-          <Link href="/" className={`inline-flex min-h-11 items-center font-editorial text-2xl font-semibold tracking-tight ${focusClass}`}>SaathiDesk</Link>
+          <Link href="/" className={`inline-flex min-h-11 items-center font-editorial text-2xl font-semibold tracking-tight ${focusClass}`}>{SITE_NAME}</Link>
           <div className="flex items-center gap-1 sm:gap-2">
             <Link href="/how-ai-works" className={`hidden min-h-11 items-center px-3 text-sm font-medium text-stone-700 transition-colors hover:text-stone-950 sm:inline-flex ${focusClass}`}>How AI works</Link>
             <Link href="/docs" className={`hidden min-h-11 items-center px-3 text-sm font-medium text-stone-700 transition-colors hover:text-stone-950 md:inline-flex ${focusClass}`}>Docs</Link>
@@ -369,6 +371,8 @@ export function PhotographerBrochure() {
         </div>
       </section>
 
+      <FullWorkflow />
+
       <section aria-labelledby="closing-heading" className="px-5 py-10 sm:px-8 sm:py-12 lg:px-12">
         <div className="mx-auto grid max-w-screen-2xl gap-6 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-8">
@@ -385,7 +389,7 @@ export function PhotographerBrochure() {
 
       <footer className="border-t border-stone-300 px-5 py-6 text-sm text-stone-600 sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-screen-2xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} SaathiDesk</p>
+          <p>© {new Date().getFullYear()} {SITE_NAME}</p>
           <p>Capabilities depend on the processing and providers configured for a workspace.</p>
         </div>
       </footer>

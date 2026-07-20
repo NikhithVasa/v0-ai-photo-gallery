@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as mutateSWR } from "swr";
+import useSWRInfinite from "swr/infinite";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -30,11 +31,6 @@ import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -63,6 +59,13 @@ const fetcher = async (url: string) => {
   if (!response.ok) throw new Error(data.error || "Request failed");
   return data;
 };
+
+const EVENT_PHOTO_PAGE_SIZE = 30;
+
+interface EventPhotosPage {
+  photos: Photo[];
+  hasMore: boolean;
+}
 
 type UploadStatus = "ready" | "uploading" | "uploaded" | "failed";
 type UploadTarget = "new" | "existing";
@@ -337,11 +340,11 @@ export function AddEventPage({
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const reelInputRef = useRef<HTMLInputElement>(null);
 
+  const autoUploadPendingRef = useRef(false);
   const [title, setTitle] = useState("");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
-  const [previewFile, setPreviewFile] = useState<QueuedFile | null>(null);
   const [uploadTarget, setUploadTarget] = useState<UploadTarget>(
     initialEventSlug ? "existing" : "new",
   );
@@ -394,37 +397,45 @@ export function AddEventPage({
   );
 
   const album = data?.album;
-  const selectedEventPhotosUrl =
-    uploadTarget === "existing" && selectedExistingEventSlug
-      ? `/api/albums/${encodeURIComponent(albumSlug)}/photos?event=${encodeURIComponent(
-          selectedExistingEventSlug,
-        )}`
-      : null;
   const {
-    data: selectedEventPhotosData,
+    data: selectedEventPhotoPages,
     error: selectedEventPhotosError,
     isLoading: selectedEventPhotosLoading,
+    isValidating: selectedEventPhotosValidating,
     mutate: mutateSelectedEventPhotos,
-  } = useSWR<{ photos: Photo[] }>(selectedEventPhotosUrl, fetcher, {
-    dedupingInterval: 0,
-    revalidateOnFocus: false,
-  });
-  const selectedEventPhotos = selectedEventPhotosData?.photos ?? [];
-  const previewUrl = useMemo(
-    () => (previewFile ? URL.createObjectURL(previewFile.file) : null),
-    [previewFile],
+    size: selectedEventPhotoPageCount,
+    setSize: setSelectedEventPhotoPageCount,
+  } = useSWRInfinite<EventPhotosPage>(
+    (pageIndex, previousPageData) => {
+      if (uploadTarget !== "existing" || !selectedExistingEventSlug) return null;
+      if (previousPageData && !previousPageData.hasMore) return null;
+
+      const offset = pageIndex * EVENT_PHOTO_PAGE_SIZE;
+      return `/api/albums/${encodeURIComponent(albumSlug)}/photos?event=${encodeURIComponent(
+        selectedExistingEventSlug,
+      )}&limit=${EVENT_PHOTO_PAGE_SIZE}&offset=${offset}`;
+    },
+    fetcher,
+    {
+      dedupingInterval: 0,
+      revalidateOnFocus: false,
+    },
   );
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
+  const selectedEventPhotos = useMemo(
+    () => selectedEventPhotoPages?.flatMap((page) => page.photos) ?? [],
+    [selectedEventPhotoPages],
+  );
+  const selectedEventPhotosHasMore =
+    selectedEventPhotoPages?.at(-1)?.hasMore ?? false;
+  const selectedEventPhotosLoadingMore =
+    selectedEventPhotosValidating && !selectedEventPhotosLoading;
+  const refreshSelectedEventPhotos = async () => {
+    await setSelectedEventPhotoPageCount(1);
+    await mutateSelectedEventPhotos();
+  };
   const uploadedCount = queuedFiles.filter((file) => file.status === "uploaded").length;
   const queuedPhotoCount = queuedFiles.filter((file) => file.kind === "photo").length;
   const queuedReelCount = queuedFiles.filter((file) => file.kind === "reel").length;
-  const filesReadyToUpload = queuedFiles.filter(
-    (file) => file.status === "ready" || file.status === "failed",
-  );
   const selectedExistingEvent = album?.events.find(
     (event) => event.slug === selectedExistingEventSlug,
   );
@@ -434,18 +445,13 @@ export function AddEventPage({
     uploadTarget === "existing"
       ? selectedExistingEvent?.name || "Select event"
       : title.trim() || "New event";
-  const canCreate = Boolean(
-    filesReadyToUpload.length &&
+  const canAutoUpload = Boolean(
+    queuedFiles.some((file) => file.status === "ready") &&
       !isUploading &&
       !isGoogleImporting &&
       (uploadTarget === "new" ? title.trim() : selectedExistingEventSlug),
   );
-  const canUseHeaderUpload = Boolean(
-    !isUploading &&
-      !isGoogleImporting &&
-      (uploadTarget === "new" ? title.trim() : selectedExistingEventSlug) &&
-      (filesReadyToUpload.length || uploadTarget === "existing"),
-  );
+  const canUseHeaderUpload = !isUploading && !isGoogleImporting;
   const canSaveCover = Boolean(
     coverFile &&
       !isUploading &&
@@ -453,8 +459,6 @@ export function AddEventPage({
       coverSaveEventSlug
   );
 
-  const uploadButtonLabel =
-    uploadTarget === "new" ? "Create event and upload" : "Start upload";
   const uploadStarted = queuedFiles.some((file) => file.status !== "ready");
   const mediaSummary = useMemo(() => {
     if (!queuedFiles.length) return "No media selected";
@@ -536,6 +540,7 @@ export function AddEventPage({
     }
     if (!media.length) return;
 
+    autoUploadPendingRef.current = true;
     setQueuedFiles((current) => [
       ...current,
       ...media.map(({ file, kind }) => ({
@@ -555,6 +560,7 @@ export function AddEventPage({
     const media = images.filter((image) => isSupportedImageFile(image.file));
     if (!media.length) return;
 
+    autoUploadPendingRef.current = true;
     setQueuedFiles((current) => [
       ...current,
       ...media.map((image) => ({
@@ -650,7 +656,7 @@ export function AddEventPage({
           description: jobLabel,
         });
       }
-      await Promise.all([mutateAlbum(), mutateSelectedEventPhotos()]);
+      await Promise.all([mutateAlbum(), refreshSelectedEventPhotos()]);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "AI job submission failed",
@@ -762,7 +768,7 @@ export function AddEventPage({
 
       const nextEvent = payload.events?.[0];
       setSelectedExistingEventSlug(nextEvent?.slug ?? "");
-      await Promise.all([mutateAlbum(), mutateSelectedEventPhotos()]);
+      await Promise.all([mutateAlbum(), refreshSelectedEventPhotos()]);
       toast({
         title: "Event deleted",
         description: `${selectedExistingEvent.name} was removed from this album.`,
@@ -800,7 +806,7 @@ export function AddEventPage({
         throw new Error(payload.error || "Could not delete photo");
       }
 
-      await Promise.all([mutateSelectedEventPhotos(), mutateAlbum()]);
+      await Promise.all([refreshSelectedEventPhotos(), mutateAlbum()]);
       toast({
         title: "Photo deleted",
         description: photo.fileName || "Photo removed from this event.",
@@ -872,7 +878,7 @@ export function AddEventPage({
           current.filter((id) => !deletedIds.includes(id))
         );
         if (!failedCount) setIsPhotoSelectMode(false);
-        await Promise.all([mutateSelectedEventPhotos(), mutateAlbum()]);
+        await Promise.all([refreshSelectedEventPhotos(), mutateAlbum()]);
         toast({
           title: "Photos deleted",
           description: `${deletedIds.length} photo${
@@ -1191,15 +1197,12 @@ export function AddEventPage({
       }
 
       const encodedAlbumSlug = encodeURIComponent(albumSlug);
-      const encodedEventSlug = encodeURIComponent(preparedEvent.slug);
+      await setSelectedEventPhotoPageCount(1);
       await Promise.all([
         mutateAlbum(),
         mutateSWR(`/api/albums/${encodedAlbumSlug}`),
         mutateSWR(`/api/albums/${encodedAlbumSlug}/stats`),
         mutateSWR(`/api/albums/${encodedAlbumSlug}/videos`),
-        mutateSWR(
-          `/api/albums/${encodedAlbumSlug}/photos?event=${encodedEventSlug}`,
-        ),
         mutateSWR(
           (key) =>
             typeof key === "string" &&
@@ -1244,6 +1247,13 @@ export function AddEventPage({
       setIsUploading(false);
     }
   };
+
+  useEffect(() => {
+    if (!autoUploadPendingRef.current || !canAutoUpload) return;
+
+    autoUploadPendingRef.current = false;
+    void createEvent();
+  }, [canAutoUpload, createEvent]);
 
   if (isLoading) {
     return (
@@ -1302,11 +1312,7 @@ export function AddEventPage({
                 key={item.localId}
                 className="group flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white/90 p-3 text-left shadow-sm backdrop-blur"
               >
-                <button
-                  type="button"
-                  onClick={() => item.kind === "photo" && setPreviewFile(item)}
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none"
-                >
+                <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500">
                     {item.kind === "reel" ? (
                       <Video className="h-5 w-5" />
@@ -1315,14 +1321,14 @@ export function AddEventPage({
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-zinc-950 transition group-hover:text-zinc-600">
+                    <span className="block truncate text-sm font-semibold text-zinc-950">
                       {item.file.name}
                     </span>
                     <span className="mt-0.5 block text-xs font-medium text-zinc-400">
                       {item.kind === "reel" ? "Instagram reel" : "Photo"}
                     </span>
                   </span>
-                </button>
+                </div>
                 {item.status === "uploaded" && (
                   <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
                 )}
@@ -1506,8 +1512,10 @@ export function AddEventPage({
             </p>
             <p className="mt-1 text-sm text-zinc-500">
               {isPhotoSelectMode
-                ? `${selectedCount} selected`
-                : "All photos currently in this event."}
+                ? `${selectedCount} selected from ${selectedEventPhotos.length} loaded`
+                : `Loaded ${selectedEventPhotos.length} photo${
+                    selectedEventPhotos.length === 1 ? "" : "s"
+                  }, up to ${EVENT_PHOTO_PAGE_SIZE} at a time.`}
             </p>
           </div>
 
@@ -1535,7 +1543,7 @@ export function AddEventPage({
                   }
                   className="h-9 rounded-full border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950"
                 >
-                  {allPhotosSelected ? "Clear all" : "Select all"}
+                  {allPhotosSelected ? "Clear all" : "Select loaded"}
                 </button>
                 <button
                   type="button"
@@ -1669,6 +1677,24 @@ export function AddEventPage({
           })}
         </div>
       )}
+
+      {selectedEventPhotosHasMore && (
+        <div className="mt-5 flex justify-center">
+          <button
+            type="button"
+            onClick={() =>
+              void setSelectedEventPhotoPageCount(selectedEventPhotoPageCount + 1)
+            }
+            disabled={selectedEventPhotosLoadingMore}
+            className="flex h-10 min-w-32 items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-950 disabled:cursor-wait disabled:opacity-60"
+          >
+            {selectedEventPhotosLoadingMore && (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
+            Load more photos
+          </button>
+        </div>
+      )}
       </div>
     );
   };
@@ -1709,13 +1735,7 @@ export function AddEventPage({
             </Link>
             <button
               type="button"
-              onClick={() => {
-                if (filesReadyToUpload.length) {
-                  void createEvent();
-                  return;
-                }
-                mediaInputRef.current?.click();
-              }}
+              onClick={() => mediaInputRef.current?.click()}
               disabled={!canUseHeaderUpload}
               className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full bg-zinc-950 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
             >
@@ -1724,8 +1744,7 @@ export function AddEventPage({
               ) : (
                 <Upload className="h-4 w-4" />
               )}
-              <span className="hidden sm:inline">{uploadButtonLabel}</span>
-              <span className="sm:hidden">Upload</span>
+              <span>Add photos</span>
             </button>
             <AuthAvatarMenu />
           </div>
@@ -1858,28 +1877,11 @@ export function AddEventPage({
           </div>
 
           {queuedFiles.length > 0 && (
-            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-zinc-950">
-                  {mediaSummary}
-                </p>
-                <p className="mt-0.5 truncate text-xs text-zinc-500">
-                  Destination: {album.name} / {destinationEventName}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={createEvent}
-                disabled={!canCreate}
-                className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {isUploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                {uploadButtonLabel}
-              </button>
+            <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
+              <p className="text-sm font-semibold text-zinc-950">{mediaSummary}</p>
+              <p className="mt-0.5 truncate text-xs text-zinc-500">
+                Uploading automatically to {album.name} / {destinationEventName}
+              </p>
             </div>
           )}
         </div>
@@ -1964,9 +1966,7 @@ export function AddEventPage({
                       Photos
                     </p>
                     <p className="mt-1 text-lg font-semibold text-zinc-900">
-                      {selectedEventPhotosData
-                        ? selectedEventPhotos.length
-                        : selectedExistingEvent.photoCount}
+                      {selectedExistingEvent.photoCount}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-zinc-50 p-3">
@@ -2210,28 +2210,6 @@ export function AddEventPage({
         </aside>
       </section>
     </main>
-    <Dialog
-      open={Boolean(previewFile)}
-      onOpenChange={(open) => {
-        if (!open) setPreviewFile(null);
-      }}
-    >
-      <DialogContent className="max-w-3xl overflow-hidden p-0">
-        <DialogTitle className="truncate px-5 pt-5 text-sm font-semibold text-zinc-950">
-          {previewFile?.file.name}
-        </DialogTitle>
-        {previewUrl && (
-          <div className="flex max-h-[75vh] items-center justify-center bg-zinc-950/5 p-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl}
-              alt={previewFile?.file.name ?? "Preview"}
-              className="max-h-[70vh] w-auto rounded-2xl object-contain"
-            />
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
     </>
   );
 }

@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { requireAlbumAccess } from "@/lib/album-access";
 import { query, queryOne } from "@/lib/db";
 import { getShareLinkAccess } from "@/lib/share-access";
+import { SITE_NAME } from "@/lib/seo";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -137,7 +138,7 @@ async function requestOpenRouterImageEmbedding({
       "Content-Type": "application/json",
       "HTTP-Referer": openRouterReferer(request),
       "X-Title":
-        process.env.OPENROUTER_APP_TITLE || "Saathidesk Find Yourself",
+        process.env.OPENROUTER_APP_TITLE || `${SITE_NAME} Find Yourself`,
     },
     body: JSON.stringify({
       model,

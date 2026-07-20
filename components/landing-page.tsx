@@ -39,6 +39,7 @@ import { ArcGalleryHero } from "@/components/arc-gallery-hero";
 import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
 import { BentoGrid } from "@/components/ui/bento-grid";
 import { BorderBeam } from "@/components/ui/border-beam";
+import { SITE_NAME } from "@/lib/seo";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -196,7 +197,7 @@ const aiDiscoveryFeatures: Array<{
     icon: ShieldCheck,
   },
   {
-    title: "SaathiDesk AI",
+    title: `${SITE_NAME} AI`,
     body: "Search moments, outfits, scenes, and details.",
     desktopImageSrc: "/ai-guide/saathidesk-ai.png",
     mobileImageSrc: "/ai-guide/mobile/saathidesk-ai.png",
@@ -617,13 +618,13 @@ export function LegacyMarketingHeader() {
         <Link
           href="/"
           className="group inline-flex items-center gap-2 text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 rounded-md"
-          aria-label="SaathiDesk home"
+          aria-label={`${SITE_NAME} home`}
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1C1B18] text-[#F7F5F0] transition-transform duration-300 group-hover:scale-[1.03]">
             <Camera className="h-4 w-4" strokeWidth={1.75} />
           </span>
           <span className="font-serif text-lg leading-none tracking-tight">
-            SaathiDesk
+            {SITE_NAME}
           </span>
         </Link>
 
@@ -876,7 +877,7 @@ function InteractiveSearchDemo() {
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em]">Try the idea</p>
             <h2 className="mt-4 max-w-xl text-5xl font-semibold leading-[0.94] tracking-[-0.045em] sm:text-7xl">A thousand photos. One sentence.</h2>
-            <p className="mt-6 max-w-lg text-base leading-7 text-black/65 sm:text-lg">Clients do not want to scroll forever. Type a person, a relationship, a scene, or a visible detail. SaathiDesk returns the photos that match.</p>
+            <p className="mt-6 max-w-lg text-base leading-7 text-black/65 sm:text-lg">Clients do not want to scroll forever. Type a person, a relationship, a scene, or a visible detail. {SITE_NAME} returns the photos that match.</p>
             <div className="mt-8 space-y-2">
               {searchDemoQueries.map((item, index) => (
                 <button key={item.query} type="button" onClick={() => setActiveQuery(index)} className={`flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-2xl px-4 text-left text-sm font-semibold transition ${index === activeQuery ? "bg-black text-white" : "bg-white/45 text-black hover:bg-white/70"}`} aria-pressed={index === activeQuery}>
@@ -907,7 +908,7 @@ function InteractiveSearchDemo() {
 
 function LandingFeatureRail() {
   return (
-    <section aria-label="SaathiDesk workflow" className="border-y border-black/10 bg-[#171411] text-[#FAF7F2]">
+    <section aria-label={`${SITE_NAME} workflow`} className="border-y border-black/10 bg-[#171411] text-[#FAF7F2]">
       <div className="mx-auto grid max-w-7xl divide-y divide-white/10 px-5 sm:px-8 md:grid-cols-5 md:divide-x md:divide-y-0">
         {landingFeatureRail.map(([number, title, body]) => (
           <a key={number} href="#platform" className="group flex min-h-28 cursor-pointer items-start gap-4 py-5 transition-colors hover:bg-white/[0.04] md:px-5 md:first:pl-0">
@@ -933,7 +934,7 @@ function LandingFeatureIndex({ reveal, stagger }: { reveal: MotionProps; stagger
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#E7D6B5]">One working album</p>
             <h2 className="mt-3 font-serif text-4xl leading-[1.02] sm:text-6xl">Everything after the shutter.</h2>
           </div>
-          <p className="max-w-2xl text-base leading-7 text-white/60 sm:text-lg">SaathiDesk keeps the original files, the AI work, the review decisions, and the client delivery in one album. No feature lives in a disconnected side tool.</p>
+          <p className="max-w-2xl text-base leading-7 text-white/60 sm:text-lg">{SITE_NAME} keeps the original files, the AI work, the review decisions, and the client delivery in one album. No feature lives in a disconnected side tool.</p>
         </motion.div>
 
         <motion.div {...stagger} className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -1001,7 +1002,7 @@ function AiDiscoveryShowcase({
             AI tools that help guests find their photos.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#6F675E] sm:text-lg">
-            SaathiDesk helps guests search large galleries by people, groups,
+            {SITE_NAME} helps guests search large galleries by people, groups,
             and meaningful moments.
           </p>
         </motion.div>
@@ -1113,9 +1114,9 @@ export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.06] bg-[#F7F5F0]/90 backdrop-blur-xl">
       <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-5 sm:px-8">
-        <Link href="/" className="group inline-flex items-center gap-2 rounded-md text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30" aria-label="SaathiDesk home">
+        <Link href="/" className="group inline-flex items-center gap-2 rounded-md text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30" aria-label={`${SITE_NAME} home`}>
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1C1B18] text-[#F7F5F0] transition-transform duration-300 group-hover:scale-[1.03]"><Camera className="h-4 w-4" strokeWidth={1.75} /></span>
-          <span className="font-serif text-lg leading-none tracking-tight">SaathiDesk</span>
+          <span className="font-serif text-lg leading-none tracking-tight">{SITE_NAME}</span>
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2">
           <a href="#platform" className="hidden h-10 items-center rounded-full px-4 text-sm font-medium text-[#4F473F] transition hover:text-[#1F1B16] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1F1B16]/30 md:inline-flex">Features</a>
@@ -1135,7 +1136,7 @@ function SoftwareWindow({ title, status, children }: { title: string; status: st
 }
 
 function DemoSidebar({ active }: { active: string }) {
-  return <nav aria-label="Demo navigation" className="border-r border-black/10 bg-[#E9E3DA] p-2 sm:p-4"><div className="mb-6 hidden font-serif text-lg sm:block">SaathiDesk</div>{[[Camera,"Photos"],[Users,"People"],[SlidersHorizontal,"Cull"],[Wand2,"Finish"],[Share2,"Share"]].map(([Icon,label]) => { const DemoIcon = Icon as LucideIcon; return <div key={label as string} className={`mb-1 flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 text-xs font-semibold sm:justify-start sm:px-3 ${active === label ? "bg-[#1D1B19] text-white" : "text-[#71685F]"}`}><DemoIcon className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">{label as string}</span></div>;})}</nav>;
+  return <nav aria-label="Demo navigation" className="border-r border-black/10 bg-[#E9E3DA] p-2 sm:p-4"><div className="mb-6 hidden font-serif text-lg sm:block">{SITE_NAME}</div>{[[Camera,"Photos"],[Users,"People"],[SlidersHorizontal,"Cull"],[Wand2,"Finish"],[Share2,"Share"]].map(([Icon,label]) => { const DemoIcon = Icon as LucideIcon; return <div key={label as string} className={`mb-1 flex min-h-11 items-center justify-center gap-2 rounded-lg px-2 text-xs font-semibold sm:justify-start sm:px-3 ${active === label ? "bg-[#1D1B19] text-white" : "text-[#71685F]"}`}><DemoIcon className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">{label as string}</span></div>;})}</nav>;
 }
 
 function DemoControl({ icon: Icon, label, active = false }: { icon: LucideIcon; label: string; active?: boolean }) {
@@ -1171,7 +1172,7 @@ function ProductStories({ reveal }: { reveal: MotionProps }) {
 }
 
 function StorySection({ reveal, eyebrow, title, body, tone, active, image, chips, reverse = false }: { reveal: MotionProps; eyebrow: string; title: string; body: string; tone: string; active: string; image: string; chips: readonly string[]; reverse?: boolean }) {
-  return <section className={`${tone} py-20 sm:py-28`}><div className={`mx-auto grid max-w-[92rem] gap-10 px-5 sm:px-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center ${reverse ? "lg:[&>*:first-child]:order-2" : ""}`}><motion.div {...reveal}><p className="text-xs font-bold uppercase tracking-[0.18em] text-black/55">{eyebrow}</p><h2 className="mt-4 font-serif text-5xl leading-[0.94] tracking-[-0.035em] sm:text-7xl">{title}</h2><p className="mt-6 max-w-xl text-base leading-7 text-black/65 sm:text-lg">{body}</p><div className="mt-7 flex flex-wrap gap-2">{chips.map(chip => <span key={chip} className="rounded-full border border-black/15 bg-white/35 px-3 py-2 text-xs font-semibold">{chip}</span>)}</div></motion.div><SoftwareWindow title="Aanya & Dev" status="Changes saved"><div className="grid min-h-[480px] grid-cols-[4.5rem_1fr] bg-[#F2EEE8] sm:grid-cols-[10rem_1fr]"><DemoSidebar active={active} /><div className="p-3 sm:p-5"><div className="flex items-center justify-between"><DemoControl icon={SlidersHorizontal} label={chips[0]} active /><DemoControl icon={CheckCircle2} label="Apply" /></div><div className="relative mt-4 min-h-[350px] overflow-hidden rounded-xl"><Image src={image} alt="SaathiDesk product workflow" fill sizes="(min-width:1024px) 55vw, 80vw" className="object-cover" /><div className="absolute inset-x-3 bottom-3 grid grid-cols-3 gap-2 rounded-xl bg-[#171411]/90 p-3 text-white backdrop-blur"><div><p className="text-[10px] uppercase text-white/45">Status</p><p className="mt-1 text-xs font-semibold">Ready</p></div><div><p className="text-[10px] uppercase text-white/45">Event</p><p className="mt-1 text-xs font-semibold">Reception</p></div><div><p className="text-[10px] uppercase text-white/45">Action</p><p className="mt-1 text-xs font-semibold">{chips[1]}</p></div></div></div></div></div></SoftwareWindow></div></section>;
+  return <section className={`${tone} py-20 sm:py-28`}><div className={`mx-auto grid max-w-[92rem] gap-10 px-5 sm:px-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center ${reverse ? "lg:[&>*:first-child]:order-2" : ""}`}><motion.div {...reveal}><p className="text-xs font-bold uppercase tracking-[0.18em] text-black/55">{eyebrow}</p><h2 className="mt-4 font-serif text-5xl leading-[0.94] tracking-[-0.035em] sm:text-7xl">{title}</h2><p className="mt-6 max-w-xl text-base leading-7 text-black/65 sm:text-lg">{body}</p><div className="mt-7 flex flex-wrap gap-2">{chips.map(chip => <span key={chip} className="rounded-full border border-black/15 bg-white/35 px-3 py-2 text-xs font-semibold">{chip}</span>)}</div></motion.div><SoftwareWindow title="Aanya & Dev" status="Changes saved"><div className="grid min-h-[480px] grid-cols-[4.5rem_1fr] bg-[#F2EEE8] sm:grid-cols-[10rem_1fr]"><DemoSidebar active={active} /><div className="p-3 sm:p-5"><div className="flex items-center justify-between"><DemoControl icon={SlidersHorizontal} label={chips[0]} active /><DemoControl icon={CheckCircle2} label="Apply" /></div><div className="relative mt-4 min-h-[350px] overflow-hidden rounded-xl"><Image src={image} alt={`${SITE_NAME} product workflow`} fill sizes="(min-width:1024px) 55vw, 80vw" className="object-cover" /><div className="absolute inset-x-3 bottom-3 grid grid-cols-3 gap-2 rounded-xl bg-[#171411]/90 p-3 text-white backdrop-blur"><div><p className="text-[10px] uppercase text-white/45">Status</p><p className="mt-1 text-xs font-semibold">Ready</p></div><div><p className="text-[10px] uppercase text-white/45">Event</p><p className="mt-1 text-xs font-semibold">Reception</p></div><div><p className="text-[10px] uppercase text-white/45">Action</p><p className="mt-1 text-xs font-semibold">{chips[1]}</p></div></div></div></div></div></SoftwareWindow></div></section>;
 }
 
 function DocsHub({
@@ -1196,7 +1197,7 @@ function DocsHub({
               Clear paths for every <span className="italic">album job.</span>
             </h2>
             <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#6F675E] sm:text-lg">
-              SaathiDesk is both a client gallery and a studio workspace. These
+              {SITE_NAME} is both a client gallery and a studio workspace. These
               quick pages explain where to go, what the AI prepares, and how to
               deliver a finished set with the right privacy controls.
             </p>
@@ -2183,10 +2184,10 @@ export function MarketingFooter() {
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#171411] text-[#FAF7F2]">
             <Camera className="h-3 w-3" strokeWidth={1.75} />
           </span>
-          <span className="font-serif text-sm text-[#4F473F]">SaathiDesk</span>
+          <span className="font-serif text-sm text-[#4F473F]">{SITE_NAME}</span>
         </div>
 
-        <p>© {new Date().getFullYear()} SaathiDesk. All photographs belong to their owners.</p>
+        <p>© {new Date().getFullYear()} {SITE_NAME}. All photographs belong to their owners.</p>
 
         <div className="flex items-center gap-4">
           <Link href="/login" className="hover:text-[#3A2A22]">

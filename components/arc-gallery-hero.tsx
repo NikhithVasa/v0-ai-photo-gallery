@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
+import { SITE_NAME } from "@/lib/seo";
 
 interface GalleryImage {
   src: string;
@@ -116,7 +117,7 @@ export function ArcGalleryHero() {
             <span className="block italic text-stone-600">{" "}keep the story together.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-stone-700 sm:text-lg sm:leading-8">
-            SaathiDesk gives professional wedding photographers one calm place to
+            {SITE_NAME} gives professional wedding photographers one calm place to
             organize events, find people and moments with AI, refine the set, and
             deliver a private client gallery.
           </p>
@@ -171,7 +172,7 @@ export function ArcGalleryHero() {
             </motion.div>
           ))}
           <figcaption className="sr-only">
-            A selection of wedding moments organized and prepared for client delivery in SaathiDesk.
+            A selection of wedding moments organized and prepared for client delivery in {SITE_NAME}.
           </figcaption>
         </motion.figure>
       </div>

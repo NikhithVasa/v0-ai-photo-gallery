@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { ContactPage } from "@/components/contact-page";
-import { createPageMetadata } from "@/lib/seo";
+import { createPageMetadata, SITE_NAME } from "@/lib/seo";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Contact",
-  description: "Contact SaathiDesk for product questions and support.",
+  description: `Contact ${SITE_NAME} for product questions and support.`,
   path: "/contact",
 });
 

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef } from "react";
+import { SITE_INITIALS } from "@/lib/seo";
 
 const cards = [
   {
@@ -192,7 +193,7 @@ export function HeroBrowserStack() {
               fontWeight="700"
               textAnchor="end"
             >
-              SD
+              {SITE_INITIALS}
             </text>
           </svg>
 
