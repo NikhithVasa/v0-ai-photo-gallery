@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { queryOne } from "@/lib/db";
 
 import {
   requireAdminAccess,
@@ -153,6 +154,29 @@ export async function POST(request: Request) {
   } else {
     const accessDenied = await requireAlbumCustomerAccess(body.albumSlug!);
     if (accessDenied) return accessDenied;
+  }
+
+  if (body.mode === "existing" && body.eventSlug && !body.eventName) {
+    const target = await queryOne<{ exists: boolean }>(
+      `
+      SELECT EXISTS (
+        SELECT 1
+        FROM album_events e
+        JOIN albums a ON a.id = e.album_id
+        WHERE lower(a.slug) = lower($1)
+          AND lower(e.slug) = lower($2)
+          AND COALESCE(a.is_deleted, false) = false
+          AND COALESCE(e.is_deleted, false) = false
+      ) AS exists
+      `,
+      [body.albumSlug, body.eventSlug],
+    );
+    if (!target?.exists) {
+      return NextResponse.json(
+        { error: "Select an existing event or enter a new event name." },
+        { status: 404 },
+      );
+    }
   }
 
   const functionName = process.env.GOOGLE_DRIVE_IMPORT_LAMBDA_NAME?.trim();

@@ -249,6 +249,64 @@ export function driveImportPollDecision(
     : "stop";
 }
 
+export function selectDriveImportTarget({
+  uploadTarget,
+  eventName,
+  selectedEventSlug,
+  eventSlugs,
+  queuedEventSlug,
+}: {
+  uploadTarget: UploadTarget;
+  eventName: string;
+  selectedEventSlug: string;
+  eventSlugs: string[];
+  queuedEventSlug?: string;
+}): { eventName: string; eventSlug?: never } | { eventSlug: string; eventName?: never } {
+  const selectedEventExists = eventSlugs.includes(selectedEventSlug);
+  if (
+    uploadTarget === "new" ||
+    (queuedEventSlug === selectedEventSlug && !selectedEventExists)
+  ) {
+    return {
+      eventName:
+        eventName.trim() || selectedEventSlug.replace(/[-_]+/g, " ") || "Uploads",
+    };
+  }
+  return { eventSlug: selectedEventSlug };
+}
+
+export function reconcileDriveImportTarget({
+  uploadTarget,
+  selectedEventSlug,
+  eventSlugs,
+  queuedEventSlug,
+}: {
+  uploadTarget: UploadTarget;
+  selectedEventSlug: string;
+  eventSlugs: string[];
+  queuedEventSlug?: string;
+}): {
+  uploadTarget: UploadTarget;
+  selectedEventSlug: string;
+  suggestedEventName?: string;
+} {
+  if (queuedEventSlug && eventSlugs.includes(queuedEventSlug)) {
+    return { uploadTarget: "existing", selectedEventSlug: queuedEventSlug };
+  }
+  if (uploadTarget !== "existing" || eventSlugs.includes(selectedEventSlug)) {
+    return { uploadTarget, selectedEventSlug };
+  }
+  if (eventSlugs.length && !queuedEventSlug) {
+    return { uploadTarget: "existing", selectedEventSlug: eventSlugs[0] };
+  }
+  return {
+    uploadTarget: "new",
+    selectedEventSlug,
+    suggestedEventName:
+      selectedEventSlug.replace(/[-_]+/g, " ") || "Uploads",
+  };
+}
+
 function isSupportedVideoFile(file: File) {
   if (file.type.startsWith("video/")) return true;
   return /\.(mp4|mov|m4v|webm)$/i.test(file.name);
@@ -401,6 +459,13 @@ export function AddEventPage({
   } | null>(null);
   const coverPreviewUrlRef = useRef<string | null>(null);
   const queueDriveFolderLink = async (folderLink: string) => {
+    const importTarget = selectDriveImportTarget({
+      uploadTarget,
+      eventName: title,
+      selectedEventSlug: selectedExistingEventSlug,
+      eventSlugs: album?.events.map((event) => event.slug) ?? [],
+      queuedEventSlug: driveImportPoll?.eventSlug,
+    });
     const response = await fetch("/api/google-drive-imports", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -408,9 +473,7 @@ export function AddEventPage({
         folderLink,
         mode: "existing",
         albumSlug,
-        eventSlug:
-          uploadTarget === "existing" ? selectedExistingEventSlug : undefined,
-        eventName: uploadTarget === "new" ? title.trim() : undefined,
+        ...importTarget,
         runAi,
       }),
     });
@@ -424,10 +487,10 @@ export function AddEventPage({
     }
 
     const importEventSlug =
-      uploadTarget === "existing"
-        ? selectedExistingEventSlug
-        : slugifyImportEvent(title);
-    if (uploadTarget === "new") {
+      importTarget.eventName !== undefined
+        ? slugifyImportEvent(importTarget.eventName)
+        : importTarget.eventSlug;
+    if (importTarget.eventName !== undefined) {
       setUploadTarget("existing");
       setSelectedExistingEventSlug(importEventSlug);
     }
@@ -608,9 +671,26 @@ export function AddEventPage({
   }, [initialEventSlug]);
 
   useEffect(() => {
-    if (selectedExistingEventSlug || !album?.events.length) return;
-    setSelectedExistingEventSlug(album.events[0].slug);
-  }, [album?.events, selectedExistingEventSlug]);
+    if (!album) return;
+
+    const reconciliation = reconcileDriveImportTarget({
+      uploadTarget,
+      selectedEventSlug: selectedExistingEventSlug,
+      eventSlugs: album.events.map((event) => event.slug),
+      queuedEventSlug: driveImportPoll?.eventSlug,
+    });
+    if (reconciliation.uploadTarget !== uploadTarget) {
+      setUploadTarget(reconciliation.uploadTarget);
+    }
+    if (reconciliation.selectedEventSlug !== selectedExistingEventSlug) {
+      setSelectedExistingEventSlug(reconciliation.selectedEventSlug);
+    }
+    if (reconciliation.suggestedEventName) {
+      setTitle((current) =>
+        current.trim() ? current : reconciliation.suggestedEventName!,
+      );
+    }
+  }, [album, driveImportPoll, selectedExistingEventSlug, uploadTarget]);
 
   useEffect(() => {
     setIsPhotoSelectMode(false);

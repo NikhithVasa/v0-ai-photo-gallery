@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   driveImportPollDecision,
+  reconcileDriveImportTarget,
+  selectDriveImportTarget,
   slugifyImportEvent,
 } from "./add-event-page";
 
@@ -40,5 +42,56 @@ describe("Google Drive event photo polling", () => {
         now,
       ),
     ).toBe(expected);
+  });
+});
+
+describe("Google Drive import target reconciliation", () => {
+  it("switches a stale existing-event selection to a new event when the album has no events", () => {
+    expect(
+      reconcileDriveImportTarget({
+        uploadTarget: "existing",
+        selectedEventSlug: "test",
+        eventSlugs: [],
+      }),
+    ).toEqual({
+      uploadTarget: "new",
+      selectedEventSlug: "test",
+      suggestedEventName: "test",
+    });
+  });
+
+  it("sends the event name while the queued event is missing from album data", () => {
+    expect(
+      selectDriveImportTarget({
+        uploadTarget: "existing",
+        eventName: "Test",
+        selectedEventSlug: "test",
+        eventSlugs: [],
+        queuedEventSlug: "test",
+      }),
+    ).toEqual({ eventName: "Test" });
+  });
+
+  it("sends the event slug once the queued event is present in album data", () => {
+    expect(
+      selectDriveImportTarget({
+        uploadTarget: "existing",
+        eventName: "Test",
+        selectedEventSlug: "test",
+        eventSlugs: ["test"],
+        queuedEventSlug: "test",
+      }),
+    ).toEqual({ eventSlug: "test" });
+  });
+
+  it("returns to the created event when polling adds it to album data", () => {
+    expect(
+      reconcileDriveImportTarget({
+        uploadTarget: "new",
+        selectedEventSlug: "other-event",
+        eventSlugs: ["other-event", "test"],
+        queuedEventSlug: "test",
+      }),
+    ).toEqual({ uploadTarget: "existing", selectedEventSlug: "test" });
   });
 });
