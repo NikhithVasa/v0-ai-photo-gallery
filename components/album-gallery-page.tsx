@@ -56,6 +56,7 @@ import { AiPrivacyNotice } from "@/components/ai-privacy-notice";
 import { ApplyPresetSelectionDialog } from "@/components/apply-preset-selection-dialog";
 import { RetryableAvatarImage } from "@/components/retryable-avatar-image";
 import { usePasscodeVerification } from "@/hooks/use-passcode-verification";
+import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { BorderBeam } from "@/components/ui/border-beam";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -114,6 +115,36 @@ type DownloadFormat = "original" | "png" | "jpeg";
 type PersonReturnTarget =
   | { kind: "photos" }
   | { kind: "photo"; photoId: string };
+type MoveFlow = "existing" | "new";
+
+interface MoveDestinationEvent {
+  id: string;
+  slug: string;
+  name: string;
+}
+
+interface MoveDestinationAlbum {
+  id: string;
+  slug: string;
+  name: string;
+  events: MoveDestinationEvent[];
+}
+
+interface MoveDestinationsResponse {
+  destinations: MoveDestinationAlbum[];
+  canCreate: boolean;
+}
+
+interface MovePhotosResponse {
+  ok: true;
+  destination: {
+    album: { id: string; slug: string; name: string };
+    event: MoveDestinationEvent;
+    created: boolean;
+  };
+  movedPhotoIds: string[];
+  movedCount: number;
+}
 
 const DOWNLOAD_FORMATS: Array<{ format: DownloadFormat; label: string }> = [
   { format: "original", label: "Original" },
@@ -129,6 +160,70 @@ const navPillButtonActiveClass =
 
 const navIconButtonClass =
   "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-zinc-500 ring-1 ring-inset ring-black/10 transition hover:bg-white/55 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
+export interface MovePhotosFormState {
+  photoIds: string[];
+  flow: MoveFlow;
+  albumSlug: string;
+  eventSlug: string;
+  albumName: string;
+  eventName: string;
+  isMoving: boolean;
+  isLoadingDestinations: boolean;
+}
+
+export function shouldShowMoveAction({
+  isSelectionMode,
+  isAuthenticated,
+  isShareView,
+}: {
+  isSelectionMode: boolean;
+  isAuthenticated: boolean;
+  isShareView: boolean;
+}) {
+  return isSelectionMode && isAuthenticated && !isShareView;
+}
+
+export function canSubmitMovePhotos(state: MovePhotosFormState) {
+  return (
+    state.photoIds.length > 0 &&
+    !state.isMoving &&
+    !state.isLoadingDestinations &&
+    (state.flow === "existing"
+      ? Boolean(state.albumSlug && state.eventSlug)
+      : Boolean(state.albumName.trim() && state.eventName.trim()))
+  );
+}
+
+export function buildMovePhotosPayload(state: MovePhotosFormState) {
+  return {
+    photoIds: state.photoIds,
+    destination:
+      state.flow === "existing"
+        ? {
+            kind: "existing" as const,
+            albumSlug: state.albumSlug,
+            eventSlug: state.eventSlug,
+          }
+        : {
+            kind: "new" as const,
+            albumName: state.albumName.trim(),
+            eventName: state.eventName.trim(),
+          },
+  };
+}
+
+export function MoveSelectionTrigger({ selectedCount }: { selectedCount: number }) {
+  return (
+    <button
+      type="button"
+      disabled={selectedCount === 0}
+      className={`${navPillButtonClass} min-w-[88px] disabled:cursor-not-allowed disabled:opacity-45`}
+      aria-label="Move selected photos"
+    >
+      Move
+    </button>
+  );
+}
 
 export function galleryFooterClassName(isNavHidden: boolean) {
   return `relative z-30 px-2 pb-24 transition duration-300 ease-out md:fixed md:inset-x-0 md:bottom-3 md:px-5 md:pb-0 ${
@@ -3256,6 +3351,7 @@ function ShareAiGuideDialog({
 export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const shareToken = searchParams.get("share") || "";
   const isShareView = Boolean(shareToken);
   const autoCoverScrollDoneRef = useRef(false);
@@ -3306,7 +3402,15 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   const [isSavingEventName, setIsSavingEventName] = useState(false);
   const [isRetryingAiDetails, setIsRetryingAiDetails] = useState(false);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [moveFlow, setMoveFlow] = useState<MoveFlow>("existing");
+  const [moveDestinations, setMoveDestinations] =
+    useState<MoveDestinationsResponse | null>(null);
+  const [moveTargetAlbumSlug, setMoveTargetAlbumSlug] = useState("");
   const [moveTargetEventSlug, setMoveTargetEventSlug] = useState("");
+  const [newAlbumName, setNewAlbumName] = useState("");
+  const [newEventName, setNewEventName] = useState("");
+  const [isLoadingMoveDestinations, setIsLoadingMoveDestinations] =
+    useState(false);
   const [isMovingPhotos, setIsMovingPhotos] = useState(false);
   const [moveError, setMoveError] = useState("");
   const [apsaraTextSearch, setApsaraTextSearch] = useState<{
@@ -3464,22 +3568,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   );
   const currentScopeHasReels = eventHasReels(effectiveEventSlug);
 
-  useEffect(() => {
-    if (!album?.events.length) {
-      if (moveTargetEventSlug) setMoveTargetEventSlug("");
-      return;
-    }
-
-    const targetStillExists = album.events.some(
-      (event) => event.slug === moveTargetEventSlug,
-    );
-    if (targetStillExists) return;
-
-    const fallback =
-      album.events.find((event) => event.slug !== selectedEventSlug) ??
-      album.events[0];
-    setMoveTargetEventSlug(fallback?.slug ?? "");
-  }, [album?.events, moveTargetEventSlug, selectedEventSlug]);
 
   const albumDateLabel = formatAlbumDate(album?.albumDate);
   const coverCreditName = album?.customer?.name || album?.name || "";
@@ -4639,38 +4727,110 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
     }
   };
 
-  const moveSelectedPhotosToEvent = async () => {
-    if (
-      !album ||
-      !selectedDownloadPhotoIds.length ||
-      !moveTargetEventSlug ||
-      isMovingPhotos
-    ) {
-      return;
+  const selectedMoveAlbum = moveDestinations?.destinations.find(
+    (destination) => destination.slug === moveTargetAlbumSlug,
+  );
+  const moveFormState: MovePhotosFormState = {
+    photoIds: selectedDownloadPhotoIds,
+    flow: moveFlow,
+    albumSlug: moveTargetAlbumSlug,
+    eventSlug: moveTargetEventSlug,
+    albumName: newAlbumName,
+    eventName: newEventName,
+    isMoving: isMovingPhotos,
+    isLoadingDestinations: isLoadingMoveDestinations,
+  };
+  const canSubmitMove = canSubmitMovePhotos(moveFormState);
+
+  const loadMoveDestinations = async () => {
+    if (!user || isShareView) return;
+
+    setIsLoadingMoveDestinations(true);
+    setMoveError("");
+    setMoveDestinations(null);
+    setMoveTargetAlbumSlug("");
+    setMoveTargetEventSlug("");
+
+    try {
+      const response = await fetch(
+        `/api/albums/${encodeURIComponent(albumSlug)}/photos/move`,
+      );
+      const payload = (await response.json().catch(() => ({}))) as
+        | (Partial<MoveDestinationsResponse> & { error?: string })
+        | undefined;
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not load move destinations");
+      }
+      if (!payload || !Array.isArray(payload.destinations)) {
+        throw new Error("Could not load move destinations");
+      }
+
+      const destinations = payload.destinations;
+      const preferredAlbum =
+        destinations.find((destination) => destination.slug === albumSlug) ??
+        destinations[0];
+      const preferredEvent =
+        preferredAlbum?.events.find(
+          (event) => event.slug !== effectiveEventSlug,
+        ) ?? preferredAlbum?.events[0];
+
+      setMoveDestinations({
+        destinations,
+        canCreate: payload.canCreate === true,
+      });
+      setMoveTargetAlbumSlug(preferredAlbum?.slug ?? "");
+      setMoveTargetEventSlug(preferredEvent?.slug ?? "");
+      if (!destinations.length && payload.canCreate === true) {
+        setMoveFlow("new");
+      }
+    } catch (error) {
+      setMoveError(
+        error instanceof Error ? error.message : "Could not load move destinations",
+      );
+    } finally {
+      setIsLoadingMoveDestinations(false);
     }
+  };
+
+  const handleMoveDialogOpenChange = (open: boolean) => {
+    if (isMovingPhotos) return;
+    setIsMoveDialogOpen(open);
+    setMoveError("");
+
+    if (open) {
+      setMoveFlow("existing");
+      setNewAlbumName("");
+      setNewEventName("");
+      void loadMoveDestinations();
+    }
+  };
+
+  const moveSelectedPhotos = async () => {
+    if (!canSubmitMove) return;
 
     setIsMovingPhotos(true);
     setMoveError("");
 
     try {
+      const movePayload = buildMovePhotosPayload(moveFormState);
       const response = await fetch(
         `/api/albums/${encodeURIComponent(albumSlug)}/photos/move`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            photoIds: selectedDownloadPhotoIds,
-            eventSlug: moveTargetEventSlug,
-          }),
+          body: JSON.stringify(movePayload),
         },
       );
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        movedCount?: number;
-      };
+      const payload = (await response.json().catch(() => ({}))) as
+        | (Partial<MovePhotosResponse> & { error?: string })
+        | undefined;
 
       if (!response.ok) {
-        throw new Error(payload.error || "Could not move selected photos");
+        throw new Error(payload?.error || "Could not move selected photos");
+      }
+      if (!payload?.ok || !payload.destination?.album || !payload.destination.event) {
+        throw new Error("The move completed without a destination");
       }
 
       const encodedAlbumSlug = encodeURIComponent(albumSlug);
@@ -4688,12 +4848,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
       setSelectedDownloadPhotoIds([]);
       setIsPhotoSelectionMode(false);
       setIsMoveDialogOpen(false);
-      setSelectedEventSlug(moveTargetEventSlug);
-      router.replace(
-        `/albums/${albumSlug}${eventQuery(moveTargetEventSlug, shareToken)}`,
-        { scroll: false },
+      const destinationAlbumSlug = payload.destination.album.slug;
+      const destinationEventSlug = payload.destination.event.slug;
+      router.push(
+        `/albums/${encodeURIComponent(destinationAlbumSlug)}?event=${encodeURIComponent(destinationEventSlug)}`,
       );
-      scrollToGalleryTop("instant");
     } catch (error) {
       setMoveError(
         error instanceof Error ? error.message : "Could not move selected photos",
@@ -5238,6 +5397,229 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 </span>
               </button>
 
+              {shouldShowMoveAction({
+                isSelectionMode: isPhotoSelectionMode,
+                isAuthenticated: Boolean(user),
+                isShareView,
+              }) && (
+                <Dialog
+                  open={isMoveDialogOpen}
+                  onOpenChange={handleMoveDialogOpenChange}
+                >
+                  <DialogTrigger asChild>
+                    <MoveSelectionTrigger selectedCount={selectedDownloadPhotoIds.length} />
+                  </DialogTrigger>
+                  <DialogContent className="max-h-[90svh] w-[calc(100vw-1.5rem)] overflow-y-auto rounded-3xl sm:max-w-lg">
+                    <DialogHeader className="text-left">
+                      <DialogTitle>Move selected photos</DialogTitle>
+                      <DialogDescription>
+                        Move {selectedDownloadPhotoIds.length} selected photo
+                        {selectedDownloadPhotoIds.length === 1 ? "" : "s"} to
+                        another event or album.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    {isLoadingMoveDestinations ? (
+                      <div
+                        className="flex min-h-40 items-center justify-center gap-2 rounded-2xl bg-zinc-50 text-sm text-zinc-600"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading destinations
+                      </div>
+                    ) : moveError && !moveDestinations ? (
+                      <div className="space-y-3">
+                        <p
+                          className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+                          role="alert"
+                        >
+                          {moveError}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void loadMoveDestinations()}
+                        >
+                          Try again
+                        </Button>
+                      </div>
+                    ) : moveDestinations ? (
+                      <div className="space-y-5">
+                        {moveDestinations.canCreate && (
+                          <RadioGroup
+                            value={moveFlow}
+                            onValueChange={(value) => {
+                              setMoveFlow(value as MoveFlow);
+                              setMoveError("");
+                            }}
+                            className="grid grid-cols-2 gap-2"
+                            aria-label="Destination type"
+                          >
+                            <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-zinc-200 px-3 py-3 text-sm font-medium">
+                              <RadioGroupItem value="existing" />
+                              Existing album
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-zinc-200 px-3 py-3 text-sm font-medium">
+                              <RadioGroupItem value="new" />
+                              Create new album
+                            </label>
+                          </RadioGroup>
+                        )}
+
+                        {moveFlow === "existing" ? (
+                          moveDestinations.destinations.length ? (
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="move-target-album">
+                                  Destination album
+                                </Label>
+                                <select
+                                  id="move-target-album"
+                                  value={moveTargetAlbumSlug}
+                                  onChange={(event) => {
+                                    const albumSlug = event.target.value;
+                                    const destinationAlbum =
+                                      moveDestinations.destinations.find(
+                                        (destination) =>
+                                          destination.slug === albumSlug,
+                                      );
+                                    setMoveTargetAlbumSlug(albumSlug);
+                                    setMoveTargetEventSlug(
+                                      destinationAlbum?.events[0]?.slug ?? "",
+                                    );
+                                    setMoveError("");
+                                  }}
+                                  className="h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-900 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+                                >
+                                  {moveDestinations.destinations.map(
+                                    (destination) => (
+                                      <option
+                                        key={destination.id}
+                                        value={destination.slug}
+                                      >
+                                        {destination.name}
+                                      </option>
+                                    ),
+                                  )}
+                                </select>
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label htmlFor="move-target-event">
+                                  Destination event
+                                </Label>
+                                {selectedMoveAlbum?.events.length ? (
+                                  <select
+                                    id="move-target-event"
+                                    value={moveTargetEventSlug}
+                                    onChange={(event) => {
+                                      setMoveTargetEventSlug(event.target.value);
+                                      setMoveError("");
+                                    }}
+                                    className="h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-900 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+                                  >
+                                    {selectedMoveAlbum.events.map((event) => (
+                                      <option key={event.id} value={event.slug}>
+                                        {event.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <p
+                                    className="rounded-2xl bg-zinc-50 px-4 py-3 text-sm text-zinc-600"
+                                    role="status"
+                                  >
+                                    This album has no available events.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <p
+                              className="rounded-2xl bg-zinc-50 px-4 py-5 text-center text-sm text-zinc-600"
+                              role="status"
+                            >
+                              No existing destination albums are available.
+                              {moveDestinations.canCreate
+                                ? " Create a new album instead."
+                                : ""}
+                            </p>
+                          )
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="move-new-album-name">
+                                Album name
+                              </Label>
+                              <Input
+                                id="move-new-album-name"
+                                value={newAlbumName}
+                                onChange={(event) => {
+                                  setNewAlbumName(event.target.value);
+                                  setMoveError("");
+                                }}
+                                placeholder="Album name"
+                                autoComplete="off"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="move-new-event-name">
+                                Event name
+                              </Label>
+                              <Input
+                                id="move-new-event-name"
+                                value={newEventName}
+                                onChange={(event) => {
+                                  setNewEventName(event.target.value);
+                                  setMoveError("");
+                                }}
+                                placeholder="Event name"
+                                autoComplete="off"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {moveError && (
+                          <p
+                            className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+                            role="alert"
+                          >
+                            {moveError}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+
+                    <DialogFooter className="gap-2 sm:gap-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleMoveDialogOpenChange(false)}
+                        disabled={isMovingPhotos}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={moveSelectedPhotos}
+                        disabled={!canSubmitMove}
+                      >
+                        {isMovingPhotos && (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        )}
+                        {isMovingPhotos
+                          ? moveFlow === "new"
+                            ? "Creating and moving"
+                            : "Moving photos"
+                          : "Move photos"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+
               <AlbumDownloadMenu
                 albumSlug={albumSlug}
                 shareToken={shareToken}
@@ -5617,88 +5999,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                           })}
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    )}
-                    {!isShareView && album.events.length > 1 && (
-                      <Dialog
-                        open={isMoveDialogOpen}
-                        onOpenChange={(open) => {
-                          setIsMoveDialogOpen(open);
-                          if (!open) setMoveError("");
-                        }}
-                      >
-                        <DialogTrigger asChild>
-                          <button
-                            type="button"
-                            disabled={!selectedDownloadPhotoIds.length}
-                            className="flex h-9 cursor-pointer items-center gap-2 rounded-full bg-white/85 px-3 text-sm font-medium text-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-inset ring-black/10 transition hover:bg-white hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Move to Event
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader>
-                            <DialogTitle>Move selected photos</DialogTitle>
-                          </DialogHeader>
-
-                          <div className="space-y-4">
-                            <div className="rounded-2xl bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
-                              {selectedDownloadPhotoIds.length} photo
-                              {selectedDownloadPhotoIds.length === 1 ? "" : "s"} selected
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor="move-target-event">
-                                Destination event
-                              </Label>
-                              <select
-                                id="move-target-event"
-                                value={moveTargetEventSlug}
-                                onChange={(event) =>
-                                  setMoveTargetEventSlug(event.target.value)
-                                }
-                                className="h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-900 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
-                              >
-                                {album.events.map((event) => (
-                                  <option key={event.id} value={event.slug}>
-                                    {event.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {moveError && (
-                              <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                                {moveError}
-                              </p>
-                            )}
-                          </div>
-
-                          <DialogFooter>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => setIsMoveDialogOpen(false)}
-                              disabled={isMovingPhotos}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              type="button"
-                              onClick={moveSelectedPhotosToEvent}
-                              disabled={
-                                !selectedDownloadPhotoIds.length ||
-                                !moveTargetEventSlug ||
-                                isMovingPhotos
-                              }
-                            >
-                              {isMovingPhotos && (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              )}
-                              Move photos
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
                     )}
                     {!isShareView && (
                       <ApplyPresetSelectionDialog

@@ -4,7 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   AlbumDownloadMenu,
+  MoveSelectionTrigger,
+  buildMovePhotosPayload,
+  canSubmitMovePhotos,
   galleryFooterClassName,
+  shouldShowMoveAction,
+  type MovePhotosFormState,
 } from "./album-gallery-page";
 import { ApsaraFloatingTrigger } from "./apsara-moments";
 import { PhotoCard } from "./photo-card";
@@ -85,6 +90,84 @@ describe("public gallery photo selection", () => {
 
     expect(markup).toContain('aria-label="Download photos"');
     expect(markup).toContain("Download (2)");
+  });
+});
+
+describe("selected-photo move action", () => {
+  const validState: MovePhotosFormState = {
+    photoIds: ["photo-1"],
+    flow: "existing",
+    albumSlug: "destination",
+    eventSlug: "reception",
+    albumName: "",
+    eventName: "",
+    isMoving: false,
+    isLoadingDestinations: false,
+  };
+
+  it.each([
+    { name: "authenticated selection", isSelectionMode: true, isAuthenticated: true, isShareView: false, visible: true },
+    { name: "normal browsing", isSelectionMode: false, isAuthenticated: true, isShareView: false, visible: false },
+    { name: "unauthenticated passcode view", isSelectionMode: true, isAuthenticated: false, isShareView: false, visible: false },
+    { name: "share view", isSelectionMode: true, isAuthenticated: true, isShareView: true, visible: false },
+  ])("reports Move visibility for $name", ({ visible, ...state }) => {
+    expect(shouldShowMoveAction(state)).toBe(visible);
+  });
+
+  it.each([
+    { name: "no selected photos", selectedCount: 0, disabled: true },
+    { name: "selected photos", selectedCount: 2, disabled: false },
+  ])("renders the Move trigger $name state", ({ selectedCount, disabled }) => {
+    const markup = renderToStaticMarkup(createElement(MoveSelectionTrigger, { selectedCount }));
+
+    expect(markup).toContain('aria-label="Move selected photos"');
+    expect(markup.includes(' disabled=""')).toBe(disabled);
+  });
+
+  it.each([
+    { name: "empty selection", override: { photoIds: [] }, allowed: false },
+    { name: "move in progress", override: { isMoving: true }, allowed: false },
+    { name: "destinations loading", override: { isLoadingDestinations: true }, allowed: false },
+    { name: "existing album without event", override: { eventSlug: "" }, allowed: false },
+    { name: "complete existing destination", override: {}, allowed: true },
+    {
+      name: "new destination with a blank event",
+      override: { flow: "new" as const, albumName: "Album", eventName: "   " },
+      allowed: false,
+    },
+    {
+      name: "complete new destination",
+      override: { flow: "new" as const, albumName: " Album ", eventName: " Event " },
+      allowed: true,
+    },
+  ])("enforces submit eligibility for $name", ({ override, allowed }) => {
+    expect(canSubmitMovePhotos({ ...validState, ...override })).toBe(allowed);
+  });
+
+  it.each([
+    {
+      name: "existing destination",
+      state: validState,
+      expected: {
+        photoIds: ["photo-1"],
+        destination: { kind: "existing", albumSlug: "destination", eventSlug: "reception" },
+      },
+    },
+    {
+      name: "new destination with surrounding whitespace",
+      state: {
+        ...validState,
+        flow: "new" as const,
+        albumName: "  New Album  ",
+        eventName: "  Dinner  ",
+      },
+      expected: {
+        photoIds: ["photo-1"],
+        destination: { kind: "new", albumName: "New Album", eventName: "Dinner" },
+      },
+    },
+  ])("builds the exact $name request body", ({ state, expected }) => {
+    expect(buildMovePhotosPayload(state)).toEqual(expected);
   });
 });
 
