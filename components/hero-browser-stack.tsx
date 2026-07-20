@@ -77,9 +77,7 @@ export function HeroBrowserStack() {
 
       const remainingCards = Array.from(container.children).slice(1) as HTMLElement[];
       const frontRect = frontCard.getBoundingClientRect();
-      const exitDistance = Math.round(
-        window.scrollX + frontRect.left + frontCard.offsetWidth,
-      );
+      const exitDistance = Math.ceil(window.innerWidth - frontRect.left);
       let phaseStartedAt: number | null = null;
 
       const exitFrontCard = (timestamp: number) => {
@@ -88,7 +86,7 @@ export function HeroBrowserStack() {
 
         const progress = Math.min((timestamp - phaseStartedAt) / phaseDuration, 1);
         const easedProgress = easeInOutQuart(progress);
-        frontCard.style.transform = `translateX(${-exitDistance * easedProgress}px) translateY(0%)`;
+        frontCard.style.transform = `translateX(${exitDistance * easedProgress}px) translateY(0%)`;
 
         if (progress < 1) {
           animationFrame = requestAnimationFrame(exitFrontCard);
@@ -144,7 +142,7 @@ export function HeroBrowserStack() {
     <div
       ref={containerRef}
       aria-hidden="true"
-      className="pointer-events-none relative mt-16 w-full max-w-sm md:w-[115%] md:max-w-none"
+      className="pointer-events-none relative w-[82%]"
     >
       {cards.map((card, rank) => (
         <div

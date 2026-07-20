@@ -74,9 +74,26 @@ export function FreshHomepage() {
         </nav>
       </header>
 
-      <section aria-labelledby="home-heading" className="mx-auto max-w-screen-2xl px-5 pb-5 pt-8 sm:px-8 sm:pb-8 sm:pt-12 lg:px-12 lg:pb-12">
-        <div className="grid gap-10 md:grid-cols-12 md:items-start md:gap-6">
-          <div className="md:col-span-4 lg:col-span-3">
+      <section
+        aria-labelledby="home-heading"
+        className="mx-auto flex max-w-screen-2xl flex-col px-5 pb-10 pt-8 sm:px-8 sm:pb-12 sm:pt-12 lg:min-h-[calc(100svh-77px)] lg:px-12 lg:pb-12"
+      >
+        <h1
+          id="home-heading"
+          className="max-w-[13em] font-editorial text-[clamp(2.75rem,7.2vw,6.5rem)] font-medium leading-[0.88] tracking-[-0.04em]"
+        >
+          <span className="block">
+            <span className="block sm:inline">The</span>{" "}
+            <span className="block sm:inline"><RotatingHeroKeyword /></span>{" "}
+            <span className="block sm:inline">is a story.</span>
+          </span>
+          <span className="mt-[0.16em] block">
+            Your workspace should know the plot.
+          </span>
+        </h1>
+
+        <div className="mt-10 grid gap-12 border-t border-stone-300 pt-8 sm:mt-12 sm:pt-10 md:grid-cols-12 md:gap-6 lg:mt-auto lg:pt-12">
+          <div className="md:col-span-5 lg:col-span-4">
             <p className="max-w-xs text-xs font-semibold uppercase leading-5 tracking-widest text-orange-700">
               A professional wedding photography workspace
             </p>
@@ -84,7 +101,7 @@ export function FreshHomepage() {
               From the first import to the private gallery, SaathiDesk keeps the
               work clear and the photographs central.
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="mt-7 flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
               <Link
                 href="/login?mode=signup"
                 className={`inline-flex min-h-11 items-center border-b-2 border-orange-700 text-sm font-semibold text-stone-950 transition-colors hover:text-orange-700 ${focusClass}`}
@@ -98,21 +115,10 @@ export function FreshHomepage() {
                 See how AI search works
               </Link>
             </div>
-            <HeroBrowserStack />
           </div>
 
-          <div className="md:col-span-8 md:col-start-5 lg:col-span-8 lg:col-start-5">
-            <h1
-              id="home-heading"
-              className="text-left font-editorial text-[clamp(1.75rem,4.2vw,4rem)] font-medium leading-[1.02] tracking-tight md:text-right"
-            >
-              <span className="block whitespace-nowrap">
-                The <RotatingHeroKeyword /> is a story.
-              </span>
-              <span className="mt-[0.18em] block">
-                Your workspace should know the plot.
-              </span>
-            </h1>
+          <div className="md:col-span-6 md:col-start-6 lg:col-span-5 lg:col-start-6">
+            <HeroBrowserStack />
           </div>
         </div>
       </section>
