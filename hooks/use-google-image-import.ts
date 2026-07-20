@@ -33,6 +33,7 @@ export interface GoogleImportedImage {
 
 interface UseGoogleImageImportOptions {
   onImages: (images: GoogleImportedImage[]) => void;
+  queueDriveFolderLink?: (folderLink: string) => Promise<string>;
 }
 
 type GoogleDriveDownloadResult =
@@ -73,6 +74,7 @@ async function mapConcurrent<T, R>(
 
 export function useGoogleImageImport({
   onImages,
+  queueDriveFolderLink,
 }: UseGoogleImageImportOptions) {
   const [message, setMessage] = useState("");
   const [isImportingDrive, setIsImportingDrive] = useState(false);
@@ -234,6 +236,26 @@ export function useGoogleImageImport({
     const folderLink = googleDriveFolderLink.trim();
     if (!folderLink) {
       setMessage("Paste a public Google Drive folder link first.");
+      return;
+    }
+
+    if (queueDriveFolderLink) {
+      setIsImportingDrive(true);
+      setMessage("Sending Google Drive folder to the import queue...");
+
+      try {
+        const queuedMessage = await queueDriveFolderLink(folderLink);
+        setGoogleDriveFolderLink("");
+        setMessage(queuedMessage);
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not queue the Google Drive link",
+        );
+      } finally {
+        setIsImportingDrive(false);
+      }
       return;
     }
 

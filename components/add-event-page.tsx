@@ -44,6 +44,7 @@ import {
   useGoogleImageImport,
   type GoogleImportedImage,
 } from "@/hooks/use-google-image-import";
+import { asyncGoogleDriveImportEnabled } from "@/lib/feature-flags";
 import { photoPreviewImageUrl } from "@/lib/photo-image-url";
 import { photoUploadFileMetadata } from "@/lib/photo-upload-metadata";
 import {
@@ -370,6 +371,34 @@ export function AddEventPage({
     reelCount: number;
   } | null>(null);
   const coverPreviewUrlRef = useRef<string | null>(null);
+  const queueDriveFolderLink = async (folderLink: string) => {
+    const response = await fetch("/api/google-drive-imports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        folderLink,
+        mode: "existing",
+        albumSlug,
+        eventSlug:
+          uploadTarget === "existing" ? selectedExistingEventSlug : undefined,
+        eventName: uploadTarget === "new" ? title.trim() : undefined,
+        runAi,
+      }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      message?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Could not queue the Google Drive folder");
+    }
+
+    return (
+      payload.message ||
+      "Import started. You can add another Drive link now or come back later."
+    );
+  };
   const {
     googleDriveFolderLink,
     googlePhotosButtonLabel,
@@ -383,6 +412,9 @@ export function AddEventPage({
     setGoogleDriveFolderLink,
   } = useGoogleImageImport({
     onImages: (images) => addImportedMedia(images),
+    queueDriveFolderLink: asyncGoogleDriveImportEnabled
+      ? queueDriveFolderLink
+      : undefined,
   });
 
   const { data, error, isLoading, mutate: mutateAlbum } = useSWR<{

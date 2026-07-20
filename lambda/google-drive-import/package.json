@@ -1,0 +1,15 @@
+{
+  "name": "google-drive-import-lambda",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1053.0",
+    "@aws-sdk/rds-signer": "^3.1053.0",
+    "pg": "^8.21.0"
+  }
+}

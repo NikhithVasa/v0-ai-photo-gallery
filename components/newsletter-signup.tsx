@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { FormEvent, useState } from "react";
 import styles from "./newsletter-signup.module.css";
 
@@ -58,8 +59,17 @@ export function NewsletterSignup() {
   return (
     <section className={styles.section} aria-labelledby="newsletter-heading">
       <div className={styles.container}>
-        <div className={styles.outer}>
-          <div className={styles.inner}>
+        <div className={styles.panel}>
+          <Image
+            src="/laugh_1.png"
+            alt=""
+            fill
+            sizes="(min-width: 1280px) 1240px, calc(100vw - 40px)"
+            className={styles.photo}
+          />
+          <div className={styles.photoWash} aria-hidden="true" />
+
+          <div className={styles.content}>
             <div className={styles.copy}>
               <h2 id="newsletter-heading">Sign up to our newsletter</h2>
               <p>Weekly product updates and art world news straight to your inbox</p>

@@ -12,6 +12,7 @@
     "verify:google-photos-picker": "node scripts/verify-google-photos-picker.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-lambda": "^3.1053.0",
     "@aws-sdk/client-mediaconvert": "^3.1079.0",
     "@aws-sdk/client-s3": "^3.1053.0",
     "@aws-sdk/rds-signer": "^3.1053.0",

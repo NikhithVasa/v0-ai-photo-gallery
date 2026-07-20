@@ -204,11 +204,10 @@ export function FreshHomepage() {
         </div>
       </section>
 
-      <HomeFaq />
-
       <ReplitTestimonials />
 
       <NewsletterSignup />
+      <HomeFaq />
 
       <footer className="bg-stone-950 text-stone-400">
         <div className="mx-auto flex max-w-screen-2xl flex-col gap-6 border-t border-stone-800 px-5 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">

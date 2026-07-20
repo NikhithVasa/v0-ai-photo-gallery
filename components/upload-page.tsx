@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AuthAvatarMenu } from "@/components/auth-avatar-menu";
 import { useGoogleImageImport } from "@/hooks/use-google-image-import";
+import { asyncGoogleDriveImportEnabled } from "@/lib/feature-flags";
 import { photoUploadFileMetadata } from "@/lib/photo-upload-metadata";
 import {
   IMAGE_UPLOAD_ACCEPT,
@@ -226,6 +227,40 @@ export function UploadPage() {
     eventId: string;
     photoIds: string[];
   } | null>(null);
+  const queueDriveFolderLink = async (folderLink: string) => {
+    const response = await fetch("/api/google-drive-imports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        folderLink,
+        mode,
+        albumSlug: mode === "existing" ? selectedAlbumSlug : undefined,
+        albumName: mode === "new" ? newAlbumName.trim() : undefined,
+        eventSlug:
+          mode === "existing" && eventMode === "existing"
+            ? selectedEventSlug
+            : undefined,
+        eventName:
+          mode === "new" || eventMode === "new"
+            ? newEventName.trim()
+            : undefined,
+        runAi: true,
+      }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      message?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Could not queue the Google Drive folder");
+    }
+
+    return (
+      payload.message ||
+      "Import started. You can add another Drive link now or come back later."
+    );
+  };
   const [processingSummary, setProcessingSummary] = useState<{
     total: number;
     readyCount: number;
@@ -261,6 +296,9 @@ export function UploadPage() {
         ],
       );
     },
+    queueDriveFolderLink: asyncGoogleDriveImportEnabled
+      ? queueDriveFolderLink
+      : undefined,
   });
 
   const { data: albumsData } = useSWR<{ albums: AlbumSummary[] }>(
