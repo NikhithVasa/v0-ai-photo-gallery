@@ -30,10 +30,12 @@ const HARDCODED_ENV = Object.freeze({
 let invocationGoogleDriveApiKey = "";
 
 function configurationValue(name) {
+  const hardcodedValue = HARDCODED_ENV[name]?.trim();
+  if (hardcodedValue) return hardcodedValue;
   if (name === "GOOGLE_DRIVE_API_KEY" && invocationGoogleDriveApiKey) {
     return invocationGoogleDriveApiKey;
   }
-  return HARDCODED_ENV[name]?.trim() || process.env[name]?.trim() || "";
+  return process.env[name]?.trim() || "";
 }
 
 const { Pool } = pg;
@@ -61,11 +63,19 @@ function requiredEnv(name) {
   return value;
 }
 
+export function normalizeDatabaseUrl(value) {
+  const url = new URL(value);
+  for (const parameter of ["sslmode", "sslcert", "sslkey", "sslrootcert"]) {
+    url.searchParams.delete(parameter);
+  }
+  return url.toString();
+}
+
 async function createPool() {
   const connectionString = configurationValue("DATABASE_URL");
   if (connectionString) {
     return new Pool({
-      connectionString,
+      connectionString: normalizeDatabaseUrl(connectionString),
       max: positiveInteger(configurationValue("PG_POOL_MAX"), 4, 10),
       idleTimeoutMillis: 1_000,
       connectionTimeoutMillis: 10_000,

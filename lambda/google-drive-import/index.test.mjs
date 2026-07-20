@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseFolderLink, validateEvent } from "./index.mjs";
+import { normalizeDatabaseUrl, parseFolderLink, validateEvent } from "./index.mjs";
 
 const existingEvent = {
   requestId: "request-123",
@@ -164,5 +164,76 @@ describe("Lambda Google Drive invocation validation", () => {
     },
   ])("accepts and normalizes a valid $name target", ({ event, expected }) => {
     expect(validateEvent(event)).toMatchObject(expected);
+  });
+});
+
+describe("PostgreSQL connection URL normalization", () => {
+  it("removes sslmode=require without changing unrelated URL semantics", () => {
+    const normalized = new URL(
+      normalizeDatabaseUrl(
+        "postgresql://importer:secret@db.example.com:5432/gallery?sslmode=require&application_name=drive%20importer",
+      ),
+    );
+
+    expect(normalized.protocol).toBe("postgresql:");
+    expect(normalized.hostname).toBe("db.example.com");
+    expect(normalized.port).toBe("5432");
+    expect(normalized.pathname).toBe("/gallery");
+    expect(normalized.searchParams.has("sslmode")).toBe(false);
+    expect(normalized.searchParams.get("application_name")).toBe("drive importer");
+  });
+
+  it.each(["sslcert", "sslkey", "sslrootcert"])(
+    "removes the %s TLS file parameter",
+    (parameter) => {
+      const normalized = new URL(
+        normalizeDatabaseUrl(
+          `postgresql://importer:secret@db.example.com/gallery?${parameter}=%2Fvar%2Frun%2Fpostgresql%2Fclient.pem&connect_timeout=10`,
+        ),
+      );
+
+      expect(normalized.searchParams.has(parameter)).toBe(false);
+      expect(normalized.searchParams.get("connect_timeout")).toBe("10");
+    },
+  );
+
+  it("preserves percent-encoded credentials while removing TLS parameters", () => {
+    const normalized = new URL(
+      normalizeDatabaseUrl(
+        "postgresql://drive_user:p%40ss%3Aword%2F2026@database.internal:6432/photo_gallery?sslmode=require&options=-c%20statement_timeout%3D5000",
+      ),
+    );
+
+    expect(normalized.username).toBe("drive_user");
+    expect(decodeURIComponent(normalized.password)).toBe("p@ss:word/2026");
+    expect(normalized.hostname).toBe("database.internal");
+    expect(normalized.port).toBe("6432");
+    expect(normalized.pathname).toBe("/photo_gallery");
+    expect(normalized.searchParams.has("sslmode")).toBe(false);
+    expect(normalized.searchParams.get("options")).toBe("-c statement_timeout=5000");
+  });
+
+  it("preserves a connection URL with no query parameters", () => {
+    const normalized = new URL(
+      normalizeDatabaseUrl("postgresql://importer:secret@db.example.com:5432/gallery"),
+    );
+
+    expect({
+      protocol: normalized.protocol,
+      username: normalized.username,
+      password: normalized.password,
+      hostname: normalized.hostname,
+      port: normalized.port,
+      pathname: normalized.pathname,
+      query: [...normalized.searchParams],
+    }).toEqual({
+      protocol: "postgresql:",
+      username: "importer",
+      password: "secret",
+      hostname: "db.example.com",
+      port: "5432",
+      pathname: "/gallery",
+      query: [],
+    });
   });
 });
