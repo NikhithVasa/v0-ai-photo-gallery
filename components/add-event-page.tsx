@@ -61,12 +61,35 @@ const fetcher = async (url: string) => {
   return data;
 };
 
-const EVENT_PHOTO_PAGE_SIZE = 30;
+const EVENT_PHOTO_PAGE_SIZE = 10;
 
 interface EventPhotosPage {
   photos: Photo[];
   hasMore: boolean;
 }
+
+export function eventPhotosPageKey({
+  albumSlug,
+  uploadTarget,
+  selectedEventSlug,
+  pageIndex,
+  previousPageData,
+}: {
+  albumSlug: string;
+  uploadTarget: UploadTarget;
+  selectedEventSlug: string;
+  pageIndex: number;
+  previousPageData: EventPhotosPage | null;
+}) {
+  if (uploadTarget !== "existing" || !selectedEventSlug) return null;
+  if (previousPageData && !previousPageData.hasMore) return null;
+
+  const offset = pageIndex * EVENT_PHOTO_PAGE_SIZE;
+  return `/api/albums/${encodeURIComponent(albumSlug)}/photos?event=${encodeURIComponent(
+    selectedEventSlug,
+  )}&limit=${EVENT_PHOTO_PAGE_SIZE}&offset=${offset}`;
+}
+
 
 type UploadStatus = "ready" | "uploading" | "uploaded" | "failed";
 type UploadTarget = "new" | "existing";
@@ -543,21 +566,29 @@ export function AddEventPage({
     size: selectedEventPhotoPageCount,
     setSize: setSelectedEventPhotoPageCount,
   } = useSWRInfinite<EventPhotosPage>(
-    (pageIndex, previousPageData) => {
-      if (uploadTarget !== "existing" || !selectedExistingEventSlug) return null;
-      if (previousPageData && !previousPageData.hasMore) return null;
-
-      const offset = pageIndex * EVENT_PHOTO_PAGE_SIZE;
-      return `/api/albums/${encodeURIComponent(albumSlug)}/photos?event=${encodeURIComponent(
-        selectedExistingEventSlug,
-      )}&limit=${EVENT_PHOTO_PAGE_SIZE}&offset=${offset}`;
-    },
+    (pageIndex, previousPageData) =>
+      eventPhotosPageKey({
+        albumSlug,
+        uploadTarget,
+        selectedEventSlug: selectedExistingEventSlug,
+        pageIndex,
+        previousPageData,
+      }),
     fetcher,
     {
       dedupingInterval: 0,
       revalidateOnFocus: false,
     },
   );
+
+  useEffect(() => {
+    void setSelectedEventPhotoPageCount(1);
+  }, [
+    selectedExistingEventSlug,
+    setSelectedEventPhotoPageCount,
+    uploadTarget,
+  ]);
+
   const selectedEventPhotos = useMemo(
     () => selectedEventPhotoPages?.flatMap((page) => page.photos) ?? [],
     [selectedEventPhotoPages],
@@ -1837,6 +1868,8 @@ export function AddEventPage({
                     src={imageUrl}
                     alt={photo.fileName || "Event photo"}
                     fill
+                    loading="lazy"
+                    fetchPriority="low"
                     sizes="(min-width: 1280px) 160px, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 45vw"
                     className="object-cover"
                     unoptimized

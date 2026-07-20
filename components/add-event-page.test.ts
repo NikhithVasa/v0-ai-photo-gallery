@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   driveImportPollDecision,
+  eventPhotosPageKey,
   reconcileDriveImportTarget,
   selectDriveImportTarget,
   slugifyImportEvent,
@@ -93,5 +94,68 @@ describe("Google Drive import target reconciliation", () => {
         queuedEventSlug: "test",
       }),
     ).toEqual({ uploadTarget: "existing", selectedEventSlug: "test" });
+  });
+});
+
+describe("event photo pagination", () => {
+  it.each([
+    { name: "the first page", pageIndex: 0, expectedOffset: 0 },
+    { name: "the second page", pageIndex: 1, expectedOffset: 10 },
+    { name: "a later page", pageIndex: 4, expectedOffset: 40 },
+  ])("requests 10 photos at the correct offset for $name", ({ pageIndex, expectedOffset }) => {
+    expect(
+      eventPhotosPageKey({
+        albumSlug: "summer album",
+        uploadTarget: "existing",
+        selectedEventSlug: "dinner & dancing",
+        pageIndex,
+        previousPageData:
+          pageIndex === 0 ? null : { photos: [], hasMore: true },
+      }),
+    ).toBe(
+      `/api/albums/summer%20album/photos?event=dinner%20%26%20dancing&limit=10&offset=${expectedOffset}`,
+    );
+  });
+
+  it.each<{
+    name: string;
+    uploadTarget: "new" | "existing";
+    selectedEventSlug: string;
+    previousPageData: { photos: never[]; hasMore: boolean } | null;
+  }>([
+    { name: "new-event mode is active", uploadTarget: "new", selectedEventSlug: "ceremony", previousPageData: null },
+    { name: "no event is selected", uploadTarget: "existing", selectedEventSlug: "", previousPageData: null },
+    { name: "the preceding page is exhausted", uploadTarget: "existing", selectedEventSlug: "ceremony", previousPageData: { photos: [], hasMore: false } },
+  ])("suppresses a request when $name", ({ uploadTarget, selectedEventSlug, previousPageData }) => {
+    expect(
+      eventPhotosPageKey({
+        albumSlug: "album",
+        uploadTarget,
+        selectedEventSlug,
+        pageIndex: 1,
+        previousPageData,
+      }),
+    ).toBeNull();
+  });
+
+  it("starts a switched event with its first request", () => {
+    const previousEventLaterPage = eventPhotosPageKey({
+      albumSlug: "album",
+      uploadTarget: "existing",
+      selectedEventSlug: "ceremony",
+      pageIndex: 3,
+      previousPageData: { photos: [], hasMore: true },
+    });
+    expect(previousEventLaterPage).toContain("event=ceremony&limit=10&offset=30");
+
+    expect(
+      eventPhotosPageKey({
+        albumSlug: "album",
+        uploadTarget: "existing",
+        selectedEventSlug: "reception",
+        pageIndex: 0,
+        previousPageData: null,
+      }),
+    ).toBe("/api/albums/album/photos?event=reception&limit=10&offset=0");
   });
 });
