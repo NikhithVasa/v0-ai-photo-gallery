@@ -130,6 +130,14 @@ const navPillButtonActiveClass =
 const navIconButtonClass =
   "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent text-zinc-500 ring-1 ring-inset ring-black/10 transition hover:bg-white/55 hover:text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950/20";
 
+export function galleryFooterClassName(isNavHidden: boolean) {
+  return `relative z-30 px-2 pb-24 transition duration-300 ease-out md:fixed md:inset-x-0 md:bottom-3 md:px-5 md:pb-0 ${
+    isNavHidden
+      ? "md:pointer-events-none md:translate-y-[calc(100%+5rem)] md:opacity-0"
+      : "md:translate-y-0 md:opacity-100"
+  }`;
+}
+
 const shareAiGuideItems = [
   {
     title: "People Search",
@@ -1296,7 +1304,7 @@ function EventNameControl({
   );
 }
 
-function AlbumDownloadMenu({
+export function AlbumDownloadMenu({
   albumSlug,
   shareToken = "",
   events,
@@ -1420,11 +1428,17 @@ function AlbumDownloadMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className={`${navPillButtonClass} min-w-[118px]`}
+          className={`${navPillButtonClass} min-w-[118px] ${
+            selectedDownloadPhotoIds.length ? navPillButtonActiveClass : ""
+          }`}
           aria-label="Download photos"
         >
           <DownloadIcon className="h-4 w-4 shrink-0" />
-          <span>Download</span>
+          <span>
+            {selectedDownloadPhotoIds.length
+              ? `Download (${selectedDownloadPhotoIds.length})`
+              : "Download"}
+          </span>
         </button>
       </DropdownMenuTrigger>
 
@@ -4446,10 +4460,11 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
   };
 
   const toggleSelectedDownloadPhotoId = (photoId: string) => {
+    setIsPhotoSelectionMode(true);
     setSelectedDownloadPhotoIds((current) =>
       current.includes(photoId)
         ? current.filter((id) => id !== photoId)
-        : [...current, photoId]
+        : [...current, photoId],
     );
   };
 
@@ -5223,6 +5238,18 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 </span>
               </button>
 
+              <AlbumDownloadMenu
+                albumSlug={albumSlug}
+                shareToken={shareToken}
+                events={album.events}
+                selectedEventSlug={selectedEventSlug}
+                selectedPeopleIds={scopedPeopleIds}
+                selectedPeople={selectedFilterPeople}
+                peopleMatchMode={scopedPeopleMode}
+                selectedDownloadPhotoIds={selectedDownloadPhotoIds}
+                downloadsEnabled={downloadsEnabled}
+              />
+
               {!isShareView && (
                 <Link
                   href={addPhotosHref}
@@ -5274,17 +5301,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
                 </Link>
               )}
 
-              <AlbumDownloadMenu
-                albumSlug={albumSlug}
-                shareToken={shareToken}
-                events={album.events}
-                selectedEventSlug={selectedEventSlug}
-                selectedPeopleIds={scopedPeopleIds}
-                selectedPeople={selectedFilterPeople}
-                peopleMatchMode={scopedPeopleMode}
-                selectedDownloadPhotoIds={selectedDownloadPhotoIds}
-                downloadsEnabled={downloadsEnabled}
-              />
               {!selectedPerson && !isPersonShare && (
                 <div
                   className="hidden shrink-0 items-center gap-1 rounded-full bg-transparent p-1 ring-1 ring-black/5 sm:flex"
@@ -5759,15 +5775,27 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         />
       )}
 
+      {!isPersonShare && !hideAi && (
+        <ApsaraMomentsRoot
+          albumSlug={albumSlug}
+          shareToken={shareToken}
+          downloadsEnabled={downloadsEnabled}
+          selectedEventSlug={selectedEventSlug}
+          selectedPeopleIds={scopedPeopleIds}
+          peopleMatchMode={scopedPeopleMode}
+          isOpen={isSearchOpen}
+          onOpenChange={setIsSearchOpen}
+          onPersonOpen={openPerson}
+          onPeopleSelectionApply={filterByPeopleSelection}
+          onTextSearch={runApsaraTextSearch}
+          galleryFooterVisible={isCoverDismissed}
+          mobileGalleryActionsVisible={showMobileGalleryActions}
+        />
+      )}
+
       {isCoverDismissed && (
         <footer
-          className={`fixed left-0 right-0 z-30 px-2 transition duration-300 ease-out sm:bottom-3 sm:px-5 ${
-            showMobileGalleryActions ? "bottom-[4.75rem]" : "bottom-2"
-          } ${
-            isNavHidden
-              ? "pointer-events-none translate-y-[calc(100%+5rem)] opacity-0"
-              : "translate-y-0 opacity-100"
-          }`}
+          className={galleryFooterClassName(isNavHidden)}
           aria-label="Gallery footer"
         >
           <div
@@ -5839,7 +5867,7 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
 
       {showMobileGalleryActions && (
         <div
-          className={`fixed bottom-4 left-1/2 z-40 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 gap-1 rounded-full bg-zinc-950/92 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 sm:hidden ${
+          className={`fixed bottom-4 left-1/2 z-40 grid w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 gap-1 rounded-full bg-zinc-950/92 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.22)] backdrop-blur transition duration-300 md:hidden ${
             isShareView ? "grid-cols-2" : "grid-cols-4"
           } ${
             isNavHidden
@@ -5896,23 +5924,6 @@ export function AlbumGalleryPage({ albumSlug }: AlbumGalleryPageProps) {
         </div>
       )}
 
-      {!isPersonShare && !hideAi && (
-        <ApsaraMomentsRoot
-          albumSlug={albumSlug}
-          shareToken={shareToken}
-          downloadsEnabled={downloadsEnabled}
-          selectedEventSlug={selectedEventSlug}
-          selectedPeopleIds={scopedPeopleIds}
-          peopleMatchMode={scopedPeopleMode}
-          isOpen={isSearchOpen}
-          onOpenChange={setIsSearchOpen}
-          onPersonOpen={openPerson}
-          onPeopleSelectionApply={filterByPeopleSelection}
-          onTextSearch={runApsaraTextSearch}
-          galleryFooterVisible={isCoverDismissed}
-          mobileGalleryActionsVisible={showMobileGalleryActions}
-        />
-      )}
     </main>
   );
 }

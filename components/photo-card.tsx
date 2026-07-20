@@ -1439,9 +1439,7 @@ export const PhotoCard = memo(function PhotoCard({
     <div
       ref={cardRef}
       className={`group relative w-full overflow-hidden rounded-md bg-muted text-left shadow-sm ring-1 transition-shadow duration-200 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background ${
-        isSelectionMode && isSelected
-          ? "ring-2 ring-zinc-950"
-          : "ring-border"
+        isSelected ? "ring-2 ring-zinc-950" : "ring-border"
       } ${forceFill ? "h-full" : ""} ${
         forceMobileSquare && !forceFill
           ? "aspect-square sm:[aspect-ratio:var(--photo-card-aspect-ratio)]"
@@ -1523,14 +1521,24 @@ export const PhotoCard = memo(function PhotoCard({
         }`}
       />
 
-      {isSelectionMode && (
-        <span
-          className={`pointer-events-none absolute right-2 top-2 z-40 flex h-7 w-7 items-center justify-center rounded-full shadow-sm ${
-            isSelected ? "bg-zinc-950 text-white" : "bg-white/90 text-zinc-400"
+      {onToggleSelect && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleSelect(photo.id);
+          }}
+          aria-label={isSelected ? "Deselect photo" : "Select photo"}
+          aria-pressed={isSelected}
+          className={`absolute bottom-2 right-2 z-40 flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold shadow-md backdrop-blur transition focus:outline-none focus:ring-2 focus:ring-white/90 sm:bottom-3 sm:right-3 ${
+            isSelected
+              ? "bg-zinc-950 text-white"
+              : "bg-white/90 text-zinc-800 hover:bg-white"
           }`}
         >
-          <Check className="h-4 w-4" />
-        </span>
+          <Check className="h-3.5 w-3.5" />
+          <span>{isSelected ? "Selected" : "Select"}</span>
+        </button>
       )}
 
       {!isSelectionMode && (

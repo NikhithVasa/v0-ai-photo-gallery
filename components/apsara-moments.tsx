@@ -37,21 +37,20 @@ export function ApsaraFloatingTrigger({
   galleryFooterVisible = false,
   mobileGalleryActionsVisible = false,
 }: ApsaraFloatingTriggerProps) {
-  const footerOffset = galleryFooterVisible
-    ? mobileGalleryActionsVisible
-      ? "bottom-[9.5rem] sm:bottom-24"
-      : "bottom-[5.5rem] sm:bottom-24"
-    : "bottom-20 sm:bottom-7";
+  const footerOffset =
+    galleryFooterVisible || mobileGalleryActionsVisible
+      ? "md:bottom-24"
+      : "md:bottom-7";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`fixed left-5 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200 bg-white/90 text-sm font-medium text-zinc-900 shadow-sm backdrop-blur transition hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-300 sm:left-auto sm:right-7 sm:w-auto sm:gap-2 sm:px-4 ${footerOffset}`}
+      className={`relative z-40 mb-3 ml-5 flex h-11 w-11 items-center justify-center rounded-full border border-zinc-200 bg-white/90 text-sm font-medium text-zinc-900 shadow-sm backdrop-blur transition hover:bg-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-zinc-300 md:fixed md:left-auto md:right-7 md:mb-0 md:ml-0 md:w-auto md:gap-2 md:px-4 ${footerOffset}`}
       aria-label={`Open ${SITE_NAME} AI photo search`}
     >
       <MessageCircle className="h-4 w-4" />
-      <span className="hidden sm:inline">{SITE_NAME} AI</span>
+      <span className="hidden md:inline">{SITE_NAME} AI</span>
     </button>
   );
 }
