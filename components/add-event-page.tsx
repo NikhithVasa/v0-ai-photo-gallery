@@ -91,6 +91,8 @@ const PHOTO_UPLOAD_RETRY_DELAY_MS = 1_000;
 const PHOTO_UPLOAD_CONCURRENCY = 5;
 const VIDEO_UPLOAD_CONCURRENCY = 3;
 const VIDEO_UPLOAD_ACCEPT = "video/mp4,video/quicktime,video/x-m4v,video/webm";
+const DRIVE_IMPORT_POLL_INTERVAL_MS = 5_000;
+const DRIVE_IMPORT_POLL_DURATION_MS = 5 * 60_000;
 const FALLBACK_VIDEO_PART_SIZE_BYTES = 10 * 1024 * 1024;
 const AI_JOB_WAIT_MESSAGE =
   "This can take a while. You can come back later - we will notify you by email when it is ready.";
@@ -220,6 +222,31 @@ interface AddEventPageProps {
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+export function slugifyImportEvent(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || crypto.randomUUID()
+  );
+}
+
+interface DriveImportPoll {
+  eventSlug: string;
+  until: number;
+}
+
+export function driveImportPollDecision(
+  poll: DriveImportPoll,
+  selectedEventSlug: string,
+  now: number,
+): "refresh" | "stop" {
+  return selectedEventSlug === poll.eventSlug && now < poll.until
+    ? "refresh"
+    : "stop";
 }
 
 function isSupportedVideoFile(file: File) {
@@ -364,6 +391,8 @@ export function AddEventPage({
   const [isPhotoSelectMode, setIsPhotoSelectMode] = useState(false);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const [driveImportPoll, setDriveImportPoll] =
+    useState<DriveImportPoll | null>(null);
   const [completedUpload, setCompletedUpload] = useState<{
     eventSlug: string;
     eventName: string;
@@ -394,10 +423,23 @@ export function AddEventPage({
       throw new Error(payload.error || "Could not queue the Google Drive folder");
     }
 
-    return (
+    const importEventSlug =
+      uploadTarget === "existing"
+        ? selectedExistingEventSlug
+        : slugifyImportEvent(title);
+    if (uploadTarget === "new") {
+      setUploadTarget("existing");
+      setSelectedExistingEventSlug(importEventSlug);
+    }
+    setDriveImportPoll({
+      eventSlug: importEventSlug,
+      until: Date.now() + DRIVE_IMPORT_POLL_DURATION_MS,
+    });
+
+    const queuedMessage =
       payload.message ||
-      "Import started. You can add another Drive link now or come back later."
-    );
+      "Import started. You can add another Drive link now or come back later.";
+    return `${queuedMessage} New photos will appear here as they finish.`;
   };
   const {
     googleDriveFolderLink,
@@ -465,6 +507,55 @@ export function AddEventPage({
     await setSelectedEventPhotoPageCount(1);
     await mutateSelectedEventPhotos();
   };
+
+  useEffect(() => {
+    if (!driveImportPoll) return;
+    if (
+      driveImportPollDecision(
+        driveImportPoll,
+        selectedExistingEventSlug,
+        Date.now(),
+      ) === "stop"
+    ) {
+      setDriveImportPoll(null);
+      return;
+    }
+
+    let cancelled = false;
+    const poll = async () => {
+      if (cancelled) return;
+      if (
+        driveImportPollDecision(
+          driveImportPoll,
+          selectedExistingEventSlug,
+          Date.now(),
+        ) === "stop"
+      ) {
+        setDriveImportPoll(null);
+        return;
+      }
+
+      await Promise.all([
+        mutateAlbum(),
+        setSelectedEventPhotoPageCount(1).then(() =>
+          mutateSelectedEventPhotos(),
+        ),
+      ]).catch(() => undefined);
+    };
+
+    void poll();
+    const interval = window.setInterval(poll, DRIVE_IMPORT_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [
+    driveImportPoll,
+    mutateAlbum,
+    mutateSelectedEventPhotos,
+    selectedExistingEventSlug,
+    setSelectedEventPhotoPageCount,
+  ]);
   const uploadedCount = queuedFiles.filter((file) => file.status === "uploaded").length;
   const queuedPhotoCount = queuedFiles.filter((file) => file.kind === "photo").length;
   const queuedReelCount = queuedFiles.filter((file) => file.kind === "reel").length;

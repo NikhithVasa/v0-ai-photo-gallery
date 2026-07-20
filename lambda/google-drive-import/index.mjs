@@ -8,14 +8,47 @@ import {
 import { Signer } from "@aws-sdk/rds-signer";
 import pg from "pg";
 
+// Values set here take precedence over Lambda environment variables. The Drive
+// API key is the only missing value; paste it below to stop forwarding it from
+// the app, or leave it blank to keep using NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY.
+const HARDCODED_ENV = Object.freeze({
+  GOOGLE_DRIVE_API_KEY: "",
+  S3_BUCKET: "nikhith-ai-photo-gallery-dev",
+  AWS_REGION: "us-east-1",
+  DATABASE_URL: "",
+  RDS_HOST: "photo-gallery-postgres-dev.c7o2u4ouqyim.us-east-1.rds.amazonaws.com",
+  RDS_PORT: "5432",
+  RDS_USER: "postgres",
+  RDS_DB: "postgres",
+  RDS_PASSWORD: "PhotoWorkerPassword123!",
+  PG_SSL: "true",
+  PG_POOL_MAX: "4",
+  DRIVE_LIST_CONCURRENCY: "4",
+  DRIVE_IMPORT_CONCURRENCY: "3",
+});
+
+let invocationGoogleDriveApiKey = "";
+
+function configurationValue(name) {
+  if (name === "GOOGLE_DRIVE_API_KEY" && invocationGoogleDriveApiKey) {
+    return invocationGoogleDriveApiKey;
+  }
+  return HARDCODED_ENV[name]?.trim() || process.env[name]?.trim() || "";
+}
+
 const { Pool } = pg;
 const DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 const DRIVE_API_BASE_URL = "https://www.googleapis.com/drive/v3";
 const SOURCE_PROVIDER = "google-drive";
-const LIST_CONCURRENCY = positiveInteger(process.env.DRIVE_LIST_CONCURRENCY, 4, 12);
-const IMPORT_CONCURRENCY = positiveInteger(process.env.DRIVE_IMPORT_CONCURRENCY, 3, 10);
-const s3 = new S3Client({ region: process.env.AWS_REGION });
+const LIST_CONCURRENCY = positiveInteger(configurationValue("DRIVE_LIST_CONCURRENCY"), 4, 12);
+const IMPORT_CONCURRENCY = positiveInteger(configurationValue("DRIVE_IMPORT_CONCURRENCY"), 3, 10);
+const s3 = new S3Client({
+  region: configurationValue("AWS_REGION"),
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  requestStreamBufferSize: 65_536,
+});
 let poolPromise;
+let sourceSchemaPromise;
 
 function positiveInteger(value, fallback, maximum) {
   const parsed = Number.parseInt(value || "", 10);
@@ -23,44 +56,46 @@ function positiveInteger(value, fallback, maximum) {
 }
 
 function requiredEnv(name) {
-  const value = process.env[name]?.trim();
+  const value = configurationValue(name);
   if (!value) throw new Error(`${name} is required`);
   return value;
 }
 
 async function createPool() {
-  const connectionString = process.env.DATABASE_URL?.trim();
+  const connectionString = configurationValue("DATABASE_URL");
   if (connectionString) {
     return new Pool({
       connectionString,
-      max: positiveInteger(process.env.PG_POOL_MAX, 4, 10),
+      max: positiveInteger(configurationValue("PG_POOL_MAX"), 4, 10),
       idleTimeoutMillis: 1_000,
       connectionTimeoutMillis: 10_000,
       allowExitOnIdle: true,
-      ssl: process.env.PG_SSL === "false" ? false : { rejectUnauthorized: false },
+      ssl: configurationValue("PG_SSL") === "false" ? false : { rejectUnauthorized: false },
       application_name: "google-drive-import-lambda",
     });
   }
 
   const host = requiredEnv("RDS_HOST");
-  const port = positiveInteger(process.env.RDS_PORT, 5_432, 65_535);
+  const port = positiveInteger(configurationValue("RDS_PORT"), 5_432, 65_535);
   const user = requiredEnv("RDS_USER");
   const region = requiredEnv("AWS_REGION");
-  const password =
-    process.env.RDS_PASSWORD ??
-    (await new Signer({ hostname: host, port, username: user, region }).getAuthToken());
+  const configuredPassword = configurationValue("RDS_PASSWORD");
+  const signer = configuredPassword
+    ? null
+    : new Signer({ hostname: host, port, username: user, region });
+  const password = configuredPassword || (() => signer.getAuthToken());
 
   return new Pool({
     host,
     port,
     user,
-    database: process.env.RDS_DB?.trim() || "postgres",
+    database: configurationValue("RDS_DB") || "postgres",
     password,
-    max: positiveInteger(process.env.PG_POOL_MAX, 4, 10),
+    max: positiveInteger(configurationValue("PG_POOL_MAX"), 4, 10),
     idleTimeoutMillis: 1_000,
     connectionTimeoutMillis: 10_000,
     allowExitOnIdle: true,
-    ssl: process.env.PG_SSL === "false" ? false : { rejectUnauthorized: false },
+    ssl: configurationValue("PG_SSL") === "false" ? false : { rejectUnauthorized: false },
     application_name: "google-drive-import-lambda",
   });
 }
@@ -71,6 +106,29 @@ async function getPool() {
     throw error;
   });
   return poolPromise;
+}
+
+async function ensureSourceSchema() {
+  sourceSchemaPromise ??= (async () => {
+    const pool = await getPool();
+    await pool.query(`
+      ALTER TABLE photos
+        ADD COLUMN IF NOT EXISTS source_provider text,
+        ADD COLUMN IF NOT EXISTS source_external_id text,
+        ADD COLUMN IF NOT EXISTS source_modified_at timestamptz
+    `);
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS photos_source_identity_idx
+      ON photos (album_event_id, source_provider, source_external_id)
+      WHERE source_provider IS NOT NULL
+        AND source_external_id IS NOT NULL
+        AND COALESCE(is_deleted, false) = false
+    `);
+  })().catch((error) => {
+    sourceSchemaPromise = undefined;
+    throw error;
+  });
+  return sourceSchemaPromise;
 }
 
 function slugify(value) {
@@ -119,7 +177,7 @@ function buildPhotoKeys(album, albumEvent, fileName) {
   };
 }
 
-function parseFolderLink(folderLink) {
+export function parseFolderLink(folderLink) {
   let url;
   try {
     url = new URL(folderLink.trim());
@@ -130,7 +188,8 @@ function parseFolderLink(folderLink) {
     throw new Error("folderLink must be a public Google Drive folder URL");
   }
   const id =
-    url.pathname.match(/\/folders\/([A-Za-z0-9_-]+)/)?.[1] ||
+    url.pathname.match(/^\/drive\/(?:u\/\d+\/)?folders\/([A-Za-z0-9_-]+)(?:\/|$)/)?.[1] ||
+    url.pathname.match(/^\/folders\/([A-Za-z0-9_-]+)(?:\/|$)/)?.[1] ||
     (url.pathname === "/open" ? url.searchParams.get("id") : null);
   if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) {
     throw new Error("folderLink must identify a Google Drive folder");
@@ -138,7 +197,7 @@ function parseFolderLink(folderLink) {
   return { id, resourceKey: url.searchParams.get("resourcekey") || undefined };
 }
 
-function validateEvent(event) {
+export function validateEvent(event) {
   if (!event || typeof event !== "object" || Array.isArray(event)) {
     throw new Error("Invocation payload must be an object");
   }
@@ -151,6 +210,7 @@ function validateEvent(event) {
     "eventSlug",
     "eventName",
     "runAi",
+    "googleDriveApiKey",
   ]);
   for (const key of Object.keys(event)) {
     if (!allowed.has(key)) throw new Error(`Unexpected invocation field: ${key}`);
@@ -180,6 +240,7 @@ function validateEvent(event) {
     albumName: text("albumName"),
     eventSlug: text("eventSlug"),
     eventName: text("eventName"),
+    googleDriveApiKey: text("googleDriveApiKey"),
     runAi: event.runAi !== false,
   };
   parseFolderLink(input.folderLink);
@@ -425,45 +486,80 @@ async function discoverImages(root) {
 
 async function reservePhoto(album, albumEvent, file) {
   const pool = await getPool();
-  const existingResult = await pool.query(
-    `
-    SELECT id, original_s3_key, upload_status
-    FROM photos
-    WHERE album_event_id = $1::uuid
-      AND source_provider = $2
-      AND source_external_id = $3
-      AND COALESCE(is_deleted, false) = false
-    ORDER BY created_at DESC
-    LIMIT 1
-    `,
-    [albumEvent.id, SOURCE_PROVIDER, file.id],
-  );
-  const existing = existingResult.rows[0];
-  if (existing?.upload_status === "completed" || existing?.upload_status === "pending") {
-    return { claimed: false, photo: existing };
-  }
-  if (existing) {
-    const claimed = await pool.query(
-      `
-      UPDATE photos
-      SET upload_status = 'pending',
-          file_name = $2,
-          file_size_bytes = $3,
-          source_modified_at = $4,
-          updated_at = now()
-      WHERE id = $1 AND upload_status NOT IN ('pending', 'completed')
-      RETURNING id, original_s3_key, upload_status
-      `,
-      [existing.id, file.name, Number.isSafeInteger(file.size) ? file.size : null, file.modifiedTime || null],
-    );
-    return claimed.rows[0]
-      ? { claimed: true, retrying: true, photo: claimed.rows[0] }
-      : { claimed: false, photo: existing };
-  }
+  const client = await pool.connect();
+  let locked = false;
+  const release = async () => {
+    if (locked) {
+      locked = false;
+      await client
+        .query("SELECT pg_advisory_unlock(hashtext($1), hashtext($2))", [
+          albumEvent.id,
+          file.id,
+        ])
+        .catch(() => undefined);
+    }
+    client.release();
+  };
 
-  const keys = buildPhotoKeys(album, albumEvent, file.name);
   try {
-    const inserted = await pool.query(
+    const lockResult = await client.query(
+      "SELECT pg_try_advisory_lock(hashtext($1), hashtext($2)) AS locked",
+      [albumEvent.id, file.id],
+    );
+    locked = Boolean(lockResult.rows[0]?.locked);
+    if (!locked) {
+      await release();
+      return { claimed: false };
+    }
+
+    const existingResult = await client.query(
+      `
+      SELECT id, original_s3_key, upload_status
+      FROM photos
+      WHERE album_event_id = $1::uuid
+        AND source_provider = $2
+        AND source_external_id = $3
+        AND COALESCE(is_deleted, false) = false
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [albumEvent.id, SOURCE_PROVIDER, file.id],
+    );
+    const existing = existingResult.rows[0];
+    if (existing?.upload_status === "completed") {
+      await release();
+      return { claimed: false, photo: existing };
+    }
+    if (existing) {
+      const claimed = await client.query(
+        `
+        UPDATE photos
+        SET upload_status = 'pending',
+            file_name = $2,
+            file_size_bytes = $3,
+            source_modified_at = $4,
+            updated_at = now()
+        WHERE id = $1
+        RETURNING id, original_s3_key, upload_status
+        `,
+        [
+          existing.id,
+          file.name,
+          Number.isSafeInteger(file.size) ? file.size : null,
+          file.modifiedTime || null,
+        ],
+      );
+      return {
+        claimed: true,
+        retrying: true,
+        photo: claimed.rows[0],
+        client,
+        release,
+      };
+    }
+
+    const keys = buildPhotoKeys(album, albumEvent, file.name);
+    const inserted = await client.query(
       `
       INSERT INTO photos(
         album_id, album_event_id, photo_uuid, source_s3_key,
@@ -498,22 +594,16 @@ async function reservePhoto(album, albumEvent, file) {
         keys.annotatedS3Key,
       ],
     );
-    return { claimed: true, retrying: false, photo: inserted.rows[0] };
+    return {
+      claimed: true,
+      retrying: false,
+      photo: inserted.rows[0],
+      client,
+      release,
+    };
   } catch (error) {
-    if (error?.code !== "23505") throw error;
-    const winner = await pool.query(
-      `
-      SELECT id, original_s3_key, upload_status
-      FROM photos
-      WHERE album_event_id = $1::uuid
-        AND source_provider = $2
-        AND source_external_id = $3
-        AND COALESCE(is_deleted, false) = false
-      LIMIT 1
-      `,
-      [albumEvent.id, SOURCE_PROVIDER, file.id],
-    );
-    return { claimed: false, photo: winner.rows[0] };
+    await release();
+    throw error;
   }
 }
 
@@ -556,9 +646,7 @@ async function downloadToS3(file, key) {
   );
 }
 
-async function completePhoto(photoId, runAi) {
-  const pool = await getPool();
-  const client = await pool.connect();
+async function completePhoto(client, photoId, runAi) {
   try {
     await client.query("BEGIN");
     await client.query(
@@ -603,14 +691,11 @@ async function completePhoto(photoId, runAi) {
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
     throw error;
-  } finally {
-    client.release();
   }
 }
 
-async function markPhotoFailed(photoId) {
-  const pool = await getPool();
-  await pool.query(
+async function markPhotoFailed(client, photoId) {
+  await client.query(
     `UPDATE photos SET upload_status = 'failed', updated_at = now() WHERE id = $1 AND upload_status = 'pending'`,
     [photoId],
   );
@@ -623,13 +708,15 @@ async function importFile(target, file, runAi) {
   try {
     const alreadyUploaded = reservation.retrying && (await objectExists(photo.original_s3_key));
     if (!alreadyUploaded) await downloadToS3(file, photo.original_s3_key);
-    await completePhoto(photo.id, runAi);
+    await completePhoto(reservation.client, photo.id, runAi);
     return { status: "imported", photoId: photo.id };
   } catch (error) {
-    await markPhotoFailed(photo.id).catch((markError) => {
+    await markPhotoFailed(reservation.client, photo.id).catch((markError) => {
       console.error("Failed to mark photo import failed", { photoId: photo.id, markError });
     });
     throw error;
+  } finally {
+    await reservation.release();
   }
 }
 
@@ -652,8 +739,10 @@ async function mapWithConcurrency(items, concurrency, worker) {
 
 export async function handler(event) {
   const input = validateEvent(event);
+  invocationGoogleDriveApiKey = input.googleDriveApiKey || "";
   requiredEnv("GOOGLE_DRIVE_API_KEY");
   requiredEnv("S3_BUCKET");
+  await ensureSourceSchema();
   const target = await resolveTarget(input);
   const parsedFolder = parseFolderLink(input.folderLink);
   const root = await getRootFolder(parsedFolder);
@@ -667,6 +756,7 @@ export async function handler(event) {
   const errors = [...discovery.errors];
   let imported = 0;
   let skipped = 0;
+  let failed = 0;
   results.forEach((result, index) => {
     const file = discovery.images[index];
     if (result.status === "fulfilled") {
@@ -674,6 +764,7 @@ export async function handler(event) {
       else skipped += 1;
       return;
     }
+    failed += 1;
     errors.push({
       kind: "file",
       id: file.id,
@@ -682,7 +773,7 @@ export async function handler(event) {
     });
   });
 
-  return {
+  const output = {
     requestId: input.requestId,
     folder: { id: root.id, name: root.name },
     album: { id: target.album.id, slug: target.album.slug },
@@ -692,8 +783,18 @@ export async function handler(event) {
       imagesDiscovered: discovery.images.length,
       imported,
       skipped,
-      failed: errors.length,
+      failed,
+      folderFailures: discovery.errors.length,
     },
     errors,
   };
+  console.info(
+    "[google-drive-import] completed",
+    JSON.stringify({
+      requestId: output.requestId,
+      counts: output.counts,
+      errorMessages: output.errors.slice(0, 10).map(({ error }) => error),
+    }),
+  );
+  return output;
 }

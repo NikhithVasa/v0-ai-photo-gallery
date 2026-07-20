@@ -8,7 +8,7 @@ import {
   requireAlbumCustomerAccess,
 } from "@/lib/auth-access";
 
-const driveFolderLinkSchema = z
+export const driveFolderLinkSchema = z
   .string()
   .trim()
   .min(1)
@@ -32,7 +32,7 @@ const driveFolderLinkSchema = z
 const slugSchema = z.string().trim().min(1).max(200);
 const nameSchema = z.string().trim().min(1).max(300);
 
-const requestSchema = z
+export const requestSchema = z
   .object({
     folderLink: driveFolderLinkSchema,
     mode: z.enum(["existing", "new"]),
@@ -84,13 +84,27 @@ const requestSchema = z
     }
   });
 
+const importAccessKeyId =
+  process.env.GOOGLE_DRIVE_IMPORT_AWS_ACCESS_KEY_ID?.trim();
+const importSecretAccessKey =
+  process.env.GOOGLE_DRIVE_IMPORT_AWS_SECRET_ACCESS_KEY?.trim();
+
 const globalForLambda = globalThis as unknown as {
   googleDriveImportLambdaClient?: LambdaClient;
 };
 
 const lambdaClient =
   globalForLambda.googleDriveImportLambdaClient ??
-  new LambdaClient({ region: process.env.AWS_REGION });
+  new LambdaClient({
+    region: process.env.AWS_REGION,
+    credentials:
+      importAccessKeyId && importSecretAccessKey
+        ? {
+            accessKeyId: importAccessKeyId,
+            secretAccessKey: importSecretAccessKey,
+          }
+        : undefined,
+  });
 
 if (process.env.NODE_ENV !== "production") {
   globalForLambda.googleDriveImportLambdaClient = lambdaClient;
@@ -101,6 +115,16 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Asynchronous Google Drive imports are not enabled." },
       { status: 404 },
+    );
+  }
+
+  if (Boolean(importAccessKeyId) !== Boolean(importSecretAccessKey)) {
+    console.error(
+      "GOOGLE_DRIVE_IMPORT_AWS_ACCESS_KEY_ID and GOOGLE_DRIVE_IMPORT_AWS_SECRET_ACCESS_KEY must be configured together",
+    );
+    return NextResponse.json(
+      { error: "Google Drive imports are temporarily unavailable." },
+      { status: 503 },
     );
   }
 
@@ -140,13 +164,25 @@ export async function POST(request: Request) {
     );
   }
 
+  const googleDriveApiKey =
+    process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY?.trim();
+  if (!googleDriveApiKey) {
+    console.error("NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY is not configured");
+    return NextResponse.json(
+      { error: "Google Drive imports are temporarily unavailable." },
+      { status: 503 },
+    );
+  }
+
   const requestId = randomUUID();
   try {
     const result = await lambdaClient.send(
       new InvokeCommand({
         FunctionName: functionName,
         InvocationType: "Event",
-        Payload: new TextEncoder().encode(JSON.stringify({ requestId, ...body })),
+        Payload: new TextEncoder().encode(
+          JSON.stringify({ requestId, ...body, googleDriveApiKey }),
+        ),
       }),
     );
 
