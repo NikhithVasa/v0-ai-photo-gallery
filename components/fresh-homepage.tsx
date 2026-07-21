@@ -1,7 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
-import { HeroBrowserStack } from "@/components/hero-browser-stack";
-import { RotatingHeroKeyword } from "@/components/rotating-hero-keyword";
+import { CameraScrollHero } from "@/components/camera-scroll-hero";
 import { ReplitTestimonials } from "@/components/replit-testimonials";
 import { HomeFaq } from "@/components/home-faq";
 import { NewsletterSignup } from "@/components/newsletter-signup";
@@ -79,72 +77,7 @@ export function FreshHomepage() {
         </nav>
       </header>
 
-      <section
-        aria-labelledby="home-heading"
-        className="mx-auto flex max-w-screen-2xl flex-col px-5 pb-10 pt-8 sm:px-8 sm:pb-12 sm:pt-12 lg:min-h-[calc(100svh-77px)] lg:px-12 lg:pb-12"
-      >
-        <h1
-          id="home-heading"
-          className="max-w-[13em] font-editorial text-[clamp(2.75rem,7.2vw,6.5rem)] font-medium leading-[0.88] tracking-[-0.04em]"
-        >
-          <span className="block">
-            <span className="block sm:inline">The</span>{" "}
-            <span className="block sm:inline"><RotatingHeroKeyword /></span>{" "}
-            <span className="block sm:inline">is a story.</span>
-          </span>
-          <span className="mt-[0.16em] block">
-            Your workspace should know the plot.
-          </span>
-        </h1>
-
-        <div className="mt-10 grid gap-12 border-t border-stone-300 pt-8 sm:mt-12 sm:pt-10 md:grid-cols-12 md:gap-6 lg:mt-auto lg:pt-12">
-          <div className="md:col-span-5 lg:col-span-4">
-            <p className="max-w-xs text-xs font-semibold uppercase leading-5 tracking-widest text-orange-700">
-              A professional wedding photography workspace
-            </p>
-            <p className="mt-4 max-w-sm text-base leading-7 text-stone-600">
-              From the first import to the private gallery, {SITE_NAME} keeps the
-              work clear and the photographs central.
-            </p>
-            <div className="mt-7 flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
-              <Link
-                href="/login?mode=signup"
-                className={`inline-flex min-h-11 items-center border-b-2 border-orange-700 text-sm font-semibold text-stone-950 transition-colors hover:text-orange-700 ${focusClass}`}
-              >
-                Start your workspace
-              </Link>
-              <Link
-                href="/how-ai-works"
-                className={`inline-flex min-h-11 items-center text-sm font-medium text-stone-600 transition-colors hover:text-stone-950 ${focusClass}`}
-              >
-                See how AI search works
-              </Link>
-            </div>
-          </div>
-
-          <div className="md:col-span-6 md:col-start-6 lg:col-span-5 lg:col-start-6">
-            <HeroBrowserStack />
-          </div>
-        </div>
-      </section>
-
-      <figure className="border-y border-stone-300 bg-stone-950">
-        <div className="relative aspect-[4/5] w-full overflow-hidden sm:aspect-[16/9] lg:aspect-[2/1]">
-          <Image
-            src="/First%20look.png"
-            alt="A newlywed couple sharing a quiet first-look moment on their wedding day"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/40 via-transparent to-transparent" aria-hidden="true" />
-          <figcaption className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-xs uppercase leading-5 tracking-widest text-stone-50 sm:p-8 lg:p-12">
-            <span>The frame stays the focus.</span>
-            <span className="hidden text-right sm:block">Organize · Find · Finish · Deliver</span>
-          </figcaption>
-        </div>
-      </figure>
+      <CameraScrollHero />
 
       <section aria-labelledby="outcomes-heading" className="mx-auto max-w-screen-2xl px-5 py-20 sm:px-8 sm:py-28 lg:px-12 lg:py-36">
         <div className="grid gap-10 border-b border-stone-300 pb-12 md:grid-cols-12 md:gap-6">

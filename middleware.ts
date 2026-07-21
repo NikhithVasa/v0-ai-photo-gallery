@@ -26,6 +26,7 @@ function isPublicPath(request: NextRequest, customerSlug: string | null) {
   if (pathname === "/" && !customerSlug) return true;
   if (
     pathname === "/login" ||
+    pathname === "/camera" ||
     pathname === "/contact" ||
     pathname === "/docs" ||
     pathname === "/photographers" ||
