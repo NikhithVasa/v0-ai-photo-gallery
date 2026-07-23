@@ -36,6 +36,17 @@ const focusClass =
 export function FreshHomepage() {
   return (
     <main className="min-h-screen overflow-x-clip bg-stone-100 text-stone-950">
+      <aside aria-label="Project announcement" className="bg-orange-700 text-stone-50">
+        <p className="mx-auto flex min-h-11 max-w-screen-2xl items-center justify-center px-5 text-center text-sm font-medium sm:px-8 lg:px-12">
+          <span>This is an&nbsp;</span>
+          <span>
+            <Link href="/license.txt" className="underline decoration-orange-300 underline-offset-4 transition-colors hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-50 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-700 motion-reduce:transition-none">
+              open-source project
+            </Link>
+            .
+          </span>
+        </p>
+      </aside>
       <header className="border-b border-stone-300">
         <nav
           aria-label="Primary navigation"
@@ -144,16 +155,7 @@ export function FreshHomepage() {
 
       <footer className="bg-stone-950 text-stone-400">
         <div className="mx-auto flex max-w-screen-2xl flex-col gap-6 border-t border-stone-800 px-5 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
-          <div className="space-y-2">
-            <p>© {new Date().getFullYear()} {SITE_NAME}</p>
-            <p>
-              This is an{" "}
-              <Link href="/license.txt" className="text-stone-200 underline decoration-stone-600 underline-offset-4 transition-colors hover:text-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transition-none">
-                open-source project
-              </Link>
-              .
-            </p>
-          </div>
+          <p>© {new Date().getFullYear()} {SITE_NAME}</p>
           <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-6 gap-y-2">
             <Link href="/how-ai-works" className="min-h-11 content-center transition-colors hover:text-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transition-none">
               How AI works
