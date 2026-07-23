@@ -40,9 +40,9 @@ export function FreshHomepage() {
         <p className="mx-auto flex min-h-11 max-w-screen-2xl items-center justify-center px-5 text-center text-sm font-medium sm:px-8 lg:px-12">
           <span>This is an&nbsp;</span>
           <span>
-            <Link href="/license.txt" className="underline decoration-orange-300 underline-offset-4 transition-colors hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-50 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-700 motion-reduce:transition-none">
+            <a href="/license.txt" className="underline decoration-orange-300 underline-offset-4 transition-colors hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-50 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-700 motion-reduce:transition-none">
               open-source project
-            </Link>
+            </a>
             .
           </span>
         </p>
